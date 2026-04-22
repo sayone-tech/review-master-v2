@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Review Master · Superadmin Dashboard (Print)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css"/>
+    <style>
+      html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Geist', -apple-system, system-ui, sans-serif; color: #18181B; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+      .doc { padding: 40px; max-width: 1400px; margin: 0 auto; }
+      .cover { padding: 80px 60px; }
+      .cover .eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #52525B; font-weight: 600; margin-bottom: 16px; }
+      .cover h1 { font-size: 48px; font-weight: 600; letter-spacing: -0.03em; margin: 0 0 12px; line-height: 1.05; }
+      .cover h1 em { font-style: normal; color: #EAB308; }
+      .cover p { font-size: 16px; color: #52525B; margin: 0 0 36px; max-width: 560px; line-height: 1.5; }
+      .cover .meta { display: grid; grid-template-columns: repeat(3, auto); gap: 32px; font-size: 12px; color: #71717A; border-top: 1px solid #E4E4E7; padding-top: 18px; margin-top: 36px; max-width: 560px; }
+      .cover .meta strong { display: block; color: #18181B; font-size: 14px; font-weight: 600; margin-top: 4px; }
+      .cover .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 48px; }
+      .cover .brand .mark { width: 36px; height: 36px; border-radius: 9px; background: #0A0A0A; color: #FACC15; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }
+      .cover .brand .name { font-size: 16px; font-weight: 600; }
+      .cover .brand .name em { color: #EAB308; font-style: normal; }
+
+      .toc h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 18px; }
+      .toc ol { font-size: 14px; padding-left: 20px; line-height: 1.9; color: #27272A; }
+      .toc ol strong { color: #18181B; }
+
+      .section-head { padding: 80px 60px; background: #0A0A0A; color: #fff; }
+      .section-head .num { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #FACC15; font-weight: 600; margin-bottom: 12px; }
+      .section-head h2 { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.1; }
+      .section-head p { font-size: 15px; color: #A1A1AA; margin: 0; max-width: 600px; }
+
+      .artboard-page { padding: 30px 40px; display: flex; flex-direction: column; }
+      .artboard-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; gap: 16px; }
+      .artboard-head .label { font-size: 13px; font-weight: 600; color: #18181B; letter-spacing: -0.01em; }
+      .artboard-head .section-tag { font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #71717A; font-weight: 500; }
+      .artboard-frame {
+        background: #fff;
+        border: 1px solid #E4E4E7;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        overflow: hidden;
+        position: relative;
+      }
+      .artboard-frame .scale-host {
+        transform-origin: top left;
+      }
+      .artboard-foot { font-size: 10.5px; color: #A1A1AA; margin-top: 10px; display: flex; justify-content: space-between; }
+
+  /* Page breaks */
+      .page { break-after: page; page-break-after: always; }
+      .page:last-child { break-after: auto; page-break-after: auto; }
+      .no-break { break-inside: avoid; page-break-inside: avoid; }
+
+      @page { size: A4 landscape; margin: 10mm; }
+      @media print {
+        body { background: #fff; }
+        .doc { padding: 0; }
+        .cover, .section-head { padding: 40px; }
+        .artboard-page { padding: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+    <script type="text/babel" src="icons.jsx"></script>
+    <script type="text/babel" src="ui.jsx"></script>
+    <script type="text/babel" src="orgs.jsx"></script>
+    <script type="text/babel" src="modals.jsx"></script>
+    <script type="text/babel" src="auth-profile.jsx"></script>
+    <script type="text/babel" src="mobile.jsx"></script>
+    <script type="text/babel" src="library.jsx"></script>
+
+    <script type="text/babel" data-presets="env,react">
+      const W = 1280, H = 820;
+      const MW = 430, MH = 820;
+      const AW = 900, AH = 680;
+      const LW = 1280, LH = 1400;
+
+// Page width budget at A4 landscape (297mm - 20mm margins) ≈ 277mm ≈ 1047px at 96dpi.
+// Use 1050px of layout width and scale artboards to fit.
+      const PAGE_W = 1050;
+      const PAGE_H_MAX = 720;
+
+      const Artboard = ({ w, h, label, section, idx, total, children }) => {
+        const scale = Math.min(PAGE_W / w, PAGE_H_MAX / h, 1);
+        return (
+          <div className="artboard-page page no-break">
+          <div className="artboard-head">
+          <div className="label">{label}</div>
+          <div className="section-tag">{section} · {idx}/{total}</div>
+          </div>
+          <div className="artboard-frame" style={{ width: w * scale, height: h * scale, margin: '0 auto' }}>
+          <div className="scale-host" style={{ transform: `scale(${scale})`, width: w, height: h }}>
+          {children}
+          </div>
+          </div>
+          <div className="artboard-foot">
+          <span>Review Master · Superadmin</span>
+          <span>Artboard {w} × {h} · scale {(scale*100).toFixed(0)}%</span>
+          </div>
+          </div>
+        );
+      };
+
+      const SECTIONS = [
+        { num: '01', tag: 'Organisations', title: 'Organisations list', desc: 'The default landing view. Table-driven list with search, type/status filters, row actions, pagination, and every state: populated, active row menu, loading skeleton, and empty.',
+          items: [
+            { label: 'Populated (comfortable density)', w: W, h: H, el: () => <OrgListArtboard/> },
+            { label: 'Row actions menu open', w: W, h: H, el: () => <OrgListArtboard withMenu={2}/> },
+            { label: 'Loading skeleton', w: W, h: H, el: () => <OrgListArtboard loading/> },
+            { label: 'Empty state', w: W, h: H, el: () => <OrgListArtboard empty/> },
+          ]},
+        { num: '02', tag: 'Modals', title: 'Create, edit, details, and allocation',
+          desc: 'Primary modal flows triggered from the Organisations table. Create and Edit share structure; email is locked after creation. Adjust Store Count validates against current in-use count.',
+          items: [
+            { label: 'Create Organisation', w: W, h: H, el: () => <ModalArtboard><CreateOrgModal/></ModalArtboard> },
+            { label: 'Edit Organisation (email locked)', w: W, h: H, el: () => <ModalArtboard><CreateOrgModal title="Edit Organisation" sub="Update the organisation details. Email is locked after creation." isEdit/></ModalArtboard> },
+            { label: 'Organisation Details', w: W, h: H, el: () => <ModalArtboard><DetailsModal/></ModalArtboard> },
+            { label: 'Adjust Store Count', w: W, h: H, el: () => <ModalArtboard><AdjustStoreModal/></ModalArtboard> },
+            { label: 'Adjust · below in-use warning', w: W, h: H, el: () => <ModalArtboard><AdjustStoreModal warn/></ModalArtboard> },
+          ]},
+        { num: '03', tag: 'Confirmation popups', title: 'Destructive & status change', desc: 'Reusable confirmation component — icon, title, message, two buttons. Delete gates its primary button on type-to-confirm.',
+          items: [
+            { label: 'Disable organisation', w: W, h: H, el: () => <ModalArtboard><DisableConfirm/></ModalArtboard> },
+            { label: 'Enable organisation', w: W, h: H, el: () => <ModalArtboard><EnableConfirm/></ModalArtboard> },
+            { label: 'Delete · type-to-confirm', w: W, h: H, el: () => <ModalArtboard><DeleteConfirm/></ModalArtboard> },
+            { label: 'Resend invitation', w: W, h: H, el: () => <ModalArtboard><ResendConfirm/></ModalArtboard> },
+          ]},
+        { num: '04', tag: 'Authentication', title: 'Login & invitation acceptance', desc: 'No-sidebar layouts. Login is a split layout with a yellow-accented brand panel. Invitation acceptance resolves three states: fresh, expired, and already-used.',
+          items: [
+            { label: 'Login · split layout', w: AW, h: AH, el: () => <LoginPage/> },
+            { label: 'Login · submitting', w: AW, h: AH, el: () => <LoginPage loading/> },
+            { label: 'Login · invalid credentials', w: AW, h: AH, el: () => <LoginPage error/> },
+            { label: 'Invitation acceptance', w: AW, h: AH, el: () => <InvitePage/> },
+            { label: 'Invite · expired link', w: AW, h: AH, el: () => <InvitePage state="expired"/> },
+            { label: 'Invite · already used', w: AW, h: AH, el: () => <InvitePage state="used"/> },
+          ]},
+        { num: '05', tag: 'Profile', title: 'Account management', desc: 'Profile information and password change as separate cards, with a session summary sidebar.',
+          items: [
+            { label: 'Profile page', w: W, h: H, el: () => <ProfilePage/> },
+          ]},
+        { num: '06', tag: 'Responsive', title: 'Tablet & mobile', desc: 'Tablet collapses the sidebar to an icon rail. Mobile replaces tables with stacked cards, opens navigation in a drawer, and promotes modals to full-screen.',
+          items: [
+            { label: 'Tablet · 1024w, icon rail', w: 1024, h: H, el: () => <TabletView/> },
+            { label: 'Mobile · org list (stacked cards)', w: MW, h: MH, el: () => <MobileList/> },
+            { label: 'Mobile · nav drawer', w: MW, h: MH, el: () => <MobileDrawer/> },
+            { label: 'Mobile · full-screen modal', w: MW, h: MH, el: () => <MobileCreateModal/> },
+          ]},
+        { num: '07', tag: 'Component library', title: 'Foundations', desc: 'Design tokens and reusable primitives — palette, typography, buttons, badges, inputs, toasts, empty/loading states, and the lucide-style icon set.',
+          items: [
+            { label: 'Tokens · buttons · badges · inputs · toasts · icons', w: LW, h: LH, el: () => <ComponentLibrary/> },
+          ]},
+      ];
+
+      function Doc() {
+        let counter = 0;
+        const total = SECTIONS.reduce((a, s) => a + s.items.length, 0);
+        return (
+          <div className="doc">
+          <div className="cover page no-break">
+          <div className="brand">
+          <div className="mark">R</div>
+          <div className="name">Review<em>Master</em></div>
+          </div>
+          <div className="eyebrow">Superadmin · Design specification</div>
+          <h1>The console for <em>multi-tenant retail.</em></h1>
+          <p>Complete UI design for the Review Master Superadmin — every page, modal, confirmation, state, and responsive breakpoint, plus the component library that powers them.</p>
+          <div className="meta">
+          <div>Version<strong>v1.0 · April 2026</strong></div>
+          <div>Sections<strong>7</strong></div>
+          <div>Artboards<strong>{total}</strong></div>
+          </div>
+          </div>
+
+          <div className="cover toc page no-break">
+          <div className="eyebrow" style={{marginBottom: 20}}>Contents</div>
+          <ol>
+          {SECTIONS.map(s => (
+            <li key={s.num}><strong>{s.tag}</strong> — {s.items.length} artboard{s.items.length>1?'s':''}</li>
+          ))}
+          </ol>
+          </div>
+
+          {SECTIONS.map((sec) => (
+            <React.Fragment key={sec.num}>
+            <div className="section-head page no-break">
+            <div className="num">Section {sec.num} · {sec.tag}</div>
+            <h2>{sec.title}</h2>
+            <p>{sec.desc}</p>
+            </div>
+            {sec.items.map((it, i) => {
+              counter += 1;
+              return (
+                <Artboard key={it.label} w={it.w} h={it.h} label={it.label} section={sec.tag} idx={i+1} total={sec.items.length}>
+                {it.el()}
+                </Artboard>
+              );
+            })}
+            </React.Fragment>
+          ))}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<Doc/>);
+
+// Auto-print once fonts + layout are ready
+      (async () => {
+        try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch {}
+        await new Promise(r => setTimeout(r, 600));
+        window.print();
+      })();
+    </script>
+  </body>
+</html>

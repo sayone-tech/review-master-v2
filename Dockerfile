@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libpq5 \
       curl \
     && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir uv==0.4.29 \
     && groupadd --system app --gid 1000 \
     && useradd --system --gid app --uid 1000 --home /app --create-home app
 

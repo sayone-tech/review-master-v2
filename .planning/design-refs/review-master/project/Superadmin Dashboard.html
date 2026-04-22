@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>Review Master · Superadmin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css"/>
+    <style>
+      html,body,#root { margin:0; padding:0; height:100%; background:#f0eee9; }
+      body { font-family: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+    <script type="text/babel" src="design-canvas.jsx"></script>
+    <script type="text/babel" src="icons.jsx"></script>
+    <script type="text/babel" src="ui.jsx"></script>
+    <script type="text/babel" src="orgs.jsx"></script>
+    <script type="text/babel" src="modals.jsx"></script>
+    <script type="text/babel" src="auth-profile.jsx"></script>
+    <script type="text/babel" src="mobile.jsx"></script>
+    <script type="text/babel" src="library.jsx"></script>
+
+    <script type="text/babel">
+      const W = 1280, H = 820;       // desktop artboard
+      const MW = 430, MH = 820;      // mobile artboard
+      const AW = 900, AH = 680;      // auth artboard
+
+      function App() {
+        return (
+          <DesignCanvas>
+          <DCSection id="organisations" title="1 · Organisations" subtitle="Default landing · desktop list with filters, data table, and pagination">
+          <DCArtboard id="list-populated" label="Populated (comfortable density)" width={W} height={H}>
+          <OrgListArtboard/>
+          </DCArtboard>
+          <DCArtboard id="list-menu" label="Row actions menu open" width={W} height={H}>
+          <OrgListArtboard withMenu={2}/>
+          </DCArtboard>
+          <DCArtboard id="list-loading" label="Loading skeleton" width={W} height={H}>
+          <OrgListArtboard loading/>
+          </DCArtboard>
+          <DCArtboard id="list-empty" label="Empty state" width={W} height={H}>
+          <OrgListArtboard empty/>
+          </DCArtboard>
+          </DCSection>
+
+          <DCSection id="modals" title="2 · Modals" subtitle="Create, edit, details, adjust store count">
+          <DCArtboard id="create" label="Create Organisation" width={W} height={H}>
+          <ModalArtboard><CreateOrgModal/></ModalArtboard>
+          </DCArtboard>
+          <DCArtboard id="edit" label="Edit Organisation (email locked)" width={W} height={H}>
+          <ModalArtboard><CreateOrgModal title="Edit Organisation" sub="Update the organisation details. Email is locked after creation." isEdit/></ModalArtboard>
+          </DCArtboard>
+          <DCArtboard id="details" label="Organisation Details" width={W} height={H}>
+          <ModalArtboard><DetailsModal/></ModalArtboard>
+          </DCArtboard>
+          <DCArtboard id="adjust" label="Adjust Store Count" width={W} height={H}>
+          <ModalArtboard><AdjustStoreModal/></ModalArtboard>
+          </DCArtboard>
+          <DCArtboard id="adjust-warn" label="Adjust · below in-use warning" width={W} height={H}>
+          <ModalArtboard><AdjustStoreModal warn/></ModalArtboard>
+          </DCArtboard>
+          </DCSection>
+
+          <DCSection id="confirmations" title="3 · Confirmation popups" subtitle="Reusable icon + title + message + two-button popup">
+          <DCArtboard id="disable" label="Disable" width={W} height={H}>
+          <ModalArtboard><DisableConfirm/></ModalArtboard>
+          </DCArtboard>
+          <DCArtboard id="enable" label="Enable" width={W} height={H}>
+          <ModalArtboard><EnableConfirm/></ModalArtboard>
+          </DCArtboard>
+          <DCArtboard id="delete" label="Delete · type-to-confirm" width={W} height={H}>
+          <ModalArtboard><DeleteConfirm/></ModalArtboard>
+          </DCArtboard>
+          <DCArtboard id="resend" label="Resend invitation" width={W} height={H}>
+          <ModalArtboard><ResendConfirm/></ModalArtboard>
+          </DCArtboard>
+          </DCSection>
+
+          <DCSection id="auth" title="4 · Authentication" subtitle="Login and invitation acceptance — no sidebar">
+          <DCArtboard id="login" label="Login · split layout" width={AW} height={AH}>
+          <LoginPage/>
+          </DCArtboard>
+          <DCArtboard id="login-loading" label="Login · submitting" width={AW} height={AH}>
+          <LoginPage loading/>
+          </DCArtboard>
+          <DCArtboard id="login-error" label="Login · invalid credentials" width={AW} height={AH}>
+          <LoginPage error/>
+          </DCArtboard>
+          <DCArtboard id="invite" label="Invitation acceptance" width={AW} height={AH}>
+          <InvitePage/>
+          </DCArtboard>
+          <DCArtboard id="invite-expired" label="Invite · expired link" width={AW} height={AH}>
+          <InvitePage state="expired"/>
+          </DCArtboard>
+          <DCArtboard id="invite-used" label="Invite · already used" width={AW} height={AH}>
+          <InvitePage state="used"/>
+          </DCArtboard>
+          </DCSection>
+
+          <DCSection id="profile" title="5 · Profile" subtitle="Account details and password management">
+          <DCArtboard id="profile-page" label="Profile page" width={W} height={H}>
+          <ProfilePage/>
+          </DCArtboard>
+          </DCSection>
+
+          <DCSection id="responsive" title="6 · Responsive" subtitle="Tablet (icon rail) · Mobile (stacked cards + full-screen modals)">
+          <DCArtboard id="tablet" label="Tablet · 1024w, icon rail" width={1024} height={H}>
+          <TabletView/>
+          </DCArtboard>
+          <DCArtboard id="mobile-list" label="Mobile · org list (stacked cards)" width={MW} height={MH}>
+          <MobileList/>
+          </DCArtboard>
+          <DCArtboard id="mobile-drawer" label="Mobile · nav drawer" width={MW} height={MH}>
+          <MobileDrawer/>
+          </DCArtboard>
+          <DCArtboard id="mobile-modal" label="Mobile · full-screen modal" width={MW} height={MH}>
+          <MobileCreateModal/>
+          </DCArtboard>
+          </DCSection>
+
+          <DCSection id="library" title="7 · Component library" subtitle="Foundations, controls, feedback">
+          <DCArtboard id="lib" label="Tokens · buttons · badges · inputs · toasts · icons" width={1280} height={1400}>
+          <ComponentLibrary/>
+          </DCArtboard>
+          </DCSection>
+          </DesignCanvas>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+    </script>
+  </body>
+</html>
