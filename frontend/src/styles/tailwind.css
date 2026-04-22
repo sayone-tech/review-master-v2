@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* Global resets and base styles */
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01', 'cv11';
+  letter-spacing: -0.005em;
+}
