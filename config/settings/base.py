@@ -56,11 +56,7 @@ TEMPLATES = [
     },
 ]
 
-DATABASES = {
-    "default": env.db(
-        "DATABASE_URL", default="postgres://app:app@db:5432/reviewmaster"
-    )
-}
+DATABASES = {"default": env.db("DATABASE_URL", default="postgres://app:app@db:5432/reviewmaster")}
 
 CACHES = {
     "default": {
@@ -136,7 +132,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "json": {
-            "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "()": "pythonjsonlogger.json.JsonFormatter",
             "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
         },
     },

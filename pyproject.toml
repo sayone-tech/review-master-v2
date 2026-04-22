@@ -59,8 +59,12 @@ strict = true
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 exclude = ["migrations/", "venv/", ".venv/"]
 
+[[tool.mypy.overrides]]
+module = ["environ.*"]
+ignore_missing_imports = true
+
 [tool.django-stubs]
-django_settings_module = "config.settings.local"
+django_settings_module = "config.settings.test"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
