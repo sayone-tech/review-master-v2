@@ -22,10 +22,25 @@ created: 2026-04-22
 | Preset | not applicable | CONTEXT.md decisions |
 | Component library | none — Django templates + Alpine.js for non-React components | CONTEXT.md decisions |
 | React scope | Data tables and modal dialogs only (embedded widgets) | CONTEXT.md decisions |
-| Icon library | Heroicons (SVG inline via Django templates or React) | default — aligns with Tailwind ecosystem |
+| Icon library | Heroicons (SVG inline via Django templates or `@heroicons/react`) | default — aligns with Tailwind ecosystem |
 | Font | Inter (system-ui fallback stack) | default — WCAG AA legibility, widely used |
 
 **Tailwind config file:** `tailwind.config.js` at repo root, loaded as PostCSS plugin inside Vite.
+
+---
+
+## Requirements Coverage
+
+| Requirement | Covered In |
+|-------------|-----------|
+| DSYS-01 — fixed sidebar shell | Layout Contract — Shell Structure |
+| DSYS-02 — sidebar nav states | Layout Contract — Sidebar Nav Item States |
+| DSYS-03 — top bar with title + bell + avatar | Layout Contract — Shell Structure |
+| DSYS-04 — background gray canvas + white cards | Color, Layout Contract |
+| DSYS-05 — responsive sidebar (desktop/tablet/mobile) | Layout Contract — Responsive Breakpoints |
+| DSYS-06 — table horizontal scroll / stacked cards | Layout Contract — Responsive Breakpoints, Component Contracts — Data Table |
+| DSYS-07 — full reusable component set | Component Contracts (all subsections) |
+| DSYS-08 — keyboard nav, focus states, ARIA, WCAG AA | Accessibility Contract |
 
 ---
 
@@ -47,9 +62,10 @@ Declared values (multiples of 4):
 
 | Element | Value | Reason |
 |---------|-------|--------|
-| Icon-only touch targets | 44px minimum (via `min-h-[44px] min-w-[44px]`) | WCAG 2.5.5 touch target requirement (DSYS-08) |
+| Icon-only touch targets | 44px minimum (`min-h-[44px] min-w-[44px]`) | WCAG 2.5.5 touch target requirement (DSYS-08) |
 | Sidebar width (desktop) | 240px fixed | DSYS-01 explicit value from REQUIREMENTS.md |
 | Sidebar icon rail width (tablet) | 64px | Standard icon-rail convention; fits 24px icon + 20px padding each side |
+| Top bar height | 64px | Standard top bar convention; aligns with sidebar nav item sizing |
 
 ---
 
@@ -86,7 +102,7 @@ fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sa
 1. Sidebar active navigation item background highlight
 2. Sidebar navigation item hover state
 3. Focus ring on keyboard-focused interactive elements (`ring-yellow-400`)
-4. Primary CTA button background (Create Organisation, Save, Submit)
+4. Primary CTA button background (Create Organisation, Save Changes, Confirm)
 
 **Accent is NOT used for:** body text, secondary buttons, informational badges, error states, or general hover effects outside the sidebar.
 
@@ -114,21 +130,21 @@ fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sa
 ### Shell Structure (DSYS-01 through DSYS-05)
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Top Bar (height: 64px, bg-white, border-b)      │
-│  [Page Title / Breadcrumb]    [Bell] [Avatar ▾]  │
-├──────────────┬──────────────────────────────────┤
-│              │                                  │
-│   Sidebar    │   Main Content Area              │
-│  (240px,     │   (bg-[#FAFAFA], flex-1)         │
-│  bg-[#0A0A0A]│   Content cards: bg-white,       │
-│  fixed,      │   rounded-lg, shadow-sm           │
-│  full-height)│   Padding: 24px (lg token)        │
-│              │                                  │
-│  [Nav items] │                                  │
-│              │                                  │
-│  [Logout]    │                                  │  ← bottom-pinned
-└──────────────┴──────────────────────────────────┘
++--------------------------------------------------+
+|  Top Bar (height: 64px, bg-white, border-b)      |
+|  [Page Title / Breadcrumb]    [Bell] [Avatar v]  |
++---------------+----------------------------------+
+|               |                                  |
+|   Sidebar     |   Main Content Area              |
+|  (240px,      |   (bg-[#FAFAFA], flex-1)         |
+|  bg-[#0A0A0A] |   Content cards: bg-white,       |
+|  fixed,       |   rounded-lg, shadow-sm           |
+|  full-height) |   Padding: 24px (lg token)        |
+|               |                                  |
+|  [Nav items]  |                                  |
+|               |                                  |
+|  [Log out]    |                                  |  <- bottom-pinned
++---------------+----------------------------------+
 ```
 
 ### Sidebar Nav Item States
@@ -143,9 +159,20 @@ fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sa
 
 | Viewport | Sidebar Behaviour | Table Behaviour |
 |----------|------------------|-----------------|
-| Desktop (≥1024px) | Fixed 240px visible | Full horizontal table |
-| Tablet (768–1023px) | Collapsed to 64px icon rail (Alpine.js `sidebar-collapsed` state) | Horizontal scroll |
+| Desktop (>=1024px) | Fixed 240px visible | Full horizontal table |
+| Tablet (768-1023px) | Collapsed to 64px icon rail (Alpine.js `sidebar-collapsed` state) | Horizontal scroll |
 | Mobile (<768px) | Hidden; hamburger button in top bar opens 240px drawer overlay | Stacked card layout |
+
+### Alpine.js Interaction States
+
+| Component | Alpine.js State | Open Trigger | Close Trigger |
+|-----------|----------------|--------------|---------------|
+| Sidebar (tablet) | `x-data="{ collapsed: false }"` | Toggle button in top bar | Same toggle button |
+| Sidebar (mobile drawer) | `x-data="{ open: false }"` | Hamburger button | Overlay click, Escape key |
+| Profile avatar dropdown | `x-data="{ open: false }"` | Avatar button click | Click outside (`@click.outside`), Escape key |
+| Row action menu (three-dot) | `x-data="{ open: false }"` per row | Three-dot button click | Click outside, Escape key |
+| Toast stack | `x-data="{ toasts: [] }"` on `<body>` | Django messages on page load; JS event dispatch | Auto-dismiss after 5 000ms; manual dismiss via close button |
+| Confirmation popup (non-React) | `x-data="{ open: false }"` | Action menu item click | Cancel button, Escape key, confirm button (then close) |
 
 ---
 
@@ -155,14 +182,20 @@ fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sa
 
 | Variant | Background | Text | Border | Hover | Focus ring |
 |---------|-----------|------|--------|-------|------------|
-| Primary | `#FACC15` | `#0A0A0A` | none | `bg-yellow-300` | yellow-400 ring |
-| Secondary | `bg-white` | `#0A0A0A` | `border border-gray-300` | `bg-gray-50` | yellow-400 ring |
-| Danger | `#EF4444` | white | none | `bg-red-600` | red-400 ring |
-| Ghost | transparent | `#0A0A0A` | none | `bg-gray-100` | yellow-400 ring |
+| Primary | `#FACC15` | `#0A0A0A` | none | `bg-yellow-300` | `ring-2 ring-yellow-400 ring-offset-2` |
+| Secondary | `bg-white` | `#0A0A0A` | `border border-gray-300` | `bg-gray-50` | `ring-2 ring-yellow-400 ring-offset-2` |
+| Danger | `#EF4444` | white | none | `bg-red-600` | `ring-2 ring-red-400 ring-offset-2` |
+| Ghost | transparent | `#0A0A0A` | none | `bg-gray-100` | `ring-2 ring-yellow-400 ring-offset-2` |
 
-All buttons: `rounded-md`, height 40px (`h-10`), horizontal padding 16px (`px-4`), font-size 14px, font-weight 600.
+All buttons: `rounded-md`, height 40px (`h-10`), horizontal padding 16px (`px-4`), font-size 14px (`text-sm`), font-weight 600 (`font-semibold`).
+
+**Disabled state (all variants):** `opacity-50 cursor-not-allowed pointer-events-none`
+
+**Loading state (Primary and Danger only):** replace button text with spinner SVG (16px, same colour as text) + "Loading..." visually hidden label (`sr-only`); button remains disabled.
 
 ### Form Inputs
+
+**Text / Email / Number inputs:**
 
 | State | Border | Background | Label |
 |-------|--------|-----------|-------|
@@ -171,7 +204,44 @@ All buttons: `rounded-md`, height 40px (`h-10`), horizontal padding 16px (`px-4`
 | Error | `border-red-500 ring-2 ring-red-500/20` | white | unchanged |
 | Disabled | `border-gray-200 bg-gray-50` | `#F9FAFB` | `text-gray-400` |
 
-Structure per field: label (14px, above) → input (40px height, rounded-md) → helper text or error message (14px, below).
+Structure per field: label (14px, above) → input (height 40px, `rounded-md`) → helper text or error message (14px, below).
+
+Error message: `text-sm text-red-600`, prefixed with a 16px `ExclamationCircleIcon` inline.
+Helper text: `text-sm text-gray-500`.
+
+**Textarea:**
+- Same border and state rules as text input
+- Minimum height: 96px (3 rows), resizable vertically only (`resize-y`)
+- Used for: Organisation Address field (max 500 chars)
+
+**Select / Dropdown input:**
+- Same height (40px), border, and state rules as text input
+- Custom chevron icon: `ChevronDownIcon` 16px `text-gray-400`, right-aligned inside input, non-interactive
+- Options rendered as native `<select>` — no custom dropdown JS in Phase 1
+- Used for: Organisation Type field (RETAIL / RESTAURANT / PHARMACY / SUPERMARKET)
+
+**Password input with show/hide toggle:**
+- Same height, border, and state rules as text input
+- Toggle button: Ghost variant, icon-only, right-aligned inside input padding
+  - Show state: `EyeSlashIcon` 20px, `aria-label="Hide password"`
+  - Hidden state: `EyeIcon` 20px, `aria-label="Show password"`
+- Toggle switches `input[type]` between `"password"` and `"text"` via Alpine.js `x-bind:type`
+- Used for: Phase 4 activation page (ACTV-02), Phase 5 profile page (PROF-02) — component established in Phase 1
+
+**Password strength indicator (established in Phase 1, used Phase 4+):**
+- 4-segment bar rendered immediately below the password input field
+- Segment dimensions: `h-1 flex-1 rounded-full`
+- Segment colours by strength:
+  - Empty / no input: `bg-gray-200`
+  - 1 of 4 (Weak): first segment `bg-red-400`, remainder `bg-gray-200`
+  - 2 of 4 (Fair): first two segments `bg-amber-400`, remainder `bg-gray-200`
+  - 3-4 of 4 (Strong): all segments `bg-green-400`
+- Strength label: 14px `text-gray-500` below bar, values: "Weak" / "Fair" / "Strong" / hidden when no input
+- Strength logic: client-side only, Alpine.js computed property checking: length >= 10, uppercase present, number present, special char present
+
+**Confirm Password input:**
+- Same as password input, no strength indicator
+- Inline error shown immediately on blur if value does not match password field: "Passwords do not match."
 
 ### Status Badges
 
@@ -182,8 +252,9 @@ Structure per field: label (14px, above) → input (40px height, rounded-md) →
 | Deleted | `bg-gray-100` | `text-gray-500` | `border border-gray-200` |
 | Pending invite | `bg-gray-100` | `text-gray-600` | `border border-gray-200` |
 | Invitation expired | `bg-red-50` | `text-red-700` | `border border-red-200` |
+| Retail / Restaurant / Pharmacy / Supermarket (org type) | `bg-blue-50` | `text-blue-700` | `border border-blue-200` |
 
-All badges: `rounded-full`, padding `px-2.5 py-0.5`, font-size 14px.
+All badges: `rounded-full`, padding `px-2.5 py-0.5`, font-size 14px (`text-sm`).
 
 ### Toast Notifications
 
@@ -194,47 +265,60 @@ All badges: `rounded-full`, padding `px-2.5 py-0.5`, font-size 14px.
 | Warning | `text-amber-500` | `border-l-4 border-amber-500` | `bg-white` |
 | Info | `text-blue-500` | `border-l-4 border-blue-500` | `bg-white` |
 
-Position: top-right corner, stacked vertically, `z-50`. Auto-dismiss after 5 seconds. Driven by Alpine.js + Django messages framework.
+Position: top-right corner, stacked vertically, `z-50`, `shadow-lg`, `rounded-lg`, min-width 320px.
+Auto-dismiss after 5 000ms. Manual dismiss via close button (Ghost, icon-only, `XMarkIcon` 16px, `aria-label="Dismiss notification"`).
+Toast stack driven by Alpine.js on `<body>`; initial toasts seeded from Django messages framework via a `<script>` tag rendering the messages as JSON.
+ARIA: `role="status" aria-live="polite"` for success/info toasts; `role="alert" aria-live="assertive"` for error toasts.
 
 ### Modal Dialogs (React component)
 
 - Max width: 560px (`max-w-lg`)
-- Backdrop: `bg-black/50` full-screen overlay
-- Panel: `bg-white rounded-xl shadow-xl p-6`
-- Header: 20px semibold heading + close button (Ghost, icon-only, ARIA label "Close dialog")
-- Footer: right-aligned button row (Secondary cancel, Primary/Danger confirm)
-- Focus trap: `focus-trap-react` — activates on open, restores trigger focus on close
-- Escape key: closes modal
-- Scroll: modal panel scrolls internally if content overflows; backdrop does not scroll
+- Backdrop: `bg-black/50` full-screen overlay (`fixed inset-0 z-40`)
+- Panel: `bg-white rounded-xl shadow-xl p-6` (`fixed z-50`, centred with `top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2`)
+- Header: Heading-size (20px semibold) title + close button (Ghost, icon-only, `XMarkIcon` 20px, `aria-label="Close dialog"`)
+- Body: Body-size (16px regular) content, `mt-4`
+- Footer: `mt-6 flex justify-end gap-3` — Secondary "Cancel" left of Primary or Danger confirm
+- Focus trap: `focus-trap-react` — activates on mount, restores trigger element focus on unmount
+- Escape key: closes modal (handled by focus-trap-react)
+- Scroll: modal panel scrolls internally (`overflow-y-auto max-h-[80vh]`); backdrop does not scroll
+- Portal: rendered into `document.body` via React portal to avoid z-index stacking conflicts
+
+**Confirmation popup variant (subset of modal):**
+- Max width: 480px (`max-w-md`)
+- Icon: 40px circle (`rounded-full p-2`) with semantic colour background + foreground icon:
+  - Disable action: `bg-amber-100` + `ExclamationTriangleIcon text-amber-600`
+  - Enable action: `bg-blue-100` + `InformationCircleIcon text-blue-600`
+  - Delete action: `bg-red-100` + `ExclamationCircleIcon text-red-600`
+  - Store adjustment: `bg-blue-100` + `InformationCircleIcon text-blue-600`
+- Icon centred above heading text
+- No scrollable body (confirmation copy is short by design)
 
 ### Data Table (React component)
 
-- Header row: sticky, `bg-gray-50`, `text-sm font-semibold text-gray-700`, `border-b border-gray-200`
-- Body rows: `bg-white`, `text-sm text-gray-900`, `border-b border-gray-100`, hover `bg-gray-50`
-- Row actions: three-dot (`...`) icon button, right-aligned, opens dropdown menu
-- Loading state: skeleton rows (animated pulse, same row height as data rows)
-- Empty state: centred in table body, heading + body copy + optional CTA button
+- Container: `bg-white rounded-lg shadow-sm overflow-hidden`
+- Header row: sticky (`sticky top-0`), `bg-gray-50`, `text-sm font-semibold text-gray-700`, `border-b border-gray-200`, height 44px
+- Body rows: `bg-white`, `text-sm text-gray-900`, `border-b border-gray-100`, hover `bg-gray-50`, height 56px
+- Row actions: `EllipsisHorizontalIcon` (`...`) 20px button, right-aligned, Ghost variant, opens a dropdown menu positioned relative to the button
+- Row action dropdown: `bg-white rounded-md shadow-lg border border-gray-200`, min-width 180px; items are 14px regular, `px-4 py-2`, hover `bg-gray-50`; Danger items use `text-red-600 hover:bg-red-50`
+- Loading state: skeleton rows (see Loading Skeletons), same row height (56px) as data rows, 5 rows shown
+- Empty state: centred in table body, `py-16`, heading + body copy + optional CTA (see Empty States)
+- Tablet: horizontal scroll (`overflow-x-auto` on container); table min-width 768px to prevent column collapse
+- Mobile: stacked card layout — each row becomes a `bg-white rounded-lg shadow-sm p-4 mb-3` card; label-value pairs stacked vertically
 
 ### Loading Skeletons
 
 - Background: `bg-gray-200`
 - Animation: `animate-pulse`
-- Shape matches the element it replaces (same height/width/border-radius)
+- Shape matches the element it replaces (same height, width, `border-radius`)
+- ARIA: `aria-label="Loading, please wait."` on the skeleton container; `aria-busy="true"` on the parent region
 
 ### Empty States
 
-- Container: centred, `py-16` vertical padding
-- Icon: 48px, `text-gray-300`
-- Heading: 20px semibold, `text-gray-900`
-- Body: 16px regular, `text-gray-500`
-- CTA: Primary button (if applicable)
-
-### Password Strength Indicator
-
-- 4-segment bar below password input
-- Segment colours: `bg-gray-200` (empty), `bg-red-400` (weak), `bg-amber-400` (fair), `bg-green-400` (strong)
-- Label below bar: 14px, `text-gray-500`, shows "Weak / Fair / Strong"
-- Used in: ACTV-02 (activation page, Phase 4) and PROF-02 (profile page, Phase 5); component established in Phase 1
+- Container: centred, `py-16` vertical padding, `text-center`
+- Icon: 48px, `text-gray-300`, `mx-auto mb-4`
+- Heading: 20px semibold (`text-xl font-semibold text-gray-900`), `mb-2`
+- Body: 16px regular (`text-base text-gray-500`), `mb-6`
+- CTA: Primary button (if applicable), `mx-auto`
 
 ---
 
@@ -245,39 +329,53 @@ Position: top-right corner, stacked vertically, `z-50`. Auto-dismiss after 5 sec
 | WCAG AA contrast | All colour pairs declared in this spec pass 4.5:1 minimum |
 | Keyboard navigation | All interactive elements reachable via Tab in logical DOM order |
 | Visible focus states | `ring-2 ring-yellow-400 ring-offset-2` on all focusable elements |
-| ARIA labels on icon-only buttons | Mandatory — e.g., `aria-label="Close dialog"`, `aria-label="Row actions for {name}"` |
+| ARIA labels on icon-only buttons | Mandatory — e.g., `aria-label="Close dialog"`, `aria-label="Open actions for {name}"`, `aria-label="Show password"` |
 | Focus trap in modals | `focus-trap-react` activated on open; Tab cycles within modal only |
 | Heading hierarchy | h1 for page title, h2 for section headings, h3 for card headings — no skipping levels |
 | Live regions for toasts | `role="status" aria-live="polite"` for success/info; `role="alert" aria-live="assertive"` for errors |
+| Loading regions | `aria-busy="true"` on table region during skeleton state; `aria-label="Loading, please wait."` on skeleton container |
+| Skip link | `<a href="#main-content" class="sr-only focus:not-sr-only">Skip to main content</a>` as first child of `<body>` |
 
 ---
 
 ## Copywriting Contract
 
-Phase 1 establishes the component set. The following copy applies to the design system components themselves (not feature-specific flows, which belong to Phases 2–5).
+Phase 1 establishes the component set. The following copy applies to design system components and is used as placeholder copy during Phase 1 implementation — feature-specific copy is confirmed per phase.
 
 | Element | Copy |
 |---------|------|
-| Primary CTA (generic) | "Create Organisation" (Phase 3 specific); "Save Changes" (edit forms); "Confirm" (confirmation popups) |
+| Primary CTA (generic save) | "Save Changes" |
+| Primary CTA (generic confirm) | "Confirm" |
+| Primary CTA (create org, Phase 3) | "Create Organisation" |
 | Empty state heading | "No organisations yet" |
 | Empty state body | "Create your first organisation to get started." |
 | Empty state CTA | "Create Organisation" |
-| Loading state label (screen reader) | "Loading, please wait." (`aria-label` on skeleton container) |
+| Loading state (screen reader) | "Loading, please wait." (`aria-label` on skeleton container) |
+| Skip link | "Skip to main content" |
 | Modal close button | "Close dialog" (ARIA label only, no visible text) |
 | Sidebar logout item | "Log out" |
-| Confirmation popup — Disable org | "Disable {OrgName}? This will prevent the organisation from accessing the platform." Buttons: "Keep Organisation Active" / "Disable" (Danger) |
-| Confirmation popup — Enable org | "Enable {OrgName}? This will restore access for the organisation." Buttons: "Keep Organisation Disabled" / "Enable" (Primary) |
-| Confirmation popup — Delete org | "Type the organisation name to confirm deletion." Input placeholder: "Organisation name". Buttons: "Keep Organisation" / "Delete" (Danger, disabled until name matches) |
-| Toast — success | "Organisation created. Invitation email sent to {email}." / "Organisation updated." / "Organisation deleted." |
-| Toast — error (generic) | "Something went wrong. Please try again or contact support." |
-| Toast — warning | "Warning: {specific message}." |
-| Inline validation — store count too low | "Value cannot be less than {N} (current usage)." |
-| Invalid/expired token page | "This invitation link is invalid or has expired. Please contact your administrator to request a new one." |
-| Already-used token page | "This invitation has already been used." |
+| Password show toggle | "Show password" / "Hide password" (ARIA label, no visible text) |
+| Dismiss toast | "Dismiss notification" (ARIA label only) |
 | Row actions menu trigger | "Open actions for {OrgName}" (ARIA label) |
 | Notification bell | "View notifications" (ARIA label) |
 | Profile avatar dropdown | "Open account menu" (ARIA label) |
 | Hamburger menu button | "Open navigation menu" (ARIA label) |
+| Sidebar collapse toggle (tablet) | "Collapse sidebar" / "Expand sidebar" (ARIA label) |
+| Confirmation popup — Disable org | Heading: "Disable {OrgName}?" Body: "This will prevent the organisation from accessing the platform." Buttons: "Keep Active" (Secondary) / "Disable" (Danger) |
+| Confirmation popup — Enable org | Heading: "Enable {OrgName}?" Body: "This will restore access for the organisation." Buttons: "Keep Disabled" (Secondary) / "Enable" (Primary) |
+| Confirmation popup — Delete org | Heading: "Delete {OrgName}?" Body: "This action cannot be undone. Type the organisation name to confirm." Input placeholder: "Organisation name". Buttons: "Keep Organisation" (Secondary) / "Delete" (Danger, disabled until name matches) |
+| Confirmation popup — Resend invitation | Heading: "Resend invitation?" Body: "A new invitation will be sent to {email}. The previous invitation link will be invalidated." Buttons: "Cancel" (Secondary) / "Resend Invitation" (Primary) |
+| Confirmation popup — Adjust store count | Heading: "Update store allocation?" Body: "Changing from {old} to {new} allocated stores." Buttons: "Cancel" (Secondary) / "Update" (Primary) |
+| Toast — success (org created) | "Organisation created. Invitation email sent to {email}." |
+| Toast — success (org updated) | "Organisation updated." |
+| Toast — success (org deleted) | "Organisation deleted." |
+| Toast — success (invitation resent) | "Invitation resent to {email}." |
+| Toast — error (generic) | "Something went wrong. Please try again or contact support." |
+| Toast — warning | "Warning: {specific message}." |
+| Inline validation — store count too low | "Value cannot be less than {N} (current usage)." |
+| Inline validation — passwords no match | "Passwords do not match." |
+| Invalid/expired token page | "This invitation link is invalid or has expired. Please contact your administrator to request a new one." |
+| Already-used token page | "This invitation has already been used." |
 
 ---
 
@@ -288,16 +386,24 @@ Phase 1 establishes the component set. The following copy applies to the design 
 | shadcn official | none — shadcn not initialized | not applicable |
 | Third-party registries | none declared | not applicable |
 
-**Dependencies introduced in Phase 1 (all vetted):**
+**npm dependencies introduced in Phase 1 (all vetted):**
 
 | Package | Purpose | Source |
 |---------|---------|--------|
 | `tailwindcss` | Utility-first CSS | npm official |
 | `alpinejs` | Template-level interactivity | npm official |
 | `focus-trap-react` | Modal focus trap | npm official |
-| `heroicons` (or `@heroicons/react`) | Icon set | npm official (Tailwind team) |
+| `@heroicons/react` | Icon set (React components) | npm official (Tailwind Labs) |
+| `heroicons` | Icon set (SVG source for Django templates) | npm official (Tailwind Labs) |
 | `vite` | Build pipeline | npm official |
-| `django-vite` | Vite ↔ Django template tag bridge | PyPI official |
+| `@vitejs/plugin-react` | React fast-refresh in Vite | npm official |
+| `react` + `react-dom` | React runtime for table/modal widgets | npm official |
+
+**PyPI dependencies introduced in Phase 1:**
+
+| Package | Purpose | Source |
+|---------|---------|--------|
+| `django-vite` | `{% vite_asset %}` template tag bridge | PyPI official |
 
 ---
 
@@ -318,8 +424,8 @@ theme: {
     },
     fontSize: {
       // Only 4 sizes declared — all other sizes are forbidden
-      'label': ['14px', { lineHeight: '1.4' }],
-      'body':  ['16px', { lineHeight: '1.5' }],
+      'label':   ['14px', { lineHeight: '1.4' }],
+      'body':    ['16px', { lineHeight: '1.5' }],
       'heading': ['20px', { lineHeight: '1.2' }],
       'display': ['28px', { lineHeight: '1.2' }],
     },
@@ -327,6 +433,12 @@ theme: {
       // Only 2 weights declared
       'regular': '400',
       'semibold': '600',
+    },
+    spacing: {
+      // Custom sidebar/top-bar dimensions
+      'sidebar': '240px',
+      'sidebar-rail': '64px',
+      'topbar': '64px',
     },
   },
 }
