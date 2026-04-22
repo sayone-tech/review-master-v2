@@ -140,7 +140,7 @@ The top-of-form error alert (login failure, rate limit exceeded) uses:
 - Border: `#DC2626` (red) — `border-l-4 border-red`
 - Text: `#DC2626` (red)
 - Icon: `alert-circle` Lucide, 16px, `text-red`
-- Padding: `px-4 py-3`, `rounded-md`, `mb-4`
+- Padding: `px-4 py-2`, `rounded-md`, `mb-4`
 
 ---
 
@@ -206,7 +206,7 @@ Vertical stack inside the card:
    - Label row: `flex items-center justify-between mb-2` — "Password" on left, "Forgot password?" link on right
    - Password input (no label wrapper — label is in the row above)
    - Field error beneath input (`mt-2`)
-7. Remember me checkbox (`mt-3 mb-4`)
+7. Remember me checkbox (`mt-2 mb-4`)
 8. Primary CTA button: full-width, "Sign in" (`w-full mt-2`)
 9. Rate-limit message renders as a top-of-form alert banner (same style as login error) when 429 is returned
 
@@ -360,6 +360,7 @@ No third-party component registries. All UI is custom Django templates + Tailwin
 | Loading spinner on Sign in button | CONTEXT.md — Claude's discretion, decided here |
 | Typography: 4 sizes (12/13/14/20px), 2 weights (400/600) | Checker revision 2026-04-22 |
 | Spacing: touch target 32px (w-8 h-8), mb-2/mt-2 for label/error gaps | Checker revision 2026-04-22 |
+| Spacing: mt-3 → mt-2 (remember me checkbox), py-3 → py-2 (error alert banner) | Checker revision 2026-04-22 — 12px not in declared scale |
 
 ---
 
