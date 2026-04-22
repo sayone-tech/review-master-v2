@@ -12,7 +12,7 @@ Superadmins can create and manage organisations, allocate store slots, and contr
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Global design system, left sidebar layout, and responsive behaviour — Validated in Phase 01: Foundation
 
 ### Active
 
@@ -23,7 +23,6 @@ Superadmins can create and manage organisations, allocate store slots, and contr
 - [ ] Organisation Admin invitation email flow (send on create, resend)
 - [ ] Organisation Admin account activation page (token-gated)
 - [ ] Superadmin profile management (name update, password change)
-- [ ] Global design system, left sidebar layout, and responsive behaviour
 
 ### Out of Scope
 
@@ -63,4 +62,4 @@ Superadmins can create and manage organisations, allocate store slots, and contr
 | Invitation tokens via TimestampSigner | Built-in to Django; no extra dependencies; 48-hour expiry and single-use enforced | — Pending |
 
 ---
-*Last updated: 2026-04-22 after initialization*
+*Last updated: 2026-04-22 — Phase 01 (Foundation) complete*
