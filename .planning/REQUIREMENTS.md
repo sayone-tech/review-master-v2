@@ -140,57 +140,57 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
-| AUTH-05 | Phase 1 | Pending |
-| DSYS-01 | Phase 1 | Pending |
-| DSYS-02 | Phase 1 | Pending |
-| DSYS-03 | Phase 1 | Pending |
-| DSYS-04 | Phase 1 | Pending |
-| DSYS-05 | Phase 1 | Pending |
-| DSYS-06 | Phase 1 | Pending |
-| DSYS-07 | Phase 1 | Pending |
-| DSYS-08 | Phase 1 | Pending |
-| ORGL-01 | Phase 1 | Pending |
-| ORGL-02 | Phase 1 | Pending |
-| ORGL-03 | Phase 1 | Pending |
-| ORGL-04 | Phase 1 | Pending |
-| ORGL-05 | Phase 1 | Pending |
-| ORGL-06 | Phase 1 | Pending |
-| ORGL-07 | Phase 1 | Pending |
-| ORGL-08 | Phase 1 | Pending |
-| CORG-01 | Phase 1 | Pending |
-| CORG-02 | Phase 1 | Pending |
-| CORG-03 | Phase 1 | Pending |
-| CORG-04 | Phase 1 | Pending |
-| VORG-01 | Phase 1 | Pending |
-| VORG-02 | Phase 1 | Pending |
-| VORG-03 | Phase 1 | Pending |
-| EORG-01 | Phase 1 | Pending |
-| EORG-02 | Phase 1 | Pending |
-| EORG-03 | Phase 1 | Pending |
-| ENBL-01 | Phase 1 | Pending |
-| ENBL-02 | Phase 1 | Pending |
-| DORG-01 | Phase 1 | Pending |
-| DORG-02 | Phase 1 | Pending |
-| STOR-01 | Phase 1 | Pending |
-| STOR-02 | Phase 1 | Pending |
-| STOR-03 | Phase 1 | Pending |
-| INVT-01 | Phase 1 | Pending |
-| INVT-02 | Phase 1 | Pending |
-| ACTV-01 | Phase 1 | Pending |
-| ACTV-02 | Phase 1 | Pending |
-| ACTV-03 | Phase 1 | Pending |
-| ACTV-04 | Phase 1 | Pending |
-| ACTV-05 | Phase 1 | Pending |
-| PROF-01 | Phase 1 | Pending |
-| PROF-02 | Phase 1 | Pending |
-| EMAL-01 | Phase 1 | Pending |
-| EMAL-02 | Phase 1 | Pending |
-| EMAL-03 | Phase 1 | Pending |
-| EMAL-04 | Phase 1 | Pending |
+| DSYS-01 | Phase 1 — Foundation | Pending |
+| DSYS-02 | Phase 1 — Foundation | Pending |
+| DSYS-03 | Phase 1 — Foundation | Pending |
+| DSYS-04 | Phase 1 — Foundation | Pending |
+| DSYS-05 | Phase 1 — Foundation | Pending |
+| DSYS-06 | Phase 1 — Foundation | Pending |
+| DSYS-07 | Phase 1 — Foundation | Pending |
+| DSYS-08 | Phase 1 — Foundation | Pending |
+| AUTH-01 | Phase 2 — Authentication | Pending |
+| AUTH-02 | Phase 2 — Authentication | Pending |
+| AUTH-03 | Phase 2 — Authentication | Pending |
+| AUTH-04 | Phase 2 — Authentication | Pending |
+| AUTH-05 | Phase 2 — Authentication | Pending |
+| ORGL-01 | Phase 3 — Organisation Management | Pending |
+| ORGL-02 | Phase 3 — Organisation Management | Pending |
+| ORGL-03 | Phase 3 — Organisation Management | Pending |
+| ORGL-04 | Phase 3 — Organisation Management | Pending |
+| ORGL-05 | Phase 3 — Organisation Management | Pending |
+| ORGL-06 | Phase 3 — Organisation Management | Pending |
+| ORGL-07 | Phase 3 — Organisation Management | Pending |
+| ORGL-08 | Phase 3 — Organisation Management | Pending |
+| CORG-01 | Phase 3 — Organisation Management | Pending |
+| CORG-02 | Phase 3 — Organisation Management | Pending |
+| CORG-03 | Phase 3 — Organisation Management | Pending |
+| CORG-04 | Phase 3 — Organisation Management | Pending |
+| VORG-01 | Phase 3 — Organisation Management | Pending |
+| VORG-02 | Phase 3 — Organisation Management | Pending |
+| VORG-03 | Phase 3 — Organisation Management | Pending |
+| EORG-01 | Phase 3 — Organisation Management | Pending |
+| EORG-02 | Phase 3 — Organisation Management | Pending |
+| EORG-03 | Phase 3 — Organisation Management | Pending |
+| ENBL-01 | Phase 3 — Organisation Management | Pending |
+| ENBL-02 | Phase 3 — Organisation Management | Pending |
+| DORG-01 | Phase 3 — Organisation Management | Pending |
+| DORG-02 | Phase 3 — Organisation Management | Pending |
+| STOR-01 | Phase 3 — Organisation Management | Pending |
+| STOR-02 | Phase 3 — Organisation Management | Pending |
+| STOR-03 | Phase 3 — Organisation Management | Pending |
+| INVT-01 | Phase 4 — Invitation and Activation | Pending |
+| INVT-02 | Phase 4 — Invitation and Activation | Pending |
+| ACTV-01 | Phase 4 — Invitation and Activation | Pending |
+| ACTV-02 | Phase 4 — Invitation and Activation | Pending |
+| ACTV-03 | Phase 4 — Invitation and Activation | Pending |
+| ACTV-04 | Phase 4 — Invitation and Activation | Pending |
+| ACTV-05 | Phase 4 — Invitation and Activation | Pending |
+| EMAL-01 | Phase 4 — Invitation and Activation | Pending |
+| EMAL-02 | Phase 4 — Invitation and Activation | Pending |
+| EMAL-03 | Phase 4 — Invitation and Activation | Pending |
+| EMAL-04 | Phase 4 — Invitation and Activation | Pending |
+| PROF-01 | Phase 5 — Profile and Hardening | Pending |
+| PROF-02 | Phase 5 — Profile and Hardening | Pending |
 
 **Coverage:**
 - v1 requirements: 50 total
@@ -199,4 +199,4 @@
 
 ---
 *Requirements defined: 2026-04-22*
-*Last updated: 2026-04-22 after initial definition from Requirements_Phase1_Superadmin.docx*
+*Last updated: 2026-04-22 — traceability updated with 5-phase roadmap assignments*
