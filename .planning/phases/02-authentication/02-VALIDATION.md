@@ -20,7 +20,7 @@ created: 2026-04-22
 | **Framework** | pytest + pytest-django |
 | **Config file** | `pyproject.toml` (`[tool.pytest.ini_options]`) |
 | **Quick run command** | `pytest apps/accounts/tests/ -x -q` |
-| **Full suite command** | `pytest --cov=apps --cov-fail-under=85 -q` |
+| **Full suite command** | `pytest --reuse-db -q` |
 | **Estimated runtime** | ~15 seconds |
 
 ---
@@ -28,7 +28,7 @@ created: 2026-04-22
 ## Sampling Rate
 
 - **After every task commit:** Run `pytest apps/accounts/tests/ -x -q`
-- **After every plan wave:** Run `pytest --cov=apps --cov-fail-under=85 -q`
+- **After every plan wave:** Run `pytest --reuse-db -q`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 15 seconds
 
@@ -38,12 +38,14 @@ created: 2026-04-22
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 2-01-01 | 01 | 1 | AUTH-01 | integration | `pytest apps/accounts/tests/test_views.py::TestLoginView -x -q` | ❌ W0 | ⬜ pending |
-| 2-01-02 | 01 | 1 | AUTH-02 | integration | `pytest apps/accounts/tests/test_views.py::TestLogoutView -x -q` | ❌ W0 | ⬜ pending |
-| 2-02-01 | 02 | 1 | AUTH-03 | integration | `pytest apps/accounts/tests/test_views.py::TestPasswordResetView -x -q` | ❌ W0 | ⬜ pending |
-| 2-02-02 | 02 | 1 | AUTH-04 | integration | `pytest apps/accounts/tests/test_views.py::TestPasswordResetConfirmView -x -q` | ❌ W0 | ⬜ pending |
-| 2-01-03 | 01 | 1 | AUTH-05 | integration | `pytest apps/accounts/tests/test_views.py::TestSessionPersistence -x -q` | ❌ W0 | ⬜ pending |
-| 2-03-01 | 03 | 2 | AUTH-01 | query-count | `pytest apps/accounts/tests/test_views.py::TestLoginQueryCount -x -q` | ❌ W0 | ⬜ pending |
+| 2-01-01 | 01 | 1 | AUTH-01 | unit | `pytest apps/accounts/tests/test_views.py::test_login_get -xq` | ❌ W0 | ⬜ pending |
+| 2-01-02 | 01 | 1 | AUTH-01 | integration | `pytest apps/accounts/tests/test_views.py::test_login_post_valid -xq` | ❌ W0 | ⬜ pending |
+| 2-01-03 | 01 | 1 | AUTH-02 | integration | `pytest apps/accounts/tests/test_views.py::test_login_rate_limit -xq` | ❌ W0 | ⬜ pending |
+| 2-01-04 | 01 | 1 | AUTH-03 | integration | `pytest apps/accounts/tests/test_views.py::test_remember_me -xq` | ❌ W0 | ⬜ pending |
+| 2-02-01 | 02 | 2 | AUTH-04 | integration | `pytest apps/accounts/tests/test_views.py::test_password_reset_flow -xq` | ❌ W0 | ⬜ pending |
+| 2-02-02 | 02 | 2 | AUTH-04 | unit | `pytest apps/accounts/tests/test_views.py::test_password_reset_email_sent -xq` | ❌ W0 | ⬜ pending |
+| 2-03-01 | 03 | 3 | AUTH-05 | unit | `pytest apps/accounts/tests/test_views.py::test_logout -xq` | ❌ W0 | ⬜ pending |
+| 2-03-02 | 03 | 3 | AUTH-05 | integration | `pytest apps/accounts/tests/test_views.py::test_redirect_unauthenticated -xq` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -51,11 +53,11 @@ created: 2026-04-22
 
 ## Wave 0 Requirements
 
-- [ ] `apps/accounts/tests/test_views.py` — stubs for AUTH-01 through AUTH-05 view tests
-- [ ] `apps/accounts/tests/factories.py` — SuperadminFactory (already exists; verify it has `role=SUPERADMIN`)
-- [ ] `apps/accounts/tests/conftest.py` — `superadmin_client` fixture (authenticated APIClient)
+- [ ] `apps/accounts/tests/test_views.py` — stubs for AUTH-01 through AUTH-05
+- [ ] `apps/accounts/tests/conftest.py` — shared fixtures (UserFactory, client, auth helpers)
+- [ ] Confirm `pytest-django` and `factory-boy` installed (already in pyproject.toml)
 
-*Existing infrastructure covers pytest, pytest-django, factory-boy — no new framework installs needed.*
+*Existing infrastructure covers the framework — Wave 0 only needs test stubs.*
 
 ---
 
@@ -63,9 +65,11 @@ created: 2026-04-22
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Password reset email delivered within 60 seconds | AUTH-03 | Requires live SES or MailHog; E2E timing assertion | 1. Start docker-compose, 2. Submit forgot-password form, 3. Open MailHog at :8025, 4. Verify email arrives within 60s |
-| Login card renders correctly (logo, layout, brand) | AUTH-01 | Visual/rendering check | 1. `make up`, 2. Navigate to /login, 3. Verify centered card, logo, yellow CTA button |
-| "Remember me" session persists across browser restart | AUTH-05 | Browser cookie behaviour | 1. Login with "Remember me" checked, 2. Close browser completely, 3. Re-open and navigate to /admin/organisations, 4. Verify still authenticated |
+| Show/hide password toggle renders & toggles | AUTH-01 | Alpine.js DOM interaction | Open `/login/`, click eye icon, verify input type toggles `password`↔`text` |
+| "Remember me" persists session 30 days | AUTH-03 | Requires browser cookie inspection | Check `Set-Cookie` header after login with remember-me checked for `Max-Age=2592000` |
+| Rate-limit 429 renders user-facing message | AUTH-02 | Requires 10 actual requests | Submit invalid login 10× in quick succession; confirm red banner with rate-limit message appears |
+| Password-reset email renders correctly | AUTH-04 | HTML email rendering | Trigger reset in dev; view in Mailhog at `localhost:8025`; verify brand, link validity |
+| ?next= redirect after login | AUTH-01 | Browser redirect chain | Visit `/organisations/` unauthenticated; confirm redirect to `/login/?next=/organisations/`; login; confirm lands at `/organisations/` |
 
 ---
 
