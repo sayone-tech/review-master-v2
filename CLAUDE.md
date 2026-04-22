@@ -245,6 +245,7 @@ class OrganisationViewSet(viewsets.ModelViewSet):
 ## 6. Database — Query Optimization (Strict No-N+1 Policy)
 
 N+1 queries are a **blocker-level bug**. Every list view, every serializer, every template must be audited.
+Ensure that atomic transactions are used for operations involving multiple related database updates, to maintain data consistency in case of failures.
 
 ### Required Practices
 
