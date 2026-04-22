@@ -1,0 +1,84 @@
+<header
+  class="
+         sticky top-0 z-20
+         bg-white border-b border-line
+         px-4 md:px-8 py-[14px]
+         flex items-center justify-between gap-4
+        "
+  data-testid="topbar"
+>
+  <div class="flex items-center gap-3 min-w-0">
+    {# Mobile hamburger #}
+    <button
+      type="button"
+      x-data
+      @click="$store.nav.mobileOpen = true"
+      class="md:hidden w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
+      aria-label="Open navigation"
+      data-testid="mobile-menu-toggle"
+    >
+      <span class="w-[18px] h-[18px]" aria-hidden="true" data-lucide="menu"></span>
+    </button>
+
+    <div class="text-[15px] font-medium text-muted truncate" data-testid="topbar-title">
+      {% block breadcrumb %}
+        <strong class="text-ink font-semibold">{% block page_title %}Dashboard{% endblock %}</strong>
+      {% endblock %}
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <button
+      type="button"
+      class="relative w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
+      aria-label="Notifications"
+      data-testid="topbar-bell"
+    >
+      <span class="w-[18px] h-[18px]" aria-hidden="true" data-lucide="bell"></span>
+      {% if notification_count %}
+        <span class="absolute top-1 right-1 w-[7px] h-[7px] rounded-full bg-red border-2 border-white" aria-hidden="true"></span>
+      {% endif %}
+    </button>
+
+    {% if user.is_authenticated %}
+      <div
+        x-data="{ open: false }"
+        @keydown.escape.window="open = false"
+        class="relative"
+        data-testid="avatar-dropdown"
+      >
+        <button
+          type="button"
+          @click="open = !open"
+          class="w-8 h-8 rounded-full bg-black text-yellow flex items-center justify-center text-[12px] font-semibold"
+          :aria-expanded="open.toString()"
+          aria-haspopup="menu"
+          aria-label="Open user menu"
+        >
+          {{ user.full_name|slice:":1"|default:user.email|slice:":1"|upper }}
+        </button>
+        <div
+          x-show="open"
+          x-cloak
+          @click.outside="open = false"
+          x-transition.origin.top.right
+          class="absolute right-0 mt-2 min-w-[190px] bg-white border border-line rounded-menu shadow-lg p-1"
+          role="menu"
+        >
+          <a href="/profile/" class="flex items-center gap-2 px-2.5 py-2 text-[13px] text-ink rounded-sm hover:bg-line-soft" role="menuitem">
+            <span class="w-[15px] h-[15px] text-subtle" aria-hidden="true" data-lucide="user"></span>
+            Profile
+          </a>
+          <div class="h-px bg-line-soft my-1 mx-0.5" role="none"></div>
+          <form method="post" action="{% url 'logout' %}" role="none">
+            {% csrf_token %}
+            <button type="submit" class="flex items-center gap-2 w-full px-2.5 py-2 text-[13px] text-ink rounded-sm hover:bg-line-soft" role="menuitem">
+              <span class="w-[15px] h-[15px] text-subtle" aria-hidden="true" data-lucide="log-out"></span>
+              Log out
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</header>

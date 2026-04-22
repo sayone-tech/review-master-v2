@@ -9,4 +9,9 @@ declare global {
 }
 
 window.Alpine = Alpine;
+
+Alpine.store("nav", {
+  mobileOpen: false,
+});
+
 Alpine.start();

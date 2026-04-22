@@ -1,0 +1,57 @@
+<div
+  x-data="{
+          toasts: [],
+          add(t) {
+          const id = Date.now() + Math.random();
+          this.toasts.push({ id, ...t });
+          setTimeout(() => this.remove(id), 5000);
+          },
+          remove(id) {
+          this.toasts = this.toasts.filter(t => t.id !== id);
+          }
+          }"
+  @app:toast.window="add($event.detail)"
+  class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-[380px] max-w-[calc(100vw-2rem)]"
+  data-testid="toast-stack"
+>
+  <template x-for="toast in toasts" :key="toast.id">
+    <div
+      class="flex items-start gap-2.5 bg-ink text-white p-3 rounded-menu shadow-[0_12px_32px_rgba(0,0,0,0.22)]"
+      :role="toast.kind === 'error' ? 'alert' : 'status'"
+      :aria-live="toast.kind === 'error' ? 'assertive' : 'polite'"
+    >
+      <span
+        class="w-4 h-4 shrink-0 mt-0.5"
+        :class="{
+                'text-[#4ADE80]': toast.kind === 'success',
+                'text-[#F87171]': toast.kind === 'error',
+                'text-[#60A5FA]': toast.kind === 'info',
+                'text-[#FBBF24]': toast.kind === 'warning',
+                }"
+        aria-hidden="true"
+        data-lucide="check-circle"
+      ></span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[13px] font-semibold text-white" x-text="toast.title"></div>
+        <div class="text-[12.5px] text-[#D4D4D8]" x-text="toast.msg" x-show="toast.msg"></div>
+      </div>
+      <button
+        type="button"
+        @click="remove(toast.id)"
+        class="w-4 h-4 shrink-0 text-[#71717A] hover:text-white"
+        aria-label="Dismiss"
+      >
+        <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="x"></span>
+      </button>
+    </div>
+  </template>
+
+  {# Seed toast stack from Django messages on first render #}
+  {% if messages %}
+    <script type="application/json" id="django-messages-seed">
+      {% for message in messages %}
+        { "kind": "{{ message.tags|default:'info' }}", "title": "{{ message|escapejs }}", "msg": "" }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    </script>
+  {% endif %}
+</div>

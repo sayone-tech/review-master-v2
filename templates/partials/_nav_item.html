@@ -1,0 +1,25 @@
+{% load ui %}
+{% is_active_route href as active %}
+<li>
+  <a
+    href="{{ href }}"
+    class="
+           flex items-center gap-3
+           px-5 py-2.5
+           text-[14px] font-medium
+           border-l-[3px] border-transparent
+           {% if active %}
+             border-yellow text-yellow font-medium
+             bg-gradient-to-r from-yellow/[0.08] to-transparent
+             pl-[17px]
+           {% else %}
+             text-[#D4D4D8] hover:text-yellow
+           {% endif %}
+          "
+    {% if active %}aria-current="page"{% endif %}
+    data-testid="nav-item-{{ label|lower }}"
+  >
+    <span class="w-[18px] h-[18px] shrink-0" aria-hidden="true" data-lucide="{{ icon }}"></span>
+    <span class="md:hidden lg:inline">{{ label }}</span>
+  </a>
+</li>

@@ -1,6 +1,6 @@
 from django.core.cache import cache
 from django.db import connection
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 
 
@@ -30,3 +30,17 @@ def readyz(request: HttpRequest) -> JsonResponse:
 def home(request: HttpRequest) -> HttpResponse:
     """Phase 1 placeholder landing page — renders the shell."""
     return render(request, "pages/placeholder.html")
+
+
+def logout_stub(request: HttpRequest) -> HttpResponseRedirect:
+    """Phase-1 placeholder for the logout endpoint.
+
+    Provides a resolvable target for `{% url 'logout' %}` in sidebar.html and
+    topbar.html so Django auth URLs do not need to be wired in Phase 1.
+
+    Phase 2 replaces the body with the real logout flow (e.g. LogoutView) while
+    keeping the URL name `logout` stable — no template changes required.
+
+    Accepts GET and POST. Responds with a 302 to `/` (home).
+    """
+    return HttpResponseRedirect("/")
