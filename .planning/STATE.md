@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-foundation-01-03-PLAN.md
-last_updated: "2026-04-22T10:22:52.219Z"
+stopped_at: Completed 01-foundation-01-02-PLAN.md
+last_updated: "2026-04-22T10:29:03.752Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -48,6 +48,7 @@ Plan: 2 of 5
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 10 | 2 tasks | 28 files |
 | Phase 01-foundation P03 | 6 | 3 tasks | 20 files |
+| Phase 01-foundation P02 | 12 | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: 01-03: Tailwind v4 @tailwindcss/vite plugin used over PostCSS — v4 ships its own Vite plugin
 - [Phase 01-foundation]: 01-03: DJANGO_VITE dev_mode=True in config/settings/test.py to avoid needing a Vite build during pytest
 - [Phase 01-foundation]: 01-03: Alpine.js bundled via Vite entry (no CDN) to prevent double-init issues
+- [Phase 01-foundation]: User.organisation FK deferred to accounts/0002 migration to break circular dependency with organisations/0001
+- [Phase 01-foundation]: annotate_store_counts() is Phase 1 stub returning zeros until Phase 2 adds Store model
+- [Phase 01-foundation]: InvitationToken uses SHA-256 (hashlib) for token hashing; token_hash stored in DB as 64-char hex digest
 
 ### Pending Todos
 
@@ -81,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T10:22:52.217Z
-Stopped at: Completed 01-foundation-01-03-PLAN.md
+Last session: 2026-04-22T10:29:03.750Z
+Stopped at: Completed 01-foundation-01-02-PLAN.md
 Resume file: None
