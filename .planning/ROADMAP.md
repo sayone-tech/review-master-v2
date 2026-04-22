@@ -30,7 +30,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The base layout shell (fixed left sidebar, top bar, main content area) renders correctly on desktop, tablet, and mobile with the correct brand colours
   4. The full reusable component set (buttons, form inputs, modals, toasts, data tables, badges, empty states, loading skeletons) is present and visually correct
   5. Keyboard navigation, visible focus states, ARIA labels, and WCAG AA contrast requirements are met across all base components
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 01-01-PLAN.md — Project scaffolding: pyproject.toml, config/ settings package, apps/common foundation, pre-commit + test infrastructure
+- [ ] 01-02-PLAN.md — Data models: User (role enum), Organisation (soft-delete status), InvitationToken with reversible migrations
+- [ ] 01-03-PLAN.md — Docker dev environment + Vite/Tailwind v4/TypeScript/Alpine.js frontend toolchain + Django base.html shell
+- [ ] 01-04-PLAN.md — Sidebar + topbar partials (responsive 240px/64px/drawer) + reusable template components (buttons, fields, badges, toasts, empty state, skeletons, filter bar, pagination)
+- [ ] 01-05-PLAN.md — React widgets (Modal, ConfirmModal, DataTable) + /__ui__/ showcase page + WCAG AA human-verify checkpoint
 
 ### Phase 2: Authentication
 **Goal**: Superadmin can securely log in, log out, and recover their password — every authenticated page is behind this gate
@@ -86,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/5 | Not started | - |
 | 2. Authentication | 0/TBD | Not started | - |
 | 3. Organisation Management | 0/TBD | Not started | - |
 | 4. Invitation and Activation | 0/TBD | Not started | - |
