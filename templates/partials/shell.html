@@ -1,0 +1,31 @@
+<div class="flex min-h-screen">
+  <!-- Sidebar (desktop fixed 240px; full nav + responsive behaviour added in Plan 01-04) -->
+  <aside class="w-sidebar bg-black text-white hidden md:flex flex-col" aria-label="Primary navigation" data-testid="sidebar">
+    <div class="p-5">
+      <div class="w-7 h-7 rounded-logo bg-yellow text-black font-extrabold text-sm flex items-center justify-center">R</div>
+    </div>
+    <nav class="flex-1 px-1" aria-label="Main">
+      <!-- Nav items populated in Plan 01-04 -->
+    </nav>
+    <div class="border-t border-[#27272A] p-4">
+      <!-- Logout + user row populated in Plan 01-04 -->
+    </div>
+  </aside>
+
+  <div class="flex-1 flex flex-col min-w-0">
+    <!-- Topbar (full detail added in Plan 01-04) -->
+    <header class="bg-white border-b border-line px-8 py-3.5 flex items-center justify-between" data-testid="topbar">
+      <div class="text-muted text-sm font-medium">
+        <strong class="text-ink font-semibold">{% block topbar_title %}Review Master{% endblock %}</strong>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Bell + avatar added in Plan 01-04 -->
+      </div>
+    </header>
+
+    <!-- Main content area — Background Gray canvas #FAFAFA (DSYS-04) -->
+    <main id="main-content" class="flex-1 bg-bg p-8" data-testid="main-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>

@@ -63,6 +63,14 @@ exclude = ["migrations/", "venv/", ".venv/"]
 module = ["environ.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["factory.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["apps.*.tests.*", "apps.*.tests"]
+ignore_errors = true
+
 [tool.django-stubs]
 django_settings_module = "config.settings.test"
 
