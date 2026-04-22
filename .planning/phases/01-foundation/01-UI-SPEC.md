@@ -109,6 +109,8 @@ fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sa
 
 ## Layout Contract
 
+**Primary visual anchor:** the fixed sidebar with the active navigation item highlighted in `#FACC15`; secondary anchor is the page title in Display type at top-left of the main content area.
+
 ### Shell Structure (DSYS-01 through DSYS-05)
 
 ```
@@ -263,9 +265,9 @@ Phase 1 establishes the component set. The following copy applies to the design 
 | Loading state label (screen reader) | "Loading, please wait." (`aria-label` on skeleton container) |
 | Modal close button | "Close dialog" (ARIA label only, no visible text) |
 | Sidebar logout item | "Log out" |
-| Confirmation popup — Disable org | "Disable {OrgName}? This will prevent the organisation from accessing the platform." Buttons: "Cancel" / "Disable" (Danger) |
-| Confirmation popup — Enable org | "Enable {OrgName}? This will restore access for the organisation." Buttons: "Cancel" / "Enable" (Primary) |
-| Confirmation popup — Delete org | "Type the organisation name to confirm deletion." Input placeholder: "Organisation name". Buttons: "Cancel" / "Delete" (Danger, disabled until name matches) |
+| Confirmation popup — Disable org | "Disable {OrgName}? This will prevent the organisation from accessing the platform." Buttons: "Keep Organisation Active" / "Disable" (Danger) |
+| Confirmation popup — Enable org | "Enable {OrgName}? This will restore access for the organisation." Buttons: "Keep Organisation Disabled" / "Enable" (Primary) |
+| Confirmation popup — Delete org | "Type the organisation name to confirm deletion." Input placeholder: "Organisation name". Buttons: "Keep Organisation" / "Delete" (Danger, disabled until name matches) |
 | Toast — success | "Organisation created. Invitation email sent to {email}." / "Organisation updated." / "Organisation deleted." |
 | Toast — error (generic) | "Something went wrong. Please try again or contact support." |
 | Toast — warning | "Warning: {specific message}." |
