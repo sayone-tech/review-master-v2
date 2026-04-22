@@ -32,6 +32,51 @@ def home(request: HttpRequest) -> HttpResponse:
     return render(request, "pages/placeholder.html")
 
 
+def showcase(request: HttpRequest) -> HttpResponse:
+    """Component showcase page at /__ui__/ — renders every design system primitive."""
+
+    class _FakePaginator:
+        count = 47
+        page_range = range(1, 6)
+        num_pages = 5
+
+    class _FakePage:
+        number = 1
+        paginator = _FakePaginator()
+
+        def start_index(self) -> int:
+            return 1
+
+        def end_index(self) -> int:
+            return 8
+
+        def has_previous(self) -> bool:
+            return False
+
+        def has_next(self) -> bool:
+            return True
+
+        def previous_page_number(self) -> int:
+            return 1
+
+        def next_page_number(self) -> int:
+            return 2
+
+    ctx = {
+        "org_type_options": [
+            ("", "Select one"),
+            ("RETAIL", "Retail"),
+            ("RESTAURANT", "Restaurant"),
+            ("PHARMACY", "Pharmacy"),
+            ("SUPERMARKET", "Supermarket"),
+        ],
+        "status_options": [("", "All statuses"), ("ACTIVE", "Active"), ("DISABLED", "Disabled")],
+        "type_options": [("", "All types"), ("RETAIL", "Retail")],
+        "fake_page_obj": _FakePage(),
+    }
+    return render(request, "pages/showcase.html", ctx)
+
+
 def logout_stub(request: HttpRequest) -> HttpResponseRedirect:
     """Phase-1 placeholder for the logout endpoint.
 

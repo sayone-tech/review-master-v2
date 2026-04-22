@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load django_vite %}
+{% block title %}Component Showcase — Review Master{% endblock %}
+{% block page_title %}Component Showcase{% endblock %}
+
+{% block content %}
+  <div class="mb-6">
+    <h1 class="text-[26px] font-semibold text-ink tracking-[-0.02em] mb-1">Component Showcase</h1>
+    <p class="text-[14px] text-muted">Every primitive in the Review Master design system.</p>
+  </div>
+
+  <section class="mb-8">
+    <h2 class="text-[18px] font-semibold text-ink mb-3">Buttons</h2>
+    <div class="bg-white border border-line rounded-card p-6 flex flex-wrap gap-2">
+      {% include "components/buttons.html" with variant="primary" label="Save" icon="check" %}
+      {% include "components/buttons.html" with variant="secondary" label="Cancel" %}
+      {% include "components/buttons.html" with variant="danger" label="Delete" icon="trash-2" %}
+      {% include "components/buttons.html" with variant="ghost" label="Ghost" %}
+      {% include "components/buttons.html" with variant="primary" label="Loading…" loading=True disabled=True %}
+      {% include "components/buttons.html" with variant="primary" label="Disabled" disabled=True %}
+    </div>
+  </section>
+
+  <section class="mb-8">
+    <h2 class="text-[18px] font-semibold text-ink mb-3">Form fields</h2>
+    <div class="bg-white border border-line rounded-card p-6 max-w-md">
+      {% include "components/form_fields.html" with name="org_name" label="Organisation name" type="text" placeholder="Acme Retail" required=True help_text="3-50 characters." %}
+      {% include "components/form_fields.html" with name="email" label="Email" type="email" value="test@example.com" %}
+      {% include "components/form_fields.html" with name="password" label="Password" type="password" required=True %}
+      {% include "components/form_fields.html" with name="org_type" label="Organisation type" type="select" options=org_type_options %}
+      {% include "components/form_fields.html" with name="address" label="Address" type="textarea" placeholder="123 Main St" %}
+      {% include "components/form_fields.html" with name="broken" label="Field with error" type="text" error="This field is required." %}
+    </div>
+  </section>
+
+  <section class="mb-8">
+    <h2 class="text-[18px] font-semibold text-ink mb-3">Badges</h2>
+    <div class="bg-white border border-line rounded-card p-6 flex flex-wrap gap-2">
+      {% include "components/badges.html" with variant="green" label="Active" dot=True %}
+      {% include "components/badges.html" with variant="gray" label="Disabled" dot=True %}
+      {% include "components/badges.html" with variant="amber" label="Pending invite" dot=True %}
+      {% include "components/badges.html" with variant="blue" label="Info" dot=True %}
+      {% include "components/badges.html" with variant="red" label="Expired" dot=True %}
+      {% include "components/badges.html" with variant="yellow" label="Superadmin" dot=True %}
+      {% include "components/badges.html" with variant="neutral" label="Retail" %}
+    </div>
+  </section>
+
+  <section class="mb-8">
+    <h2 class="text-[18px] font-semibold text-ink mb-3">Empty state</h2>
+    {% include "components/empty_state.html" with icon="building-2" title="No organisations yet" description="Create your first organisation to start onboarding stores." cta_label="+ Create your first organisation" cta_href="#" %}
+  </section>
+
+  <section class="mb-8">
+    <h2 class="text-[18px] font-semibold text-ink mb-3">Loading skeletons</h2>
+    <div class="bg-white border border-line rounded-card p-6 flex flex-col gap-2">
+      {% include "components/skeletons.html" with width="140px" height="14px" %}
+      {% include "components/skeletons.html" with width="180px" height="14px" %}
+      {% include "components/skeletons.html" with width="64px" height="18px" rounded="pill" %}
+    </div>
+  </section>
+
+  <section class="mb-8">
+    <h2 class="text-[18px] font-semibold text-ink mb-3">Filter bar</h2>
+    {% include "components/filter_bar.html" with search_placeholder="Search organisations" status_options=status_options type_options=type_options %}
+  </section>
+
+  <section class="mb-8">
+    <h2 class="text-[18px] font-semibold text-ink mb-3">Pagination</h2>
+    <div class="bg-white border border-line rounded-card">
+      {% include "components/pagination.html" with page_obj=fake_page_obj %}
+    </div>
+  </section>
+
+  <section class="mb-8">
+    <h2 class="text-[18px] font-semibold text-ink mb-3">React widgets (mounted below)</h2>
+    <div id="showcase-root" class="bg-white border border-line rounded-card p-6" data-testid="showcase-react-mount"></div>
+  </section>
+
+  {% vite_asset 'src/entrypoints/showcase.tsx' %}
+{% endblock %}

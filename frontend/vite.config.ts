@@ -13,6 +13,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         "app-shell": resolve(__dirname, "src/entrypoints/app-shell.ts"),
+        showcase: resolve(__dirname, "src/entrypoints/showcase.tsx"),
       },
     },
   },
