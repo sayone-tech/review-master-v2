@@ -1,0 +1,7 @@
+services:
+  web:
+    stdin_open: true
+    tty: true
+  vite:
+    stdin_open: true
+    tty: true
