@@ -1,0 +1,153 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Sign in · Review Bee</title>
+
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{% static 'favicon-96x96.png' %}">
+    <link rel="shortcut icon" href="{% static 'favicon.ico' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'apple-touch-icon.png' %}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Geist', sans-serif;
+        background: #09090B;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+      .card {
+        background: #18181B;
+        border: 1px solid #27272A;
+        border-radius: 12px;
+        padding: 2.5rem 2rem;
+        width: 100%;
+        max-width: 400px;
+      }
+      .logo-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 2rem;
+        justify-content: center;
+      }
+      .logo-wrap img { width: 36px; height: 36px; object-fit: contain; }
+      .logo-wrap .brand {
+        font-size: 18px;
+        font-weight: 600;
+        color: #fff;
+      }
+      .logo-wrap .brand em { font-style: normal; color: #FACC15; }
+      h1 { font-size: 22px; font-weight: 700; color: #fff; text-align: center; margin-bottom: 6px; }
+      .subtitle { font-size: 14px; color: #71717A; text-align: center; margin-bottom: 2rem; }
+      label { display: block; font-size: 13px; font-weight: 500; color: #D4D4D8; margin-bottom: 6px; }
+      input[type="text"], input[type="password"], input[type="email"] {
+        width: 100%;
+        background: #09090B;
+        border: 1px solid #27272A;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-family: inherit;
+        color: #fff;
+        outline: none;
+        transition: border-color 0.15s;
+        margin-bottom: 1.25rem;
+      }
+      input:focus { border-color: #FACC15; }
+      input::placeholder { color: #52525B; }
+      .btn {
+        width: 100%;
+        background: #FACC15;
+        color: #000;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        padding: 11px;
+        cursor: pointer;
+        transition: opacity 0.15s;
+        margin-top: 0.25rem;
+      }
+      .btn:hover { opacity: 0.9; }
+      .error-list { list-style: none; margin-bottom: 1.25rem; }
+      .error-list li {
+        font-size: 13px;
+        color: #F87171;
+        background: rgba(239,68,68,0.1);
+        border: 1px solid rgba(239,68,68,0.2);
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="logo-wrap">
+        <img src="{% static 'logo-nobackground.png' %}" alt="Review Bee logo">
+        <span class="brand">Review <em>Bee</em></span>
+      </div>
+
+      <h1>Welcome back</h1>
+      <p class="subtitle">Sign in to your account</p>
+
+      {% if form.non_field_errors %}
+        <ul class="error-list">
+          {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <form method="post" action="{% url 'login' %}" novalidate>
+        {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+        <label for="id_username">Email address</label>
+        <input
+          type="email"
+          id="id_username"
+          name="username"
+          value="{{ form.username.value|default:'' }}"
+          autocomplete="username"
+          autofocus
+          placeholder="you@example.com"
+        >
+        {% if form.username.errors %}
+          <ul class="error-list" style="margin-top:-1rem">
+            {% for e in form.username.errors %}<li>{{ e }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+
+        <label for="id_password">Password</label>
+        <input
+          type="password"
+          id="id_password"
+          name="password"
+          autocomplete="current-password"
+          placeholder="••••••••••"
+        >
+        {% if form.password.errors %}
+          <ul class="error-list" style="margin-top:-1rem">
+            {% for e in form.password.errors %}<li>{{ e }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+
+        <button type="submit" class="btn">Sign in</button>
+      </form>
+    </div>
+  </body>
+</html>

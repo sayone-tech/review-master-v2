@@ -47,7 +47,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Superadmin can request a password reset email via "Forgot password?" and receive it within 60 seconds
   4. Superadmin can reset their password via the emailed link (which expires after 1 hour and becomes invalid after single use)
   5. Superadmin's authenticated session persists after a browser refresh without re-login
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 02-01-PLAN.md — Auth/session/throttle settings, LoginRateThrottle class, and failing test scaffold covering AUTH-01..AUTH-05
+- [ ] 02-02-PLAN.md — auth_base + login templates, CustomAuthenticationForm/CustomLoginView with rate limit + remember-me, and URL rewiring (remove Phase-1 logout_stub)
+- [ ] 02-03-PLAN.md — Password-reset views (custom confirm with flash), four reset-flow templates (including strength indicator), and email templates (HTML + text + subject)
 
 ### Phase 3: Organisation Management
 **Goal**: Superadmin can fully manage the organisation roster — list, create, view, edit, enable, disable, delete, and adjust store allocations — with the invitation email sent automatically on create
@@ -82,6 +85,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Superadmin can change their password (providing current password, new password with strength indicator, and confirmation) and see a success toast
   3. GitHub Actions CI pipeline runs pre-commit, mypy, pytest (85%+ coverage), migration check, and deploy check on every PR with no manual steps
   4. Every list endpoint has a CI-enforced query-count ceiling test that passes regardless of result size
+
 **Plans**: TBD
 
 ## Progress
@@ -92,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete   | 2026-04-22 |
-| 2. Authentication | 0/TBD | Not started | - |
+| 2. Authentication | 0/3 | Not started | - |
 | 3. Organisation Management | 0/TBD | Not started | - |
 | 4. Invitation and Activation | 0/TBD | Not started | - |
 | 5. Profile and Hardening | 0/TBD | Not started | - |
