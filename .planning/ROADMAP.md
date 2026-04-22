@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 1/5 | In Progress|  |
+| 1. Foundation | 2/5 | In Progress|  |
 | 2. Authentication | 0/TBD | Not started | - |
 | 3. Organisation Management | 0/TBD | Not started | - |
 | 4. Invitation and Activation | 0/TBD | Not started | - |

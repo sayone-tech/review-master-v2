@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-foundation-01-01-PLAN.md
-last_updated: "2026-04-22T10:13:47.068Z"
+stopped_at: Completed 01-foundation-01-03-PLAN.md
+last_updated: "2026-04-22T10:22:52.219Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -47,6 +47,7 @@ Plan: 2 of 5
 
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 10 | 2 tasks | 28 files |
+| Phase 01-foundation P03 | 6 | 3 tasks | 20 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: django-upgrade target 5.1 (not 6.0): django-upgrade 1.22.2 does not support 6.0 as a target-version argument
 - [Phase 01-foundation]: mypy django_settings_module uses config.settings.test so pre-commit hook works before apps.accounts exists
 - [Phase 01-foundation]: test.py uses AUTH_USER_MODEL=auth.User temporarily; will be changed when Plan 02 creates custom User model
+- [Phase 01-foundation]: 01-03: Tailwind v4 @tailwindcss/vite plugin used over PostCSS — v4 ships its own Vite plugin
+- [Phase 01-foundation]: 01-03: DJANGO_VITE dev_mode=True in config/settings/test.py to avoid needing a Vite build during pytest
+- [Phase 01-foundation]: 01-03: Alpine.js bundled via Vite entry (no CDN) to prevent double-init issues
 
 ### Pending Todos
 
@@ -77,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T10:13:47.065Z
-Stopped at: Completed 01-foundation-01-01-PLAN.md
+Last session: 2026-04-22T10:22:52.217Z
+Stopped at: Completed 01-foundation-01-03-PLAN.md
 Resume file: None
