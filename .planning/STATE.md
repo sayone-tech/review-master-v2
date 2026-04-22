@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-foundation-01-04-PLAN.md
-last_updated: "2026-04-22T10:36:00Z"
+stopped_at: Completed 01-foundation-01-05 (all 3 tasks, human-verify approved)
+last_updated: "2026-04-22T12:05:42.760Z"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -50,6 +50,8 @@ Plan: 4 of 5
 | Phase 01-foundation P03 | 6 | 3 tasks | 20 files |
 | Phase 01-foundation P02 | 12 | 3 tasks | 17 files |
 | Phase 01-foundation P04 | 6 | 2 tasks | 20 files |
+| Phase 01-foundation P05 | 12 | 2 tasks | 21 files |
+| Phase 01-foundation P05 | 2 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -78,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: 01-04: User.full_name used in sidebar/topbar templates (not first_name/last_name — matches Plan 01-02 model)
 - [Phase 01-foundation]: 01-04: logout_stub registered as name='logout' in Phase 1; Phase 2 swaps view body, URL name is stable
 - [Phase 01-foundation]: 01-04: Alpine.store('nav') for mobile drawer; app:toast CustomEvent schema { kind, title, msg }
+- [Phase 01-foundation]: 01-05: focus-trap-react fallbackFocus=document.body required for jsdom compatibility in vitest tests
+- [Phase 01-foundation]: 01-05: vitest.config.ts uses esbuild JSX transform (not @vitejs/plugin-react) due to vite version mismatch
+- [Phase 01-foundation]: 01-05: base.html restructured with shell_open/shell_close split to fix Django block inheritance through include tags
 
 ### Pending Todos
 
@@ -89,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T10:36:00Z
-Stopped at: Completed 01-foundation-01-04-PLAN.md
+Last session: 2026-04-22T12:05:42.758Z
+Stopped at: Completed 01-foundation-01-05 (all 3 tasks, human-verify approved)
 Resume file: None

@@ -12,7 +12,7 @@ This roadmap delivers the Superadmin module — the foundational control plane f
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Project scaffolding, data models, design system shell, and Docker dev environment
+- [x] **Phase 1: Foundation** - Project scaffolding, data models, design system shell, and Docker dev environment (completed 2026-04-22)
 - [ ] **Phase 2: Authentication** - Superadmin login, logout, password reset, and session management
 - [ ] **Phase 3: Organisation Management** - Full CRUD control plane: list, create, view, edit, enable/disable, delete, store allocation
 - [ ] **Phase 4: Invitation and Activation** - Invitation token flow, Org Admin account activation page, and all transactional emails
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 3/5 | In Progress|  |
+| 1. Foundation | 5/5 | Complete   | 2026-04-22 |
 | 2. Authentication | 0/TBD | Not started | - |
 | 3. Organisation Management | 0/TBD | Not started | - |
 | 4. Invitation and Activation | 0/TBD | Not started | - |

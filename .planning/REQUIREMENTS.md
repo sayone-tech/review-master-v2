@@ -19,13 +19,13 @@
 ### Design System and Layout
 
 - [x] **DSYS-01**: All authenticated pages render within a fixed left sidebar layout (Primary Black background, ~240px wide on desktop)
-- [ ] **DSYS-02**: Sidebar displays role-specific navigation with white text, yellow active state, yellow hover state, and bottom-pinned logout item
-- [ ] **DSYS-03**: Top bar shows current page title/breadcrumb (left) and notification bell + profile avatar dropdown (right)
+- [x] **DSYS-02**: Sidebar displays role-specific navigation with white text, yellow active state, yellow hover state, and bottom-pinned logout item
+- [x] **DSYS-03**: Top bar shows current page title/breadcrumb (left) and notification bell + profile avatar dropdown (right)
 - [x] **DSYS-04**: Main content area uses Background Gray (#FAFAFA) canvas with white content cards
-- [ ] **DSYS-05**: Layout is fully responsive — sidebar collapses to collapsible icon rail on tablet (768–1023px) and hamburger drawer on mobile (<768px)
-- [ ] **DSYS-06**: Tables scroll horizontally on tablet; transform into stacked cards on mobile
-- [ ] **DSYS-07**: Reusable component set implemented: Primary/Secondary/Danger/Ghost buttons, form inputs with label+helper+error, modal dialogs, confirmation popups, toast notifications (success/error/warning/info), data tables with sticky headers and row actions, status badges, empty states, loading skeletons
-- [ ] **DSYS-08**: Full keyboard navigation, visible focus states, ARIA labels on icon-only buttons, focus trap in modals, WCAG AA contrast compliance, logical heading hierarchy
+- [x] **DSYS-05**: Layout is fully responsive — sidebar collapses to collapsible icon rail on tablet (768–1023px) and hamburger drawer on mobile (<768px)
+- [x] **DSYS-06**: Tables scroll horizontally on tablet; transform into stacked cards on mobile
+- [x] **DSYS-07**: Reusable component set implemented: Primary/Secondary/Danger/Ghost buttons, form inputs with label+helper+error, modal dialogs, confirmation popups, toast notifications (success/error/warning/info), data tables with sticky headers and row actions, status badges, empty states, loading skeletons
+- [x] **DSYS-08**: Full keyboard navigation, visible focus states, ARIA labels on icon-only buttons, focus trap in modals, WCAG AA contrast compliance, logical heading hierarchy
 
 ### Organisations List
 
@@ -141,13 +141,13 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DSYS-01 | Phase 1 — Foundation | Complete |
-| DSYS-02 | Phase 1 — Foundation | Pending |
-| DSYS-03 | Phase 1 — Foundation | Pending |
+| DSYS-02 | Phase 1 — Foundation | Complete |
+| DSYS-03 | Phase 1 — Foundation | Complete |
 | DSYS-04 | Phase 1 — Foundation | Complete |
-| DSYS-05 | Phase 1 — Foundation | Pending |
-| DSYS-06 | Phase 1 — Foundation | Pending |
-| DSYS-07 | Phase 1 — Foundation | Pending |
-| DSYS-08 | Phase 1 — Foundation | Pending |
+| DSYS-05 | Phase 1 — Foundation | Complete |
+| DSYS-06 | Phase 1 — Foundation | Complete |
+| DSYS-07 | Phase 1 — Foundation | Complete |
+| DSYS-08 | Phase 1 — Foundation | Complete |
 | AUTH-01 | Phase 2 — Authentication | Pending |
 | AUTH-02 | Phase 2 — Authentication | Pending |
 | AUTH-03 | Phase 2 — Authentication | Pending |
