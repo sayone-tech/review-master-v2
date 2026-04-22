@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-foundation-01-02-PLAN.md
-last_updated: "2026-04-22T10:29:03.752Z"
+stopped_at: Completed 01-foundation-01-04-PLAN.md
+last_updated: "2026-04-22T10:36:00Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 2 of 5
+Plan: 4 of 5
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Plan: 2 of 5
 | Phase 01-foundation P01 | 10 | 2 tasks | 28 files |
 | Phase 01-foundation P03 | 6 | 3 tasks | 20 files |
 | Phase 01-foundation P02 | 12 | 3 tasks | 17 files |
+| Phase 01-foundation P04 | 6 | 2 tasks | 20 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: User.organisation FK deferred to accounts/0002 migration to break circular dependency with organisations/0001
 - [Phase 01-foundation]: annotate_store_counts() is Phase 1 stub returning zeros until Phase 2 adds Store model
 - [Phase 01-foundation]: InvitationToken uses SHA-256 (hashlib) for token hashing; token_hash stored in DB as 64-char hex digest
+- [Phase 01-foundation]: 01-04: User.full_name used in sidebar/topbar templates (not first_name/last_name — matches Plan 01-02 model)
+- [Phase 01-foundation]: 01-04: logout_stub registered as name='logout' in Phase 1; Phase 2 swaps view body, URL name is stable
+- [Phase 01-foundation]: 01-04: Alpine.store('nav') for mobile drawer; app:toast CustomEvent schema { kind, title, msg }
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T10:29:03.750Z
-Stopped at: Completed 01-foundation-01-02-PLAN.md
+Last session: 2026-04-22T10:36:00Z
+Stopped at: Completed 01-foundation-01-04-PLAN.md
 Resume file: None
