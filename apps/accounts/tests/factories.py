@@ -1,7 +1,11 @@
+from __future__ import annotations
+
+import secrets
+
 import factory
 from factory.django import DjangoModelFactory
 
-from apps.accounts.models import User
+from apps.accounts.models import InvitationToken, User
 
 
 class UserFactory(DjangoModelFactory):
@@ -12,6 +16,7 @@ class UserFactory(DjangoModelFactory):
     email = factory.Sequence(lambda n: f"user{n}@example.com")
     full_name = factory.Faker("name")
     role = User.Role.SUPERADMIN
+    organisation = None  # opt-in via UserFactory(organisation=org)
     is_active = True
     is_staff = False
 
@@ -21,3 +26,14 @@ class UserFactory(DjangoModelFactory):
             return
         self.set_password(extracted or "testpass1234")
         self.save()
+
+
+class InvitationTokenFactory(DjangoModelFactory):
+    class Meta:
+        model = InvitationToken
+
+    organisation = factory.SubFactory("apps.organisations.tests.factories.OrganisationFactory")
+    token_hash = factory.LazyAttribute(
+        lambda _: InvitationToken.hash_token(secrets.token_urlsafe(32))
+    )
+    is_used = False
