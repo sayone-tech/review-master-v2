@@ -22,7 +22,7 @@ created: 2026-04-22
 | Preset | not applicable | — |
 | Component library | Custom Django template components (Phase 1) | templates/components/ |
 | Icon library | Lucide (loaded via Vite, rendered via data-lucide attribute) | templates/partials/head.html |
-| Font | Geist 400/500/600/800, Geist Mono 400/500 (Google Fonts) | templates/partials/head.html |
+| Font | Geist 400/600/800, Geist Mono 400 (Google Fonts) | templates/partials/head.html |
 
 No shadcn. This is a Django-templates-plus-Tailwind project. The design system is the custom token set in `frontend/tailwind.config.js` and the reusable component partials in `templates/components/`.
 
@@ -68,7 +68,7 @@ Auth base: `templates/auth_base.html` — new file, does not extend `base.html`.
 ### Logo block (inside card, above heading)
 
 - App logo mark: `w-8 h-8 rounded-logo bg-yellow text-black font-extrabold text-[14px] flex items-center justify-center` — "R" glyph
-- App name: "Review Master" — `text-[15px] font-semibold text-ink`, inline after logo mark
+- App name: "Review Master" — `text-[13px] font-semibold text-ink`, inline after logo mark
 - Combined in a `flex items-center gap-2` row, centered (`mx-auto w-fit` or `justify-center`), `mb-6`
 
 ---
@@ -87,7 +87,7 @@ Source: Phase 1 tailwind.config.js — 8-point scale. No new tokens needed for P
 | 2xl | 48px | not used in Phase 2 |
 | 3xl | 64px | not used in Phase 2 |
 
-Exceptions: Touch target for show/hide password toggle is 30px square (`w-[30px] h-[30px]`) — established in Phase 1 `form_fields.html`. Acceptable as this is an icon button inside a dense input.
+All spacing values are multiples of 4px. Password show/hide toggle touch target: 32px square (`w-8 h-8`) — established in Phase 1 `form_fields.html`.
 
 ---
 
@@ -95,17 +95,18 @@ Exceptions: Touch target for show/hide password toggle is 30px square (`w-[30px]
 
 Source: Phase 1 design system — Geist font, established class patterns from form_fields.html and buttons.html.
 
+Exactly 4 sizes and 2 weights are declared.
+
 | Role | Size | Weight | Line Height | Usage in Phase 2 |
 |------|------|--------|-------------|-----------------|
-| Card heading | 20px (text-[20px]) | 600 (semibold) | 1.2 | "Sign in to your account", "Forgot your password?", "Set new password" |
-| Card subheading | 14px (text-sm) | 400 (regular) | 1.5 | Descriptive text below card heading |
-| Body / field label | 13px (text-[13px]) | 500 (medium) | 1.4 | Form field labels (matches form_fields.html: text-[13px] font-medium) |
-| Input text | 13.5px (text-[13.5px]) | 400 (regular) | 1.4 | Input values (matches form_fields.html) |
-| Helper / error text | 12px (text-[12px]) | 400 (regular) | 1.4 | Field error messages, helper text (matches form_fields.html) |
-| Button label | 13.5px (text-[13.5px]) | 500 (medium) | 1 | Primary CTA button (matches buttons.html default size) |
-| Link text | 13px (text-[13px]) | 400 (regular) | 1.4 | "Forgot password?", "Back to sign in" |
+| Card heading | 20px (`text-[20px]`) | 600 (semibold) | 1.2 | "Sign in to your account", "Forgot your password?", "Set new password" |
+| Subheading / card body | 14px (`text-sm`) | 400 (regular) | 1.5 | Descriptive text below card heading, email-sent body copy |
+| Labels / inputs / buttons / links | 13px (`text-[13px]`) | 400 (regular) | 1.4 | Field labels, input values, button labels, "Forgot password?", "Back to sign in", checkbox label, "Remember me" label |
+| Helper / error text | 12px (`text-[12px]`) | 400 (regular) | 1.4 | Field error messages, helper text, password strength label |
 
-Weights in use: 400 (regular) + 500 (medium) + 600 (semibold). No additional weights introduced.
+Weights in use: 400 (regular) + 600 (semibold). No other weights used in Phase 2.
+
+Card headings use weight 600. All other text — labels, inputs, buttons, links, helpers, subheadings — uses weight 400.
 
 ---
 
@@ -126,9 +127,9 @@ Source: tailwind.config.js established in Phase 1. No new color tokens introduce
 | Supporting | `#FEE2E2` | `red-tint` | Error alert banner background |
 
 Accent reserved for:
-- Primary CTA button background (bg-yellow)
-- Logo mark background (bg-yellow)
-- Focus ring on primary buttons (focus-visible:ring-yellow)
+- Primary CTA button background (`bg-yellow`)
+- Logo mark background (`bg-yellow`)
+- Focus ring on primary buttons (`focus-visible:ring-yellow`)
 
 Accent is NOT used on: links, checkbox, secondary text, borders, general interactive states.
 
@@ -198,13 +199,13 @@ Vertical stack inside the card:
 
 1. Logo block (`mb-6`)
 2. Heading: "Sign in to your account" (`text-[20px] font-semibold text-ink mb-1`)
-3. Subheading: "Enter your credentials to access the admin panel." (`text-[13.5px] text-subtle mb-6`)
+3. Subheading: "Enter your credentials to access the admin panel." (`text-sm text-subtle mb-6`)
 4. Error alert banner (conditional, renders when Django form has non-field errors — `mb-4`)
 5. Email field (`mb-4`) — label "Email address", type=email, autocomplete=email
 6. Password field row:
-   - Label row: `flex items-center justify-between mb-1.5` — "Password" on left, "Forgot password?" link on right
+   - Label row: `flex items-center justify-between mb-2` — "Password" on left, "Forgot password?" link on right
    - Password input (no label wrapper — label is in the row above)
-   - Field error beneath input (`mt-1.5`)
+   - Field error beneath input (`mt-2`)
 7. Remember me checkbox (`mt-3 mb-4`)
 8. Primary CTA button: full-width, "Sign in" (`w-full mt-2`)
 9. Rate-limit message renders as a top-of-form alert banner (same style as login error) when 429 is returned
@@ -215,7 +216,7 @@ Vertical stack inside the card:
 
 1. Logo block (`mb-6`)
 2. Heading: "Forgot your password?" (`text-[20px] font-semibold text-ink mb-1`)
-3. Subheading: "Enter your email and we'll send you a reset link." (`text-[13.5px] text-subtle mb-6`)
+3. Subheading: "Enter your email and we'll send you a reset link." (`text-sm text-subtle mb-6`)
 4. Email field — label "Email address", type=email
 5. Primary CTA button: full-width, "Send reset link" (`w-full mt-2`)
 6. Back link: centered below button, "Back to sign in" — `text-[13px] text-blue hover:underline`, `href="/login/"`, `mt-4 block text-center`
@@ -227,14 +228,14 @@ No form. Informational card only:
 1. Logo block (`mb-6`)
 2. Check icon: `w-12 h-12 rounded-full bg-green-tint text-green flex items-center justify-center mx-auto mb-4` — Lucide `mail-check`, 24px
 3. Heading: "Check your email" (`text-[20px] font-semibold text-ink mb-2 text-center`)
-4. Body: "If an account exists for that email address, you'll receive a password reset link within a few minutes." (`text-[13.5px] text-subtle text-center mb-6`)
+4. Body: "If an account exists for that email address, you'll receive a password reset link within a few minutes." (`text-sm text-subtle text-center mb-6`)
 5. Back link: centered, "Back to sign in"
 
 ### Reset password page (`password_reset_confirm.html`)
 
 1. Logo block (`mb-6`)
 2. Heading: "Set a new password" (`text-[20px] font-semibold text-ink mb-1`)
-3. Subheading: "Your new password must be at least 10 characters." (`text-[13.5px] text-subtle mb-6`)
+3. Subheading: "Your new password must be at least 10 characters." (`text-sm text-subtle mb-6`)
 4. New password field (type=password, with show/hide toggle)
 5. Strength indicator (below new password field, above confirm field)
 6. Confirm password field (type=password, with show/hide toggle, label "Confirm new password")
@@ -302,7 +303,7 @@ Established in Phase 1 form_fields.html: `focus:ring focus:ring-black/[0.06] foc
 
 ### Password show/hide toggle
 
-Established in Phase 1 form_fields.html. Alpine.js `x-data="{ show: false }"`, `:type="show ? 'text' : 'password'"`. Lucide `eye` / `eye-off` icons swap on toggle. Button is `tabindex="-1"` to not interrupt form tab order.
+Established in Phase 1 form_fields.html. Alpine.js `x-data="{ show: false }"`, `:type="show ? 'text' : 'password'"`. Lucide `eye` / `eye-off` icons swap on toggle. Toggle button is `w-8 h-8` (32px square). Button is `tabindex="-1"` to not interrupt form tab order.
 
 ---
 
@@ -355,8 +356,10 @@ No third-party component registries. All UI is custom Django templates + Tailwin
 | Icon library: Lucide | form_fields.html + buttons.html — existing |
 | Component patterns (button, input, toast) | templates/components/ — existing |
 | Card border-radius 12px (rounded-card) | tailwind.config.js — existing |
-| Card padding 32px (Claude's discretion) | Claude's discretion |
+| Card padding 32px | Claude's discretion |
 | Loading spinner on Sign in button | CONTEXT.md — Claude's discretion, decided here |
+| Typography: 4 sizes (12/13/14/20px), 2 weights (400/600) | Checker revision 2026-04-22 |
+| Spacing: touch target 32px (w-8 h-8), mb-2/mt-2 for label/error gaps | Checker revision 2026-04-22 |
 
 ---
 
