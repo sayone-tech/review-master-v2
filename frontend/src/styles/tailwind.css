@@ -1,9 +1,34 @@
 @import "tailwindcss";
 
+@theme {
+  --animate-sk-pulse: sk-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sk-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Accessible focus ring (yellow, 2px outline, 2px offset) */
+:focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: 2px;
+}
+
+[x-cloak] {
+  display: none !important;
+}
+
 /* Global resets and base styles */
-html, body {
+html,
+body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'ss01', 'cv11';
+  font-feature-settings: "ss01", "cv11";
   letter-spacing: -0.005em;
 }

@@ -1,0 +1,10 @@
+{% comment %}
+Usage: {% include "components/skeletons.html" with width="140px" height="14px" rounded="sm" %}
+{% endcomment %}
+<span
+  class="inline-block bg-line rounded-{{ rounded|default:'sm' }} animate-sk-pulse"
+  style="width: {{ width|default:'100%' }}; height: {{ height|default:'14px' }};"
+  aria-busy="true"
+  aria-label="Loading, please wait."
+  data-testid="skeleton"
+></span>

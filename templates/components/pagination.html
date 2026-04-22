@@ -1,0 +1,44 @@
+{% comment %}
+Usage: {% include "components/pagination.html" with page_obj=page_obj total_count=total_count %}
+{% endcomment %}
+<nav
+  class="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
+  aria-label="Pagination"
+  data-testid="pagination"
+>
+  <div>
+    Showing <strong class="text-ink font-semibold">{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
+    of <strong class="text-ink font-semibold">{{ page_obj.paginator.count }}</strong>
+  </div>
+  <div class="flex items-center gap-1.5">
+    <a
+      href="?page={{ page_obj.previous_page_number|default:1 }}"
+      class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center {% if not page_obj.has_previous %}opacity-40 cursor-not-allowed pointer-events-none{% else %}hover:bg-line-soft{% endif %}"
+      aria-label="Previous page"
+      {% if not page_obj.has_previous %}aria-disabled="true"{% endif %}
+    >
+      <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="chevron-left"></span>
+    </a>
+    {% for n in page_obj.paginator.page_range %}
+      {% if n == page_obj.number %}
+        <span
+          class="w-[30px] h-[30px] rounded-sm bg-black text-yellow border border-black text-[13px] font-medium flex items-center justify-center"
+          aria-current="page"
+        >{{ n }}</span>
+      {% else %}
+        <a
+          href="?page={{ n }}"
+          class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center hover:bg-line-soft"
+        >{{ n }}</a>
+      {% endif %}
+    {% endfor %}
+    <a
+      href="?page={{ page_obj.next_page_number|default:page_obj.paginator.num_pages }}"
+      class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center {% if not page_obj.has_next %}opacity-40 cursor-not-allowed pointer-events-none{% else %}hover:bg-line-soft{% endif %}"
+      aria-label="Next page"
+      {% if not page_obj.has_next %}aria-disabled="true"{% endif %}
+    >
+      <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="chevron-right"></span>
+    </a>
+  </div>
+</nav>

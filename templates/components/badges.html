@@ -1,0 +1,35 @@
+{% comment %}
+Usage: {% include "components/badges.html" with variant="green" label="Active" dot=True %}
+Variants: neutral, green, gray, amber, blue, red, yellow
+{% endcomment %}
+<span
+  class="
+         inline-flex items-center gap-1.5
+         px-2 py-[3px] rounded-[999px]
+         text-[12px] font-medium leading-[1.4] whitespace-nowrap
+         {% if variant == 'green' %}bg-green-tint text-[#166534]
+         {% elif variant == 'gray' %}bg-line-soft text-subtle
+         {% elif variant == 'amber' %}bg-amber-tint text-[#92400E]
+         {% elif variant == 'blue' %}bg-blue-tint text-[#1E40AF]
+         {% elif variant == 'red' %}bg-red-tint text-[#991B1B]
+         {% elif variant == 'yellow' %}bg-yellow-tint text-[#854D0E]
+         {% else %}bg-line-soft text-muted{% endif %}
+        "
+  data-testid="badge-{{ variant|default:'neutral' }}"
+>
+  {% if dot %}
+    <span
+      class="w-1.5 h-1.5 rounded-full
+             {% if variant == 'green' %}bg-green
+             {% elif variant == 'gray' %}bg-faint
+             {% elif variant == 'amber' %}bg-amber
+             {% elif variant == 'blue' %}bg-blue
+             {% elif variant == 'red' %}bg-red
+             {% elif variant == 'yellow' %}bg-yellow
+             {% endif %}
+            "
+      aria-hidden="true"
+    ></span>
+  {% endif %}
+  {{ label }}
+</span>

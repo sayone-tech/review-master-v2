@@ -1,0 +1,41 @@
+{% comment %}
+Usage: {% include "components/filter_bar.html" with search_placeholder="Search organisations" status_options=status_opts type_options=type_opts %}
+{% endcomment %}
+<form
+  method="get"
+  class="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 bg-white border border-line rounded-menu p-3 mb-5"
+  data-testid="filter-bar"
+>
+  <div class="relative flex-1 min-w-0">
+    <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" aria-hidden="true" data-lucide="search"></span>
+    <input
+      type="search"
+      name="search"
+      value="{{ request.GET.search|default:'' }}"
+      placeholder="{{ search_placeholder|default:'Search' }}"
+      class="
+             w-full pl-9 pr-3 py-2 text-[13.5px]
+             bg-bg border border-line rounded-md
+             focus:outline-none focus:bg-white focus:border-ink focus:ring focus:ring-black/[0.05]
+            "
+    >
+  </div>
+  {% if status_options %}
+    <select
+      name="status"
+      class="appearance-none pl-3 pr-8 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:border-ink"
+      style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>'); background-repeat: no-repeat; background-position: right 10px center;"
+    >
+      {% for v, l in status_options %}<option value="{{ v }}" {% if v == request.GET.status %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  {% endif %}
+  {% if type_options %}
+    <select
+      name="type"
+      class="appearance-none pl-3 pr-8 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:border-ink"
+      style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>'); background-repeat: no-repeat; background-position: right 10px center;"
+    >
+      {% for v, l in type_options %}<option value="{{ v }}" {% if v == request.GET.type %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  {% endif %}
+</form>
