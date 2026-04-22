@@ -18,10 +18,10 @@
 
 ### Design System and Layout
 
-- [ ] **DSYS-01**: All authenticated pages render within a fixed left sidebar layout (Primary Black background, ~240px wide on desktop)
+- [x] **DSYS-01**: All authenticated pages render within a fixed left sidebar layout (Primary Black background, ~240px wide on desktop)
 - [ ] **DSYS-02**: Sidebar displays role-specific navigation with white text, yellow active state, yellow hover state, and bottom-pinned logout item
 - [ ] **DSYS-03**: Top bar shows current page title/breadcrumb (left) and notification bell + profile avatar dropdown (right)
-- [ ] **DSYS-04**: Main content area uses Background Gray (#FAFAFA) canvas with white content cards
+- [x] **DSYS-04**: Main content area uses Background Gray (#FAFAFA) canvas with white content cards
 - [ ] **DSYS-05**: Layout is fully responsive — sidebar collapses to collapsible icon rail on tablet (768–1023px) and hamburger drawer on mobile (<768px)
 - [ ] **DSYS-06**: Tables scroll horizontally on tablet; transform into stacked cards on mobile
 - [ ] **DSYS-07**: Reusable component set implemented: Primary/Secondary/Danger/Ghost buttons, form inputs with label+helper+error, modal dialogs, confirmation popups, toast notifications (success/error/warning/info), data tables with sticky headers and row actions, status badges, empty states, loading skeletons
@@ -140,10 +140,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DSYS-01 | Phase 1 — Foundation | Pending |
+| DSYS-01 | Phase 1 — Foundation | Complete |
 | DSYS-02 | Phase 1 — Foundation | Pending |
 | DSYS-03 | Phase 1 — Foundation | Pending |
-| DSYS-04 | Phase 1 — Foundation | Pending |
+| DSYS-04 | Phase 1 — Foundation | Complete |
 | DSYS-05 | Phase 1 — Foundation | Pending |
 | DSYS-06 | Phase 1 — Foundation | Pending |
 | DSYS-07 | Phase 1 — Foundation | Pending |

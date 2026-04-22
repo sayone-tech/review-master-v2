@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-04-22T07:44:57.031Z"
-last_activity: 2026-04-22 — Roadmap created; 50 v1 requirements mapped across 5 phases
+status: unknown
+stopped_at: Completed 01-foundation-01-01-PLAN.md
+last_updated: "2026-04-22T10:13:47.068Z"
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 5
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,24 +19,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
-**Current focus:** Phase 1 — Foundation
+**Current focus:** Phase 01 — foundation
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-04-22 — Roadmap created; 50 v1 requirements mapped across 5 phases
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 01 (foundation) — EXECUTING
+Plan: 2 of 5
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: ~10 min
+- Total execution time: 0.17 hours
 
 **By Phase:**
 
@@ -52,6 +46,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-foundation P01 | 10 | 2 tasks | 28 files |
 
 ## Accumulated Context
 
@@ -65,6 +60,12 @@ Recent decisions affecting current work:
 - Init: Django session auth (not JWT) for Phase 1
 - Init: Soft-delete for organisations; permanent purge deferred to a future scheduled job
 - Init: Invitation tokens via TimestampSigner — 48-hour expiry, single-use enforced
+- 01-01: django-upgrade target 5.1 (6.0 not yet supported by django-upgrade 1.22.2)
+- 01-01: django-stubs django_settings_module set to config.settings.test (accounts app not yet created)
+- 01-01: test.py overrides AUTH_USER_MODEL=auth.User until Plan 02 creates custom User
+- [Phase 01-foundation]: django-upgrade target 5.1 (not 6.0): django-upgrade 1.22.2 does not support 6.0 as a target-version argument
+- [Phase 01-foundation]: mypy django_settings_module uses config.settings.test so pre-commit hook works before apps.accounts exists
+- [Phase 01-foundation]: test.py uses AUTH_USER_MODEL=auth.User temporarily; will be changed when Plan 02 creates custom User model
 
 ### Pending Todos
 
@@ -76,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T07:44:57.022Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation/01-CONTEXT.md
+Last session: 2026-04-22T10:13:47.065Z
+Stopped at: Completed 01-foundation-01-01-PLAN.md
+Resume file: None
