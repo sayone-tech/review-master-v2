@@ -67,6 +67,84 @@ def create_organisation(
     return org, raw_token
 
 
+@transaction.atomic
+def resend_invitation(
+    *,
+    organisation: Organisation,
+    resent_by: User,
+) -> str:
+    """Invalidates all non-used tokens for this org, creates a fresh 48h token,
+    sends invitation email with is_resend=True. Returns the new raw token.
+
+    Audit-trail preserving: old tokens are marked is_used=True (not deleted).
+    Recipients clicking an old link will see ACTV-05 "already used" copy.
+
+    Atomic: if email send raises, all three effects (mark-old-used, create-new,
+    email) roll back — consistent state guaranteed.
+    """
+    # Step 1: invalidate existing non-used tokens (update() runs in the atomic block)
+    organisation.invitation_tokens.filter(is_used=False).update(is_used=True)
+
+    # Step 2: create fresh token
+    raw_token = secrets.token_urlsafe(32)
+    InvitationToken.objects.create(
+        organisation=organisation,
+        token_hash=InvitationToken.hash_token(raw_token),
+    )
+
+    # Step 3: send resend-flavoured invitation email
+    send_transactional_email(
+        to=[organisation.email],
+        subject=f"You're invited to manage {organisation.name}",
+        template_base="emails/invitation",
+        context={
+            "organisation": organisation,
+            "accept_url": _build_accept_url(raw_token),
+            "expires_in_hours": 48,
+            "is_resend": True,
+        },
+        tags=["invitation", "resend"],
+    )
+    # resent_by is accepted for future audit-log integration (Phase 5+); not used
+    # in Phase 4 but part of the locked contract.
+    _ = resent_by
+    return raw_token
+
+
+@transaction.atomic
+def activate_account(
+    *,
+    invitation: InvitationToken,
+    full_name: str,
+    password: str,
+) -> User:
+    """Atomically creates ORG_ADMIN user + marks invitation used.
+
+    Uses select_for_update() to guard against double-submit races. Raises
+    ValidationError if the token is already used (race detection).
+    """
+    from apps.accounts.models import User as _User
+
+    # Re-fetch with row lock. Must be inside an atomic block (enforced by the
+    # @transaction.atomic decorator). Prevents two concurrent POSTs both passing
+    # the is_used check and creating duplicate User rows.
+    locked = InvitationToken.objects.select_for_update().get(pk=invitation.pk)
+    if locked.is_used:
+        raise ValidationError("Invitation already used.")
+
+    user = _User.objects.create_user(
+        email=locked.organisation.email,
+        password=password,
+        full_name=full_name,
+        role=_User.Role.ORG_ADMIN,
+        organisation=locked.organisation,
+    )
+    locked.invited_user = user
+    locked.is_used = True
+    locked.save(update_fields=["invited_user", "is_used", "updated_at"])
+    return user
+
+
 def update_organisation(
     *,
     organisation: Organisation,
