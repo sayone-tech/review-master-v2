@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-06 tasks 1-3; awaiting human-verify checkpoint (Task 4)
-last_updated: "2026-04-23T10:28:10.826Z"
+stopped_at: Completed 03-06-PLAN.md
+last_updated: "2026-04-23T10:42:22.944Z"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -122,6 +122,7 @@ Recent decisions affecting current work:
 - [Phase 03-organisation-management]: React 18 StrictMode + inline handler prop to a useEffect listener registrar causes click listener to be absent at click time — stabilise with useCallback([])
 - [Phase 03-organisation-management]: Tailwind overflow-hidden on a wrapper breaks child position:sticky — prefer overflow-x-auto on the scroll container only
 - [Phase 03-organisation-management]: Mount-point divs for React widgets must live inside the conditional that guards their data, otherwise the widget visually overrides server-rendered empty states
+- [Phase 03-organisation-management]: React 18 StrictMode + inline handler prop to a useEffect listener registrar causes click listener to be absent at click time — stabilise with useCallback([])
 
 ### Pending Todos
 
@@ -133,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T10:28:10.824Z
-Stopped at: Completed 03-06 tasks 1-3; awaiting human-verify checkpoint (Task 4)
+Last session: 2026-04-23T10:42:17.559Z
+Stopped at: Completed 03-06-PLAN.md
 Resume file: None

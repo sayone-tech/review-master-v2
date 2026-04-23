@@ -27,9 +27,9 @@ decisions:
   - "Tailwind overflow-hidden on a wrapper breaks child position:sticky — prefer overflow-x-auto on the scroll container only"
   - "Mount-point divs for React widgets must live inside the conditional that guards their data, otherwise the widget visually overrides server-rendered empty states"
 metrics:
-  duration: "~3 min"
+  duration: "~30 min"
   completed: "2026-04-23"
-  tasks_completed: 3
+  tasks_completed: 4
   files_modified: 6
 ---
 
@@ -54,7 +54,8 @@ Closed the five UAT gaps blocking Phase 3 acceptance:
 | 1 | Fix sidebar nav link + DataTable sticky-header | Gap 1, Gap 2 | 6c3ea4d |
 | 2 | Stabilise onOpen prop with useCallback | Gap 3 | 6fe4ba9 |
 | 3 | Restructure list.html + pagination.html | Gap 4, Gap 5 | a3d8cb7 |
-| 4 | UAT human re-run | — | awaiting |
+| 3b | Fix modal wiring - both Create buttons | Gap 3 (follow-up) | 5d76ccd |
+| 4 | UAT human re-run | — | PASSED |
 
 ## Deviations from Plan
 
@@ -82,13 +83,24 @@ Closed the five UAT gaps blocking Phase 3 acceptance:
 - **vitest (combined):** 20/20 passed
 - **pytest (organisations/test_views.py):** 21/21 passed
 
-## UAT Status
+## UAT Outcome
 
-Task 4 is a blocking human-verify checkpoint. The user must re-run the four UAT steps manually:
-1. Sidebar nav link navigates to /admin/organisations/ (no 404)
-2. DataTable column headers render at the top of the table (no detached header)
-3. Create Organisation modal opens on first click under StrictMode
-4. Empty-state card renders when search returns zero results; per-page selector visible in both states
+All four UAT steps were manually verified by the user and approved:
+
+| UAT Step | Description | Result |
+|----------|-------------|--------|
+| Step 1 | Sidebar nav navigates to /admin/organisations/, DataTable headers above body rows | PASSED |
+| Step 2 | Create Organisation modal opens from both header button and empty-state CTA | PASSED |
+| Step 3 | Per-page selector visible at bottom of table; changing to 25 reloads with ?per_page=25 | PASSED |
+| Step 4 | Search "zzznomatch" renders empty-state card; per-page selector still visible; no obscuring React table | PASSED |
+
+Note: Search requires Enter press — standard Django GET form behaviour, not a bug.
+
+## Next Phase Readiness
+
+- Phase 3 UAT tests 1-4 all pass. UAT tests 6-12 (store allocation, edit/delete, resend invite flows) are now unblocked and can be run in a follow-up session.
+- Phase 4 (Store Management) can proceed — the Organisation list/CRUD surface is fully functional.
+- The three root-cause patterns captured in decisions are directly reusable for any future React widget embedded in Django templates.
 
 ## Self-Check: PASSED
 
@@ -97,4 +109,5 @@ Task 4 is a blocking human-verify checkpoint. The user must re-run the four UAT 
 - `frontend/src/entrypoints/org-management.tsx` — `useCallback` imported and used on line 26
 - `templates/organisations/list.html` — `org-table-root` inside `{% else %}` only (line 27)
 - `templates/components/pagination.html` — outer guard `count > 0 or per_page_options` on line 5
-- Commits 6c3ea4d, 6fe4ba9, a3d8cb7 confirmed in git log
+- Commits 6c3ea4d, 6fe4ba9, a3d8cb7, 5d76ccd confirmed in git log
+- UAT Task 4 human-verify checkpoint: PASSED (user approved all four steps)
