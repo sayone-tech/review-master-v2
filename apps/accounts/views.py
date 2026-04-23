@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.contrib.auth.views import LoginView
+from django.contrib import messages
+from django.contrib.auth.views import LoginView, PasswordResetConfirmView
 from django.http import HttpRequest, HttpResponse
+from django.urls import reverse_lazy
 
 from apps.accounts.forms import CustomAuthenticationForm
 from apps.accounts.throttling import LoginRateThrottle
@@ -41,4 +43,19 @@ class CustomLoginView(LoginView):
             self.request.session.set_expiry(SESSION_AGE_30D)
         else:
             self.request.session.set_expiry(SESSION_AGE_24H)
+        return response
+
+
+class CustomPasswordResetConfirmView(PasswordResetConfirmView):
+    """Password-reset confirm view that redirects to /login/ with a flash."""
+
+    template_name = "accounts/password_reset_confirm.html"
+    success_url = reverse_lazy("login")
+
+    def form_valid(self, form: Any) -> HttpResponse:
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Password updated. Please sign in.",
+        )
         return response

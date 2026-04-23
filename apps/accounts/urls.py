@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from apps.accounts.views import CustomLoginView
+from apps.accounts.views import CustomLoginView, CustomPasswordResetConfirmView
 
 urlpatterns = [
     path("login/", CustomLoginView.as_view(), name="login"),
@@ -37,10 +37,7 @@ urlpatterns = [
     ),
     path(
         "password-reset/confirm/<uidb64>/<token>/",
-        auth_views.PasswordResetConfirmView.as_view(
-            template_name="accounts/password_reset_confirm.html",
-            success_url="/password-reset/complete/",
-        ),
+        CustomPasswordResetConfirmView.as_view(),
         name="password_reset_confirm",
     ),
     path(
