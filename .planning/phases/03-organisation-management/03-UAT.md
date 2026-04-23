@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: resolved
 phase: 03-organisation-management
 source: [03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md, 03-04-SUMMARY.md, 03-05-SUMMARY.md]
 started: 2026-04-23T14:00:00Z
