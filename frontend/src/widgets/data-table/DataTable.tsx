@@ -37,7 +37,7 @@ export function DataTable<T>({
 
   return (
     <div
-      className="bg-white border border-line rounded-card overflow-hidden"
+      className="bg-white border border-line rounded-card"
       data-testid="data-table-wrap"
     >
       <div className="overflow-x-auto">
