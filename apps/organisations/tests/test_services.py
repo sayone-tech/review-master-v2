@@ -295,3 +295,204 @@ def test_password_reset_txt_plaintext_sibling_exists():
     p = Path(settings.BASE_DIR) / "templates" / "emails" / "password_reset.txt"
     assert p.exists()
     assert p.stat().st_size > 0
+
+
+# --- Phase 4 Plan 04: resend_invitation service ---
+
+
+def test_resend_invitation_creates_token_when_none_exists(db, superadmin):
+    from apps.accounts.models import InvitationToken
+    from apps.organisations.services.organisations import resend_invitation
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(email="none@example.com")
+    assert InvitationToken.objects.filter(organisation=org).count() == 0
+
+    raw = resend_invitation(organisation=org, resent_by=superadmin)
+
+    assert isinstance(raw, str)
+    assert len(raw) > 0
+    assert InvitationToken.objects.filter(organisation=org, is_used=False).count() == 1
+
+
+def test_resend_invitation_invalidates_existing_nonused_tokens(db, superadmin):
+    from apps.accounts.models import InvitationToken
+    from apps.accounts.tests.factories import InvitationTokenFactory
+    from apps.organisations.services.organisations import resend_invitation
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(email="old@example.com")
+    old = InvitationTokenFactory(organisation=org, is_used=False)
+
+    resend_invitation(organisation=org, resent_by=superadmin)
+
+    old.refresh_from_db()
+    assert old.is_used is True
+    assert InvitationToken.objects.filter(organisation=org).count() == 2
+    assert InvitationToken.objects.filter(organisation=org, is_used=False).count() == 1
+
+
+def test_resend_invitation_invalidates_multiple_old_tokens(db, superadmin):
+    from apps.accounts.models import InvitationToken
+    from apps.accounts.tests.factories import InvitationTokenFactory
+    from apps.organisations.services.organisations import resend_invitation
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(email="multi@example.com")
+    InvitationTokenFactory.create_batch(2, organisation=org, is_used=False)
+
+    resend_invitation(organisation=org, resent_by=superadmin)
+
+    assert InvitationToken.objects.filter(organisation=org).count() == 3
+    assert InvitationToken.objects.filter(organisation=org, is_used=False).count() == 1
+
+
+def test_resend_invitation_leaves_used_tokens_alone(db, superadmin):
+    from apps.accounts.tests.factories import InvitationTokenFactory
+    from apps.organisations.services.organisations import resend_invitation
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(email="left-alone@example.com")
+    already_used = InvitationTokenFactory(organisation=org, is_used=True)
+
+    resend_invitation(organisation=org, resent_by=superadmin)
+
+    already_used.refresh_from_db()
+    assert already_used.is_used is True  # unchanged, still used
+
+
+def test_resend_invitation_sends_email_with_resend_marker(db, superadmin):
+    from django.core import mail
+
+    from apps.organisations.services.organisations import resend_invitation
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(name="Resend Co", email="resendco@example.com")
+    resend_invitation(organisation=org, resent_by=superadmin)
+
+    assert len(mail.outbox) == 1
+    m = mail.outbox[0]
+    assert m.to == ["resendco@example.com"]
+    assert m.subject == "You're invited to manage Resend Co"
+    assert "This replaces any previous invitation." in m.body  # plain text
+    assert m.alternatives, "HTML alternative must be present"
+    html = m.alternatives[0][0]
+    assert "This replaces any previous invitation." in html
+
+
+def test_resend_invitation_email_accept_url_is_absolute_and_new_token(db, superadmin):
+    from django.core import mail
+
+    from apps.organisations.services.organisations import resend_invitation
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(email="absnew@example.com")
+    raw = resend_invitation(organisation=org, resent_by=superadmin)
+
+    m = mail.outbox[0]
+    html = m.alternatives[0][0]
+    # absolute URL present
+    assert "http://" in html or "https://" in html
+    # new raw token appears in both text and HTML bodies
+    assert raw in m.body
+    assert raw in html
+
+
+def test_resend_invitation_atomic_rollback_if_email_fails(db, superadmin, monkeypatch):
+    from apps.accounts.models import InvitationToken
+    from apps.accounts.tests.factories import InvitationTokenFactory
+    from apps.organisations.services.organisations import resend_invitation
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(email="rollback@example.com")
+    old = InvitationTokenFactory(organisation=org, is_used=False)
+
+    def boom(**kwargs):
+        raise RuntimeError("SES down")
+
+    monkeypatch.setattr("apps.organisations.services.organisations.send_transactional_email", boom)
+
+    with pytest.raises(RuntimeError):
+        resend_invitation(organisation=org, resent_by=superadmin)
+
+    old.refresh_from_db()
+    assert old.is_used is False, "atomic rollback must restore old token is_used state"
+    assert InvitationToken.objects.filter(organisation=org).count() == 1, "no new token persisted"
+
+
+def test_resend_invitation_old_token_shows_actv05_after_resend(db, superadmin, client):
+    """Integration: after resend, visiting the OLD invite URL returns ACTV-05."""
+    import secrets as _s
+
+    from apps.accounts.models import InvitationToken
+    from apps.organisations.services.organisations import resend_invitation
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(email="old-link@example.com")
+    old_raw = _s.token_urlsafe(32)
+    InvitationToken.objects.create(organisation=org, token_hash=InvitationToken.hash_token(old_raw))
+
+    resend_invitation(organisation=org, resent_by=superadmin)
+
+    resp = client.get(f"/invite/accept/{old_raw}/")
+    assert resp.status_code == 200
+    assert b"This invitation has already been used." in resp.content
+
+
+# --- Phase 4 Plan 03: activate_account service ---
+
+
+def test_activate_account_creates_org_admin_user(db, superadmin):
+    from apps.accounts.models import User
+    from apps.accounts.tests.factories import InvitationTokenFactory
+    from apps.organisations.services.organisations import activate_account
+
+    org = OrganisationFactory(email="activate@example.com")
+    token = InvitationTokenFactory(organisation=org)
+
+    user = activate_account(invitation=token, full_name="Jane A", password="Tr0ub4dor&3")
+
+    assert isinstance(user, User)
+    assert user.email == "activate@example.com"
+    assert user.role == User.Role.ORG_ADMIN
+    assert user.organisation_id == org.id
+    assert user.full_name == "Jane A"
+    assert user.check_password("Tr0ub4dor&3")
+    token.refresh_from_db()
+    assert token.is_used is True
+    assert token.invited_user_id == user.id
+
+
+def test_activate_account_already_used_raises(db):
+    from django.core.exceptions import ValidationError
+
+    from apps.accounts.tests.factories import InvitationTokenFactory
+    from apps.organisations.services.organisations import activate_account
+
+    org = OrganisationFactory(email="used@example.com")
+    token = InvitationTokenFactory(organisation=org, is_used=True)
+
+    with pytest.raises(ValidationError):
+        activate_account(invitation=token, full_name="X", password="Tr0ub4dor&3")
+
+
+def test_activate_account_atomic_on_create_failure(db, monkeypatch):
+    from django.db import IntegrityError
+
+    from apps.accounts.managers import UserManager
+    from apps.accounts.tests.factories import InvitationTokenFactory
+    from apps.organisations.services.organisations import activate_account
+
+    org = OrganisationFactory(email="atomic@example.com")
+    token = InvitationTokenFactory(organisation=org)
+
+    def boom(self, *a, **k):
+        raise IntegrityError("forced")
+
+    monkeypatch.setattr(UserManager, "create_user", boom)
+
+    with pytest.raises(IntegrityError):
+        activate_account(invitation=token, full_name="X", password="Tr0ub4dor&3")
+
+    token.refresh_from_db()
+    assert token.is_used is False, "token must not be marked used if user creation failed (atomic)"

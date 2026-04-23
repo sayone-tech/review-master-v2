@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import secrets as _secrets
 
 import pytest
 from django.contrib.messages import get_messages
@@ -284,3 +285,229 @@ def test_password_reset_email_emal03_subject_and_body(
     assert m.alternatives, "HTML alternative required"
     html = m.alternatives[0][0]
     assert "max-width:600px" in html
+
+
+# --- Phase 4 Plan 03: ActivationForm ---
+
+
+class TestActivationForm:
+    def test_valid(self) -> None:
+        from apps.accounts.forms import ActivationForm
+
+        form = ActivationForm(
+            data={
+                "full_name": "Jane Smith",
+                "password1": "Tr0ub4dor&3xample",
+                "password2": "Tr0ub4dor&3xample",
+            }
+        )
+        assert form.is_valid(), form.errors
+
+    def test_full_name_too_short(self) -> None:
+        from apps.accounts.forms import ActivationForm
+
+        form = ActivationForm(
+            data={"full_name": "J", "password1": "Tr0ub4dor&3", "password2": "Tr0ub4dor&3"}
+        )
+        assert not form.is_valid()
+        assert "full_name" in form.errors
+
+    def test_full_name_too_long(self) -> None:
+        from apps.accounts.forms import ActivationForm
+
+        form = ActivationForm(
+            data={
+                "full_name": "x" * 101,
+                "password1": "Tr0ub4dor&3",
+                "password2": "Tr0ub4dor&3",
+            }
+        )
+        assert not form.is_valid()
+        assert "full_name" in form.errors
+
+    def test_password_too_common(self) -> None:
+        from apps.accounts.forms import ActivationForm
+
+        form = ActivationForm(
+            data={"full_name": "Jane", "password1": "password", "password2": "password"}
+        )
+        assert not form.is_valid()
+        assert "password1" in form.errors
+
+    def test_password_mismatch(self) -> None:
+        from apps.accounts.forms import ActivationForm
+
+        form = ActivationForm(
+            data={
+                "full_name": "Jane",
+                "password1": "Tr0ub4dor&3",
+                "password2": "Different9!",
+            }
+        )
+        assert not form.is_valid()
+        assert "password2" in form.errors
+        assert "Passwords do not match." in str(form.errors["password2"])
+
+    def test_password_too_short(self) -> None:
+        from apps.accounts.forms import ActivationForm
+
+        form = ActivationForm(
+            data={"full_name": "Jane", "password1": "Sh0rt!", "password2": "Sh0rt!"}
+        )
+        assert not form.is_valid()
+        assert "password1" in form.errors
+
+
+# --- Phase 4 Plan 03: invite_accept_view ---
+
+
+def _create_token(is_used=False, expires_offset_hours=48):
+    """Helper: returns (raw_token, invitation) so tests have both values."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.accounts.models import InvitationToken
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory(email=f"org{_secrets.token_hex(3)}@example.com")
+    raw = _secrets.token_urlsafe(32)
+    inv = InvitationToken.objects.create(
+        organisation=org,
+        token_hash=InvitationToken.hash_token(raw),
+        is_used=is_used,
+        expires_at=timezone.now() + timedelta(hours=expires_offset_hours),
+    )
+    return raw, inv
+
+
+def test_invite_accept_valid_get_renders_form(anon_client, db):
+    raw, inv = _create_token()
+    resp = anon_client.get(f"/invite/accept/{raw}/")
+    assert resp.status_code == 200
+    assert b"Welcome to " in resp.content
+    assert inv.organisation.name.encode() in resp.content
+    assert inv.organisation.email.encode() in resp.content
+    assert b"disabled" in resp.content
+    assert b'name="full_name"' in resp.content
+    assert b'name="password1"' in resp.content
+    assert b'name="password2"' in resp.content
+    assert b"Activate Account" in resp.content
+
+
+def test_invite_accept_invalid_token_shows_actv04(anon_client, db):
+    resp = anon_client.get("/invite/accept/not-a-real-token/")
+    assert resp.status_code == 200
+    assert b"This invitation link is invalid or has expired." in resp.content
+    assert b"Please contact your administrator" in resp.content
+    assert b"<form" not in resp.content
+
+
+def test_invite_accept_used_token_shows_actv05(anon_client, db):
+    raw, _ = _create_token(is_used=True)
+    resp = anon_client.get(f"/invite/accept/{raw}/")
+    assert resp.status_code == 200
+    assert b"This invitation has already been used." in resp.content
+    assert b"<form" not in resp.content
+
+
+def test_invite_accept_expired_token_shows_actv04(anon_client, db):
+    raw, _ = _create_token(expires_offset_hours=-1)  # already expired
+    resp = anon_client.get(f"/invite/accept/{raw}/")
+    assert resp.status_code == 200
+    assert b"This invitation link is invalid or has expired." in resp.content
+
+
+def test_invite_accept_used_and_expired_prefers_actv05(anon_client, db):
+    raw, _ = _create_token(is_used=True, expires_offset_hours=-1)
+    resp = anon_client.get(f"/invite/accept/{raw}/")
+    assert resp.status_code == 200
+    assert b"This invitation has already been used." in resp.content
+    assert b"invalid or has expired" not in resp.content
+
+
+def test_invite_accept_post_creates_user_and_logs_in(anon_client, db):
+    from apps.accounts.models import User
+
+    raw, inv = _create_token()
+    resp = anon_client.post(
+        f"/invite/accept/{raw}/",
+        {
+            "full_name": "Jane Admin",
+            "password1": "Tr0ub4dor&3",
+            "password2": "Tr0ub4dor&3",
+        },
+    )
+    assert resp.status_code == 302
+    assert resp["Location"] == "/admin/org-dashboard/"
+    assert "_auth_user_id" in anon_client.session
+    user = User.objects.get(email=inv.organisation.email)
+    assert user.role == User.Role.ORG_ADMIN
+    assert user.organisation_id == inv.organisation_id
+    assert user.full_name == "Jane Admin"
+    inv.refresh_from_db()
+    assert inv.is_used is True
+    assert inv.invited_user_id == user.id
+
+
+def test_invite_accept_post_password_mismatch_rerenders_form(anon_client, db):
+    from apps.accounts.models import User
+
+    raw, inv = _create_token()
+    resp = anon_client.post(
+        f"/invite/accept/{raw}/",
+        {
+            "full_name": "Jane",
+            "password1": "Tr0ub4dor&3",
+            "password2": "Different9!",
+        },
+    )
+    assert resp.status_code == 200
+    assert b"Passwords do not match." in resp.content
+    assert not User.objects.filter(email=inv.organisation.email).exists()
+    inv.refresh_from_db()
+    assert inv.is_used is False
+
+
+def test_invite_accept_post_invalid_password_rerenders_form(anon_client, db):
+    from apps.accounts.models import User
+
+    raw, inv = _create_token()
+    resp = anon_client.post(
+        f"/invite/accept/{raw}/",
+        {
+            "full_name": "Jane",
+            "password1": "password",
+            "password2": "password",
+        },
+    )
+    assert resp.status_code == 200
+    # Password validator error should be rendered on form
+    assert not User.objects.filter(email=inv.organisation.email).exists()
+
+
+def test_invite_accept_post_used_token_shows_actv05(anon_client, db):
+    raw, _ = _create_token(is_used=True)
+    resp = anon_client.post(
+        f"/invite/accept/{raw}/",
+        {
+            "full_name": "Jane",
+            "password1": "Tr0ub4dor&3",
+            "password2": "Tr0ub4dor&3",
+        },
+    )
+    assert resp.status_code == 200
+    assert b"This invitation has already been used." in resp.content
+
+
+def test_invite_accept_no_login_required_anonymous_ok(anon_client, db):
+    raw, _ = _create_token()
+    resp = anon_client.get(f"/invite/accept/{raw}/")
+    # Must NOT be 302 redirect to /login/
+    assert resp.status_code == 200
+
+
+def test_invite_accept_url_name_resolves():
+    from django.urls import reverse
+
+    assert reverse("invite_accept", kwargs={"token": "x"}) == "/invite/accept/x/"
