@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-01-PLAN.md — Org Admin dashboard stub
-last_updated: "2026-04-23T12:31:35.763Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-04-23T12:33:14.650Z"
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 20
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -63,6 +63,7 @@ Plan: 1 of 5
 | Phase 01-foundation P06 | 5 | 2 tasks | 4 files |
 | Phase 03-organisation-management P06 | 3m | 3 tasks | 6 files |
 | Phase 04-invitation-and-activation P01 | 4m | 2 tasks | 8 files |
+| Phase 04 P02 | 6 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Recent decisions affecting current work:
 - [Phase 03-organisation-management]: React 18 StrictMode + inline handler prop to a useEffect listener registrar causes click listener to be absent at click time — stabilise with useCallback([])
 - [Phase 04-invitation-and-activation]: Separate sidebar_org.html file per role (not branching in multi-role sidebar.html) keeps layout boundaries clean and prevents nav item leakage
 - [Phase 04-invitation-and-activation]: ORG_ADMIN with no organisation FK redirects to /login/ — org FK required to render dashboard; SUPERADMIN at /admin/org-dashboard/ redirects to /admin/organisations/
+- [Phase 04]: SITE_URL stored in settings (not hardcoded) so Cloud Run can inject production domain via env var
+- [Phase 04]: _build_accept_url uses rstrip('/') guard on SITE_URL to protect against operator trailing-slash misconfiguration
+- [Phase 04]: {% if is_resend %} block placed after CTA row and before footer border row in invitation.html — Plan 04 resend service passes is_resend=True
 
 ### Pending Todos
 
@@ -137,6 +141,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T12:31:35.760Z
-Stopped at: Completed 04-01-PLAN.md — Org Admin dashboard stub
+Last session: 2026-04-23T12:33:14.647Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None

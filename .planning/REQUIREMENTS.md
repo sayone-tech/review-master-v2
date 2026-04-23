@@ -93,10 +93,10 @@
 
 ### Email Templates
 
-- [ ] **EMAL-01**: Invitation email sends on new organisation create (subject: "You're invited to manage {OrganisationName}"; HTML + plain text; 48-hour expiry notice; Accept Invitation CTA; SES configuration set headers)
-- [ ] **EMAL-02**: Resent invitation email sends with same structure as original plus "This replaces any previous invitation" note
-- [ ] **EMAL-03**: Password reset email sends on forgot-password request (subject: "Reset your password"; 1-hour link; plain-text fallback; security advisory copy)
-- [ ] **EMAL-04**: All emails render correctly across Gmail, Outlook, and Apple Mail; max 600px width; CSS inlined; plain-text fallback always present
+- [x] **EMAL-01**: Invitation email sends on new organisation create (subject: "You're invited to manage {OrganisationName}"; HTML + plain text; 48-hour expiry notice; Accept Invitation CTA; SES configuration set headers)
+- [x] **EMAL-02**: Resent invitation email sends with same structure as original plus "This replaces any previous invitation" note
+- [x] **EMAL-03**: Password reset email sends on forgot-password request (subject: "Reset your password"; 1-hour link; plain-text fallback; security advisory copy)
+- [x] **EMAL-04**: All emails render correctly across Gmail, Outlook, and Apple Mail; max 600px width; CSS inlined; plain-text fallback always present
 
 ---
 
@@ -185,10 +185,10 @@
 | ACTV-03 | Phase 4 — Invitation and Activation | Complete |
 | ACTV-04 | Phase 4 — Invitation and Activation | Pending |
 | ACTV-05 | Phase 4 — Invitation and Activation | Pending |
-| EMAL-01 | Phase 4 — Invitation and Activation | Pending |
-| EMAL-02 | Phase 4 — Invitation and Activation | Pending |
-| EMAL-03 | Phase 4 — Invitation and Activation | Pending |
-| EMAL-04 | Phase 4 — Invitation and Activation | Pending |
+| EMAL-01 | Phase 4 — Invitation and Activation | Complete |
+| EMAL-02 | Phase 4 — Invitation and Activation | Complete |
+| EMAL-03 | Phase 4 — Invitation and Activation | Complete |
+| EMAL-04 | Phase 4 — Invitation and Activation | Complete |
 | PROF-01 | Phase 5 — Profile and Hardening | Pending |
 | PROF-02 | Phase 5 — Profile and Hardening | Pending |
 

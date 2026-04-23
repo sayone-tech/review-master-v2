@@ -110,5 +110,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 5/6 | Gap closure in progress | 2026-04-22 |
 | 2. Authentication | 3/3 | Complete   | 2026-04-23 |
 | 3. Organisation Management | 6/6 | Complete   | 2026-04-23 |
-| 4. Invitation and Activation | 1/5 | In Progress|  |
+| 4. Invitation and Activation | 2/5 | In Progress|  |
 | 5. Profile and Hardening | 0/TBD | Not started | - |
