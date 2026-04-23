@@ -2,17 +2,21 @@
 Usage: {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
 page_url_params MUST be urlencoded GET params minus `page` (caller builds it).
 {% endcomment %}
-{% if page_obj.paginator.count > 0 %}
+{% if page_obj.paginator.count > 0 or per_page_options %}
   <nav
     class="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
     aria-label="Pagination"
     data-testid="pagination"
   >
     <div class="flex items-center gap-3">
-      <span>
-        Showing <strong class="text-ink font-semibold">{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
-        of <strong class="text-ink font-semibold">{{ page_obj.paginator.count }}</strong>
-      </span>
+      {% if page_obj.paginator.count > 0 %}
+        <span>
+          Showing <strong class="text-ink font-semibold">{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
+          of <strong class="text-ink font-semibold">{{ page_obj.paginator.count }}</strong>
+        </span>
+      {% else %}
+        <span class="text-muted">No results</span>
+      {% endif %}
       {% if per_page_options %}
         <form method="get" class="flex items-center gap-1.5" data-testid="per-page-form">
           {% if request.GET.search %}<input type="hidden" name="search" value="{{ request.GET.search }}">{% endif %}
@@ -32,36 +36,38 @@ page_url_params MUST be urlencoded GET params minus `page` (caller builds it).
         </form>
       {% endif %}
     </div>
-    <div class="flex items-center gap-1.5">
-      <a
-        href="?{{ page_url_params }}&page={% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}"
-        class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center {% if not page_obj.has_previous %}opacity-40 cursor-not-allowed pointer-events-none{% else %}hover:bg-line-soft{% endif %}"
-        aria-label="Previous page"
-        {% if not page_obj.has_previous %}aria-disabled="true"{% endif %}
-      >
-        <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="chevron-left"></span>
-      </a>
-      {% for n in page_obj.paginator.page_range %}
-        {% if n == page_obj.number %}
-          <span
-            class="w-[30px] h-[30px] rounded-sm bg-black text-yellow border border-black text-[13px] font-medium flex items-center justify-center"
-            aria-current="page"
-          >{{ n }}</span>
-        {% else %}
-          <a
-            href="?{{ page_url_params }}&page={{ n }}"
-            class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center hover:bg-line-soft"
-          >{{ n }}</a>
-        {% endif %}
-      {% endfor %}
-      <a
-        href="?{{ page_url_params }}&page={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.paginator.num_pages }}{% endif %}"
-        class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center {% if not page_obj.has_next %}opacity-40 cursor-not-allowed pointer-events-none{% else %}hover:bg-line-soft{% endif %}"
-        aria-label="Next page"
-        {% if not page_obj.has_next %}aria-disabled="true"{% endif %}
-      >
-        <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="chevron-right"></span>
-      </a>
-    </div>
+    {% if page_obj.paginator.count > 0 %}
+      <div class="flex items-center gap-1.5">
+        <a
+          href="?{{ page_url_params }}&page={% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}"
+          class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center {% if not page_obj.has_previous %}opacity-40 cursor-not-allowed pointer-events-none{% else %}hover:bg-line-soft{% endif %}"
+          aria-label="Previous page"
+          {% if not page_obj.has_previous %}aria-disabled="true"{% endif %}
+        >
+          <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="chevron-left"></span>
+        </a>
+        {% for n in page_obj.paginator.page_range %}
+          {% if n == page_obj.number %}
+            <span
+              class="w-[30px] h-[30px] rounded-sm bg-black text-yellow border border-black text-[13px] font-medium flex items-center justify-center"
+              aria-current="page"
+            >{{ n }}</span>
+          {% else %}
+            <a
+              href="?{{ page_url_params }}&page={{ n }}"
+              class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center hover:bg-line-soft"
+            >{{ n }}</a>
+          {% endif %}
+        {% endfor %}
+        <a
+          href="?{{ page_url_params }}&page={% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.paginator.num_pages }}{% endif %}"
+          class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center {% if not page_obj.has_next %}opacity-40 cursor-not-allowed pointer-events-none{% else %}hover:bg-line-soft{% endif %}"
+          aria-label="Next page"
+          {% if not page_obj.has_next %}aria-disabled="true"{% endif %}
+        >
+          <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="chevron-right"></span>
+        </a>
+      </div>
+    {% endif %}
   </nav>
 {% endif %}

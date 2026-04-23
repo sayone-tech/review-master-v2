@@ -19,6 +19,8 @@ def test_org_list_template_requires_auth(client):
 
 def test_org_list_template_renders_200_for_superadmin(client_logged_in):
     """Superadmin can access org list template and it renders correctly (ORGL-01)."""
+    # Create an org so the else branch (table mount point) renders
+    OrganisationFactory()
     resp = client_logged_in.get("/admin/organisations/")
     assert resp.status_code == 200
     assert b'id="org-data"' in resp.content
