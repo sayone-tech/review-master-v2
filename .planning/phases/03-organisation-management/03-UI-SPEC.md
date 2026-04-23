@@ -42,10 +42,10 @@ Declared values (must be multiples of 4):
 | 3xl | 64px | Page-level vertical breathing room |
 
 Exceptions:
-- Modal header top padding: 22px (not on scale) — matches existing `Modal.tsx` `pt-[22px]`; do not change
-- Table cell vertical padding: 14px (`py-[14px]`) — matches existing `DataTable.tsx`; do not change
-- Table header vertical padding: 11px (`py-[11px]`) — matches existing `DataTable.tsx`; do not change
-- Form input vertical padding: 9px (`py-[9px]`) — matches existing `form_fields.html`; do not change
+- Modal header top padding: 24px (`pt-6`) — aligned to spacing scale
+- Table cell vertical padding: 16px (`py-4`) — aligned to spacing scale
+- Table header vertical padding: 12px (`py-3`) — aligned to spacing scale
+- Form input vertical padding: 8px (`py-2`) — aligned to spacing scale
 
 Source: `frontend/tailwind.config.js`, `frontend/src/widgets/modal/Modal.tsx`, `frontend/src/widgets/data-table/DataTable.tsx`, `templates/components/form_fields.html`
 
@@ -55,12 +55,12 @@ Source: `frontend/tailwind.config.js`, `frontend/src/widgets/modal/Modal.tsx`, `
 
 | Role | Size | Weight | Line Height | Color | Notes |
 |------|------|--------|-------------|-------|-------|
-| Body / table cell | 13.5px | 400 (regular) | 1.5 | `text` (#27272A) | Table rows, form inputs, filter controls |
-| Label / helper | 13px | 500 (medium) | 1.4 | `ink` (#18181B) | Form labels, column headers use `text-subtle` at 12px uppercase |
+| Body / table cell | 13px | 400 (regular) | 1.5 | `text` (#27272A) | Table rows, form inputs, filter controls, error/help text |
 | Heading (modal) | 18px | 600 (semibold) | 1.2 | `ink` (#18181B) | Modal titles, confirm dialog titles |
-| Small / meta | 12–12.5px | 400–500 | 1.4 | `subtle` / `muted` | Badge text (12px medium), error/help text (12px), toast body (12.5px) |
+| Small / meta | 12px | 400 (regular) | 1.4 | `subtle` / `muted` | Badge text, error/help text, toast body, column headers |
+| Label / column header | 12px | 600 (semibold) | 1.4 | `subtle` | Form labels (`font-semibold`), column headers (`uppercase tracking-[0.05em]`) |
 
-Column header variant: 12px, weight 500, `text-subtle`, `uppercase`, `tracking-[0.05em]` — matches existing `DataTable.tsx`.
+Column header variant: 12px, weight 600 (semibold), `text-subtle`, `uppercase`, `tracking-[0.05em]` — matches `DataTable.tsx`.
 
 Page section headings (e.g. "Organisations"): inherit from topbar breadcrumb established in Phase 1 (`base.html`).
 
@@ -115,7 +115,7 @@ All components below are pre-built in Phase 1. Phase 3 composes them — no new 
 | Filter bar | `filter_bar.html` | Search input + Status select + Type select on list page |
 | Pagination | `pagination.html` | Extended with `per_page` select (10/25/50/100, default 10) rendered left of Showing X–Y |
 | Badge | `badges.html` | Status badges (green/gray/red) + Type badges (neutral) in table rows |
-| Button | `buttons.html` | "Create Organisation" (primary); "Cancel" (secondary); "Delete"/"Disable" (danger) |
+| Button | `buttons.html` | "Create Organisation" (primary); "Discard" / "Discard Changes" (secondary); "Delete"/"Disable" (danger) |
 | Form fields | `form_fields.html` | All Create/Edit modal inputs; `warn` variant for store allocation inline warning |
 | Empty state | `empty_state.html` | icon=`building-2`, title and description per copywriting contract below |
 | Toasts | `toasts.html` | All success/error toasts dispatched via `app:toast` CustomEvent from React |
@@ -162,10 +162,10 @@ Page structure within the content area (top to bottom):
 |--------|---------|------------|-------|
 | Name | Bold text, clickable → opens View modal | 20% | `font-semibold text-ink cursor-pointer hover:text-yellow` |
 | Type | Badge (neutral variant) | 12% | Retail / Restaurant / Pharmacy / Supermarket |
-| Email | Plain text | 20% | `text-muted text-[13.5px]` |
-| Stores | "X used of Y allocated" | 10% | `text-[13.5px] text-text`; X from `active_stores` annotation, Y from `number_of_stores` |
+| Email | Plain text | 20% | `text-muted text-[13px]` |
+| Stores | "X used of Y allocated" | 10% | `text-[13px] text-text`; X from `active_stores` annotation, Y from `number_of_stores` |
 | Status | Badge (green/gray/red) with dot | 10% | Active=green, Disabled=gray, Deleted=red |
-| Created | Date formatted "DD MMM YYYY" | 13% | `text-[13.5px] text-muted` |
+| Created | Date formatted "DD MMM YYYY" | 13% | `text-[13px] text-muted` |
 | Actions | Three-dot icon button | 48px fixed | `MoreHorizontal` icon, opacity 35% → 100% on row hover |
 
 Row action menu items (in order):
@@ -193,7 +193,7 @@ Row action menu items (in order):
   3. Email — email, required, unique, placeholder "admin@example.com"
   4. Number of Stores — number, required, min=1 max=1000, placeholder "e.g. 5"
   5. Address — textarea, optional, max 500 chars, placeholder "Full address (optional)"
-- Footer: Cancel (secondary) | Create Organisation (primary, loading spinner while submitting)
+- Footer: Discard (secondary) | Create Organisation (primary, loading spinner while submitting)
 - On success: close modal, dispatch `app:toast` `{ kind: "success", title: "Organisation created. Invitation email sent to {email}.", msg: "" }`
 
 ### View Organisation Modal
@@ -210,14 +210,14 @@ Row action menu items (in order):
   - Org Admin status: Badge — "Pending invite" (amber dot), "Active" (green dot), "Invitation expired" (gray dot)
   - Last invitation sent: timestamp or "Never"
 - Footer: Close (secondary) | "Resend Invitation" (secondary, only when `activation_status !== 'active'`) | "Edit" (primary)
-- Detail row pattern: `<dt>` label 12px `text-subtle` uppercase tracking-wide, `<dd>` value 13.5px `text-text`; use `<dl>` grid `grid-cols-[140px_1fr] gap-x-4 gap-y-3`
+- Detail row pattern: `<dt>` label 12px `text-subtle` uppercase tracking-wide, `<dd>` value 13px `text-text`; use `<dl>` grid `grid-cols-[140px_1fr] gap-x-4 gap-y-3`
 
 ### Edit Organisation Modal
 - Size: `default` (max-w-[520px])
 - Title: "Edit Organisation"
 - Subtitle: none
 - Fields: Same as Create, all pre-filled; Email field is `disabled` (visually: `bg-line-soft text-subtle`) with helper text "Email cannot be changed after creation."
-- Footer: Cancel (secondary) | Save Changes (primary, loading spinner while submitting)
+- Footer: Discard Changes (secondary) | Save Changes (primary, loading spinner while submitting)
 - On success: close modal, dispatch `app:toast` `{ kind: "success", title: "Organisation updated.", msg: "" }`
 
 ### Disable Organisation Confirmation
@@ -249,7 +249,7 @@ Row action menu items (in order):
 - Size: `sm` (max-w-[420px]) — use `Modal` directly (not `ConfirmModal`)
 - Title: "Adjust Store Allocation"
 - Content: Helper text "Currently using **X** of **Y** stores." Then a number input (min=X) with label "New allocation". Below input, if value < X: amber inline warning "Value cannot be lower than current usage (X stores)." (matches `form_fields.html` `warn` pattern). "Update" button disabled when value < X.
-- Footer: Cancel (secondary) | Update (primary, disabled when invalid)
+- Footer: Discard (secondary) | Update (primary, disabled when invalid)
 
 **Step 2 — confirmation:**
 - `ConfirmModal` variant: `blue`
@@ -306,6 +306,9 @@ Row action menu items (in order):
 | Search placeholder | Search by name or email |
 | Status filter default option | All Statuses |
 | Type filter default option | All Types |
+| Create modal footer dismiss | Discard |
+| Edit modal footer dismiss | Discard Changes |
+| Store allocation modal footer dismiss | Discard |
 | Create modal success toast | Organisation created. Invitation email sent to {email}. |
 | Edit modal success toast | Organisation updated. |
 | Disable success toast | {org name} has been disabled. |
