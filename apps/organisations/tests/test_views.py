@@ -223,3 +223,65 @@ def test_api_adjust_store_allocation_via_patch_number_of_stores(api_client_super
     assert resp.status_code in (200, 202)
     org.refresh_from_db()
     assert org.number_of_stores == 25
+
+
+# --- Phase 4 Plan 01: Org Admin dashboard stub ---
+
+
+def test_org_admin_dashboard_url_name_resolves() -> None:
+    from django.urls import reverse
+
+    assert reverse("org_admin_dashboard") == "/admin/org-dashboard/"
+
+
+def test_org_admin_dashboard_anonymous_redirects_to_login(client):
+    resp = client.get("/admin/org-dashboard/")
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
+    assert "next=/admin/org-dashboard/" in resp["Location"]
+
+
+def test_org_admin_dashboard_superadmin_redirects_to_organisations(client_logged_in):
+    resp = client_logged_in.get("/admin/org-dashboard/")
+    assert resp.status_code == 302
+    assert resp["Location"] == "/admin/organisations/"
+
+
+def test_org_admin_dashboard_org_admin_without_org_redirects_to_login(client, db):
+    from apps.accounts.models import User
+    from apps.accounts.tests.factories import UserFactory
+
+    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=None, email="orphan@example.com")
+    client.force_login(user)
+    resp = client.get("/admin/org-dashboard/")
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
+
+
+def test_org_admin_dashboard_org_admin_sees_welcome_card(client, db):
+    from apps.accounts.models import User
+    from apps.accounts.tests.factories import UserFactory
+
+    org = OrganisationFactory(name="Acme Holdings")
+    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=org, email="admin@acme.com")
+    client.force_login(user)
+    resp = client.get("/admin/org-dashboard/")
+    assert resp.status_code == 200
+    assert b"Welcome to Acme Holdings" in resp.content
+    assert b'data-testid="org-dashboard-card"' in resp.content
+
+
+def test_org_admin_dashboard_renders_org_sidebar_not_superadmin_sidebar(client, db):
+    from apps.accounts.models import User
+    from apps.accounts.tests.factories import UserFactory
+
+    org = OrganisationFactory(name="Acme Holdings")
+    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=org, email="admin2@acme.com")
+    client.force_login(user)
+    resp = client.get("/admin/org-dashboard/")
+    assert resp.status_code == 200
+    # Proves base_org.html shell was rendered (sidebar testid present)
+    assert b'data-testid="sidebar"' in resp.content
+    # Proves Superadmin-only "Organisations" nav href not present in the rendered sidebar
+    # (Org Admin sidebar only has Dashboard + Profile links)
+    assert b"/admin/organisations/" not in resp.content
