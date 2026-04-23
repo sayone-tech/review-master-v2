@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 03-organisation-management
 source: [03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md, 03-04-SUMMARY.md, 03-05-SUMMARY.md]
 started: 2026-04-23T14:00:00Z
@@ -98,37 +98,59 @@ skipped: 8
   reason: "User reported: sidebar nav link redirects to /organisations/ which 404s"
   severity: major
   test: 1
-  artifacts: []
-  missing: []
+  root_cause: "sidebar.html line 31 hardcodes href='/organisations/' but the URL is registered as /admin/organisations/"
+  artifacts:
+    - path: "templates/partials/sidebar.html"
+      issue: "line 31: href='/organisations/' should be href='{% url 'organisation_list' %}'"
+  missing:
+    - "Change href to {% url 'organisation_list' %} (or hardcode /admin/organisations/)"
 
 - truth: "DataTable column headers appear above the data rows as a single cohesive table"
   status: failed
   reason: "User reported: DataTable column headers appear at the bottom as a separate detached table, not attached to the data rows"
   severity: major
   test: 1
-  artifacts: []
-  missing: []
+  root_cause: "overflow-hidden on the outer wrapper div in DataTable.tsx creates a scroll context that breaks position:sticky on the thead, snapping it to the bottom of the container"
+  artifacts:
+    - path: "frontend/src/widgets/data-table/DataTable.tsx"
+      issue: "line 40: overflow-hidden on wrapper div breaks sticky thead (line 45)"
+  missing:
+    - "Remove overflow-hidden from the wrapper div className on line 40"
 
 - truth: "Clicking Create Organisation button opens the Create Organisation modal"
   status: failed
   reason: "User reported: popup/modal does not open when clicking Create Organisation button"
   severity: major
   test: 2
-  artifacts: []
-  missing: []
+  root_cause: "onOpen is passed as a new inline arrow function on every render; CreateButtonBridge's useEffect re-registers/removes the click listener on every re-render; under React 18 StrictMode's double-invoke, the button ends up with no active listener"
+  artifacts:
+    - path: "frontend/src/entrypoints/org-management.tsx"
+      issue: "line 100: onOpen passed as inline arrow () => setCreateOpen(true) — unstable reference"
+  missing:
+    - "Wrap onOpen in useCallback(() => setCreateOpen(true), []) so the reference is stable across renders"
 
 - truth: "Per-page selector dropdown is visible at the bottom of the organisations table"
   status: failed
   reason: "User reported: this component missing"
   severity: major
   test: 3
-  artifacts: []
-  missing: []
+  root_cause: "pagination.html (which contains the per-page form) is guarded by {% if page_obj.paginator.count > 0 %} and is also inside the {% else %} of the empty-state conditional in list.html, so it disappears with zero results"
+  artifacts:
+    - path: "templates/organisations/list.html"
+      issue: "lines 23-27: pagination include is in the else branch of the empty-state conditional"
+    - path: "templates/components/pagination.html"
+      issue: "line 5: entire nav (including per-page form) wrapped in count > 0 guard"
+  missing:
+    - "Extract per-page selector form from the paginator.count guard so it renders unconditionally when per_page_options is present"
 
 - truth: "Searching with no matching results shows an empty state message"
   status: failed
   reason: "User reported: this also not working"
   severity: major
   test: 4
-  artifacts: []
-  missing: []
+  root_cause: "div#org-table-root is rendered unconditionally outside the if/else block in list.html, so the React widget always mounts and visually obscures the Django-rendered empty state above it"
+  artifacts:
+    - path: "templates/organisations/list.html"
+      issue: "line 29: div#org-table-root and vite_asset are outside the if/else block — React always mounts regardless of result count"
+  missing:
+    - "Move div#org-table-root and vite_asset inside the {% else %} branch so React only mounts when results exist; handle zero-results empty state in the {% if %} branch"
