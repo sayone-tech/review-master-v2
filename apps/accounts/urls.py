@@ -3,7 +3,12 @@ from __future__ import annotations
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from apps.accounts.views import CustomLoginView, CustomPasswordResetConfirmView, profile
+from apps.accounts.views import (
+    CustomLoginView,
+    CustomPasswordResetConfirmView,
+    invite_accept_view,
+    profile,
+)
 
 urlpatterns = [
     path("login/", CustomLoginView.as_view(), name="login"),
@@ -48,4 +53,5 @@ urlpatterns = [
         ),
         name="password_reset_complete",
     ),
+    path("invite/accept/<str:token>/", invite_accept_view, name="invite_accept"),
 ]

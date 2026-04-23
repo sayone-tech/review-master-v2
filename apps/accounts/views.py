@@ -3,13 +3,16 @@ from __future__ import annotations
 from typing import Any
 
 from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, PasswordResetConfirmView
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
-from django.urls import reverse_lazy
+from django.shortcuts import redirect, render
+from django.urls import reverse, reverse_lazy
 
-from apps.accounts.forms import CustomAuthenticationForm
+from apps.accounts.forms import ActivationForm, CustomAuthenticationForm
+from apps.accounts.models import InvitationToken
 from apps.accounts.throttling import LoginRateThrottle
 
 SESSION_AGE_24H = 60 * 60 * 24
@@ -66,3 +69,68 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
             "Password updated. Please sign in.",
         )
         return response
+
+
+ACTV04_COPY = (
+    "This invitation link is invalid or has expired. "
+    "Please contact your administrator to request a new one."
+)
+ACTV05_COPY = "This invitation has already been used."
+
+
+def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
+    """Public (no @login_required) — ACTV-01..05.
+
+    Three token states (checked in this exact order):
+    1. Not found or tamper: render invite_error with ACTV-04 copy
+    2. is_used: render invite_error with ACTV-05 copy (CHECKED BEFORE expired)
+    3. is_expired: render invite_error with ACTV-04 copy
+    4. Valid: render activation form (GET) or process it (POST)
+
+    On POST success: activate_account(), login(user), redirect org_admin_dashboard.
+    """
+    token_hash = InvitationToken.hash_token(token)
+    try:
+        invitation = InvitationToken.objects.select_related("organisation").get(
+            token_hash=token_hash
+        )
+    except InvitationToken.DoesNotExist:
+        return render(request, "accounts/invite_error.html", {"message": ACTV04_COPY})
+
+    # CRITICAL ORDER: is_used FIRST, then is_expired. A resend makes the old token
+    # is_used=True while leaving expires_at untouched — we want ACTV-05 copy in that case.
+    if invitation.is_used:
+        return render(request, "accounts/invite_error.html", {"message": ACTV05_COPY})
+    if invitation.is_expired:
+        return render(request, "accounts/invite_error.html", {"message": ACTV04_COPY})
+
+    organisation = invitation.organisation
+
+    if request.method == "POST":
+        form = ActivationForm(request.POST)
+        if form.is_valid():
+            from apps.organisations.services.organisations import activate_account
+
+            try:
+                user = activate_account(
+                    invitation=invitation,
+                    full_name=form.cleaned_data["full_name"],
+                    password=form.cleaned_data["password1"],
+                )
+            except ValidationError:
+                # Race: someone else activated between is_used check and now.
+                return render(request, "accounts/invite_error.html", {"message": ACTV05_COPY})
+            login(request, user)
+            return redirect(reverse("org_admin_dashboard"))
+    else:
+        form = ActivationForm()
+
+    return render(
+        request,
+        "accounts/invite_accept.html",
+        {
+            "form": form,
+            "organisation": organisation,
+            "email": organisation.email,
+        },
+    )

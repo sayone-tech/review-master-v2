@@ -1,0 +1,10 @@
+{% extends "auth_base.html" %}
+{% block title %}Invitation · Review Master{% endblock %}
+
+{% block card %}
+  <div class="w-12 h-12 rounded-full bg-red-tint text-red flex items-center justify-center mx-auto mb-4" aria-hidden="true" data-testid="invite-error-icon">
+    <span class="w-6 h-6" data-lucide="alert-circle"></span>
+  </div>
+  <h1 class="text-[20px] font-semibold text-ink mb-3 text-center" data-testid="invite-error-title">Invitation unavailable</h1>
+  <p class="text-sm text-subtle text-center" data-testid="invite-error-message">{{ message }}</p>
+{% endblock %}
