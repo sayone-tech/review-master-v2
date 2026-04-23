@@ -7,8 +7,10 @@ from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from rest_framework import serializers, viewsets
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsSuperadmin
@@ -164,3 +166,21 @@ class OrganisationViewSet(viewsets.ModelViewSet[Organisation]):
 
     def perform_destroy(self, instance: Organisation) -> None:
         delete_organisation(organisation=instance)
+
+    @action(
+        detail=True, methods=["post"], url_path="resend-invitation", url_name="resend-invitation"
+    )
+    def resend_invitation(self, request: HttpRequest, pk: int | None = None) -> Response:
+        """POST /api/v1/organisations/<pk>/resend-invitation/ — INVT-01.
+
+        IsSuperadmin permission applied via get_object() -> permission_classes.
+        """
+        from apps.organisations.services.organisations import (
+            resend_invitation as resend_invitation_service,
+        )
+
+        org = self.get_object()
+        if not isinstance(request.user, User):
+            raise TypeError("Authenticated User required")
+        resend_invitation_service(organisation=org, resent_by=request.user)
+        return Response({"detail": "Invitation resent."}, status=200)

@@ -285,3 +285,78 @@ def test_org_admin_dashboard_renders_org_sidebar_not_superadmin_sidebar(client, 
     # Proves Superadmin-only "Organisations" nav href not present in the rendered sidebar
     # (Org Admin sidebar only has Dashboard + Profile links)
     assert b"/admin/organisations/" not in resp.content
+
+
+# --- Phase 4 Plan 04: resend-invitation @action ---
+
+
+def test_resend_invitation_endpoint_superadmin_success(client_logged_in, db):
+    from django.core import mail
+
+    from apps.accounts.models import InvitationToken
+
+    org = OrganisationFactory(email="endpoint-ok@example.com")
+    resp = client_logged_in.post(f"/api/v1/organisations/{org.id}/resend-invitation/")
+    assert resp.status_code == 200
+    assert resp.json() == {"detail": "Invitation resent."}
+    assert InvitationToken.objects.filter(organisation=org, is_used=False).count() == 1
+    assert len(mail.outbox) == 1
+
+
+def test_resend_invitation_endpoint_anonymous_forbidden(client, db):
+    org = OrganisationFactory(email="anon@example.com")
+    resp = client.post(f"/api/v1/organisations/{org.id}/resend-invitation/")
+    assert resp.status_code in (
+        401,
+        403,
+    )  # DRF session auth returns 403 by default for unauthenticated
+
+
+def test_resend_invitation_endpoint_org_admin_forbidden(client, db):
+    from apps.accounts.models import User
+    from apps.accounts.tests.factories import UserFactory
+
+    org = OrganisationFactory(email="forbidden@example.com")
+    org_admin = UserFactory(role=User.Role.ORG_ADMIN, organisation=org, email="oa@example.com")
+    client.force_login(org_admin)
+    resp = client.post(f"/api/v1/organisations/{org.id}/resend-invitation/")
+    assert resp.status_code == 403
+
+
+def test_resend_invitation_endpoint_not_found(client_logged_in, db):
+    resp = client_logged_in.post("/api/v1/organisations/99999/resend-invitation/")
+    assert resp.status_code == 404
+
+
+def test_resend_invitation_endpoint_get_method_not_allowed(client_logged_in, db):
+    org = OrganisationFactory(email="method@example.com")
+    resp = client_logged_in.get(f"/api/v1/organisations/{org.id}/resend-invitation/")
+    assert resp.status_code == 405
+
+
+def test_resend_invitation_endpoint_delete_method_not_allowed(client_logged_in, db):
+    org = OrganisationFactory(email="method-del@example.com")
+    resp = client_logged_in.delete(f"/api/v1/organisations/{org.id}/resend-invitation/")
+    assert resp.status_code == 405
+
+
+def test_resend_invitation_endpoint_invalidates_existing_token(client_logged_in, db):
+    from apps.accounts.models import InvitationToken
+    from apps.accounts.tests.factories import InvitationTokenFactory
+
+    org = OrganisationFactory(email="invalidate@example.com")
+    old = InvitationTokenFactory(organisation=org, is_used=False)
+    resp = client_logged_in.post(f"/api/v1/organisations/{org.id}/resend-invitation/")
+    assert resp.status_code == 200
+    old.refresh_from_db()
+    assert old.is_used is True
+    assert InvitationToken.objects.filter(organisation=org).count() == 2
+
+
+def test_resend_invitation_url_name_resolves():
+    from django.urls import reverse
+
+    assert (
+        reverse("organisation-resend-invitation", kwargs={"pk": 1})
+        == "/api/v1/organisations/1/resend-invitation/"
+    )
