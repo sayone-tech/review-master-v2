@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-04-23T05:59:06Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-04-23T06:11:45.194Z"
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 13
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -56,6 +56,7 @@ Plan: 2 of 5
 | Phase 02-authentication P01 | 8 | 3 tasks | 5 files |
 | Phase 02-authentication P02 | 8 | 3 tasks | 15 files |
 | Phase 02-authentication P03 | 6 | 3 tasks | 10 files |
+| Phase 03-organisation-management P02 | 9 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,9 @@ Recent decisions affecting current work:
 - [Phase 03-organisation-management 01-01]: dict[str, object] used for email context parameter to satisfy mypy strict mode
 - [Phase 03-organisation-management 01-01]: xfail(strict=False) for Wave 0 scaffolds so CI stays green; downstream plans remove markers when implementing
 - [Phase 03-organisation-management 01-01]: Test fixture templates _test.html/_test.txt use underscore prefix to indicate test-only artifacts
+- [Phase 03-organisation-management]: json_script receives Python list (not JSON string) to avoid double-encoding in template
+- [Phase 03-organisation-management]: pagination.html uses has_previous/has_next guards instead of |default filter to prevent EmptyPage exceptions
+- [Phase 03-organisation-management]: org-table-root div placed outside the empty/non-empty conditional so React mount point is always present
 
 ### Pending Todos
 
@@ -110,6 +114,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T05:59:06Z
-Stopped at: Completed 03-01-PLAN.md
-Resume file: .planning/phases/03-organisation-management/03-02-PLAN.md
+Last session: 2026-04-23T06:11:45.192Z
+Stopped at: Completed 03-02-PLAN.md
+Resume file: None
