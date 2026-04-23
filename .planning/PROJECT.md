@@ -13,13 +13,13 @@ Superadmins can create and manage organisations, allocate store slots, and contr
 ### Validated
 
 - [x] Global design system, left sidebar layout, and responsive behaviour — Validated in Phase 01: Foundation
+- [x] Superadmin authentication (login, logout, forgot password) — Validated in Phase 02: Authentication
+- [x] Organisations list with search, filter by status/type, and pagination — Validated in Phase 03: Organisation Management
+- [x] Create, view, edit, enable, disable, and delete organisations — Validated in Phase 03: Organisation Management
+- [x] Adjust store allocation per organisation — Validated in Phase 03: Organisation Management
 
 ### Active
 
-- [ ] Superadmin authentication (login, logout, forgot password)
-- [ ] Organisations list with search, filter by status/type, and pagination
-- [ ] Create, view, edit, enable, disable, and delete organisations
-- [ ] Adjust store allocation per organisation
 - [ ] Organisation Admin invitation email flow (send on create, resend)
 - [ ] Organisation Admin account activation page (token-gated)
 - [ ] Superadmin profile management (name update, password change)
@@ -55,11 +55,11 @@ Superadmins can create and manage organisations, allocate store slots, and contr
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Django templates + Tailwind for shell; React only for complex widgets | Reduces frontend complexity; server-rendered pages are simpler to secure and test | — Pending |
-| Amazon SES via django-ses | Standard for transactional email on GCP-hosted Django apps | — Pending |
-| Django session auth (not JWT) for Phase 1 | Token auth only needed if a separate client is added | — Pending |
-| Soft-delete for organisations in Phase 1 | Permanent purge deferred to a scheduled job in a future phase | — Pending |
-| Invitation tokens via TimestampSigner | Built-in to Django; no extra dependencies; 48-hour expiry and single-use enforced | — Pending |
+| Django templates + Tailwind for shell; React only for complex widgets | Reduces frontend complexity; server-rendered pages are simpler to secure and test | Confirmed — Phase 03 OrgManagement widget uses this hybrid pattern |
+| Amazon SES via django-ses | Standard for transactional email on GCP-hosted Django apps | Confirmed — send_transactional_email helper wired in Phase 03 |
+| Django session auth (not JWT) for Phase 1 | Token auth only needed if a separate client is added | Confirmed — session auth used throughout Phases 1–3 |
+| Soft-delete for organisations in Phase 1 | Permanent purge deferred to a scheduled job in a future phase | Confirmed — soft_delete() implemented in Phase 03 |
+| Invitation tokens via TimestampSigner | Built-in to Django; no extra dependencies; 48-hour expiry and single-use enforced | Confirmed — InvitationToken model created in Phase 03; full activation flow in Phase 04 |
 
 ---
-*Last updated: 2026-04-22 — Phase 01 (Foundation) complete*
+*Last updated: 2026-04-23 — Phase 03 (Organisation Management) complete*
