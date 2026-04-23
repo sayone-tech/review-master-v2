@@ -29,49 +29,49 @@
 
 ### Organisations List
 
-- [ ] **ORGL-01**: Superadmin sees organisations list as the default landing page after login (/admin/organisations)
-- [ ] **ORGL-02**: Organisations list displays columns: Name (bold, clickable), Type (badge), Email, # Stores (used/allocated), Status (badge), Created Date, Actions (three-dot menu)
-- [ ] **ORGL-03**: User can search organisations by name or email (real-time, debounced)
-- [ ] **ORGL-04**: User can filter organisations by status (All / Active / Disabled)
-- [ ] **ORGL-05**: User can filter organisations by type (All / Retail / Restaurant / Pharmacy / Supermarket)
-- [ ] **ORGL-06**: List is paginated with rows-per-page selector (10/25/50/100, default 10) and page navigation controls showing "Showing X–Y of Z"
-- [ ] **ORGL-07**: List shows skeleton loading state while data loads and an empty state with CTA when no organisations exist
-- [ ] **ORGL-08**: List renders with a fixed number of SQL queries regardless of result size (CI query-count ceiling asserted)
+- [x] **ORGL-01**: Superadmin sees organisations list as the default landing page after login (/admin/organisations)
+- [x] **ORGL-02**: Organisations list displays columns: Name (bold, clickable), Type (badge), Email, # Stores (used/allocated), Status (badge), Created Date, Actions (three-dot menu)
+- [x] **ORGL-03**: User can search organisations by name or email (real-time, debounced)
+- [x] **ORGL-04**: User can filter organisations by status (All / Active / Disabled)
+- [x] **ORGL-05**: User can filter organisations by type (All / Retail / Restaurant / Pharmacy / Supermarket)
+- [x] **ORGL-06**: List is paginated with rows-per-page selector (10/25/50/100, default 10) and page navigation controls showing "Showing X–Y of Z"
+- [x] **ORGL-07**: List shows skeleton loading state while data loads and an empty state with CTA when no organisations exist
+- [x] **ORGL-08**: List renders with a fixed number of SQL queries regardless of result size (CI query-count ceiling asserted)
 
 ### Create Organisation
 
-- [ ] **CORG-01**: User can open a "Create Organisation" modal from the list page header
-- [ ] **CORG-02**: Create form accepts: Organisation Name (2–100 chars, required), Organisation Type (dropdown, required), Address (textarea, max 500 chars, optional), Email (valid, unique across orgs, required), Number of Stores (integer 1–1000, required)
-- [ ] **CORG-03**: On successful create, modal closes, success toast appears ("Organisation created. Invitation email sent to {email}."), and list refreshes
-- [ ] **CORG-04**: System generates a secure invitation token (48-hour expiry, single-use) and sends an activation email to the organisation's contact email address immediately on create
+- [x] **CORG-01**: User can open a "Create Organisation" modal from the list page header
+- [x] **CORG-02**: Create form accepts: Organisation Name (2–100 chars, required), Organisation Type (dropdown, required), Address (textarea, max 500 chars, optional), Email (valid, unique across orgs, required), Number of Stores (integer 1–1000, required)
+- [x] **CORG-03**: On successful create, modal closes, success toast appears ("Organisation created. Invitation email sent to {email}."), and list refreshes
+- [x] **CORG-04**: System generates a secure invitation token (48-hour expiry, single-use) and sends an activation email to the organisation's contact email address immediately on create
 
 ### View Organisation
 
-- [ ] **VORG-01**: User can open an Organisation Details modal by clicking the organisation name or selecting "View Details" from the row actions menu
-- [ ] **VORG-02**: Details modal shows: Name, Type (badge), Address, Email, Stores (X used of Y allocated), Status (badge), Created Date, Org Admin activation status (Pending invite / Active / Invitation expired), timestamp of last invitation sent
-- [ ] **VORG-03**: Details modal shows "Resend Invitation" button only when Org Admin has not yet activated the account
+- [x] **VORG-01**: User can open an Organisation Details modal by clicking the organisation name or selecting "View Details" from the row actions menu
+- [x] **VORG-02**: Details modal shows: Name, Type (badge), Address, Email, Stores (X used of Y allocated), Status (badge), Created Date, Org Admin activation status (Pending invite / Active / Invitation expired), timestamp of last invitation sent
+- [x] **VORG-03**: Details modal shows "Resend Invitation" button only when Org Admin has not yet activated the account
 
 ### Edit Organisation
 
-- [ ] **EORG-01**: User can open an Edit Organisation modal (reuses create form layout, all fields pre-filled)
-- [ ] **EORG-02**: Email field is disabled in edit mode — cannot be changed after creation
-- [ ] **EORG-03**: On successful save, modal closes, toast shows "Organisation updated.", and view refreshes
+- [x] **EORG-01**: User can open an Edit Organisation modal (reuses create form layout, all fields pre-filled)
+- [x] **EORG-02**: Email field is disabled in edit mode — cannot be changed after creation
+- [x] **EORG-03**: On successful save, modal closes, toast shows "Organisation updated.", and view refreshes
 
 ### Enable / Disable Organisation
 
-- [ ] **ENBL-01**: User can disable an active organisation via the row actions menu, after confirming a popup (icon: Warning amber; message includes org name; buttons: Cancel / Disable red; success toast on confirm)
-- [ ] **ENBL-02**: User can enable a disabled organisation via the row actions menu, after confirming a popup (icon: Info blue; buttons: Cancel / Enable primary; success toast on confirm)
+- [x] **ENBL-01**: User can disable an active organisation via the row actions menu, after confirming a popup (icon: Warning amber; message includes org name; buttons: Cancel / Disable red; success toast on confirm)
+- [x] **ENBL-02**: User can enable a disabled organisation via the row actions menu, after confirming a popup (icon: Info blue; buttons: Cancel / Enable primary; success toast on confirm)
 
 ### Delete Organisation
 
-- [ ] **DORG-01**: User can delete an organisation via the row actions menu, after a confirmation popup that requires typing the exact organisation name into an input before the Delete button is enabled (icon: Alert red; success toast on confirm)
-- [ ] **DORG-02**: Delete performs a soft-delete (status change); permanent purge is handled by a future scheduled job
+- [x] **DORG-01**: User can delete an organisation via the row actions menu, after a confirmation popup that requires typing the exact organisation name into an input before the Delete button is enabled (icon: Alert red; success toast on confirm)
+- [x] **DORG-02**: Delete performs a soft-delete (status change); permanent purge is handled by a future scheduled job
 
 ### Store Allocation
 
-- [ ] **STOR-01**: User can adjust a store allocation via "Adjust Store Count" from the row actions menu; input shows "Currently using X of Y stores" with helper text showing the minimum allowed value
-- [ ] **STOR-02**: Entering a value below the current in-use count shows an inline amber warning; the Update button remains blocked until the value is valid
-- [ ] **STOR-03**: Clicking Update shows a confirmation popup (icon: Info blue; shows old and new count; buttons: Cancel / Update primary); success toast on confirm
+- [x] **STOR-01**: User can adjust a store allocation via "Adjust Store Count" from the row actions menu; input shows "Currently using X of Y stores" with helper text showing the minimum allowed value
+- [x] **STOR-02**: Entering a value below the current in-use count shows an inline amber warning; the Update button remains blocked until the value is valid
+- [x] **STOR-03**: Clicking Update shows a confirmation popup (icon: Info blue; shows old and new count; buttons: Cancel / Update primary); success toast on confirm
 
 ### Invitation System
 
@@ -153,31 +153,31 @@
 | AUTH-03 | Phase 2 — Authentication | Complete |
 | AUTH-04 | Phase 2 — Authentication | Complete |
 | AUTH-05 | Phase 2 — Authentication | Complete |
-| ORGL-01 | Phase 3 — Organisation Management | Pending |
-| ORGL-02 | Phase 3 — Organisation Management | Pending |
-| ORGL-03 | Phase 3 — Organisation Management | Pending |
-| ORGL-04 | Phase 3 — Organisation Management | Pending |
-| ORGL-05 | Phase 3 — Organisation Management | Pending |
-| ORGL-06 | Phase 3 — Organisation Management | Pending |
-| ORGL-07 | Phase 3 — Organisation Management | Pending |
-| ORGL-08 | Phase 3 — Organisation Management | Pending |
-| CORG-01 | Phase 3 — Organisation Management | Pending |
-| CORG-02 | Phase 3 — Organisation Management | Pending |
-| CORG-03 | Phase 3 — Organisation Management | Pending |
-| CORG-04 | Phase 3 — Organisation Management | Pending |
-| VORG-01 | Phase 3 — Organisation Management | Pending |
-| VORG-02 | Phase 3 — Organisation Management | Pending |
-| VORG-03 | Phase 3 — Organisation Management | Pending |
-| EORG-01 | Phase 3 — Organisation Management | Pending |
-| EORG-02 | Phase 3 — Organisation Management | Pending |
-| EORG-03 | Phase 3 — Organisation Management | Pending |
-| ENBL-01 | Phase 3 — Organisation Management | Pending |
-| ENBL-02 | Phase 3 — Organisation Management | Pending |
-| DORG-01 | Phase 3 — Organisation Management | Pending |
-| DORG-02 | Phase 3 — Organisation Management | Pending |
-| STOR-01 | Phase 3 — Organisation Management | Pending |
-| STOR-02 | Phase 3 — Organisation Management | Pending |
-| STOR-03 | Phase 3 — Organisation Management | Pending |
+| ORGL-01 | Phase 3 — Organisation Management | Complete |
+| ORGL-02 | Phase 3 — Organisation Management | Complete |
+| ORGL-03 | Phase 3 — Organisation Management | Complete |
+| ORGL-04 | Phase 3 — Organisation Management | Complete |
+| ORGL-05 | Phase 3 — Organisation Management | Complete |
+| ORGL-06 | Phase 3 — Organisation Management | Complete |
+| ORGL-07 | Phase 3 — Organisation Management | Complete |
+| ORGL-08 | Phase 3 — Organisation Management | Complete |
+| CORG-01 | Phase 3 — Organisation Management | Complete |
+| CORG-02 | Phase 3 — Organisation Management | Complete |
+| CORG-03 | Phase 3 — Organisation Management | Complete |
+| CORG-04 | Phase 3 — Organisation Management | Complete |
+| VORG-01 | Phase 3 — Organisation Management | Complete |
+| VORG-02 | Phase 3 — Organisation Management | Complete |
+| VORG-03 | Phase 3 — Organisation Management | Complete |
+| EORG-01 | Phase 3 — Organisation Management | Complete |
+| EORG-02 | Phase 3 — Organisation Management | Complete |
+| EORG-03 | Phase 3 — Organisation Management | Complete |
+| ENBL-01 | Phase 3 — Organisation Management | Complete |
+| ENBL-02 | Phase 3 — Organisation Management | Complete |
+| DORG-01 | Phase 3 — Organisation Management | Complete |
+| DORG-02 | Phase 3 — Organisation Management | Complete |
+| STOR-01 | Phase 3 — Organisation Management | Complete |
+| STOR-02 | Phase 3 — Organisation Management | Complete |
+| STOR-03 | Phase 3 — Organisation Management | Complete |
 | INVT-01 | Phase 4 — Invitation and Activation | Pending |
 | INVT-02 | Phase 4 — Invitation and Activation | Pending |
 | ACTV-01 | Phase 4 — Invitation and Activation | Pending |
