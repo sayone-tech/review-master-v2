@@ -168,15 +168,23 @@ def test_password_reset_confirm(anon_client: Client, superadmin: User) -> None:
 
 
 def test_password_reset_expired(anon_client: Client, superadmin: User, settings) -> None:
-    # Force the token to be considered expired by setting timeout to 0 seconds
+    # Force the token to be considered expired by setting timeout to 0 seconds.
+    # Django's token check is "(now - ts) > timeout". With timeout=0 we need at
+    # least 1 second to pass, so we mock _now() to be 1 second in the future on
+    # the check call, making (future - now) == 1 > 0 → expired.
     settings.PASSWORD_RESET_TIMEOUT = 0
+    from datetime import datetime, timedelta
+    from unittest.mock import patch
+
     from django.contrib.auth.tokens import default_token_generator
     from django.utils.encoding import force_bytes
     from django.utils.http import urlsafe_base64_encode
 
     uid = urlsafe_base64_encode(force_bytes(superadmin.pk))
     token = default_token_generator.make_token(superadmin)
-    resp = anon_client.get(f"/password-reset/confirm/{uid}/{token}/", follow=True)
+    future = datetime.now() + timedelta(seconds=1)
+    with patch.object(default_token_generator, "_now", return_value=future):
+        resp = anon_client.get(f"/password-reset/confirm/{uid}/{token}/", follow=True)
     # Expired tokens render the invalid-link template (200) rather than the form
     assert resp.status_code == 200
     assert b"expired" in resp.content.lower() or b"invalid" in resp.content.lower()
