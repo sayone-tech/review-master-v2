@@ -27,10 +27,10 @@
       </span>
       <ul role="list">
         {% if user.role == 'SUPERADMIN' %}
-          {% include "partials/_nav_item.html" with href="/dashboard/" icon="layout-dashboard" label="Dashboard" %}
+          {% include "partials/_nav_item.html" with href="/" icon="layout-dashboard" label="Dashboard" %}
           {% include "partials/_nav_item.html" with href="/admin/organisations/" icon="building-2" label="Organisations" %}
         {% elif user.role == 'ORG_ADMIN' %}
-          {% include "partials/_nav_item.html" with href="/dashboard/" icon="layout-dashboard" label="Dashboard" %}
+          {% include "partials/_nav_item.html" with href="/" icon="layout-dashboard" label="Dashboard" %}
           {% include "partials/_nav_item.html" with href="/stores/" icon="store" label="Stores" %}
           {% include "partials/_nav_item.html" with href="/reviews/" icon="star" label="Reviews" %}
         {% elif user.role == 'STAFF_ADMIN' %}

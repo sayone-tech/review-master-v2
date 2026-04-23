@@ -21,8 +21,38 @@
     {% include "components/filter_bar.html" with search_placeholder="Search by name or email" status_options=status_options type_options=type_options %}
 
     {% if page_obj.paginator.count == 0 %}
-      {% include "components/empty_state.html" with icon="building-2" title="No organisations yet" description="Create your first organisation to get started." cta_label="Create Organisation" cta_id="open-create-org-empty" %}
-      {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
+      {# Wrap empty state + pagination in one card so border-t becomes an internal separator #}
+      <div class="bg-white border border-line rounded-card overflow-hidden" data-testid="empty-state-card">
+        <div class="p-16 text-center">
+          <div class="w-14 h-14 rounded-[14px] bg-yellow-tint text-[#854D0E] mx-auto mb-4 flex items-center justify-center">
+            <span class="w-[26px] h-[26px]" aria-hidden="true" data-lucide="building-2"></span>
+          </div>
+          {% if request.GET.search or request.GET.status or request.GET.type %}
+            <h3 class="text-[16px] font-semibold text-ink mb-1">No results found</h3>
+            <p class="text-[13.5px] text-muted mb-5">No organisations match your current filters.</p>
+            <a
+              href="{% url 'organisation_list' %}"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+              data-testid="clear-filters-link"
+            >
+              Clear filters
+            </a>
+          {% else %}
+            <h3 class="text-[16px] font-semibold text-ink mb-1">No organisations yet</h3>
+            <p class="text-[13.5px] text-muted mb-5">Create your first organisation to get started.</p>
+            <button
+              type="button"
+              id="open-create-org-empty"
+              class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover cursor-pointer"
+              data-testid="create-org-empty-btn"
+            >
+              <span class="w-[14px] h-[14px]" aria-hidden="true" data-lucide="plus"></span>
+              Create Organisation
+            </button>
+          {% endif %}
+        </div>
+        {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
+      </div>
     {% else %}
       <div id="org-table-root" data-testid="org-table-root"></div>
       {{ orgs_json|json_script:"org-data" }}

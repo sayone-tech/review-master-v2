@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Profile — Review Master{% endblock %}
+{% block page_title %}Profile{% endblock %}
+{% block content %}
+  <div class="max-w-[640px]">
+    <section class="bg-white border border-line rounded-card p-6">
+      <h1 class="text-[18px] font-semibold text-ink mb-1">Your profile</h1>
+      <p class="text-[13.5px] text-muted mb-5">Manage your account details and preferences.</p>
+      <dl class="space-y-3 text-[13.5px]">
+        <div class="flex gap-3">
+          <dt class="w-32 text-subtle shrink-0">Name</dt>
+          <dd class="text-ink font-medium">{{ user.full_name|default:"—" }}</dd>
+        </div>
+        <div class="flex gap-3">
+          <dt class="w-32 text-subtle shrink-0">Email</dt>
+          <dd class="text-ink">{{ user.email }}</dd>
+        </div>
+        <div class="flex gap-3">
+          <dt class="w-32 text-subtle shrink-0">Role</dt>
+          <dd class="text-ink">{{ user.get_role_display }}</dd>
+        </div>
+      </dl>
+    </section>
+  </div>
+{% endblock %}

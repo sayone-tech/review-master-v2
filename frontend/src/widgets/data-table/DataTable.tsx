@@ -37,7 +37,7 @@ export function DataTable<T>({
 
   return (
     <div
-      className="bg-white border border-line rounded-card"
+      className="bg-white border border-line rounded-card overflow-hidden"
       data-testid="data-table-wrap"
     >
       <div className="overflow-x-auto">
@@ -90,7 +90,7 @@ export function DataTable<T>({
               : rows.map((row) => (
                   <tr
                     key={rowKey(row)}
-                    className="group hover:bg-[#FBFBFB]"
+                    className="group hover:bg-[#FBFBFB] [&:last-child>td]:border-b-0"
                     data-testid="data-table-row"
                   >
                     {columns.map((col) => (

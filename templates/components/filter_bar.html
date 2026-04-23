@@ -13,6 +13,7 @@ Usage: {% include "components/filter_bar.html" with search_placeholder="Search o
       name="search"
       value="{{ request.GET.search|default:'' }}"
       placeholder="{{ search_placeholder|default:'Search' }}"
+      oninput="if(!this.value) this.form.requestSubmit()"
       class="
              w-full pl-9 pr-3 py-2 text-[13.5px]
              bg-bg border border-line rounded-md
@@ -23,6 +24,7 @@ Usage: {% include "components/filter_bar.html" with search_placeholder="Search o
   {% if status_options %}
     <select
       name="status"
+      onchange="this.form.requestSubmit()"
       class="appearance-none pl-3 pr-8 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:border-ink"
       style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>'); background-repeat: no-repeat; background-position: right 10px center;"
     >
@@ -32,6 +34,7 @@ Usage: {% include "components/filter_bar.html" with search_placeholder="Search o
   {% if type_options %}
     <select
       name="type"
+      onchange="this.form.requestSubmit()"
       class="appearance-none pl-3 pr-8 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:border-ink"
       style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2371717A%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>'); background-repeat: no-repeat; background-position: right 10px center;"
     >

@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, PasswordResetConfirmView
 from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
 from django.urls import reverse_lazy
 
 from apps.accounts.forms import CustomAuthenticationForm
@@ -13,6 +15,11 @@ from apps.accounts.throttling import LoginRateThrottle
 SESSION_AGE_24H = 60 * 60 * 24
 SESSION_AGE_30D = 60 * 60 * 24 * 30
 RATE_LIMIT_MESSAGE = "Too many sign-in attempts. Please try again in 15 minutes."
+
+
+@login_required
+def profile(request: HttpRequest) -> HttpResponse:
+    return render(request, "accounts/profile.html")
 
 
 class CustomLoginView(LoginView):

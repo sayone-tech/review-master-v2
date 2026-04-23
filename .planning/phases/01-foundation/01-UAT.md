@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 01-foundation
 source: 01-01-SUMMARY.md, 01-02-SUMMARY.md, 01-03-SUMMARY.md, 01-04-SUMMARY.md, 01-05-SUMMARY.md
 started: 2026-04-23T12:40:00Z
@@ -88,19 +88,28 @@ skipped: 0
   reason: "User reported: in mobile i can see a button on the top to invoke the sidebar but it is not working"
   severity: major
   test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "sidebar.html copies $store.nav.mobileOpen into a local Alpine variable at mount time; the :class binding reads the stale local copy instead of the live store, so hamburger clicks (which correctly mutate the store) never cause the sidebar to show"
+  artifacts:
+    - path: "templates/partials/sidebar.html"
+      issue: "x-data on <aside> initialises local mobileOpen copy; :class reads that stale local instead of $store.nav.mobileOpen"
+  missing:
+    - "Remove mobileOpen from x-data on <aside>; change :class to read $store.nav.mobileOpen directly"
+  debug_session: ".planning/debug/mobile-sidebar-hamburger-no-open.md"
 
 - truth: "The /__ui__/ showcase page has a button to open the Modal widget"
   status: failed
   reason: "User reported: no such button in the UI"
   severity: major
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "{% vite_react_refresh %} tag is missing from head.html; in dev mode @vitejs/plugin-react refuses to boot without the React Refresh preamble, so showcase.tsx never executes and the React root never mounts"
+  artifacts:
+    - path: "templates/partials/head.html"
+      issue: "{% vite_react_refresh %} tag is missing; only {% vite_hmr_client %} is present"
+    - path: "templates/pages/showcase.html"
+      issue: "{% vite_asset 'src/entrypoints/showcase.tsx' %} is inside {% block content %} instead of a dedicated extra_js block after </main>"
+  missing:
+    - "Add {% vite_react_refresh %} immediately after {% vite_hmr_client %} in templates/partials/head.html"
+    - "Move {% vite_asset 'src/entrypoints/showcase.tsx' %} out of {% block content %} into a {% block extra_js %} slot rendered after </main> in base.html"
   debug_session: ""
 
 - truth: "The /__ui__/ showcase page has a ConfirmModal demo with type-to-confirm gate"
@@ -108,7 +117,7 @@ skipped: 0
   reason: "User reported: no such button or modal in that page"
   severity: major
   test: 10
-  root_cause: ""
+  root_cause: "Same root cause as test 9 — React entrypoint never mounts due to missing {% vite_react_refresh %}"
   artifacts: []
   missing: []
   debug_session: ""
@@ -118,7 +127,7 @@ skipped: 0
   reason: "User reported: this is also missig"
   severity: major
   test: 11
-  root_cause: ""
+  root_cause: "Same root cause as test 9 — React entrypoint never mounts due to missing {% vite_react_refresh %}"
   artifacts: []
   missing: []
   debug_session: ""
@@ -128,7 +137,7 @@ skipped: 0
   reason: "User reported: this is also missign in this page"
   severity: major
   test: 12
-  root_cause: ""
+  root_cause: "Same root cause as test 9 — React entrypoint never mounts due to missing {% vite_react_refresh %}"
   artifacts: []
   missing: []
   debug_session: ""

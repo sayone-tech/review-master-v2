@@ -14,6 +14,8 @@ def is_active_route(context: template.Context, prefix: str) -> bool:
     if request is None:
         return False
     path: str = request.path
+    if prefix == "/":
+        return path == "/"
     return path.startswith(prefix)
 
 
