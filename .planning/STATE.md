@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 4 context gathered
-last_updated: "2026-04-23T11:20:51.669Z"
+stopped_at: Completed 04-01-PLAN.md — Org Admin dashboard stub
+last_updated: "2026-04-23T12:31:35.763Z"
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 20
+  completed_plans: 16
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
-**Current focus:** Phase 03 — organisation-management
+**Current focus:** Phase 04 — invitation-and-activation
 
 ## Current Position
 
-Phase: 03 (organisation-management) — EXECUTING
-Plan: 1 of 6
+Phase: 04 (invitation-and-activation) — EXECUTING
+Plan: 1 of 5
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Plan: 1 of 6
 | Phase 03-organisation-management P05 | 26m | 2 tasks | 7 files |
 | Phase 01-foundation P06 | 5 | 2 tasks | 4 files |
 | Phase 03-organisation-management P06 | 3m | 3 tasks | 6 files |
+| Phase 04-invitation-and-activation P01 | 4m | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,8 @@ Recent decisions affecting current work:
 - [Phase 03-organisation-management]: Tailwind overflow-hidden on a wrapper breaks child position:sticky — prefer overflow-x-auto on the scroll container only
 - [Phase 03-organisation-management]: Mount-point divs for React widgets must live inside the conditional that guards their data, otherwise the widget visually overrides server-rendered empty states
 - [Phase 03-organisation-management]: React 18 StrictMode + inline handler prop to a useEffect listener registrar causes click listener to be absent at click time — stabilise with useCallback([])
+- [Phase 04-invitation-and-activation]: Separate sidebar_org.html file per role (not branching in multi-role sidebar.html) keeps layout boundaries clean and prevents nav item leakage
+- [Phase 04-invitation-and-activation]: ORG_ADMIN with no organisation FK redirects to /login/ — org FK required to render dashboard; SUPERADMIN at /admin/org-dashboard/ redirects to /admin/organisations/
 
 ### Pending Todos
 
@@ -134,6 +137,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T11:20:51.660Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-invitation-and-activation/04-CONTEXT.md
+Last session: 2026-04-23T12:31:35.760Z
+Stopped at: Completed 04-01-PLAN.md — Org Admin dashboard stub
+Resume file: None

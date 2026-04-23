@@ -82,7 +82,7 @@
 
 - [ ] **ACTV-01**: Invitation recipient lands on /invite/accept/<token>/ — a public, token-gated page with no sidebar
 - [ ] **ACTV-02**: Activation page shows "Welcome to {OrganisationName}" and a form with: pre-filled disabled Email, Full Name (required, 2–100 chars), Password (with show/hide toggle, Django validators, strength indicator), Confirm Password (must match)
-- [ ] **ACTV-03**: On successful activation, invitation token is marked used (single-use), Org Admin user is created and associated with the organisation, activation status updates to Active, user is logged in and redirected
+- [x] **ACTV-03**: On successful activation, invitation token is marked used (single-use), Org Admin user is created and associated with the organisation, activation status updates to Active, user is logged in and redirected
 - [ ] **ACTV-04**: Invalid or expired token shows a full-page error: "This invitation link is invalid or has expired. Please contact your administrator to request a new one."
 - [ ] **ACTV-05**: Already-accepted token shows: "This invitation has already been used."
 
@@ -182,7 +182,7 @@
 | INVT-02 | Phase 4 — Invitation and Activation | Pending |
 | ACTV-01 | Phase 4 — Invitation and Activation | Pending |
 | ACTV-02 | Phase 4 — Invitation and Activation | Pending |
-| ACTV-03 | Phase 4 — Invitation and Activation | Pending |
+| ACTV-03 | Phase 4 — Invitation and Activation | Complete |
 | ACTV-04 | Phase 4 — Invitation and Activation | Pending |
 | ACTV-05 | Phase 4 — Invitation and Activation | Pending |
 | EMAL-01 | Phase 4 — Invitation and Activation | Pending |
