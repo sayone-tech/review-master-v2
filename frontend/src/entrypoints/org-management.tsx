@@ -1,4 +1,4 @@
-import { useState, StrictMode, useEffect } from "react";
+import { useState, StrictMode, useEffect, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { OrgTable } from "../widgets/org-management/OrgTable";
 import { CreateOrgModal } from "../widgets/org-management/CreateOrgModal";
@@ -22,6 +22,8 @@ function OrgManagement() {
   const [enableRow, setEnableRow] = useState<OrgRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<OrgRow | null>(null);
   const [storeRow, setStoreRow] = useState<OrgRow | null>(null);
+
+  const handleOpenCreate = useCallback(() => setCreateOpen(true), []);
 
   // Resend invitation lands in Phase 4 (INVT-01). Keep a single placeholder toast.
   const handleResendPlaceholder = () =>
@@ -97,7 +99,7 @@ function OrgManagement() {
         }}
       />
 
-      <CreateButtonBridge onOpen={() => setCreateOpen(true)} />
+      <CreateButtonBridge onOpen={handleOpenCreate} />
     </>
   );
 }
