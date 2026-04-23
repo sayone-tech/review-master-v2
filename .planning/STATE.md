@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-04-23T07:07:10.534Z"
+stopped_at: Completed 01-06-PLAN.md
+last_updated: "2026-04-23T09:14:15.318Z"
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 14
+  completed_plans: 14
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
-**Current focus:** Phase 03 — organisation-management
+**Current focus:** Phase 01 — foundation
 
 ## Current Position
 
-Phase: 03 (organisation-management) — EXECUTING
-Plan: 2 of 5
+Phase: 01 (foundation) — EXECUTING
+Plan: 1 of 6
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Plan: 2 of 5
 | Phase 03-organisation-management P03 | 9 | 2 tasks | 12 files |
 | Phase 03-organisation-management P04 | 14m | 2 tasks | 12 files |
 | Phase 03-organisation-management P05 | 26m | 2 tasks | 7 files |
+| Phase 01-foundation P06 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,9 @@ Recent decisions affecting current work:
 - [Phase 03-organisation-management]: Store allocation upper cap at 1000 to match CreateOrgModal client-side validation
 - [Phase 03-organisation-management]: DeleteConfirmModal uses null-guard return to force ConfirmModal remount, resetting typed state on each open
 - [Phase 03-organisation-management]: StoreAllocationModal captures currentOrg const post null-guard for TypeScript strict null safety in async closure
+- [Phase 01-foundation]: Alpine sidebar must read $store.nav.mobileOpen live — never copy store value into local x-data at mount time
+- [Phase 01-foundation]: vite_react_refresh must appear immediately after vite_hmr_client in head.html for @vitejs/plugin-react dev mode
+- [Phase 01-foundation]: block extra_js placed after </main> so script injection bypasses DOM ordering constraints; showcase vite_asset moved there from block content
 
 ### Pending Todos
 
@@ -125,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T06:58:08.913Z
-Stopped at: Completed 03-05-PLAN.md
+Last session: 2026-04-23T09:14:15.316Z
+Stopped at: Completed 01-06-PLAN.md
 Resume file: None
