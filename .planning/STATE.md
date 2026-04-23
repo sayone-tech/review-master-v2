@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-04-22T16:32:19.655Z"
+stopped_at: Completed 02-authentication-02-01-PLAN.md
+last_updated: "2026-04-23T04:03:58.081Z"
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
-**Current focus:** Phase 01 — foundation
+**Current focus:** Phase 02 — authentication
 
 ## Current Position
 
-Phase: 01 (foundation) — EXECUTING
-Plan: 4 of 5
+Phase: 02 (authentication) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Plan: 4 of 5
 | Phase 01-foundation P04 | 6 | 2 tasks | 20 files |
 | Phase 01-foundation P05 | 12 | 2 tasks | 21 files |
 | Phase 01-foundation P05 | 2 | 3 tasks | 1 files |
+| Phase 02-authentication P01 | 8 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: 01-05: focus-trap-react fallbackFocus=document.body required for jsdom compatibility in vitest tests
 - [Phase 01-foundation]: 01-05: vitest.config.ts uses esbuild JSX transform (not @vitejs/plugin-react) due to vite version mismatch
 - [Phase 01-foundation]: 01-05: base.html restructured with shell_open/shell_close split to fix Django block inheritance through include tags
+- [Phase 02-authentication]: LoginRateThrottle overrides parse_rate: DRF parse_rate uses period[0] which breaks '10/15min'; override handles multi-unit periods via regex
+- [Phase 02-authentication]: test.py CACHES throttle alias uses locmem.LocMemCache to keep tests fast and independent of Redis
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T16:32:19.649Z
-Stopped at: Phase 2 UI-SPEC approved
-Resume file: .planning/phases/02-authentication/02-UI-SPEC.md
+Last session: 2026-04-23T04:03:58.079Z
+Stopped at: Completed 02-authentication-02-01-PLAN.md
+Resume file: None
