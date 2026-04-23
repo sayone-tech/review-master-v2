@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-04-23T06:13:09.003Z"
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-04-23T06:30:03.775Z"
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -58,6 +58,7 @@ Plan: 2 of 5
 | Phase 02-authentication P03 | 6 | 3 tasks | 10 files |
 | Phase 03-organisation-management P02 | 9 | 2 tasks | 12 files |
 | Phase 03-organisation-management P03 | 9 | 2 tasks | 12 files |
+| Phase 03-organisation-management P04 | 14m | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,9 @@ Recent decisions affecting current work:
 - [Phase 03-organisation-management]: org-table-root div placed outside the empty/non-empty conditional so React mount point is always present
 - [Phase 03-organisation-management]: SimpleRouter used (not DefaultRouter): avoids DRF api-root at '/' conflicting with Django home view
 - [Phase 03-organisation-management]: json_script tag: pass Python list not JSON string to avoid double-encoding in organisation list template
+- [Phase 03-organisation-management]: EditOrgModal uses const currentOrg = org after early null-return guard to satisfy TypeScript strict null checks inside async submit closure
+- [Phase 03-organisation-management]: CreateOrgModal test uses form.dispatchEvent(submit) because jsdom does not support HTML form= cross-element association
+- [Phase 03-organisation-management]: Actions column in OrgTable satisfied by DataTable auto-emitted th aria-label=Actions when renderRowActions is provided — no explicit DataTableColumn added
 
 ### Pending Todos
 
@@ -117,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T06:13:09.001Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-04-23T06:30:03.773Z
+Stopped at: Completed 03-04-PLAN.md
 Resume file: None
