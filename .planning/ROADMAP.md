@@ -81,7 +81,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. An invalid, expired, or already-used token shows the correct full-page error message instead of the form
   4. Superadmin can resend an invitation from the row actions menu or details modal — the previous token is invalidated and a new email arrives with the replacement notice
   5. All transactional emails (invitation, resend, password reset) render correctly in Gmail, Outlook, and Apple Mail with inlined CSS, max 600px width, and a plain-text fallback
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 04-01-PLAN.md — Org Admin dashboard stub: base_org.html + sidebar_org partial + org_admin_dashboard view/URL + access-control tests (provides redirect target for activation)
+- [ ] 04-02-PLAN.md — Email infrastructure: SITE_URL setting + absolute _build_accept_url + is_resend conditional in invitation.html/.txt + EMAL-03/04 compliance audit
+- [ ] 04-03-PLAN.md — Activation flow: ActivationForm + activate_account service + invite_accept_view (three token states) + invite_accept/error templates + URL + 16 tests
+- [ ] 04-04-PLAN.md — Resend backend: resend_invitation service (atomic invalidate + create + email) + DRF @action POST /api/v1/organisations/<id>/resend-invitation/ + permission tests
+- [ ] 04-05-PLAN.md — Resend frontend: resendInvitation API function + ResendInvitationModal React component + wire into org-management.tsx (replace Phase 3 stubs)
 
 ### Phase 5: Profile and Hardening
 **Goal**: Superadmin can manage their own profile, and the project is production-ready with CI/CD, observability, security headers, and 85%+ test coverage enforced
@@ -105,5 +110,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 5/6 | Gap closure in progress | 2026-04-22 |
 | 2. Authentication | 3/3 | Complete   | 2026-04-23 |
 | 3. Organisation Management | 6/6 | Complete   | 2026-04-23 |
-| 4. Invitation and Activation | 0/TBD | Not started | - |
+| 4. Invitation and Activation | 0/5 | Planned | - |
 | 5. Profile and Hardening | 0/TBD | Not started | - |
