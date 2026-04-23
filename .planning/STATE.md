@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-authentication-02-02-PLAN.md
-last_updated: "2026-04-23T04:14:08.299Z"
+stopped_at: Completed 02-authentication-02-03-PLAN.md
+last_updated: "2026-04-23T04:21:36.725Z"
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -54,6 +54,7 @@ Plan: 1 of 3
 | Phase 01-foundation P05 | 2 | 3 tasks | 1 files |
 | Phase 02-authentication P01 | 8 | 3 tasks | 5 files |
 | Phase 02-authentication P02 | 8 | 3 tasks | 15 files |
+| Phase 02-authentication P03 | 6 | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,10 @@ Recent decisions affecting current work:
 - [Phase 02-authentication]: Email field inlined in login.html (not via form_fields component) because UI-SPEC requires right-aligned Forgot password? in label row — component lacks extra_attrs support
 - [Phase 02-authentication]: organisations placeholder view added before Django admin in URL order so /admin/organisations/ redirects to /login/ (not /admin/login/) per AUTH-05 test requirements
 - [Phase 02-authentication]: conftest autouse fixture clears throttle LocMemCache before each test — prevents rate-limit state bleed between test_login_rate_limit and subsequent tests
+- [Phase 02-authentication]: CustomPasswordResetConfirmView.form_valid adds flash AFTER super().form_valid — token invalidated first, then message queued
+- [Phase 02-authentication]: Flash message is EXACTLY 'Password updated. Please sign in.' per CONTEXT.md locked copy
+- [Phase 02-authentication]: Hand-inlined CSS in password_reset.html email — premailer integration deferred to Phase 4
+- [Phase 02-authentication]: test_password_reset_expired mocks default_token_generator._now() +1s — Django documents _now() as designed for mocking
 
 ### Pending Todos
 
@@ -101,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T04:14:08.296Z
-Stopped at: Completed 02-authentication-02-02-PLAN.md
+Last session: 2026-04-23T04:21:36.723Z
+Stopped at: Completed 02-authentication-02-03-PLAN.md
 Resume file: None

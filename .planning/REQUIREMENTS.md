@@ -12,8 +12,8 @@
 
 - [x] **AUTH-01**: User can log in with email and password via the /login page
 - [x] **AUTH-02**: User can log out and have their server-side session invalidated
-- [ ] **AUTH-03**: User can request a password reset email via "Forgot password?" link
-- [ ] **AUTH-04**: User can reset their password via a secure, time-limited email link (1-hour expiry)
+- [x] **AUTH-03**: User can request a password reset email via "Forgot password?" link
+- [x] **AUTH-04**: User can reset their password via a secure, time-limited email link (1-hour expiry)
 - [x] **AUTH-05**: User session persists across browser refresh
 
 ### Design System and Layout
@@ -150,8 +150,8 @@
 | DSYS-08 | Phase 1 — Foundation | Complete |
 | AUTH-01 | Phase 2 — Authentication | Complete |
 | AUTH-02 | Phase 2 — Authentication | Complete |
-| AUTH-03 | Phase 2 — Authentication | Pending |
-| AUTH-04 | Phase 2 — Authentication | Pending |
+| AUTH-03 | Phase 2 — Authentication | Complete |
+| AUTH-04 | Phase 2 — Authentication | Complete |
 | AUTH-05 | Phase 2 — Authentication | Complete |
 | ORGL-01 | Phase 3 — Organisation Management | Pending |
 | ORGL-02 | Phase 3 — Organisation Management | Pending |
