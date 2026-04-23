@@ -116,7 +116,7 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "static" / "dist", BASE_DIR / "logo"]
+STATICFILES_DIRS = [BASE_DIR / "static" / "dist", BASE_DIR / "static" / "css", BASE_DIR / "logo"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {

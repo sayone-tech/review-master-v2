@@ -9,6 +9,7 @@ htmlcov/
 *.sqlite3
 staticfiles/
 static/dist/
+static/css/
 node_modules/
 .DS_Store
 .mypy_cache/

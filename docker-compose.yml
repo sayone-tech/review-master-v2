@@ -39,7 +39,7 @@ services:
   vite:
     image: node:22-alpine
     working_dir: /app/frontend
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    command: sh -c "npm install && mkdir -p ../static/css && npm run css:build && npm run css:watch & npm run dev -- --host 0.0.0.0"
     volumes:
       - .:/app
       - vite_node_modules:/app/frontend/node_modules

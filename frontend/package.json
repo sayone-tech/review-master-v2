@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "css:watch": "tailwindcss -i src/styles/tailwind.css -o ../static/css/tailwind.css --watch",
+    "css:build": "tailwindcss -i src/styles/tailwind.css -o ../static/css/tailwind.css --minify"
   },
   "dependencies": {
     "alpinejs": "3.15.11",
@@ -19,6 +21,7 @@
     "react-dom": "19.2.5"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "4.2.4",
     "@tailwindcss/vite": "4.2.4",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "6.6.3",
@@ -28,9 +31,9 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.2.0",
-    "react-refresh": "0.14.2",
     "@vitest/ui": "2.1.8",
     "jsdom": "25.0.1",
+    "react-refresh": "0.14.2",
     "tailwindcss": "4.2.4",
     "typescript": "5.7.2",
     "vite": "6.0.1",
