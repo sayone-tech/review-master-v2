@@ -1,0 +1,13 @@
+{% extends "base_org.html" %}
+{% block title %}Dashboard · Review Master{% endblock %}
+
+{% block content %}
+  <div class="max-w-[560px] mx-auto">
+    <div class="bg-white border border-line rounded-card shadow-sm px-8 py-8" data-testid="org-dashboard-card">
+      <h1 class="text-[20px] font-semibold text-ink mb-2">Welcome to {{ organisation.name }}</h1>
+      <p class="text-sm text-subtle">
+        Your admin panel is being set up. Check back soon.
+      </p>
+    </div>
+  </div>
+{% endblock %}

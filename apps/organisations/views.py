@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from rest_framework import serializers, viewsets
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -89,6 +89,31 @@ def organisation_list(request: HttpRequest) -> HttpResponse:
         "current_type": current_type,
     }
     return render(request, "organisations/list.html", context)
+
+
+@login_required
+def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
+    """Stub Org Admin dashboard — post-activation landing page.
+
+    Role-gated:
+    - SUPERADMIN → redirect to /admin/organisations/
+    - ORG_ADMIN with organisation → render welcome card
+    - ORG_ADMIN without organisation → redirect to /login/ (cannot use dashboard)
+    - Anonymous → @login_required redirects to /login/?next=...
+    """
+    user = request.user
+    # assert type narrowing for mypy strict
+    if not isinstance(user, User):
+        return redirect("/login/")
+    if user.role == User.Role.SUPERADMIN:
+        return redirect("/admin/organisations/")
+    if user.role != User.Role.ORG_ADMIN or user.organisation is None:
+        return redirect("/login/")
+    return render(
+        request,
+        "organisations/org_dashboard.html",
+        {"organisation": user.organisation},
+    )
 
 
 class OrganisationViewSet(viewsets.ModelViewSet[Organisation]):
