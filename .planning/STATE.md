@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-06-PLAN.md
-last_updated: "2026-04-23T09:30:00.616Z"
+stopped_at: Completed 03-06 tasks 1-3; awaiting human-verify checkpoint (Task 4)
+last_updated: "2026-04-23T10:28:10.826Z"
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 14
-  completed_plans: 14
+  total_plans: 15
+  completed_plans: 15
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
-**Current focus:** Phase 01 — foundation
+**Current focus:** Phase 03 — organisation-management
 
 ## Current Position
 
-Phase: 01 (foundation) — EXECUTING
+Phase: 03 (organisation-management) — EXECUTING
 Plan: 1 of 6
 
 ## Performance Metrics
@@ -61,6 +61,7 @@ Plan: 1 of 6
 | Phase 03-organisation-management P04 | 14m | 2 tasks | 12 files |
 | Phase 03-organisation-management P05 | 26m | 2 tasks | 7 files |
 | Phase 01-foundation P06 | 5 | 2 tasks | 4 files |
+| Phase 03-organisation-management P06 | 3m | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Alpine sidebar must read $store.nav.mobileOpen live — never copy store value into local x-data at mount time
 - [Phase 01-foundation]: vite_react_refresh must appear immediately after vite_hmr_client in head.html for @vitejs/plugin-react dev mode
 - [Phase 01-foundation]: block extra_js placed after </main> so script injection bypasses DOM ordering constraints; showcase vite_asset moved there from block content
+- [Phase 03-organisation-management]: React 18 StrictMode + inline handler prop to a useEffect listener registrar causes click listener to be absent at click time — stabilise with useCallback([])
+- [Phase 03-organisation-management]: Tailwind overflow-hidden on a wrapper breaks child position:sticky — prefer overflow-x-auto on the scroll container only
+- [Phase 03-organisation-management]: Mount-point divs for React widgets must live inside the conditional that guards their data, otherwise the widget visually overrides server-rendered empty states
 
 ### Pending Todos
 
@@ -129,6 +133,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T09:14:15.316Z
-Stopped at: Completed 01-06-PLAN.md
+Last session: 2026-04-23T10:28:10.824Z
+Stopped at: Completed 03-06 tasks 1-3; awaiting human-verify checkpoint (Task 4)
 Resume file: None
