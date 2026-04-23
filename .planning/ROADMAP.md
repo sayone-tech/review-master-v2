@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation** - Project scaffolding, data models, design system shell, and Docker dev environment (completed 2026-04-22)
 - [x] **Phase 2: Authentication** - Superadmin login, logout, password reset, and session management (completed 2026-04-23)
 - [x] **Phase 3: Organisation Management** - Full CRUD control plane: list, create, view, edit, enable/disable, delete, store allocation (gap closure in progress) (completed 2026-04-23)
-- [ ] **Phase 4: Invitation and Activation** - Invitation token flow, Org Admin account activation page, and all transactional emails
+- [x] **Phase 4: Invitation and Activation** - Invitation token flow, Org Admin account activation page, and all transactional emails (completed 2026-04-23)
 - [ ] **Phase 5: Profile and Hardening** - Superadmin profile management, CI/CD pipeline, observability, and security hardening
 
 ## Phase Details
