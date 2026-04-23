@@ -77,5 +77,8 @@
     <div id="showcase-root" class="bg-white border border-line rounded-card p-6" data-testid="showcase-react-mount"></div>
   </section>
 
+{% endblock %}
+
+{% block extra_js %}
   {% vite_asset 'src/entrypoints/showcase.tsx' %}
 {% endblock %}

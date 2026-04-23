@@ -9,6 +9,7 @@
     <main id="main-content" data-testid="main-content" class="flex-1 bg-bg p-4 md:p-8" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
+    {% block extra_js %}{% endblock %}
     {% include "partials/shell_close.html" %}
     {% include "components/toasts.html" %}
   </body>
