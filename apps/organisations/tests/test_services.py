@@ -206,3 +206,92 @@ def test_create_organisation_invitation_email_contains_absolute_url(superadmin):
     )
     # Ensure NOT just a relative path leaking into either body
     assert not re.search(r'href="/invite/accept/', html_body), "HTML email must use absolute URL"
+
+
+# --- Phase 4 Plan 02: is_resend template conditional ---
+
+
+def _render_invitation(context):
+    from django.template.loader import render_to_string
+
+    ctx = {"expires_in_hours": 48, "accept_url": "http://x/invite/accept/t/", **context}
+    return (
+        render_to_string("emails/invitation.html", ctx),
+        render_to_string("emails/invitation.txt", ctx),
+    )
+
+
+def test_invitation_html_renders_resend_note_when_is_resend_true(db):
+    org = OrganisationFactory(name="ResendCo")
+    html, _ = _render_invitation({"organisation": org, "is_resend": True})
+    assert "This replaces any previous invitation." in html
+
+
+def test_invitation_html_omits_resend_note_by_default(db):
+    org = OrganisationFactory(name="FirstCo")
+    html, _ = _render_invitation({"organisation": org})
+    assert "This replaces any previous invitation." not in html
+
+
+def test_invitation_html_omits_resend_note_when_is_resend_false(db):
+    org = OrganisationFactory(name="FalseCo")
+    html, _ = _render_invitation({"organisation": org, "is_resend": False})
+    assert "This replaces any previous invitation." not in html
+
+
+def test_invitation_txt_renders_resend_note_when_is_resend_true(db):
+    org = OrganisationFactory(name="TxtResendCo")
+    _, txt = _render_invitation({"organisation": org, "is_resend": True})
+    assert "This replaces any previous invitation." in txt
+
+
+def test_invitation_txt_omits_resend_note_by_default(db):
+    org = OrganisationFactory(name="TxtFirstCo")
+    _, txt = _render_invitation({"organisation": org})
+    assert "This replaces any previous invitation." not in txt
+
+
+# --- EMAL-04 compliance audit ---
+
+
+def test_invitation_html_emal04_compliance():
+    from pathlib import Path
+
+    from django.conf import settings
+
+    p = Path(settings.BASE_DIR) / "templates" / "emails" / "invitation.html"
+    content = p.read_text()
+    assert "max-width:600px" in content
+    assert "<style" not in content.lower(), "invitation.html must use inline styles only"
+
+
+def test_invitation_txt_plaintext_sibling_exists():
+    from pathlib import Path
+
+    from django.conf import settings
+
+    p = Path(settings.BASE_DIR) / "templates" / "emails" / "invitation.txt"
+    assert p.exists()
+    assert p.stat().st_size > 0
+
+
+def test_password_reset_html_emal04_compliance():
+    from pathlib import Path
+
+    from django.conf import settings
+
+    p = Path(settings.BASE_DIR) / "templates" / "emails" / "password_reset.html"
+    content = p.read_text()
+    assert "max-width:600px" in content
+    assert "<style" not in content.lower(), "password_reset.html must use inline styles only"
+    assert "1 hour" in content
+
+
+def test_password_reset_txt_plaintext_sibling_exists():
+    from pathlib import Path
+
+    from django.conf import settings
+
+    p = Path(settings.BASE_DIR) / "templates" / "emails" / "password_reset.txt"
+    assert p.exists()
+    assert p.stat().st_size > 0

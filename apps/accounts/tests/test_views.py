@@ -262,3 +262,25 @@ def test_redirect_unauthenticated(anon_client: Client) -> None:
     resp = anon_client.get("/admin/organisations/")
     assert resp.status_code == 302
     assert "/login/" in resp.url
+
+
+# -------- Phase 4 Plan 02: EMAL-03 password reset email compliance --------
+
+
+def test_password_reset_email_emal03_subject_and_body(
+    anon_client: Client, superadmin: User
+) -> None:
+    mail.outbox = []
+    resp = anon_client.post("/password-reset/", {"email": "super@example.com"})
+    assert resp.status_code == 302  # redirect to done page
+    assert len(mail.outbox) == 1
+    m = mail.outbox[0]
+    # EMAL-03: subject copy
+    assert m.subject.strip() == "Reset your password"
+    # EMAL-03: 1-hour expiry notice present in body
+    assert "1 hour" in m.body
+    # EMAL-04: plain-text AND HTML alternative present
+    assert m.body, "plain-text body required"
+    assert m.alternatives, "HTML alternative required"
+    html = m.alternatives[0][0]
+    assert "max-width:600px" in html

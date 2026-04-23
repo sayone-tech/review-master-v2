@@ -5,6 +5,8 @@ Accept the invitation by visiting the link below to activate your account:
 
 {{ accept_url }}
 
-This invitation link expires in {{ expires_in_hours }} hours and can only be used once.
+{% if is_resend %}This replaces any previous invitation.
+
+{% endif %}This invitation link expires in {{ expires_in_hours }} hours and can only be used once.
 
 If you did not expect this email, you can safely ignore it.

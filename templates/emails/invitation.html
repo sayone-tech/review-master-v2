@@ -44,6 +44,15 @@
                 </p>
               </td>
             </tr>
+            {% if is_resend %}
+              <tr>
+                <td style="padding:0 32px 16px 32px;">
+                  <p style="margin:0;font-size:12px;line-height:1.5;color:#71717A;font-style:italic;">
+                    This replaces any previous invitation.
+                  </p>
+                </td>
+              </tr>
+            {% endif %}
             <tr>
               <td style="padding:0 32px 32px 32px;border-top:1px solid #E4E4E7;">
                 <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#71717A;">
