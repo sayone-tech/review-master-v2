@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-authentication-02-01-PLAN.md
-last_updated: "2026-04-23T04:03:58.081Z"
+stopped_at: Completed 02-authentication-02-02-PLAN.md
+last_updated: "2026-04-23T04:14:08.299Z"
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -53,6 +53,7 @@ Plan: 1 of 3
 | Phase 01-foundation P05 | 12 | 2 tasks | 21 files |
 | Phase 01-foundation P05 | 2 | 3 tasks | 1 files |
 | Phase 02-authentication P01 | 8 | 3 tasks | 5 files |
+| Phase 02-authentication P02 | 8 | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: 01-05: base.html restructured with shell_open/shell_close split to fix Django block inheritance through include tags
 - [Phase 02-authentication]: LoginRateThrottle overrides parse_rate: DRF parse_rate uses period[0] which breaks '10/15min'; override handles multi-unit periods via regex
 - [Phase 02-authentication]: test.py CACHES throttle alias uses locmem.LocMemCache to keep tests fast and independent of Redis
+- [Phase 02-authentication]: Email field inlined in login.html (not via form_fields component) because UI-SPEC requires right-aligned Forgot password? in label row — component lacks extra_attrs support
+- [Phase 02-authentication]: organisations placeholder view added before Django admin in URL order so /admin/organisations/ redirects to /login/ (not /admin/login/) per AUTH-05 test requirements
+- [Phase 02-authentication]: conftest autouse fixture clears throttle LocMemCache before each test — prevents rate-limit state bleed between test_login_rate_limit and subsequent tests
 
 ### Pending Todos
 
@@ -97,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T04:03:58.079Z
-Stopped at: Completed 02-authentication-02-01-PLAN.md
+Last session: 2026-04-23T04:14:08.296Z
+Stopped at: Completed 02-authentication-02-02-PLAN.md
 Resume file: None
