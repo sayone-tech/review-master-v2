@@ -38,7 +38,7 @@ Declared values (must be multiples of 4):
 | md | 16px | Default form field spacing, modal body padding top/bottom |
 | lg | 24px | Modal horizontal padding (`px-6`), section separation |
 | xl | 32px | Empty state outer padding vertical |
-| 2xl | 48px | Empty state inner padding (`py-[72px]` = 72px vertical, 32px horizontal) |
+| 2xl | 48px | Empty state inner padding (`py-16` = 64px vertical, 32px horizontal) |
 | 3xl | 64px | Page-level vertical breathing room |
 
 Exceptions:
