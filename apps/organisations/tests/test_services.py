@@ -10,10 +10,7 @@ from apps.organisations.tests.factories import OrganisationFactory
 
 pytestmark = pytest.mark.django_db
 
-WAVE_0 = pytest.mark.xfail(strict=False, reason="Wave 0 scaffold — implemented in Plan 03")
 
-
-@WAVE_0
 def test_create_organisation_persists_row(superadmin):
     from apps.organisations.services.organisations import create_organisation
 
@@ -28,7 +25,6 @@ def test_create_organisation_persists_row(superadmin):
     assert Organisation.objects.filter(id=org.id, email="new@example.com").exists()
 
 
-@WAVE_0
 def test_create_organisation_creates_invitation_token(superadmin):
     from apps.accounts.models import InvitationToken
     from apps.organisations.services.organisations import create_organisation
@@ -44,7 +40,6 @@ def test_create_organisation_creates_invitation_token(superadmin):
     assert InvitationToken.objects.filter(organisation=org, is_used=False).exists()
 
 
-@WAVE_0
 def test_create_organisation_sends_invitation_email(superadmin):
     from apps.organisations.services.organisations import create_organisation
 
@@ -62,7 +57,6 @@ def test_create_organisation_sends_invitation_email(superadmin):
     assert "Acme" in m.subject
 
 
-@WAVE_0
 def test_create_organisation_atomic_rollback_if_email_fails(superadmin):
     from apps.organisations.services.organisations import create_organisation
 
@@ -84,7 +78,6 @@ def test_create_organisation_atomic_rollback_if_email_fails(superadmin):
     assert not Organisation.objects.filter(email="rb@example.com").exists()
 
 
-@WAVE_0
 def test_update_organisation_does_not_change_email():
     from apps.organisations.services.organisations import update_organisation
 
@@ -95,7 +88,6 @@ def test_update_organisation_does_not_change_email():
     assert org.name == "Renamed"
 
 
-@WAVE_0
 def test_update_organisation_modifies_other_fields():
     from apps.organisations.services.organisations import update_organisation
 
@@ -106,7 +98,6 @@ def test_update_organisation_modifies_other_fields():
     assert org.address == "New addr"
 
 
-@WAVE_0
 def test_disable_organisation_sets_status_disabled():
     from apps.organisations.services.organisations import disable_organisation
 
@@ -116,7 +107,6 @@ def test_disable_organisation_sets_status_disabled():
     assert org.status == Organisation.Status.DISABLED
 
 
-@WAVE_0
 def test_enable_organisation_sets_status_active():
     from apps.organisations.services.organisations import enable_organisation
 
@@ -126,7 +116,6 @@ def test_enable_organisation_sets_status_active():
     assert org.status == Organisation.Status.ACTIVE
 
 
-@WAVE_0
 def test_delete_organisation_soft_deletes_not_hard():
     from apps.organisations.services.organisations import delete_organisation
 
@@ -136,7 +125,6 @@ def test_delete_organisation_soft_deletes_not_hard():
     assert Organisation.objects.filter(id=org_id, status=Organisation.Status.DELETED).exists()
 
 
-@WAVE_0
 def test_adjust_store_allocation_updates_number_of_stores():
     from apps.organisations.services.organisations import adjust_store_allocation
 
@@ -144,3 +132,23 @@ def test_adjust_store_allocation_updates_number_of_stores():
     adjust_store_allocation(organisation=org, new_allocation=15)
     org.refresh_from_db()
     assert org.number_of_stores == 15
+
+
+def test_adjust_store_allocation_rejects_zero():
+    from django.core.exceptions import ValidationError
+
+    from apps.organisations.services.organisations import adjust_store_allocation
+
+    org = OrganisationFactory(number_of_stores=5)
+    with pytest.raises(ValidationError):
+        adjust_store_allocation(organisation=org, new_allocation=0)
+
+
+def test_update_organisation_strips_email_even_if_passed():
+    from apps.organisations.services.organisations import update_organisation
+
+    org = OrganisationFactory(email="original@example.com")
+    update_organisation(organisation=org, email="hack@example.com", name="Renamed")
+    org.refresh_from_db()
+    assert org.email == "original@example.com"
+    assert org.name == "Renamed"

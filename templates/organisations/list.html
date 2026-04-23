@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}Organisations — Review Master{% endblock %}
+
+{% block content %}
+  <div class="max-w-[1200px] mx-auto">
+    <div class="flex items-center justify-between mb-5">
+      <h1 class="text-[22px] font-semibold text-ink tracking-[-0.01em]">Organisations</h1>
+      <button
+        type="button"
+        id="open-create-org"
+        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover"
+        data-testid="create-org-btn"
+      >
+        <span class="w-[14px] h-[14px]" aria-hidden="true" data-lucide="plus"></span>
+        Create Organisation
+      </button>
+    </div>
+
+    {% include "components/filter_bar.html" with search_placeholder="Search by name or email" status_options=status_options type_options=type_options %}
+
+    {% if page_obj.paginator.count == 0 %}
+      {% include "components/empty_state.html" with icon="building-2" title="No organisations yet" description="Create your first organisation to get started." cta_label="Create Organisation" cta_href="#" %}
+    {% else %}
+      {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
+    {% endif %}
+
+    <div id="org-table-root" data-testid="org-table-root"></div>
+    {{ orgs_json|json_script:"org-data" }}
+  </div>
+
+  {% vite_asset 'src/entrypoints/org-management.tsx' %}
+{% endblock %}
