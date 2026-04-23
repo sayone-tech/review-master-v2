@@ -8,8 +8,8 @@ import { DisableConfirmModal } from "../widgets/org-management/DisableConfirmMod
 import { EnableConfirmModal } from "../widgets/org-management/EnableConfirmModal";
 import { DeleteConfirmModal } from "../widgets/org-management/DeleteConfirmModal";
 import { StoreAllocationModal } from "../widgets/org-management/StoreAllocationModal";
+import { ResendInvitationModal } from "../widgets/org-management/ResendInvitationModal";
 import { useOrgs } from "../widgets/org-management/useOrgs";
-import { emitToast } from "../lib/toast";
 import type { OrgRow } from "../widgets/org-management/types";
 
 /**
@@ -55,6 +55,7 @@ function OrgModals() {
   const [enableRow, setEnableRow] = useState<OrgRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<OrgRow | null>(null);
   const [storeRow, setStoreRow] = useState<OrgRow | null>(null);
+  const [resendRow, setResendRow] = useState<OrgRow | null>(null);
 
   const handleOpenCreate = useCallback(() => setCreateOpen(true), []);
 
@@ -69,7 +70,7 @@ function OrgModals() {
         onOpenEnable: (r: OrgRow) => void;
         onOpenDisable: (r: OrgRow) => void;
         onOpenDelete: (r: OrgRow) => void;
-        onOpenResend: () => void;
+        onOpenResend: (r: OrgRow) => void;
         refresh: () => Promise<void>;
       };
     })._orgModalHandlers = {
@@ -79,8 +80,7 @@ function OrgModals() {
       onOpenEnable: (r) => setEnableRow(r),
       onOpenDisable: (r) => setDisableRow(r),
       onOpenDelete: (r) => setDeleteRow(r),
-      onOpenResend: () =>
-        emitToast({ kind: "info", title: "Resend Invitation arrives in Phase 4." }),
+      onOpenResend: (r) => setResendRow(r),
       refresh,
     };
     return () => {
@@ -118,9 +118,10 @@ function OrgModals() {
           setViewRow(null);
           setEditRow(r);
         }}
-        onResend={() =>
-          emitToast({ kind: "info", title: "Resend Invitation arrives in Phase 4." })
-        }
+        onResend={(r) => {
+          setViewRow(null);
+          setResendRow(r);
+        }}
       />
       <EditOrgModal
         org={editRow}
@@ -146,6 +147,10 @@ function OrgModals() {
           await refresh();
           window.dispatchEvent(new CustomEvent("org:refresh"));
         }}
+      />
+      <ResendInvitationModal
+        org={resendRow}
+        onClose={() => setResendRow(null)}
       />
       <DeleteConfirmModal
         org={deleteRow}
@@ -194,7 +199,7 @@ function OrgTableWidget() {
             onOpenEnable: (r: OrgRow) => void;
             onOpenDisable: (r: OrgRow) => void;
             onOpenDelete: (r: OrgRow) => void;
-            onOpenResend: () => void;
+            onOpenResend: (r: OrgRow) => void;
           };
         }
     )._orgModalHandlers;
@@ -206,7 +211,7 @@ function OrgTableWidget() {
       handlers={{
         onOpenView: (r) => getHandlers()?.onOpenView(r),
         onOpenEdit: (r) => getHandlers()?.onOpenEdit(r),
-        onOpenResend: (_r) => getHandlers()?.onOpenResend(),
+        onOpenResend: (r) => getHandlers()?.onOpenResend(r),
         onOpenAdjustStores: (r) => getHandlers()?.onOpenAdjustStores(r),
         onOpenEnable: (r) => getHandlers()?.onOpenEnable(r),
         onOpenDisable: (r) => getHandlers()?.onOpenDisable(r),
