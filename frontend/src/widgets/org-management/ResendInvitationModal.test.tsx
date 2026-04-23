@@ -57,7 +57,8 @@ describe("ResendInvitationModal", () => {
 
   test("shows title and locked message when org is set", () => {
     render(<ResendInvitationModal org={makeOrg()} onClose={() => {}} />);
-    expect(screen.getByText("Resend Invitation")).toBeInTheDocument();
+    // Title appears in h3 and button — use getAllByText and check at least one
+    expect(screen.getAllByText("Resend Invitation").length).toBeGreaterThanOrEqual(1);
     // Message contains the interpolated email and name
     expect(screen.getByText(/Resend invitation to/)).toBeInTheDocument();
     expect(screen.getByText("owner@acme.com")).toBeInTheDocument();

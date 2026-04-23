@@ -90,3 +90,12 @@ export async function deleteOrg(id: number): Promise<void> {
   });
   await handle(resp);
 }
+
+export async function resendInvitation(id: number): Promise<void> {
+  const resp = await fetch(`${BASE}${id}/resend-invitation/`, {
+    method: "POST",
+    headers: headers("POST"),
+    credentials: "same-origin",
+  });
+  await handle(resp);
+}
