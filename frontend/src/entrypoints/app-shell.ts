@@ -1,4 +1,3 @@
-import "../styles/tailwind.css";
 import Alpine from "alpinejs";
 import { createIcons, icons } from "lucide";
 
