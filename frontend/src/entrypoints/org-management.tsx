@@ -12,8 +12,41 @@ import { useOrgs } from "../widgets/org-management/useOrgs";
 import { emitToast } from "../lib/toast";
 import type { OrgRow } from "../widgets/org-management/types";
 
-function OrgManagement() {
-  const { rows, loading, refresh } = useOrgs();
+/**
+ * The Create button(s) are rendered by Django template (so they appear inside
+ * the page header / empty-state before React mounts). This component listens
+ * for clicks on any element with id "open-create-org" OR "open-create-org-empty"
+ * and triggers the React modal.
+ */
+function CreateButtonBridge({ onOpen }: { onOpen: () => void }) {
+  useEffect(() => {
+    const ids = ["open-create-org", "open-create-org-empty"];
+    const handlers: Array<{ btn: HTMLElement; handler: () => void }> = [];
+
+    for (const id of ids) {
+      const btn = document.getElementById(id);
+      if (btn) {
+        const handler = () => onOpen();
+        btn.addEventListener("click", handler);
+        handlers.push({ btn, handler });
+      }
+    }
+
+    return () => {
+      for (const { btn, handler } of handlers) {
+        btn.removeEventListener("click", handler);
+      }
+    };
+  }, [onOpen]);
+  return null;
+}
+
+/**
+ * OrgModals — always mounts on #org-modals-root so that Create modal and
+ * CreateButtonBridge are available regardless of whether the table has rows.
+ */
+function OrgModals() {
+  const { refresh } = useOrgs();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [viewRow, setViewRow] = useState<OrgRow | null>(null);
@@ -25,32 +58,57 @@ function OrgManagement() {
 
   const handleOpenCreate = useCallback(() => setCreateOpen(true), []);
 
-  // Resend invitation lands in Phase 4 (INVT-01). Keep a single placeholder toast.
-  const handleResendPlaceholder = () =>
-    emitToast({ kind: "info", title: "Resend Invitation arrives in Phase 4." });
+  // Expose row-action setters on the window so OrgTableWidget can call them
+  // without prop-drilling across separate React roots.
+  useEffect(() => {
+    (window as Window & typeof globalThis & {
+      _orgModalHandlers?: {
+        onOpenView: (r: OrgRow) => void;
+        onOpenEdit: (r: OrgRow) => void;
+        onOpenAdjustStores: (r: OrgRow) => void;
+        onOpenEnable: (r: OrgRow) => void;
+        onOpenDisable: (r: OrgRow) => void;
+        onOpenDelete: (r: OrgRow) => void;
+        onOpenResend: () => void;
+        refresh: () => Promise<void>;
+      };
+    })._orgModalHandlers = {
+      onOpenView: (r) => setViewRow(r),
+      onOpenEdit: (r) => setEditRow(r),
+      onOpenAdjustStores: (r) => setStoreRow(r),
+      onOpenEnable: (r) => setEnableRow(r),
+      onOpenDisable: (r) => setDisableRow(r),
+      onOpenDelete: (r) => setDeleteRow(r),
+      onOpenResend: () =>
+        emitToast({ kind: "info", title: "Resend Invitation arrives in Phase 4." }),
+      refresh,
+    };
+    return () => {
+      delete (window as Window & typeof globalThis & { _orgModalHandlers?: unknown })
+        ._orgModalHandlers;
+    };
+  }, [refresh]);
 
   return (
     <>
-      <OrgTable
-        rows={rows}
-        loading={loading}
-        handlers={{
-          onOpenView: (r) => setViewRow(r),
-          onOpenEdit: (r) => setEditRow(r),
-          onOpenResend: handleResendPlaceholder,
-          onOpenAdjustStores: (r) => setStoreRow(r),
-          onOpenEnable: (r) => setEnableRow(r),
-          onOpenDisable: (r) => setDisableRow(r),
-          onOpenDelete: (r) => setDeleteRow(r),
-        }}
-      />
+      <CreateButtonBridge onOpen={handleOpenCreate} />
 
       <CreateOrgModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={async () => {
           setCreateOpen(false);
-          await refresh();
+          // If the table widget is already mounted (count > 0 page), signal it to refresh.
+          // If on the empty-state page (count == 0), reload so Django re-renders with the new row.
+          const tableRoot = document.getElementById("org-table-root");
+          if (tableRoot) {
+            await refresh();
+            window.dispatchEvent(new CustomEvent("org:refresh"));
+          } else {
+            // Brief pause so the toast fires before reload
+            await new Promise((r) => setTimeout(r, 800));
+            window.location.reload();
+          }
         }}
       />
       <ViewOrgModal
@@ -60,7 +118,9 @@ function OrgManagement() {
           setViewRow(null);
           setEditRow(r);
         }}
-        onResend={handleResendPlaceholder}
+        onResend={() =>
+          emitToast({ kind: "info", title: "Resend Invitation arrives in Phase 4." })
+        }
       />
       <EditOrgModal
         org={editRow}
@@ -68,6 +128,7 @@ function OrgManagement() {
         onUpdated={async () => {
           setEditRow(null);
           await refresh();
+          window.dispatchEvent(new CustomEvent("org:refresh"));
         }}
       />
       <DisableConfirmModal
@@ -75,6 +136,7 @@ function OrgManagement() {
         onClose={() => setDisableRow(null)}
         onDone={async () => {
           await refresh();
+          window.dispatchEvent(new CustomEvent("org:refresh"));
         }}
       />
       <EnableConfirmModal
@@ -82,6 +144,7 @@ function OrgManagement() {
         onClose={() => setEnableRow(null)}
         onDone={async () => {
           await refresh();
+          window.dispatchEvent(new CustomEvent("org:refresh"));
         }}
       />
       <DeleteConfirmModal
@@ -89,6 +152,7 @@ function OrgManagement() {
         onClose={() => setDeleteRow(null)}
         onDone={async () => {
           await refresh();
+          window.dispatchEvent(new CustomEvent("org:refresh"));
         }}
       />
       <StoreAllocationModal
@@ -96,35 +160,78 @@ function OrgManagement() {
         onClose={() => setStoreRow(null)}
         onDone={async () => {
           await refresh();
+          window.dispatchEvent(new CustomEvent("org:refresh"));
         }}
       />
-
-      <CreateButtonBridge onOpen={handleOpenCreate} />
     </>
   );
 }
 
 /**
- * The Create button is rendered by Django template (so it appears inside the
- * page header before React mounts). This component listens for clicks and
- * triggers the React modal.
+ * OrgTableWidget — mounts on #org-table-root only when there are rows.
+ * Delegates modal open calls to OrgModals via window._orgModalHandlers.
  */
-function CreateButtonBridge({ onOpen }: { onOpen: () => void }) {
+function OrgTableWidget() {
+  const { rows, loading, refresh } = useOrgs();
+
+  // Re-fetch when OrgModals signals a mutation (create/edit/delete/etc.)
   useEffect(() => {
-    const btn = document.getElementById("open-create-org");
-    if (!btn) return undefined;
-    const handler = () => onOpen();
-    btn.addEventListener("click", handler);
-    return () => btn.removeEventListener("click", handler);
-  }, [onOpen]);
-  return null;
+    const handler = () => {
+      void refresh();
+    };
+    window.addEventListener("org:refresh", handler);
+    return () => window.removeEventListener("org:refresh", handler);
+  }, [refresh]);
+
+  const getHandlers = () =>
+    (
+      window as Window &
+        typeof globalThis & {
+          _orgModalHandlers?: {
+            onOpenView: (r: OrgRow) => void;
+            onOpenEdit: (r: OrgRow) => void;
+            onOpenAdjustStores: (r: OrgRow) => void;
+            onOpenEnable: (r: OrgRow) => void;
+            onOpenDisable: (r: OrgRow) => void;
+            onOpenDelete: (r: OrgRow) => void;
+            onOpenResend: () => void;
+          };
+        }
+    )._orgModalHandlers;
+
+  return (
+    <OrgTable
+      rows={rows}
+      loading={loading}
+      handlers={{
+        onOpenView: (r) => getHandlers()?.onOpenView(r),
+        onOpenEdit: (r) => getHandlers()?.onOpenEdit(r),
+        onOpenResend: (_r) => getHandlers()?.onOpenResend(),
+        onOpenAdjustStores: (r) => getHandlers()?.onOpenAdjustStores(r),
+        onOpenEnable: (r) => getHandlers()?.onOpenEnable(r),
+        onOpenDisable: (r) => getHandlers()?.onOpenDisable(r),
+        onOpenDelete: (r) => getHandlers()?.onOpenDelete(r),
+      }}
+    />
+  );
 }
 
-const root = document.getElementById("org-table-root");
-if (root) {
-  createRoot(root).render(
+// Mount modals root — always present regardless of row count
+const modalsRoot = document.getElementById("org-modals-root");
+if (modalsRoot) {
+  createRoot(modalsRoot).render(
     <StrictMode>
-      <OrgManagement />
+      <OrgModals />
+    </StrictMode>,
+  );
+}
+
+// Mount table root — only present when paginator.count > 0
+const tableRoot = document.getElementById("org-table-root");
+if (tableRoot) {
+  createRoot(tableRoot).render(
+    <StrictMode>
+      <OrgTableWidget />
     </StrictMode>,
   );
 }

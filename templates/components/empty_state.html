@@ -8,12 +8,13 @@ Usage: {% include "components/empty_state.html" with icon="building-2" title="No
   <h3 class="text-[16px] font-semibold text-ink mb-1">{{ title }}</h3>
   <p class="text-[13.5px] text-muted mb-[18px]">{{ description }}</p>
   {% if cta_label %}
-    <a
-      href="{{ cta_href }}"
-      class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover"
+    <button
+      type="button"
+      {% if cta_id %}id="{{ cta_id }}"{% endif %}
+      class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover cursor-pointer"
     >
       <span class="w-[14px] h-[14px]" aria-hidden="true" data-lucide="plus"></span>
       {{ cta_label }}
-    </a>
+    </button>
   {% endif %}
 </div>

@@ -10,7 +10,7 @@
       <button
         type="button"
         id="open-create-org"
-        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover"
+        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover cursor-pointer"
         data-testid="create-org-btn"
       >
         <span class="w-[14px] h-[14px]" aria-hidden="true" data-lucide="plus"></span>
@@ -21,13 +21,16 @@
     {% include "components/filter_bar.html" with search_placeholder="Search by name or email" status_options=status_options type_options=type_options %}
 
     {% if page_obj.paginator.count == 0 %}
-      {% include "components/empty_state.html" with icon="building-2" title="No organisations yet" description="Create your first organisation to get started." cta_label="Create Organisation" cta_href="#" %}
+      {% include "components/empty_state.html" with icon="building-2" title="No organisations yet" description="Create your first organisation to get started." cta_label="Create Organisation" cta_id="open-create-org-empty" %}
       {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
     {% else %}
       <div id="org-table-root" data-testid="org-table-root"></div>
       {{ orgs_json|json_script:"org-data" }}
       {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
     {% endif %}
+
+    {# Always-present mount point so React modals + CreateButtonBridge mount regardless of row count #}
+    <div id="org-modals-root"></div>
   </div>
 
   {% vite_asset 'src/entrypoints/org-management.tsx' %}
