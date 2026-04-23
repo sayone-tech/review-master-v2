@@ -1,6 +1,6 @@
 {% load ui %}
 <aside
-  x-data="{ mobileOpen: $store.nav?.mobileOpen ?? false, collapsed: false }"
+  x-data="{ collapsed: false }"
   x-cloak
   class="
          hidden md:flex flex-col shrink-0
@@ -9,7 +9,7 @@
          py-5
          fixed md:static inset-y-0 left-0 z-40
         "
-  :class="mobileOpen ? '!flex !fixed !w-[260px]' : ''"
+  :class="$store.nav?.mobileOpen ? '!flex !fixed !w-[260px]' : ''"
   data-testid="sidebar"
   aria-label="Main navigation"
 >
