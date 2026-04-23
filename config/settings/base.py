@@ -69,15 +69,35 @@ CACHES = {
         },
         "KEY_PREFIX": "app",
         "TIMEOUT": 300,
-    }
+    },
+    "throttle": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("REDIS_URL", default="redis://redis:6379") + "/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,
+        },
+        "KEY_PREFIX": "throttle",
+        "TIMEOUT": 900,
+    },
 }
 DJANGO_REDIS_IGNORE_EXCEPTIONS = True
 DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
 
 AUTH_USER_MODEL = "accounts.User"
-LOGIN_URL = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/dashboard/"
-LOGOUT_REDIRECT_URL = "/accounts/login/"
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/admin/organisations/"
+LOGOUT_REDIRECT_URL = "/login/"
+
+SESSION_COOKIE_AGE = (
+    60 * 60 * 24
+)  # 24 hours; CustomLoginView.form_valid overrides to 30 days when remember_me is checked
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SESSION_SAVE_EVERY_REQUEST = False
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour (AUTH-04)
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -112,7 +132,11 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
         "rest_framework.throttling.AnonRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"user": "1000/hour", "anon": "100/hour"},
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "1000/hour",
+        "anon": "100/hour",
+        "login": "10/15min",
+    },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
