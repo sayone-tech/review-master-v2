@@ -38,17 +38,17 @@ def test_logout_url_name_resolves_in_phase_1():
 
 
 @pytest.mark.django_db
-def test_logout_stub_post_returns_302_to_home(client):
+def test_logout_post_returns_302_to_login(client):
     resp = client.post("/logout/")
     assert resp.status_code == 302
-    assert resp["Location"] == "/"
+    assert resp["Location"] == "/login/"
 
 
 @pytest.mark.django_db
-def test_logout_stub_get_returns_302_to_home(client):
+def test_logout_get_returns_405(client):
+    # Django 5+ LogoutView accepts POST only
     resp = client.get("/logout/")
-    assert resp.status_code == 302
-    assert resp["Location"] == "/"
+    assert resp.status_code == 405
 
 
 @pytest.mark.django_db
