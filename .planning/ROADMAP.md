@@ -62,7 +62,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Superadmin can view full organisation details (including Org Admin activation status and last invitation timestamp) and edit all fields except email
   4. Superadmin can enable or disable an organisation via a confirmed popup and the status badge updates in the list without a page reload
   5. Superadmin can soft-delete an organisation (after typing its name to confirm) and adjust a store allocation with inline validation preventing values below current usage
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 03-01-PLAN.md — Wave 0 gaps: IsSuperadmin permission, send_transactional_email service, shared fixtures, failing test scaffolds for all 25 requirements
+- [ ] 03-02-PLAN.md — Read path: selectors (list + detail), List/Detail serializers, template view, pagination with per_page selector
+- [ ] 03-03-PLAN.md — Write path: services (create/update/enable/disable/delete/adjust_store_allocation), DRF OrganisationViewSet, URL routing, invitation email templates
+- [ ] 03-04-PLAN.md — React OrgManagement widget: Vite entrypoint, types/api/hook, OrgTable with row actions, Create/View/Edit modals
+- [ ] 03-05-PLAN.md — Destructive modals: Disable, Enable, Delete (with type-to-confirm), Store Allocation (two-step); entrypoint wiring
 
 ### Phase 4: Invitation and Activation
 **Goal**: Org Admin recipients can accept invitations and activate their accounts via a secure, time-limited token link — and Superadmins can resend invitations when needed
@@ -97,6 +102,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete   | 2026-04-22 |
 | 2. Authentication | 3/3 | Complete   | 2026-04-23 |
-| 3. Organisation Management | 0/TBD | Not started | - |
+| 3. Organisation Management | 0/5 | Not started | - |
 | 4. Invitation and Activation | 0/TBD | Not started | - |
 | 5. Profile and Hardening | 0/TBD | Not started | - |
