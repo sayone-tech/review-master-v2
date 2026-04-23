@@ -88,6 +88,7 @@ AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/admin/organisations/"
 LOGOUT_REDIRECT_URL = "/login/"
+SITE_URL = env("SITE_URL", default="http://localhost:8000")
 
 SESSION_COOKIE_AGE = (
     60 * 60 * 24

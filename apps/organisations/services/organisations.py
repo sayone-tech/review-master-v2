@@ -20,11 +20,11 @@ _UPDATABLE_FIELDS: frozenset[str] = frozenset(
 
 
 def _build_accept_url(raw_token: str) -> str:
-    # Phase 4 registers the real `invite_accept` named URL. For now return
-    # the relative path; the template renders {{ accept_url }} as-is and
-    # emails render links with an absolute origin injected separately if
-    # needed (invitation.html uses the value verbatim).
-    return f"/invite/accept/{raw_token}/"
+    """Absolute URL to the activation page — used verbatim in email templates."""
+    from django.conf import settings
+
+    base = settings.SITE_URL.rstrip("/")
+    return f"{base}/invite/accept/{raw_token}/"
 
 
 @transaction.atomic

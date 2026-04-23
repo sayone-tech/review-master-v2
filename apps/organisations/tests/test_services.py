@@ -152,3 +152,57 @@ def test_update_organisation_strips_email_even_if_passed():
     org.refresh_from_db()
     assert org.email == "original@example.com"
     assert org.name == "Renamed"
+
+
+# --- Phase 4 Plan 02: absolute accept URL ---
+
+
+def test_build_accept_url_returns_absolute_url():
+    from apps.organisations.services.organisations import _build_accept_url
+
+    url = _build_accept_url("abc123token")
+    assert url.startswith("http://") or url.startswith("https://")
+    assert url.endswith("/invite/accept/abc123token/")
+
+
+def test_build_accept_url_default_site_url():
+    from django.conf import settings
+
+    from apps.organisations.services.organisations import _build_accept_url
+
+    assert settings.SITE_URL == "http://localhost:8000"
+    assert _build_accept_url("tok") == "http://localhost:8000/invite/accept/tok/"
+
+
+def test_build_accept_url_strips_trailing_slash_in_site_url(settings):
+    from apps.organisations.services.organisations import _build_accept_url
+
+    settings.SITE_URL = "https://reviewmaster.example.com/"
+    assert _build_accept_url("tok") == "https://reviewmaster.example.com/invite/accept/tok/"
+
+
+def test_create_organisation_invitation_email_contains_absolute_url(superadmin):
+    import re
+
+    from django.core import mail
+
+    from apps.organisations.services.organisations import create_organisation
+
+    create_organisation(
+        name="Absolute Co",
+        org_type="RETAIL",
+        email="abs@example.com",
+        address="",
+        number_of_stores=1,
+        created_by=superadmin,
+    )
+    assert len(mail.outbox) == 1
+    m = mail.outbox[0]
+    # HTML alternative
+    html_body = m.alternatives[0][0] if m.alternatives else ""
+    assert (
+        "http://localhost:8000/invite/accept/" in m.body
+        or "http://localhost:8000/invite/accept/" in html_body
+    )
+    # Ensure NOT just a relative path leaking into either body
+    assert not re.search(r'href="/invite/accept/', html_body), "HTML email must use absolute URL"
