@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     {% include "partials/head.html" %}
-    <title>{% block title %}Review Master{% endblock %}</title>
+    <title>{% block title %}Review Bee{% endblock %}</title>
   </head>
   <body class="bg-bg font-sans text-text min-h-screen flex items-center justify-center antialiased">
     <a href="#auth-main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-yellow focus:text-black focus:rounded-md">Skip to main content</a>
@@ -11,8 +11,7 @@
       <div class="bg-white border border-line rounded-card shadow-sm px-8 py-8" data-testid="auth-card">
         {# Logo block — always on top of card per UI-SPEC Logo block §Layout Contract #}
         <div class="flex items-center justify-center gap-2 mb-6" data-testid="auth-logo">
-          <span class="w-8 h-8 rounded-logo bg-yellow text-black font-extrabold text-[14px] flex items-center justify-center" aria-hidden="true">R</span>
-          <span class="text-[13px] font-semibold text-ink">Review Master</span>
+          <img src="{% static 'main_logo.png' %}" alt="Review Bee" class="h-8 w-auto">
         </div>
         {% block card %}{% endblock %}
       </div>

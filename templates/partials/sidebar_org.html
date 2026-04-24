@@ -1,4 +1,4 @@
-{% load ui %}
+{% load ui %}{% load static %}
 <aside
   x-data="{ collapsed: false }"
   x-cloak
@@ -14,10 +14,7 @@
   aria-label="Main navigation"
 >
   <div class="px-5 pb-7 flex items-center gap-2" data-testid="sidebar-logo">
-    <span class="inline-flex items-center justify-center w-7 h-7 rounded-logo bg-yellow text-black font-sans font-extrabold text-[14px]">R</span>
-    <span class="md:hidden lg:inline text-[15px] font-semibold text-white">
-      Review <em class="not-italic text-yellow">Master</em>
-    </span>
+    <img src="{% static 'dashboard_logo.png' %}" alt="Review Bee" class="h-8 w-auto">
   </div>
 
   {% if user.is_authenticated %}
