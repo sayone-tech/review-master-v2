@@ -6,13 +6,17 @@ from django.urls import path
 from apps.accounts.views import (
     CustomLoginView,
     CustomPasswordResetConfirmView,
+    change_password_view,
     invite_accept_view,
     profile,
+    update_name_view,
 )
 
 urlpatterns = [
     path("login/", CustomLoginView.as_view(), name="login"),
     path("admin/profile/", profile, name="profile"),
+    path("admin/profile/update-name/", update_name_view, name="profile_update_name"),
+    path("admin/profile/change-password/", change_password_view, name="profile_change_password"),
     path(
         "logout/",
         auth_views.LogoutView.as_view(next_page="/login/"),

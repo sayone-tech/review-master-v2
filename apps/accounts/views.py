@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, PasswordResetConfirmView
 from django.core.exceptions import ValidationError
@@ -11,8 +11,15 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 
-from apps.accounts.forms import ActivationForm, CustomAuthenticationForm
-from apps.accounts.models import InvitationToken
+from apps.accounts.forms import (
+    ActivationForm,
+    CustomAuthenticationForm,
+    ProfileNameForm,
+    ProfilePasswordChangeForm,
+)
+from apps.accounts.models import InvitationToken, User
+from apps.accounts.services.profile import change_password as svc_change_password
+from apps.accounts.services.profile import update_profile_name
 from apps.accounts.throttling import LoginRateThrottle
 
 SESSION_AGE_24H = 60 * 60 * 24
@@ -133,4 +140,56 @@ def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
             "organisation": organisation,
             "email": organisation.email,
         },
+    )
+
+
+@login_required
+def update_name_view(request: HttpRequest) -> HttpResponse:
+    """PROF-01 — POST-only name update."""
+    if request.method != "POST":
+        return redirect("profile")
+    form = ProfileNameForm(request.POST)
+    if form.is_valid():
+        user = cast("User", request.user)  # @login_required guarantees authenticated
+        update_profile_name(
+            user=user,
+            full_name=form.cleaned_data["full_name"],
+        )
+        messages.success(request, "Name updated.")
+        return redirect("profile")
+    return render(
+        request,
+        "accounts/profile.html",
+        {"name_form": form, "pw_form": ProfilePasswordChangeForm()},
+    )
+
+
+@login_required
+def change_password_view(request: HttpRequest) -> HttpResponse:
+    """PROF-02 — POST-only password change."""
+    if request.method != "POST":
+        return redirect("profile")
+    form = ProfilePasswordChangeForm(request.POST)
+    if form.is_valid():
+        user = cast("User", request.user)  # @login_required guarantees authenticated
+        try:
+            svc_change_password(
+                user=user,
+                current_password=form.cleaned_data["current_password"],
+                new_password=form.cleaned_data["new_password"],
+            )
+        except ValueError:
+            form.add_error("current_password", "Current password is incorrect.")
+            return render(
+                request,
+                "accounts/profile.html",
+                {"name_form": ProfileNameForm(), "pw_form": form},
+            )
+        update_session_auth_hash(request, user)
+        messages.success(request, "Password updated.")
+        return redirect("profile")
+    return render(
+        request,
+        "accounts/profile.html",
+        {"name_form": ProfileNameForm(), "pw_form": form},
     )
