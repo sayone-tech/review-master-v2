@@ -89,16 +89,19 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] 04-05-PLAN.md — Resend frontend: resendInvitation API function + ResendInvitationModal React component + wire into org-management.tsx (replace Phase 3 stubs)
 
 ### Phase 5: Profile and Hardening
-**Goal**: Superadmin can manage their own profile, and the project is production-ready with CI/CD, observability, security headers, and 85%+ test coverage enforced
+**Goal**: Superadmin can manage their own profile at /admin/profile/ (name edit-in-place + password change), and the project is production-ready with a GitHub Actions CI pipeline that enforces pre-commit, mypy, pytest ≥85% coverage, migration freshness, and a deploy check — plus two missing production security headers
 **Depends on**: Phase 4
 **Requirements**: PROF-01, PROF-02
 **Success Criteria** (what must be TRUE):
   1. Superadmin can update their full name from /admin/profile and see a success toast
   2. Superadmin can change their password (providing current password, new password with strength indicator, and confirmation) and see a success toast
   3. GitHub Actions CI pipeline runs pre-commit, mypy, pytest (85%+ coverage), migration check, and deploy check on every PR with no manual steps
-  4. Every list endpoint has a CI-enforced query-count ceiling test that passes regardless of result size
-
-**Plans**: TBD
+  4. `manage.py check --deploy` passes against `config.settings.production` with required secrets stubbed
+**Plans**: 4 plans
+- [ ] 05-01-PLAN.md — Wave 0 scaffold: migrate /profile/ → /admin/profile/ URL, update sidebar/topbar hrefs, create apps/accounts/services/ package, seed failing RED test scaffolds for PROF-01/PROF-02
+- [ ] 05-02-PLAN.md — Profile backend: ProfileNameForm + ProfilePasswordChangeForm, update_profile_name + change_password services, update_name_view + change_password_view, two new URL patterns
+- [ ] 05-03-PLAN.md — Profile frontend: rewrite profile.html as two-card page (edit-in-place name + password change with 4-bar strength indicator), remove xfail markers, human-verify checkpoint
+- [ ] 05-04-PLAN.md — Hardening: add SECURE_BROWSER_XSS_FILTER + X_FRAME_OPTIONS to production settings, create .github/workflows/ci.yml with 5-step pipeline
 
 ## Progress
 
@@ -111,4 +114,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Authentication | 3/3 | Complete   | 2026-04-23 |
 | 3. Organisation Management | 6/6 | Complete   | 2026-04-23 |
 | 4. Invitation and Activation | 2/5 | In Progress|  |
-| 5. Profile and Hardening | 0/TBD | Not started | - |
+| 5. Profile and Hardening | 0/4 | Planned | - |
