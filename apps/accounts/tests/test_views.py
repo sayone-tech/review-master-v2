@@ -511,3 +511,83 @@ def test_invite_accept_url_name_resolves():
     from django.urls import reverse
 
     assert reverse("invite_accept", kwargs={"token": "x"}) == "/invite/accept/x/"
+
+
+# -------- PROF-01: profile name update --------
+class TestProfileNameUpdate:
+    def test_profile_get_requires_login(self, anon_client: Client) -> None:
+        resp = anon_client.get("/admin/profile/")
+        assert resp.status_code == 302
+        assert "/login/" in resp.url
+
+    def test_profile_get_authenticated(self, client_logged_in: Client) -> None:
+        resp = client_logged_in.get("/admin/profile/")
+        assert resp.status_code == 200
+
+    def test_update_name_post_valid(self, client_logged_in: Client, superadmin: User) -> None:
+        resp = client_logged_in.post("/admin/profile/update-name/", {"full_name": "New Name"})
+        assert resp.status_code == 302
+        assert resp.url == "/admin/profile/"
+        superadmin.refresh_from_db()
+        assert superadmin.full_name == "New Name"
+        msgs = [str(m) for m in get_messages(resp.wsgi_request)]
+        assert any("updated" in m.lower() for m in msgs)
+
+    def test_update_name_post_invalid(self, client_logged_in: Client) -> None:
+        resp = client_logged_in.post("/admin/profile/update-name/", {"full_name": "A"})
+        assert resp.status_code == 200
+        assert b"at least 2" in resp.content
+
+
+# -------- PROF-02: password change --------
+class TestPasswordChangeView:
+    def test_change_password_post_valid(self, client_logged_in: Client, superadmin: User) -> None:
+        resp = client_logged_in.post(
+            "/admin/profile/change-password/",
+            {
+                "current_password": "testpass1234",
+                "new_password": "NewStrongPass!2026",
+                "confirm_password": "NewStrongPass!2026",
+            },
+        )
+        assert resp.status_code == 302
+        assert resp.url == "/admin/profile/"
+        superadmin.refresh_from_db()
+        assert superadmin.check_password("NewStrongPass!2026")
+
+    def test_change_password_wrong_current(self, client_logged_in: Client) -> None:
+        resp = client_logged_in.post(
+            "/admin/profile/change-password/",
+            {
+                "current_password": "wrong-pass",
+                "new_password": "NewStrongPass!2026",
+                "confirm_password": "NewStrongPass!2026",
+            },
+        )
+        assert resp.status_code == 200
+        assert b"Current password is incorrect" in resp.content
+
+    def test_change_password_mismatch(self, client_logged_in: Client) -> None:
+        resp = client_logged_in.post(
+            "/admin/profile/change-password/",
+            {
+                "current_password": "testpass1234",
+                "new_password": "NewStrongPass!2026",
+                "confirm_password": "DifferentPass!2026",
+            },
+        )
+        assert resp.status_code == 200
+        assert b"Passwords do not match" in resp.content
+
+    def test_change_password_session_preserved(self, client_logged_in: Client) -> None:
+        resp = client_logged_in.post(
+            "/admin/profile/change-password/",
+            {
+                "current_password": "testpass1234",
+                "new_password": "NewStrongPass!2026",
+                "confirm_password": "NewStrongPass!2026",
+            },
+        )
+        assert resp.status_code == 302
+        # update_session_auth_hash must have kept session alive
+        assert "_auth_user_id" in client_logged_in.session
