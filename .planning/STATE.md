@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 04-05-PLAN.md
-last_updated: "2026-04-23T13:05:00.000Z"
+status: unknown
+stopped_at: Completed 05-01-PLAN.md — URL migration, services scaffold, RED test stubs
+last_updated: "2026-04-24T06:42:11.225Z"
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 20
-  completed_plans: 20
+  completed_phases: 3
+  total_plans: 24
+  completed_plans: 18
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
-**Current focus:** Phase 05 — next phase (TBD)
+**Current focus:** Phase 05 — profile-and-hardening
 
 ## Current Position
 
-Phase: 04 (invitation-and-activation) — COMPLETE ✓
-Phase: 05 — pending
+Phase: 05 (profile-and-hardening) — EXECUTING
+Plan: 1 of 4
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Phase: 05 — pending
 | Phase 03-organisation-management P06 | 3m | 3 tasks | 6 files |
 | Phase 04-invitation-and-activation P01 | 4m | 2 tasks | 8 files |
 | Phase 04 P02 | 6 | 2 tasks | 6 files |
+| Phase 05-profile-and-hardening P01 | 2 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,8 @@ Recent decisions affecting current work:
 - [Phase 04]: SITE_URL stored in settings (not hardcoded) so Cloud Run can inject production domain via env var
 - [Phase 04]: _build_accept_url uses rstrip('/') guard on SITE_URL to protect against operator trailing-slash misconfiguration
 - [Phase 04]: {% if is_resend %} block placed after CTA row and before footer border row in invitation.html — Plan 04 resend service passes is_resend=True
+- [Phase 05-profile-and-hardening]: Profile URL migrated to /admin/profile/ with name='profile' preserved — no template {% url 'profile' %} calls needed updating
+- [Phase 05-profile-and-hardening]: services/profile.py stubs raise NotImplementedError with plan reference messages — RED by design (Plans 05-02/03 turn GREEN)
 
 ### Pending Todos
 
@@ -141,6 +144,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T13:05:00.000Z
-Stopped at: Completed 04-05-PLAN.md — Phase 4 verified (11/11 PASS)
+Last session: 2026-04-24T06:42:11.222Z
+Stopped at: Completed 05-01-PLAN.md — URL migration, services scaffold, RED test stubs
 Resume file: None

@@ -88,8 +88,8 @@
 
 ### Superadmin Profile
 
-- [ ] **PROF-01**: Superadmin can update their full name from the Profile page (/admin/profile); success toast on save
-- [ ] **PROF-02**: Superadmin can change their password (requires current password, new password with strength indicator, confirm); success toast on save
+- [x] **PROF-01**: Superadmin can update their full name from the Profile page (/admin/profile); success toast on save
+- [x] **PROF-02**: Superadmin can change their password (requires current password, new password with strength indicator, confirm); success toast on save
 
 ### CI/CD and Security Hardening
 
@@ -194,8 +194,8 @@
 | EMAL-02 | Phase 4 — Invitation and Activation | Complete |
 | EMAL-03 | Phase 4 — Invitation and Activation | Complete |
 | EMAL-04 | Phase 4 — Invitation and Activation | Complete |
-| PROF-01 | Phase 5 — Profile and Hardening | Pending |
-| PROF-02 | Phase 5 — Profile and Hardening | Pending |
+| PROF-01 | Phase 5 — Profile and Hardening | Complete |
+| PROF-02 | Phase 5 — Profile and Hardening | Complete |
 | HRDG-01 | Phase 5 — Profile and Hardening | Pending |
 | HRDG-02 | Phase 5 — Profile and Hardening | Pending |
 
