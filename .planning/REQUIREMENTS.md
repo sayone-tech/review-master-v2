@@ -91,6 +91,11 @@
 - [ ] **PROF-01**: Superadmin can update their full name from the Profile page (/admin/profile); success toast on save
 - [ ] **PROF-02**: Superadmin can change their password (requires current password, new password with strength indicator, confirm); success toast on save
 
+### CI/CD and Security Hardening
+
+- [ ] **HRDG-01**: GitHub Actions CI pipeline runs pre-commit, mypy, pytest (85%+ coverage), migration check, and deploy check on every PR to main
+- [ ] **HRDG-02**: Production settings pass `manage.py check --deploy` with all security headers in place (SECURE_SSL_REDIRECT, SECURE_HSTS_*, SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE, SECURE_BROWSER_XSS_FILTER, SECURE_CONTENT_TYPE_NOSNIFF, X_FRAME_OPTIONS, SECURE_CSP)
+
 ### Email Templates
 
 - [x] **EMAL-01**: Invitation email sends on new organisation create (subject: "You're invited to manage {OrganisationName}"; HTML + plain text; 48-hour expiry notice; Accept Invitation CTA; SES configuration set headers)
@@ -191,12 +196,14 @@
 | EMAL-04 | Phase 4 — Invitation and Activation | Complete |
 | PROF-01 | Phase 5 — Profile and Hardening | Pending |
 | PROF-02 | Phase 5 — Profile and Hardening | Pending |
+| HRDG-01 | Phase 5 — Profile and Hardening | Pending |
+| HRDG-02 | Phase 5 — Profile and Hardening | Pending |
 
 **Coverage:**
-- v1 requirements: 50 total
-- Mapped to phases: 50
+- v1 requirements: 52 total
+- Mapped to phases: 52
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-22*
-*Last updated: 2026-04-22 — traceability updated with 5-phase roadmap assignments*
+*Last updated: 2026-04-24 — added HRDG-01/HRDG-02 for CI/CD and security hardening*
