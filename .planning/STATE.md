@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-02-PLAN.md — profile services, forms, views, URLs implemented
-last_updated: "2026-04-24T06:49:23.838Z"
+stopped_at: Completed 05-04-PLAN.md — production security headers + GitHub Actions CI
+last_updated: "2026-04-24T06:53:44.371Z"
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 24
-  completed_plans: 19
+  completed_plans: 21
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 ## Current Position
 
 Phase: 05 (profile-and-hardening) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Plan: 2 of 4
 | Phase 04 P02 | 6 | 2 tasks | 6 files |
 | Phase 05-profile-and-hardening P01 | 2 | 2 tasks | 7 files |
 | Phase 05-profile-and-hardening P02 | 5m | 2 tasks | 5 files |
+| Phase 05-profile-and-hardening P04 | 2m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,10 @@ Recent decisions affecting current work:
 - [Phase 05-profile-and-hardening]: services/profile.py stubs raise NotImplementedError with plan reference messages — RED by design (Plans 05-02/03 turn GREEN)
 - [Phase 05-profile-and-hardening]: cast(User, request.user) in profile views for mypy strict compliance — @login_required guarantees authenticated User
 - [Phase 05-profile-and-hardening]: Exactly 3 xfail markers on test_update_name_post_invalid, test_change_password_wrong_current, test_change_password_mismatch — template error rendering deferred to Plan 05-03
+- [Phase 05]: Profile page: editing init uses Django template tag so name edit form auto-opens on validation failure without extra JS
+- [Phase 05-profile-and-hardening]: Used Django 6 built-in ContentSecurityPolicyMiddleware (zero new dependencies) over third-party django-csp
+- [Phase 05-profile-and-hardening]: CSP uses unsafe-inline for script-src and style-src for Alpine.js + Tailwind; nonce migration deferred
+- [Phase 05-profile-and-hardening]: MIDDLEWARE extended via [*MIDDLEWARE, ...] unpacking (RUF005 compliance) per ruff auto-fix
 
 ### Pending Todos
 
@@ -147,6 +152,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T06:49:23.835Z
-Stopped at: Completed 05-02-PLAN.md — profile services, forms, views, URLs implemented
+Last session: 2026-04-24T06:53:44.367Z
+Stopped at: Completed 05-04-PLAN.md — production security headers + GitHub Actions CI
 Resume file: None

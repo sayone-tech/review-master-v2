@@ -93,8 +93,8 @@
 
 ### CI/CD and Security Hardening
 
-- [ ] **HRDG-01**: GitHub Actions CI pipeline runs pre-commit, mypy, pytest (85%+ coverage), migration check, and deploy check on every PR to main
-- [ ] **HRDG-02**: Production settings pass `manage.py check --deploy` with all security headers in place (SECURE_SSL_REDIRECT, SECURE_HSTS_*, SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE, SECURE_BROWSER_XSS_FILTER, SECURE_CONTENT_TYPE_NOSNIFF, X_FRAME_OPTIONS, SECURE_CSP)
+- [x] **HRDG-01**: GitHub Actions CI pipeline runs pre-commit, mypy, pytest (85%+ coverage), migration check, and deploy check on every PR to main
+- [x] **HRDG-02**: Production settings pass `manage.py check --deploy` with all security headers in place (SECURE_SSL_REDIRECT, SECURE_HSTS_*, SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE, SECURE_BROWSER_XSS_FILTER, SECURE_CONTENT_TYPE_NOSNIFF, X_FRAME_OPTIONS, SECURE_CSP)
 
 ### Email Templates
 
@@ -196,8 +196,8 @@
 | EMAL-04 | Phase 4 — Invitation and Activation | Complete |
 | PROF-01 | Phase 5 — Profile and Hardening | Complete |
 | PROF-02 | Phase 5 — Profile and Hardening | Complete |
-| HRDG-01 | Phase 5 — Profile and Hardening | Pending |
-| HRDG-02 | Phase 5 — Profile and Hardening | Pending |
+| HRDG-01 | Phase 5 — Profile and Hardening | Complete |
+| HRDG-02 | Phase 5 — Profile and Hardening | Complete |
 
 **Coverage:**
 - v1 requirements: 52 total
