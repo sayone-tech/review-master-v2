@@ -12,7 +12,7 @@ from apps.accounts.views import (
 
 urlpatterns = [
     path("login/", CustomLoginView.as_view(), name="login"),
-    path("profile/", profile, name="profile"),
+    path("admin/profile/", profile, name="profile"),
     path(
         "logout/",
         auth_views.LogoutView.as_view(next_page="/login/"),
