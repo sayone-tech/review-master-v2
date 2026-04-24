@@ -905,17 +905,13 @@ Follow this order, every time:
 
 ## 22. Brand Assets & Logo
 
-All logo and favicon files live in `logo/` at the repo root. This directory is added to `STATICFILES_DIRS` so all files are served as Django static files at `/static/<filename>`.
+All logo and favicon files live in `logo/` at the repo root.
 
 | File | Purpose |
 |------|---------|
-| `logo/logo-nobackground.png` | Primary logo — use in sidebar, login screen, emails |
-| `logo/favicon.svg` | SVG favicon (preferred, modern browsers) |
-| `logo/favicon-96x96.png` | PNG favicon fallback |
+| `logo/dashboard_logo.png` | logo — use in sidebar |
 | `logo/favicon.ico` | Legacy `.ico` favicon |
-| `logo/apple-touch-icon.png` | iOS home-screen icon (180×180) |
-| `logo/web-app-manifest-192x192.png` | PWA manifest icon (192×192) |
-| `logo/web-app-manifest-512x512.png` | PWA manifest icon (512×512) |
+| `logo/main_logo.png` | Main logo used in login page and emails |
 
 ### Usage in templates
 

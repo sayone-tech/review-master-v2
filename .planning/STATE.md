@@ -150,6 +150,12 @@ None yet.
 
 - Phase 1: User model (AUTH_USER_MODEL) must be set and migrated before any other app references it. Do not create Organisation or InvitationToken migrations until accounts/0001 exists.
 
+### Quick Tasks Completed
+
+| ID | Description | Commits | Date |
+|----|-------------|---------|------|
+| 260424-n33 | Rebrand frontend UI from "Review Master" to "Review Bee" — new logo images, favicon, all template text | fbf955c, d69dfaf | 2026-04-24 |
+
 ## Session Continuity
 
 Last session: 2026-04-24T11:16:52.568Z

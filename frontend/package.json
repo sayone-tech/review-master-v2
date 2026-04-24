@@ -13,6 +13,7 @@
     "css:build": "tailwindcss -i src/styles/tailwind.css -o ../static/css/tailwind.css --minify"
   },
   "dependencies": {
+    "@parcel/watcher": "^2.5.6",
     "alpinejs": "3.15.11",
     "focus-trap-react": "12.0.0",
     "lucide": "0.511.0",
