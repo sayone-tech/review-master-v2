@@ -1,6 +1,6 @@
 You're invited to manage {{ organisation.name }}
 
-You've been invited to manage {{ organisation.name }} on Review Master.
+You've been invited to manage {{ organisation.name }} on Review Bee.
 Accept the invitation by visiting the link below to activate your account:
 
 {{ accept_url }}

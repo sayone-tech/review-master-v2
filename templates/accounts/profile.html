@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Profile — Review Master{% endblock %}
+{% block title %}Profile — Review Bee{% endblock %}
 {% block page_title %}Profile{% endblock %}
 
 {% block content %}
@@ -72,7 +72,7 @@
     {# =============== Card 2: Change password =============== #}
     <section class="bg-white border border-line rounded-card p-6" data-testid="password-card">
       <h2 class="text-[18px] font-semibold text-ink mb-1">Change password</h2>
-      <p class="text-[13.5px] text-muted mb-5">Update the password used to sign in to Review Master.</p>
+      <p class="text-[13.5px] text-muted mb-5">Update the password used to sign in to Review Bee.</p>
 
       <form method="post" action="{% url 'profile_change_password' %}" novalidate
             x-data="{
