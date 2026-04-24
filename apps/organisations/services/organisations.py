@@ -53,6 +53,8 @@ def create_organisation(
         organisation=org,
         token_hash=InvitationToken.hash_token(raw_token),
     )
+    from django.conf import settings
+
     send_transactional_email(
         to=[email],
         subject=f"You're invited to manage {name}",
@@ -61,6 +63,7 @@ def create_organisation(
             "organisation": org,
             "accept_url": _build_accept_url(raw_token),
             "expires_in_hours": 48,
+            "site_url": settings.SITE_URL.rstrip("/"),
         },
         tags=["invitation"],
     )
@@ -93,6 +96,8 @@ def resend_invitation(
     )
 
     # Step 3: send resend-flavoured invitation email
+    from django.conf import settings
+
     send_transactional_email(
         to=[organisation.email],
         subject=f"You're invited to manage {organisation.name}",
@@ -102,6 +107,7 @@ def resend_invitation(
             "accept_url": _build_accept_url(raw_token),
             "expires_in_hours": 48,
             "is_resend": True,
+            "site_url": settings.SITE_URL.rstrip("/"),
         },
         tags=["invitation", "resend"],
     )

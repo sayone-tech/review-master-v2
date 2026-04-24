@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import IntegrityError
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from rest_framework import serializers, viewsets
@@ -150,10 +151,15 @@ class OrganisationViewSet(viewsets.ModelViewSet[Organisation]):
     def perform_create(self, serializer: serializers.BaseSerializer[Organisation]) -> None:
         if not isinstance(self.request.user, User):
             raise TypeError("Authenticated User required")
-        org, _token = create_organisation(
-            created_by=self.request.user,
-            **serializer.validated_data,
-        )
+        try:
+            org, _token = create_organisation(
+                created_by=self.request.user,
+                **serializer.validated_data,
+            )
+        except IntegrityError as exc:
+            raise serializers.ValidationError(
+                {"email": ["An organisation with this email already exists."]}
+            ) from exc
         serializer.instance = org
 
     def perform_update(self, serializer: serializers.BaseSerializer[Organisation]) -> None:
