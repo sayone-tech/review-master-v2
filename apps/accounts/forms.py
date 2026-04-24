@@ -68,3 +68,59 @@ class ActivationForm(forms.Form):
         if p1 and p2 and p1 != p2:
             self.add_error("password2", "Passwords do not match.")
         return cleaned
+
+
+class ProfileNameForm(forms.Form):
+    """PROF-01 — name update form."""
+
+    full_name = forms.CharField(
+        min_length=2,
+        max_length=100,
+        strip=True,
+        error_messages={
+            "min_length": "Name must be at least 2 characters.",
+            "max_length": "Name must be at most 100 characters.",
+            "required": "Name is required.",
+        },
+    )
+
+
+class ProfilePasswordChangeForm(forms.Form):
+    """PROF-02 — password change form.
+
+    NOTE: Do NOT use Django's built-in PasswordChangeForm — it requires the
+    user at construction time and uses different field names. This custom
+    form mirrors ActivationForm's pattern for consistency.
+    """
+
+    current_password = forms.CharField(
+        widget=forms.PasswordInput,
+        strip=False,
+        error_messages={"required": "Current password is required."},
+    )
+    new_password = forms.CharField(
+        widget=forms.PasswordInput,
+        strip=False,
+        error_messages={"required": "New password is required."},
+    )
+    confirm_password = forms.CharField(
+        widget=forms.PasswordInput,
+        strip=False,
+        error_messages={"required": "Please confirm your new password."},
+    )
+
+    def clean_new_password(self) -> str:
+        pw: str = self.cleaned_data["new_password"]
+        try:
+            validate_password(pw)
+        except ValidationError as exc:
+            raise forms.ValidationError(list(exc.messages)) from exc
+        return pw
+
+    def clean(self) -> dict[str, Any]:
+        cleaned: dict[str, Any] = super().clean() or {}
+        p1 = cleaned.get("new_password")
+        p2 = cleaned.get("confirm_password")
+        if p1 and p2 and p1 != p2:
+            self.add_error("confirm_password", "Passwords do not match.")
+        return cleaned
