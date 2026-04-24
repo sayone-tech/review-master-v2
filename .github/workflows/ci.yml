@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: reviewmaster
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 3
+        ports:
+          - 6379:6379
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_SECRET_KEY: ci-insecure-secret
+      DJANGO_ALLOWED_HOSTS: localhost
+      DATABASE_URL: postgres://app:app@localhost:5432/reviewmaster
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.4.29"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: pre-commit
+        run: uv run pre-commit run --all-files
+
+      - name: mypy
+        run: uv run mypy .
+
+      - name: pytest (coverage >=85%)
+        run: uv run pytest --cov=apps --cov-fail-under=85
+
+      - name: Check migrations
+        run: uv run python manage.py makemigrations --check --dry-run
+
+      - name: Deploy check (production settings)
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.production
+          DJANGO_SECRET_KEY: ci-deploy-check-secret
+          DJANGO_ALLOWED_HOSTS: localhost
+          AWS_SES_FROM_EMAIL: noreply@example.com
+          DEFAULT_FROM_EMAIL: noreply@example.com
+          DEFAULT_REPLY_TO: support@example.com
+          DATABASE_URL: postgres://app:app@localhost:5432/reviewmaster
+          REDIS_URL: redis://localhost:6379
+        run: uv run python manage.py check --deploy
