@@ -114,4 +114,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Authentication | 3/3 | Complete   | 2026-04-23 |
 | 3. Organisation Management | 6/6 | Complete   | 2026-04-23 |
 | 4. Invitation and Activation | 2/5 | In Progress|  |
-| 5. Profile and Hardening | 1/4 | In Progress|  |
+| 5. Profile and Hardening | 2/4 | In Progress|  |

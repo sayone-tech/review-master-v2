@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-01-PLAN.md — URL migration, services scaffold, RED test stubs
-last_updated: "2026-04-24T06:42:11.225Z"
+stopped_at: Completed 05-02-PLAN.md — profile services, forms, views, URLs implemented
+last_updated: "2026-04-24T06:49:23.838Z"
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 24
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 ## Current Position
 
 Phase: 05 (profile-and-hardening) — EXECUTING
-Plan: 1 of 4
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Plan: 1 of 4
 | Phase 04-invitation-and-activation P01 | 4m | 2 tasks | 8 files |
 | Phase 04 P02 | 6 | 2 tasks | 6 files |
 | Phase 05-profile-and-hardening P01 | 2 | 2 tasks | 7 files |
+| Phase 05-profile-and-hardening P02 | 5m | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -133,6 +134,8 @@ Recent decisions affecting current work:
 - [Phase 04]: {% if is_resend %} block placed after CTA row and before footer border row in invitation.html — Plan 04 resend service passes is_resend=True
 - [Phase 05-profile-and-hardening]: Profile URL migrated to /admin/profile/ with name='profile' preserved — no template {% url 'profile' %} calls needed updating
 - [Phase 05-profile-and-hardening]: services/profile.py stubs raise NotImplementedError with plan reference messages — RED by design (Plans 05-02/03 turn GREEN)
+- [Phase 05-profile-and-hardening]: cast(User, request.user) in profile views for mypy strict compliance — @login_required guarantees authenticated User
+- [Phase 05-profile-and-hardening]: Exactly 3 xfail markers on test_update_name_post_invalid, test_change_password_wrong_current, test_change_password_mismatch — template error rendering deferred to Plan 05-03
 
 ### Pending Todos
 
@@ -144,6 +147,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-24T06:42:11.222Z
-Stopped at: Completed 05-01-PLAN.md — URL migration, services scaffold, RED test stubs
+Last session: 2026-04-24T06:49:23.835Z
+Stopped at: Completed 05-02-PLAN.md — profile services, forms, views, URLs implemented
 Resume file: None
