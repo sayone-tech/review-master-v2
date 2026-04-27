@@ -84,7 +84,7 @@
 - [ ] **XMOD-02**: Region deletion is blocked (info popup with shop count and "Manage Shops" link) when the Region has one or more Shops assigned
 - [ ] **XMOD-03**: Deactivated Shops are excluded from the "Select Stores" list in Add and Edit Team Member modals
 - [ ] **XMOD-04**: Shop allocation counter updates transactionally on shop create/activate/deactivate with no race conditions under concurrent admin sessions
-- [ ] **XMOD-05**: All Phase 2 list endpoints render within the query-count ceilings asserted in CI tests (no N+1 regardless of result size)
+- [x] **XMOD-05**: All Phase 2 list endpoints render within the query-count ceilings asserted in CI tests (no N+1 regardless of result size)
 
 ---
 
@@ -181,7 +181,7 @@
 | XMOD-02 | Phase 7 — Regions | Pending |
 | XMOD-03 | Phase 9 — Team | Pending |
 | XMOD-04 | Phase 8 — Shops | Pending |
-| XMOD-05 | Phase 6–9 (all) | Pending |
+| XMOD-05 | Phase 6–9 (all) | Complete |
 
 **Coverage:**
 - v2 requirements: 57 total

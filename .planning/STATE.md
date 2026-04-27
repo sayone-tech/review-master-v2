@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 6 context gathered
-last_updated: "2026-04-27T10:29:30.107Z"
-last_activity: 2026-04-27 — Roadmap created for v0.2-org-admin (4 phases, 57/57 requirements mapped)
+status: in-progress
+stopped_at: "Completed 06-01-PLAN.md"
+last_updated: "2026-04-27T11:20:00Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 5
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,38 +19,34 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Organisation Admins can manage their Shops, Regions, and Team — the operational layer built on top of the Superadmin control plane.
-**Current focus:** Milestone v0.2-org-admin — Phase 6: Org Admin Shell
+**Current focus:** Phase 06 — org-admin-shell
 
 ## Current Position
 
-Phase: 6 of 9 (Org Admin Shell)
-Plan: — (not yet planned)
-Status: Planning
-Last activity: 2026-04-27 — Roadmap created for v0.2-org-admin (4 phases, 57/57 requirements mapped)
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 06 (org-admin-shell) — EXECUTING
+Plan: 2 of 5 (plan 01 complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: — (no plans run yet)
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 9 minutes
+- Total execution time: 0.15 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 6. Org Admin Shell | 0/5 | - | - |
+| 6. Org Admin Shell | 1/5 | 9m | 9m |
 | 7. Regions | 0/3 | - | - |
 | 8. Shops | 0/5 | - | - |
 | 9. Team | 0/5 | - | - |
 
 **Recent Trend:**
 
-- Last 5 plans: none yet
-- Trend: -
+- Last 5 plans: 06-01 (9m)
+- Trend: baseline established
 
 *Updated after each plan completion*
 
@@ -63,6 +57,9 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- 06-01: django-fernet-encrypted-fields==0.4.0 installed; EncryptedTextField requires null=True for empty-string compatibility
+- 06-01: Django 6 renamed CheckConstraint check= to condition=
+- 06-01: All 3 tasks committed as single atomic commit (pre-commit mypy hook requires app modules to exist)
 - v0.2 init: django-fernet-encrypted-fields==0.3.1 replaces abandoned django-cryptography (no Django 6 support)
 - v0.2 init: django-sequences==3.0 needs Django 6 smoke test in Phase 6; select_for_update() fallback ready
 - v0.2 init: Cross-Origin-Opener-Policy override scoped to OAuth initiation view only — global same-origin stays
@@ -80,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T10:29:30.097Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-org-admin-shell/06-CONTEXT.md
+Last session: 2026-04-27T11:20:00Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: .planning/phases/06-org-admin-shell/06-02-PLAN.md
