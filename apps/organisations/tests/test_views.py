@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from django.db import connection
+from django.test import Client
 from django.test.utils import CaptureQueriesContext
 
 from apps.organisations.models import Organisation
@@ -360,3 +361,131 @@ def test_resend_invitation_url_name_resolves():
         reverse("organisation-resend-invitation", kwargs={"pk": 1})
         == "/api/v1/organisations/1/resend-invitation/"
     )
+
+
+# --- Phase 6 Plan 03: Org Admin sidebar + stub pages ---
+
+
+def _org_admin_client():
+    from apps.accounts.models import User
+    from apps.accounts.tests.factories import UserFactory
+
+    org = OrganisationFactory()
+    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=org)
+    client = Client()
+    client.force_login(user)
+    return client, user, org
+
+
+def test_org_admin_dashboard_v02_alias_resolves() -> None:
+    client, _, _ = _org_admin_client()
+    response = client.get("/admin/org/dashboard/")
+    assert response.status_code == 200
+
+
+def test_legacy_org_admin_dashboard_url_still_works() -> None:
+    """invite_accept_view's reverse('org_admin_dashboard') MUST keep resolving."""
+    from django.urls import reverse
+
+    assert reverse("org_admin_dashboard") == "/admin/org-dashboard/"
+    client, _, _ = _org_admin_client()
+    response = client.get("/admin/org-dashboard/")
+    assert response.status_code == 200
+
+
+def test_sidebar_renders_six_items_in_order() -> None:
+    client, _, _ = _org_admin_client()
+    response = client.get("/admin/org/dashboard/")
+    html = response.content.decode("utf-8")
+    # All six labels present
+    for label in ["Dashboard", "Shops", "Regions", "Team", "Profile", "Log out"]:
+        assert label in html, f"Sidebar missing label: {label}"
+    # Order check — find positions, must be ascending
+    positions = [
+        html.find(">Dashboard<"),
+        html.find(">Shops<"),
+        html.find(">Regions<"),
+        html.find(">Team<"),
+        html.find(">Profile<"),
+    ]
+    assert all(p > 0 for p in positions), f"Some labels not found: {positions}"
+    assert positions == sorted(positions), f"Sidebar items out of order: {positions}"
+
+
+def test_sidebar_contains_six_lucide_icons() -> None:
+    client, _, _ = _org_admin_client()
+    response = client.get("/admin/org/dashboard/")
+    html = response.content.decode("utf-8")
+    for icon in [
+        "layout-dashboard",
+        "store",
+        "map-pin",
+        "users",
+        "user",
+        "log-out",
+    ]:
+        assert f'data-lucide="{icon}"' in html, f"Missing icon: {icon}"
+
+
+def test_sidebar_uses_new_alias_urls() -> None:
+    client, _, _ = _org_admin_client()
+    response = client.get("/admin/org/dashboard/")
+    html = response.content.decode("utf-8")
+    assert 'href="/admin/org/dashboard/"' in html
+    assert 'href="/admin/org/shops/"' in html
+    assert 'href="/admin/org/regions/"' in html
+    assert 'href="/admin/org/team/"' in html
+    assert 'href="/admin/org/profile/"' in html
+
+
+def test_org_stub_view_renders_regions_section() -> None:
+    client, _, _ = _org_admin_client()
+    response = client.get("/admin/org/regions/")
+    assert response.status_code == 200
+    assert b"Regions" in response.content
+    assert b"This section is coming soon." in response.content
+
+
+def test_org_stub_view_renders_shops_section() -> None:
+    client, _, _ = _org_admin_client()
+    response = client.get("/admin/org/shops/")
+    assert response.status_code == 200
+    assert b"Shops" in response.content
+
+
+def test_org_stub_view_renders_team_section() -> None:
+    client, _, _ = _org_admin_client()
+    response = client.get("/admin/org/team/")
+    assert response.status_code == 200
+    assert b"Team" in response.content
+
+
+def test_org_stub_view_returns_403_for_superadmin() -> None:
+    from apps.accounts.models import User
+    from apps.accounts.tests.factories import UserFactory
+
+    user = UserFactory(role=User.Role.SUPERADMIN)
+    client = Client()
+    client.force_login(user)
+    response = client.get("/admin/org/regions/")
+    assert response.status_code == 403
+
+
+def test_org_stub_view_returns_403_for_staff_admin() -> None:
+    from apps.accounts.models import User
+    from apps.accounts.tests.factories import UserFactory
+
+    org = OrganisationFactory()
+    user = UserFactory(role=User.Role.STAFF_ADMIN, organisation=org)
+    client = Client()
+    client.force_login(user)
+    response = client.get("/admin/org/team/")
+    assert response.status_code == 403
+
+
+def test_named_url_patterns_resolve_correctly() -> None:
+    from django.urls import reverse
+
+    assert reverse("org_regions") == "/admin/org/regions/"
+    assert reverse("org_shops") == "/admin/org/shops/"
+    assert reverse("org_team") == "/admin/org/team/"

@@ -14,7 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.models import User
-from apps.accounts.permissions import IsSuperadmin
+from apps.accounts.permissions import IsSuperadmin, org_admin_required
 from apps.organisations.models import Organisation
 from apps.organisations.selectors.organisations import (
     list_organisations as list_organisations_selector,
@@ -116,6 +116,31 @@ def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
         request,
         "organisations/org_dashboard.html",
         {"organisation": user.organisation},
+    )
+
+
+_STUB_DISPLAY: dict[str, tuple[str, str]] = {
+    "regions": ("Regions", "map-pin"),
+    "shops": ("Shops", "store"),
+    "team": ("Team", "users"),
+}
+
+
+@org_admin_required
+def org_stub_view(request: HttpRequest, section: str) -> HttpResponse:
+    """Shared stub view for /admin/org/{regions,shops,team}/ during Phase 6.
+
+    Phases 7, 8, 9 replace each URL's view with the real list page.
+    """
+    title, icon = _STUB_DISPLAY.get(section, (section.title(), "inbox"))
+    return render(
+        request,
+        "organisations/org_stub.html",
+        {
+            "section": title,
+            "section_slug": section,
+            "section_icon": icon,
+        },
     )
 
 

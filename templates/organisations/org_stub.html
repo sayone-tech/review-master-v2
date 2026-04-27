@@ -1,0 +1,8 @@
+{% extends "base_org.html" %}
+{% block title %}{{ section }} · Review Bee{% endblock %}
+
+{% block content %}
+  <div class="max-w-[640px] mx-auto" data-testid="org-stub-{{ section_slug }}">
+    {% include "components/empty_state.html" with icon=section_icon title=section description="This section is coming soon." %}
+  </div>
+{% endblock %}
