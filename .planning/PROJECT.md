@@ -24,9 +24,19 @@ The foundational control plane is live: Superadmins can provision and manage org
 - CI pipeline — pre-commit, mypy, pytest ≥85%, migration check, deploy check
 - Production security headers — HSTS, CSP, X-Frame-Options, secure cookies, SSL redirect
 
-## Next Milestone Goals
+## Current Milestone: v0.2-org-admin — Organisation Admin Module
 
-*To be defined. Run `/gsd:new-milestone` to start requirements discovery for v1.1 or v2.0.*
+**Goal:** Organisation Admins can manage their Shops, Regions, and Team from a dedicated dashboard — the operational layer built on top of the Superadmin control plane.
+
+**Target features:**
+- Org Admin shell — sidebar (Dashboard, Shops, Regions, Team, Profile, Logout), dashboard placeholder with welcome + setup banner, profile page reuse
+- Regions module — list, create (with auto-ID generation), edit, delete (blocked when shops assigned)
+- Shops module — list (allocation counter, search/filter/pagination), create via OAuth or manual Place ID, view/edit, activate/deactivate, API key management, Google reconnect
+- Team module — invite (Manager full-access / Staff scoped by region+store), edit, enable/disable, remove, resend invitation; self-protection + last-manager rules
+- Team invitation email and acceptance flow (reusing Phase 1 token infrastructure)
+- Data model additions: Region, Shop, StaffAccessScope; User updates (invited_by_id, invited_at, accepted_at); OrganisationInvitation → UserInvitation with purpose enum
+
+**Source:** `docs/Requirements_Phase2_OrgAdmin.docx` (v1.0, April 2026)
 
 Likely candidates:
 - Organisation Admin dashboard and store management (Phase 2 in original scope)

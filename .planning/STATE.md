@@ -1,30 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: unknown
-stopped_at: "Completed quick task 260424-n33: rebrand frontend to Review Bee"
-last_updated: "2026-04-24T11:16:52.573Z"
+milestone: v0.2-org-admin
+milestone_name: Organisation Admin Module
+status: defining_requirements
+stopped_at: "Milestone started — defining requirements"
+last_updated: "2026-04-27T00:00:00Z"
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 24
-  completed_plans: 21
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-22)
+See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
-**Current focus:** Phase 05 — profile-and-hardening
+**Current focus:** Milestone v0.2-org-admin — defining requirements
 
 ## Current Position
 
-Phase: 05 (profile-and-hardening) — EXECUTING
-Plan: 3 of 4
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-27 — Milestone v0.2-org-admin started
 
 ## Performance Metrics
 
