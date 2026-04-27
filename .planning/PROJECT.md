@@ -2,45 +2,36 @@
 
 ## What This Is
 
-A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions. Phase 1 delivers the Superadmin module and its supporting invitation flow.
+A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Core Value
+## Current State
 
-Superadmins can create and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
+**v1.0 shipped 2026-04-27** — Superadmin module complete.
 
-## Requirements
+The foundational control plane is live: Superadmins can provision and manage organisations, allocate store slots, control Org Admin access, and manage their own profile. A GitHub Actions CI pipeline enforces quality on every PR.
 
-### Validated
+### What's in production (v1.0)
 
-- [x] Global design system, left sidebar layout, and responsive behaviour — Validated in Phase 01: Foundation
-- [x] Superadmin authentication (login, logout, forgot password) — Validated in Phase 02: Authentication
-- [x] Organisations list with search, filter by status/type, and pagination — Validated in Phase 03: Organisation Management
-- [x] Create, view, edit, enable, disable, and delete organisations — Validated in Phase 03: Organisation Management
-- [x] Adjust store allocation per organisation — Validated in Phase 03: Organisation Management
+- Superadmin login, logout, forgot-password, session management
+- Global design system — left sidebar, topbar, 10+ reusable components, WCAG AA, fully responsive
+- Organisation list with search, filter by status/type, pagination
+- Create, view, edit, enable, disable, delete organisations (soft-delete)
+- Store allocation adjustment per organisation
+- Invitation token flow — send on create, resend; atomic invalidate + re-issue
+- Org Admin account activation page — token-gated, strength indicator, three token states
+- Superadmin profile management — name edit-in-place, password change with strength indicator
+- 4 transactional emails (invitation, resend, password reset, activation) via Amazon SES
+- CI pipeline — pre-commit, mypy, pytest ≥85%, migration check, deploy check
+- Production security headers — HSTS, CSP, X-Frame-Options, secure cookies, SSL redirect
 
-### Active
+## Next Milestone Goals
 
-- [ ] Organisation Admin invitation email flow (send on create, resend)
-- [ ] Organisation Admin account activation page (token-gated)
-- [ ] Superadmin profile management (name update, password change)
+*To be defined. Run `/gsd:new-milestone` to start requirements discovery for v1.1 or v2.0.*
 
-### Out of Scope
-
-- Organisation Admin dashboard and store management — Phase 2
-- Staff Admin role and dashboard — Phase 3
-- Google Business Profile OAuth connection — Phase 2+
-- Review fetching, storage, and analytics — Phase 4
-- Billing and subscription — Phase 5
-- Notifications module beyond basic email — future
-
-## Context
-
-- Requirements document: `docs/Requirements_Phase1_Superadmin.docx` (v1.0, April 2026)
-- Three-role RBAC: SUPERADMIN, ORG_ADMIN, STAFF_ADMIN
-- Stack is fully defined: Django 6 + DRF + Django templates + Tailwind CSS + React (for complex interactive components) + PostgreSQL + Redis + Amazon SES
-- Brand: Primary Yellow #FACC15, Primary Black #0A0A0A — clean SaaS aesthetic (Linear/Stripe/Vercel style)
-- All email via Amazon SES using `django-ses`; local dev uses MailHog
-- Invitation tokens via Django's `TimestampSigner`, 48-hour expiry, single-use
+Likely candidates:
+- Organisation Admin dashboard and store management (Phase 2 in original scope)
+- Staff Admin role and dashboard
+- Google Business Profile OAuth connection per store
 
 ## Constraints
 
@@ -55,11 +46,35 @@ Superadmins can create and manage organisations, allocate store slots, and contr
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Django templates + Tailwind for shell; React only for complex widgets | Reduces frontend complexity; server-rendered pages are simpler to secure and test | Confirmed — Phase 03 OrgManagement widget uses this hybrid pattern |
+| Django templates + Tailwind for shell; React only for complex widgets | Reduces frontend complexity; server-rendered pages are simpler to secure and test | Confirmed — OrgManagement and Profile widgets use this hybrid pattern |
 | Amazon SES via django-ses | Standard for transactional email on GCP-hosted Django apps | Confirmed — send_transactional_email helper wired in Phase 03 |
-| Django session auth (not JWT) for Phase 1 | Token auth only needed if a separate client is added | Confirmed — session auth used throughout Phases 1–3 |
-| Soft-delete for organisations in Phase 1 | Permanent purge deferred to a scheduled job in a future phase | Confirmed — soft_delete() implemented in Phase 03 |
-| Invitation tokens via TimestampSigner | Built-in to Django; no extra dependencies; 48-hour expiry and single-use enforced | Confirmed — InvitationToken model created in Phase 03; full activation flow in Phase 04 |
+| Django session auth (not JWT) for Phase 1 | Token auth only needed if a separate client is added | Confirmed — session auth used throughout v1.0 |
+| Soft-delete for organisations | Permanent purge deferred to a scheduled job in a future phase | Confirmed — delete_organisation() soft-deletes; no hard-delete in v1.0 |
+| Invitation tokens via TimestampSigner | Built-in to Django; no extra dependencies; 48-hour expiry and single-use enforced | Confirmed — full activation flow shipped in Phase 04 |
+| Django 6 built-in CSP middleware | Zero new dependencies vs third-party django-csp | Confirmed — CSP uses unsafe-inline for Alpine.js + Tailwind; nonce migration deferred |
+
+## Context
+
+- Requirements archive: `.planning/milestones/v1.0-REQUIREMENTS.md`
+- Three-role RBAC: SUPERADMIN, ORG_ADMIN, STAFF_ADMIN
+- Brand: Primary Yellow #FACC15, Primary Black #0A0A0A — clean SaaS aesthetic
+- All email via Amazon SES (`django-ses`); local dev uses MailHog
+- Tech debt accepted at v1.0: 20 non-critical items (browser UAT deferred, premailer CSS inlining deferred, ORG_ADMIN /admin/organisations/ UX gap)
 
 ---
-*Last updated: 2026-04-23 — Phase 03 (Organisation Management) complete*
+
+<details>
+<summary>v1.0 milestone (archived)</summary>
+
+**Shipped:** 2026-04-27
+**Phases:** 5 | **Plans:** 24 | **Requirements:** 52/52
+**Commits:** 146 | **Files:** 271 | **LOC:** ~50,000
+
+Core value: Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
+
+Full archive: `.planning/milestones/v1.0-ROADMAP.md`
+
+</details>
+
+---
+*Last updated: 2026-04-27 — v1.0 complete*
