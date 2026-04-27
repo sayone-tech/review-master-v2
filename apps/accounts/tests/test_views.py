@@ -4,11 +4,15 @@ import re
 import secrets as _secrets
 
 import pytest
+from django.contrib.auth import authenticate
 from django.contrib.messages import get_messages
 from django.core import mail
 from django.test import Client
+from django.urls import reverse
 
 from apps.accounts.models import User
+from apps.accounts.tests.factories import UserFactory
+from apps.organisations.tests.factories import OrganisationFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -709,3 +713,135 @@ def test_login_remember_me_checked_sets_30d_expiry() -> None:
     client = Client()
     _post_login(client, "oa-30d@example.com", remember=True)
     assert client.session.get_expiry_age() == _SESSION_AGE_30D
+
+
+# -------- Phase 6 Plan 05: Org Admin profile (SHEL-04) --------
+
+
+def _org_admin_login(password: str = "testpass1234"):  # noqa: S107
+    """Create an ORG_ADMIN with organisation and return (client, user, org)."""
+    org = OrganisationFactory()
+    user = UserFactory(
+        role=User.Role.ORG_ADMIN,
+        organisation=org,
+        full_name="Original Name",
+        email="orgprofile@example.com",
+        password=password,
+    )
+    client = Client()
+    client.force_login(user)
+    return client, user, org
+
+
+def test_org_profile_get_returns_200_with_two_cards() -> None:
+    client, user, _ = _org_admin_login()
+    response = client.get("/admin/org/profile/")
+    assert response.status_code == 200
+    assert b"Your profile" in response.content
+    assert b"Change password" in response.content
+    assert user.email.encode() in response.content
+
+
+def test_org_profile_renders_inside_base_org_shell() -> None:
+    """Confirm sidebar partial from base_org.html is rendered."""
+    client, _, _ = _org_admin_login()
+    response = client.get("/admin/org/profile/")
+    assert response.status_code == 200
+    # base_org.html includes shell_org_open which includes sidebar_org with data-testid="sidebar"
+    assert b'data-testid="sidebar"' in response.content
+
+
+def test_org_profile_returns_403_for_superadmin() -> None:
+    user = UserFactory(role=User.Role.SUPERADMIN)
+    client = Client()
+    client.force_login(user)
+    response = client.get("/admin/org/profile/")
+    assert response.status_code == 403
+
+
+def test_org_profile_returns_403_for_staff_admin() -> None:
+    org = OrganisationFactory()
+    user = UserFactory(role=User.Role.STAFF_ADMIN, organisation=org)
+    client = Client()
+    client.force_login(user)
+    response = client.get("/admin/org/profile/")
+    assert response.status_code == 403
+
+
+def test_org_profile_returns_403_for_org_admin_without_organisation() -> None:
+    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=None)
+    client = Client()
+    client.force_login(user)
+    response = client.get("/admin/org/profile/")
+    assert response.status_code == 403
+
+
+def test_org_profile_update_name_success() -> None:
+    client, user, _ = _org_admin_login()
+    response = client.post(
+        "/admin/org/profile/update-name/",
+        {"full_name": "Updated Org Admin Name"},
+    )
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/org/profile/"
+    user.refresh_from_db()
+    assert user.full_name == "Updated Org Admin Name"
+
+
+def test_org_profile_update_name_invalid_renders_form_with_error() -> None:
+    client, user, _ = _org_admin_login()
+    response = client.post(
+        "/admin/org/profile/update-name/",
+        {"full_name": "X"},  # too short (min 2 chars)
+    )
+    assert response.status_code == 200
+    # Original name unchanged
+    user.refresh_from_db()
+    assert user.full_name == "Original Name"
+
+
+def test_org_profile_change_password_success() -> None:
+    client, user, _ = _org_admin_login(password="testpass1234")
+    response = client.post(
+        "/admin/org/profile/change-password/",
+        {
+            "current_password": "testpass1234",
+            "new_password": "newtestpass2345",
+            "confirm_password": "newtestpass2345",
+        },
+    )
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/org/profile/"
+    # New password works
+    assert authenticate(username=user.email, password="newtestpass2345") is not None
+
+
+def test_org_profile_change_password_wrong_current_shows_error() -> None:
+    client, user, _ = _org_admin_login(password="testpass1234")
+    response = client.post(
+        "/admin/org/profile/change-password/",
+        {
+            "current_password": "WRONG-PASSWORD",
+            "new_password": "newtestpass2345",
+            "confirm_password": "newtestpass2345",
+        },
+    )
+    assert response.status_code == 200
+    assert b"Current password is incorrect." in response.content
+    # Original password still works
+    assert authenticate(username=user.email, password="testpass1234") is not None
+
+
+def test_existing_superadmin_profile_url_still_works() -> None:
+    """No regression: /admin/profile/ continues to render the Phase 5 profile."""
+    user = UserFactory(role=User.Role.SUPERADMIN)
+    client = Client()
+    client.force_login(user)
+    response = client.get("/admin/profile/")
+    assert response.status_code == 200
+
+
+def test_org_profile_url_names_resolve_correctly() -> None:
+    assert reverse("org_profile") == "/admin/org/profile/"
+    assert reverse("org_profile_update_name") == "/admin/org/profile/update-name/"
+    assert reverse("org_profile_change_password") == "/admin/org/profile/change-password/"

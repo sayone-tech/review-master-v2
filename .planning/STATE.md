@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-stopped_at: "Completed 06-03-PLAN.md"
-last_updated: "2026-04-27T12:15:00Z"
+status: unknown
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-04-27T12:18:11.104Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -24,28 +24,28 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 ## Current Position
 
 Phase: 06 (org-admin-shell) — EXECUTING
-Plan: 4 of 5 (plans 01-03 complete)
+Plan: 5 of 5 (plans 01-04 complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3
-- Average duration: 8.3 minutes
-- Total execution time: 0.42 hours
+- Total plans completed: 4
+- Average duration: 8.75 minutes
+- Total execution time: 0.58 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 6. Org Admin Shell | 3/5 | 30m | 10m |
+| 6. Org Admin Shell | 4/5 | 35m | 8.75m |
 | 7. Regions | 0/3 | - | - |
 | 8. Shops | 0/5 | - | - |
 | 9. Team | 0/5 | - | - |
 
 **Recent Trend:**
 
-- Last 5 plans: 06-01 (9m), 06-02 (6m), 06-03 (15m)
+- Last 5 plans: 06-01 (9m), 06-02 (6m), 06-03 (15m), 06-04 (5m)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -73,6 +73,9 @@ Recent decisions affecting current work:
 - v0.2 init: Cross-Origin-Opener-Policy override scoped to OAuth initiation view only — global same-origin stays
 - v0.2 init: InvitationToken expand-contract 3-step: Phase 6 (add purpose column), Phase 9 (backfill + non-null), post-v0.2 (rename)
 - v0.2 init: StaffAccessScope lives in apps/accounts to avoid circular imports with regions/shops apps
+- [Phase 06-04]: org-less ORG_ADMIN now returns 403 (was redirect to /login/) — aligns with CONTEXT.md wrong-role spec
+- [Phase 06-04]: Banner check uses Region.objects.filter(organisation=...).exists() not .count() — short-circuits at first row
+- [Phase 06-04]: first_name extracted via user.full_name.split()[0] with fallback to user.email.split('@')[0] when blank/whitespace-only
 
 ### Pending Todos
 
@@ -85,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T12:15:00Z
-Stopped at: Completed 06-03-PLAN.md
-Resume file: .planning/phases/06-org-admin-shell/06-04-PLAN.md
+Last session: 2026-04-27T12:18:11.101Z
+Stopped at: Completed 06-04-PLAN.md
+Resume file: None

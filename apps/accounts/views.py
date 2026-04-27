@@ -18,6 +18,7 @@ from apps.accounts.forms import (
     ProfilePasswordChangeForm,
 )
 from apps.accounts.models import InvitationToken, User
+from apps.accounts.permissions import org_admin_required
 from apps.accounts.services.profile import change_password as svc_change_password
 from apps.accounts.services.profile import update_profile_name
 from apps.accounts.throttling import LoginRateThrottle
@@ -203,5 +204,67 @@ def change_password_view(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "accounts/profile.html",
+        {"name_form": ProfileNameForm(), "pw_form": form},
+    )
+
+
+@org_admin_required
+def org_profile(request: HttpRequest) -> HttpResponse:
+    """Org Admin profile page — /admin/org/profile/.
+
+    Mirrors the Superadmin `profile` view exactly but renders inside base_org.html.
+    Reuses the same form classes and service functions.
+    """
+    return render(request, "accounts/org_profile.html")
+
+
+@org_admin_required
+def org_update_name_view(request: HttpRequest) -> HttpResponse:
+    """POST-only Org Admin name update."""
+    if request.method != "POST":
+        return redirect("org_profile")
+    form = ProfileNameForm(request.POST)
+    if form.is_valid():
+        user = cast("User", request.user)
+        update_profile_name(
+            user=user,
+            full_name=form.cleaned_data["full_name"],
+        )
+        messages.success(request, "Name updated.")
+        return redirect("org_profile")
+    return render(
+        request,
+        "accounts/org_profile.html",
+        {"name_form": form, "pw_form": ProfilePasswordChangeForm()},
+    )
+
+
+@org_admin_required
+def org_change_password_view(request: HttpRequest) -> HttpResponse:
+    """POST-only Org Admin password change."""
+    if request.method != "POST":
+        return redirect("org_profile")
+    form = ProfilePasswordChangeForm(request.POST)
+    if form.is_valid():
+        user = cast("User", request.user)
+        try:
+            svc_change_password(
+                user=user,
+                current_password=form.cleaned_data["current_password"],
+                new_password=form.cleaned_data["new_password"],
+            )
+        except ValueError:
+            form.add_error("current_password", "Current password is incorrect.")
+            return render(
+                request,
+                "accounts/org_profile.html",
+                {"name_form": ProfileNameForm(), "pw_form": form},
+            )
+        update_session_auth_hash(request, user)
+        messages.success(request, "Password changed.")
+        return redirect("org_profile")
+    return render(
+        request,
+        "accounts/org_profile.html",
         {"name_form": ProfileNameForm(), "pw_form": form},
     )

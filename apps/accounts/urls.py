@@ -8,6 +8,9 @@ from apps.accounts.views import (
     CustomPasswordResetConfirmView,
     change_password_view,
     invite_accept_view,
+    org_change_password_view,
+    org_profile,
+    org_update_name_view,
     profile,
     update_name_view,
 )
@@ -17,6 +20,19 @@ urlpatterns = [
     path("admin/profile/", profile, name="profile"),
     path("admin/profile/update-name/", update_name_view, name="profile_update_name"),
     path("admin/profile/change-password/", change_password_view, name="profile_change_password"),
+    # Org Admin profile — separate URLs from Superadmin profile (/admin/profile/)
+    # Reuses same services + form classes; renders inside base_org.html.
+    path("admin/org/profile/", org_profile, name="org_profile"),
+    path(
+        "admin/org/profile/update-name/",
+        org_update_name_view,
+        name="org_profile_update_name",
+    ),
+    path(
+        "admin/org/profile/change-password/",
+        org_change_password_view,
+        name="org_profile_change_password",
+    ),
     path(
         "logout/",
         auth_views.LogoutView.as_view(next_page="/login/"),
