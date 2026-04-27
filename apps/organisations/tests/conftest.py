@@ -6,6 +6,7 @@ from django.test import Client
 from rest_framework.test import APIClient
 
 from apps.accounts.tests.factories import UserFactory
+from apps.common.tests.fixtures import assert_query_ceiling  # noqa: F401
 from apps.organisations.tests.factories import OrganisationFactory
 
 

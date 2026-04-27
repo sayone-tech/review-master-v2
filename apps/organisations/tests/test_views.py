@@ -5,8 +5,11 @@ from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
 
+from apps.accounts.models import User
+from apps.accounts.tests.factories import UserFactory
 from apps.organisations.models import Organisation
 from apps.organisations.tests.factories import OrganisationFactory
+from apps.regions.tests.factories import RegionFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -489,3 +492,126 @@ def test_named_url_patterns_resolve_correctly() -> None:
     assert reverse("org_regions") == "/admin/org/regions/"
     assert reverse("org_shops") == "/admin/org/shops/"
     assert reverse("org_team") == "/admin/org/team/"
+
+
+# --- Phase 6 Plan 04: Personalised dashboard + zero-regions setup banner ---
+
+
+def _dashboard_get(
+    role=User.Role.ORG_ADMIN,
+    full_name: str = "Renjith Raj",
+    email: str = "renjith@example.com",
+    organisation=None,
+):
+    if organisation is None and role in (User.Role.ORG_ADMIN, User.Role.STAFF_ADMIN):
+        organisation = OrganisationFactory()
+    user = UserFactory(
+        role=role,
+        full_name=full_name,
+        email=email,
+        organisation=organisation,
+    )
+    c = Client()
+    c.force_login(user)
+    return c.get("/admin/org/dashboard/"), user
+
+
+def test_dashboard_welcome_uses_first_word_of_full_name() -> None:
+    response, _ = _dashboard_get(full_name="Renjith Raj")
+    assert response.status_code == 200
+    assert response.context["first_name"] == "Renjith"
+    assert b"Welcome, Renjith" in response.content
+    assert b"Welcome, Renjith Raj" not in response.content
+
+
+def test_dashboard_welcome_handles_whitespace_in_full_name() -> None:
+    response, _ = _dashboard_get(full_name="   Bob   Jones  ")
+    assert response.status_code == 200
+    assert response.context["first_name"] == "Bob"
+    assert b"Welcome, Bob" in response.content
+
+
+def test_dashboard_welcome_falls_back_to_email_prefix_when_full_name_blank() -> None:
+    response, _ = _dashboard_get(full_name="", email="alice.smith@example.com")
+    assert response.status_code == 200
+    assert response.context["first_name"] == "alice.smith"
+    assert b"Welcome, alice.smith" in response.content
+
+
+def test_dashboard_welcome_falls_back_to_email_prefix_when_full_name_only_whitespace() -> None:
+    response, _ = _dashboard_get(full_name="   ", email="bob@example.com")
+    assert response.context["first_name"] == "bob"
+
+
+def test_dashboard_subtitle_contains_organisation_name() -> None:
+    org = OrganisationFactory(name="Acme Coffee Co")
+    response, _ = _dashboard_get(organisation=org)
+    assert response.status_code == 200
+    assert b"Acme Coffee Co" in response.content
+    assert b"Manage your shops, regions and team from here." in response.content
+
+
+def test_dashboard_setup_banner_shown_when_zero_regions() -> None:
+    org = OrganisationFactory()
+    response, _ = _dashboard_get(organisation=org)
+    assert response.status_code == 200
+    assert response.context["show_setup_banner"] is True
+    assert b"Get started by creating your first region" in response.content
+    assert b'href="/admin/org/regions/"' in response.content
+    assert b"Create Region" in response.content
+    assert b'data-testid="setup-banner-zero-regions"' in response.content
+
+
+def test_dashboard_setup_banner_hidden_when_one_or_more_regions() -> None:
+    org = OrganisationFactory()
+    RegionFactory(organisation=org)
+    response, _ = _dashboard_get(organisation=org)
+    assert response.status_code == 200
+    assert response.context["show_setup_banner"] is False
+    assert b"Get started by creating your first region" not in response.content
+    assert b'data-testid="setup-banner-zero-regions"' not in response.content
+
+
+def test_dashboard_setup_banner_only_counts_own_organisation() -> None:
+    """Banner stays visible if a DIFFERENT org has regions."""
+    own_org = OrganisationFactory()
+    other_org = OrganisationFactory()
+    RegionFactory(organisation=other_org)  # belongs to a different org
+    response, _ = _dashboard_get(organisation=own_org)
+    assert response.context["show_setup_banner"] is True
+
+
+def test_dashboard_redirects_superadmin_to_organisations() -> None:
+    response, _ = _dashboard_get(role=User.Role.SUPERADMIN, organisation=None)
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/organisations/"
+
+
+def test_dashboard_returns_403_for_staff_admin() -> None:
+    response, _ = _dashboard_get(role=User.Role.STAFF_ADMIN)
+    assert response.status_code == 403
+
+
+def test_dashboard_returns_403_for_org_admin_without_organisation() -> None:
+    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=None, full_name="X Y")
+    c = Client()
+    c.force_login(user)
+    response = c.get("/admin/org/dashboard/")
+    assert response.status_code == 403
+
+
+def test_dashboard_uses_exists_query_for_setup_banner(assert_query_ceiling) -> None:
+    """Performance: banner check uses .exists() (single query) — total count is bounded."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    org = OrganisationFactory()
+    for _ in range(50):
+        RegionFactory(organisation=org)
+    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=org)
+    c = Client()
+    c.force_login(user)
+    with CaptureQueriesContext(connection) as ctx:
+        response = c.get("/admin/org/dashboard/")
+    assert response.status_code == 200
+    assert_query_ceiling(ctx, max_queries=10)
