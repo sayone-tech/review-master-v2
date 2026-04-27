@@ -36,14 +36,14 @@
 - Cross-Origin-Opener-Policy issue for Phase 8 OAuth popup must be scoped to the OAuth initiation view (not globally), so production.py COOP global setting of `same-origin` must NOT be changed here; instead, a per-view override point is planned.
 - CI query-count ceiling assertion infrastructure (XMOD-05) established here as a shared test fixture used by all future phases.
 
-**Plans**: TBD (estimated 4–6 plans)
+**Plans**: 5 plans (3 waves)
 
 Plans:
-- [ ] 06-01: Data model migrations — Region, Shop, StaffAccessScope, User extensions, InvitationToken purpose enum (step 1); install django-fernet-encrypted-fields; FERNET_KEYS settings + Secret Manager integration
-- [ ] 06-02: Tenant security scaffold — IsOrgScoped, IsOrgAdmin permission classes, TenantScopedViewSet base, cross-tenant isolation test fixture, query-count CI ceiling fixture
-- [ ] 06-03: Org Admin shell — sidebar_org.html, base_org.html layout, /admin/org/ URL prefix skeleton, role-based login redirect, stub viewsets for Regions/Shops/Team
-- [ ] 06-04: Dashboard placeholder page — welcome card, setup banner (zero-regions state), /admin/org/dashboard view + template
-- [ ] 06-05: Profile page reuse — wire /admin/org/profile to existing Superadmin profile services; org-shell layout; same UX behaviour confirmed by tests
+- [ ] 06-01-PLAN.md — Data foundation: install django-fernet-encrypted-fields==0.4.0 + django-sequences==3.0; SALT_KEY settings; scaffold regions + shops apps; 5 ordered migrations (Region, Shop, StaffAccessScope, User extensions, InvitationToken purpose enum step 1); SequenceCounter fallback model
+- [ ] 06-02-PLAN.md — Tenant security scaffold: IsOrgAdmin (DRF + decorator), IsOrgScoped with mandatory has_object_permission, TenantScopedViewSet, two_orgs_two_admins + assert_query_ceiling fixtures, cross-tenant isolation scaffold, django-sequences smoke test
+- [ ] 06-03-PLAN.md — Org Admin navigation shell: six-item sidebar (Dashboard, Shops, Regions, Team, Profile, Logout), /admin/org/dashboard alias + 3 stub URLs (regions/shops/team) via shared org_stub_view, CustomLoginView role-based redirect
+- [ ] 06-04-PLAN.md — Personalised dashboard: Welcome, {first name} card (split full_name on first space, fall back to email prefix), conditional yellow zero-regions setup banner with Create Region CTA, role-based 403 enforcement
+- [ ] 06-05-PLAN.md — Org Admin profile reuse: org_profile + org_update_name_view + org_change_password_view sharing services with Superadmin profile, templates/accounts/org_profile.html (3-line diff from profile.html), three new URLs at /admin/org/profile/*
 
 ---
 
