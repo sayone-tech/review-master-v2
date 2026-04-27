@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.2-org-admin
 milestone_name: Organisation Admin Module
-status: defining_requirements
-stopped_at: "Milestone started — defining requirements"
+status: planning
+stopped_at: "Roadmap created — Phase 6 ready to plan"
 last_updated: "2026-04-27T00:00:00Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 18
   completed_plans: 0
 ---
 
@@ -18,29 +18,34 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-27)
 
-**Core value:** Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
-**Current focus:** Milestone v0.2-org-admin — defining requirements
+**Core value:** Organisation Admins can manage their Shops, Regions, and Team — the operational layer built on top of the Superadmin control plane.
+**Current focus:** Milestone v0.2-org-admin — Phase 6: Org Admin Shell
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-27 — Milestone v0.2-org-admin started
+Phase: 6 of 9 (Org Admin Shell)
+Plan: — (not yet planned)
+Status: Planning
+Last activity: 2026-04-27 — Roadmap created for v0.2-org-admin (4 phases, 57/57 requirements mapped)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 1
-- Average duration: ~10 min
-- Total execution time: 0.17 hours
+- Total plans completed: 0
+- Average duration: — (no plans run yet)
+- Total execution time: 0 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 6. Org Admin Shell | 0/5 | - | - |
+| 7. Regions | 0/3 | - | - |
+| 8. Shops | 0/5 | - | - |
+| 9. Team | 0/5 | - | - |
 
 **Recent Trend:**
 
@@ -48,27 +53,6 @@ Last activity: 2026-04-27 — Milestone v0.2-org-admin started
 - Trend: -
 
 *Updated after each plan completion*
-| Phase 03-organisation-management P01 | 4 | 2 tasks | 14 files |
-| Phase 01-foundation P01 | 10 | 2 tasks | 28 files |
-| Phase 01-foundation P03 | 6 | 3 tasks | 20 files |
-| Phase 01-foundation P02 | 12 | 3 tasks | 17 files |
-| Phase 01-foundation P04 | 6 | 2 tasks | 20 files |
-| Phase 01-foundation P05 | 12 | 2 tasks | 21 files |
-| Phase 01-foundation P05 | 2 | 3 tasks | 1 files |
-| Phase 02-authentication P01 | 8 | 3 tasks | 5 files |
-| Phase 02-authentication P02 | 8 | 3 tasks | 15 files |
-| Phase 02-authentication P03 | 6 | 3 tasks | 10 files |
-| Phase 03-organisation-management P02 | 9 | 2 tasks | 12 files |
-| Phase 03-organisation-management P03 | 9 | 2 tasks | 12 files |
-| Phase 03-organisation-management P04 | 14m | 2 tasks | 12 files |
-| Phase 03-organisation-management P05 | 26m | 2 tasks | 7 files |
-| Phase 01-foundation P06 | 5 | 2 tasks | 4 files |
-| Phase 03-organisation-management P06 | 3m | 3 tasks | 6 files |
-| Phase 04-invitation-and-activation P01 | 4m | 2 tasks | 8 files |
-| Phase 04 P02 | 6 | 2 tasks | 6 files |
-| Phase 05-profile-and-hardening P01 | 2 | 2 tasks | 7 files |
-| Phase 05-profile-and-hardening P02 | 5m | 2 tasks | 5 files |
-| Phase 05-profile-and-hardening P04 | 2m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -77,72 +61,11 @@ Last activity: 2026-04-27 — Milestone v0.2-org-admin started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Init: Django templates + Tailwind for shell; React only for complex interactive widgets
-- Init: Amazon SES via django-ses for all transactional email
-- Init: Django session auth (not JWT) for Phase 1
-- Init: Soft-delete for organisations; permanent purge deferred to a future scheduled job
-- Init: Invitation tokens via TimestampSigner — 48-hour expiry, single-use enforced
-- 01-01: django-upgrade target 5.1 (6.0 not yet supported by django-upgrade 1.22.2)
-- 01-01: django-stubs django_settings_module set to config.settings.test (accounts app not yet created)
-- 01-01: test.py overrides AUTH_USER_MODEL=auth.User until Plan 02 creates custom User
-- [Phase 01-foundation]: django-upgrade target 5.1 (not 6.0): django-upgrade 1.22.2 does not support 6.0 as a target-version argument
-- [Phase 01-foundation]: mypy django_settings_module uses config.settings.test so pre-commit hook works before apps.accounts exists
-- [Phase 01-foundation]: test.py uses AUTH_USER_MODEL=auth.User temporarily; will be changed when Plan 02 creates custom User model
-- [Phase 01-foundation]: 01-03: Tailwind v4 @tailwindcss/vite plugin used over PostCSS — v4 ships its own Vite plugin
-- [Phase 01-foundation]: 01-03: DJANGO_VITE dev_mode=True in config/settings/test.py to avoid needing a Vite build during pytest
-- [Phase 01-foundation]: 01-03: Alpine.js bundled via Vite entry (no CDN) to prevent double-init issues
-- [Phase 01-foundation]: User.organisation FK deferred to accounts/0002 migration to break circular dependency with organisations/0001
-- [Phase 01-foundation]: annotate_store_counts() is Phase 1 stub returning zeros until Phase 2 adds Store model
-- [Phase 01-foundation]: InvitationToken uses SHA-256 (hashlib) for token hashing; token_hash stored in DB as 64-char hex digest
-- [Phase 01-foundation]: 01-04: User.full_name used in sidebar/topbar templates (not first_name/last_name — matches Plan 01-02 model)
-- [Phase 01-foundation]: 01-04: logout_stub registered as name='logout' in Phase 1; Phase 2 swaps view body, URL name is stable
-- [Phase 01-foundation]: 01-04: Alpine.store('nav') for mobile drawer; app:toast CustomEvent schema { kind, title, msg }
-- [Phase 01-foundation]: 01-05: focus-trap-react fallbackFocus=document.body required for jsdom compatibility in vitest tests
-- [Phase 01-foundation]: 01-05: vitest.config.ts uses esbuild JSX transform (not @vitejs/plugin-react) due to vite version mismatch
-- [Phase 01-foundation]: 01-05: base.html restructured with shell_open/shell_close split to fix Django block inheritance through include tags
-- [Phase 02-authentication]: LoginRateThrottle overrides parse_rate: DRF parse_rate uses period[0] which breaks '10/15min'; override handles multi-unit periods via regex
-- [Phase 02-authentication]: test.py CACHES throttle alias uses locmem.LocMemCache to keep tests fast and independent of Redis
-- [Phase 02-authentication]: Email field inlined in login.html (not via form_fields component) because UI-SPEC requires right-aligned Forgot password? in label row — component lacks extra_attrs support
-- [Phase 02-authentication]: organisations placeholder view added before Django admin in URL order so /admin/organisations/ redirects to /login/ (not /admin/login/) per AUTH-05 test requirements
-- [Phase 02-authentication]: conftest autouse fixture clears throttle LocMemCache before each test — prevents rate-limit state bleed between test_login_rate_limit and subsequent tests
-- [Phase 02-authentication]: CustomPasswordResetConfirmView.form_valid adds flash AFTER super().form_valid — token invalidated first, then message queued
-- [Phase 02-authentication]: Flash message is EXACTLY 'Password updated. Please sign in.' per CONTEXT.md locked copy
-- [Phase 02-authentication]: Hand-inlined CSS in password_reset.html email — premailer integration deferred to Phase 4
-- [Phase 02-authentication]: test_password_reset_expired mocks default_token_generator._now() +1s — Django documents _now() as designed for mocking
-- [Phase 03-organisation-management 01-01]: dict[str, object] used for email context parameter to satisfy mypy strict mode
-- [Phase 03-organisation-management 01-01]: xfail(strict=False) for Wave 0 scaffolds so CI stays green; downstream plans remove markers when implementing
-- [Phase 03-organisation-management 01-01]: Test fixture templates _test.html/_test.txt use underscore prefix to indicate test-only artifacts
-- [Phase 03-organisation-management]: json_script receives Python list (not JSON string) to avoid double-encoding in template
-- [Phase 03-organisation-management]: pagination.html uses has_previous/has_next guards instead of |default filter to prevent EmptyPage exceptions
-- [Phase 03-organisation-management]: org-table-root div placed outside the empty/non-empty conditional so React mount point is always present
-- [Phase 03-organisation-management]: SimpleRouter used (not DefaultRouter): avoids DRF api-root at '/' conflicting with Django home view
-- [Phase 03-organisation-management]: json_script tag: pass Python list not JSON string to avoid double-encoding in organisation list template
-- [Phase 03-organisation-management]: EditOrgModal uses const currentOrg = org after early null-return guard to satisfy TypeScript strict null checks inside async submit closure
-- [Phase 03-organisation-management]: CreateOrgModal test uses form.dispatchEvent(submit) because jsdom does not support HTML form= cross-element association
-- [Phase 03-organisation-management]: Actions column in OrgTable satisfied by DataTable auto-emitted th aria-label=Actions when renderRowActions is provided — no explicit DataTableColumn added
-- [Phase 03-organisation-management]: Store allocation upper cap at 1000 to match CreateOrgModal client-side validation
-- [Phase 03-organisation-management]: DeleteConfirmModal uses null-guard return to force ConfirmModal remount, resetting typed state on each open
-- [Phase 03-organisation-management]: StoreAllocationModal captures currentOrg const post null-guard for TypeScript strict null safety in async closure
-- [Phase 01-foundation]: Alpine sidebar must read $store.nav.mobileOpen live — never copy store value into local x-data at mount time
-- [Phase 01-foundation]: vite_react_refresh must appear immediately after vite_hmr_client in head.html for @vitejs/plugin-react dev mode
-- [Phase 01-foundation]: block extra_js placed after </main> so script injection bypasses DOM ordering constraints; showcase vite_asset moved there from block content
-- [Phase 03-organisation-management]: React 18 StrictMode + inline handler prop to a useEffect listener registrar causes click listener to be absent at click time — stabilise with useCallback([])
-- [Phase 03-organisation-management]: Tailwind overflow-hidden on a wrapper breaks child position:sticky — prefer overflow-x-auto on the scroll container only
-- [Phase 03-organisation-management]: Mount-point divs for React widgets must live inside the conditional that guards their data, otherwise the widget visually overrides server-rendered empty states
-- [Phase 03-organisation-management]: React 18 StrictMode + inline handler prop to a useEffect listener registrar causes click listener to be absent at click time — stabilise with useCallback([])
-- [Phase 04-invitation-and-activation]: Separate sidebar_org.html file per role (not branching in multi-role sidebar.html) keeps layout boundaries clean and prevents nav item leakage
-- [Phase 04-invitation-and-activation]: ORG_ADMIN with no organisation FK redirects to /login/ — org FK required to render dashboard; SUPERADMIN at /admin/org-dashboard/ redirects to /admin/organisations/
-- [Phase 04]: SITE_URL stored in settings (not hardcoded) so Cloud Run can inject production domain via env var
-- [Phase 04]: _build_accept_url uses rstrip('/') guard on SITE_URL to protect against operator trailing-slash misconfiguration
-- [Phase 04]: {% if is_resend %} block placed after CTA row and before footer border row in invitation.html — Plan 04 resend service passes is_resend=True
-- [Phase 05-profile-and-hardening]: Profile URL migrated to /admin/profile/ with name='profile' preserved — no template {% url 'profile' %} calls needed updating
-- [Phase 05-profile-and-hardening]: services/profile.py stubs raise NotImplementedError with plan reference messages — RED by design (Plans 05-02/03 turn GREEN)
-- [Phase 05-profile-and-hardening]: cast(User, request.user) in profile views for mypy strict compliance — @login_required guarantees authenticated User
-- [Phase 05-profile-and-hardening]: Exactly 3 xfail markers on test_update_name_post_invalid, test_change_password_wrong_current, test_change_password_mismatch — template error rendering deferred to Plan 05-03
-- [Phase 05]: Profile page: editing init uses Django template tag so name edit form auto-opens on validation failure without extra JS
-- [Phase 05-profile-and-hardening]: Used Django 6 built-in ContentSecurityPolicyMiddleware (zero new dependencies) over third-party django-csp
-- [Phase 05-profile-and-hardening]: CSP uses unsafe-inline for script-src and style-src for Alpine.js + Tailwind; nonce migration deferred
-- [Phase 05-profile-and-hardening]: MIDDLEWARE extended via [*MIDDLEWARE, ...] unpacking (RUF005 compliance) per ruff auto-fix
+- v0.2 init: django-fernet-encrypted-fields==0.3.1 replaces abandoned django-cryptography (no Django 6 support)
+- v0.2 init: django-sequences==3.0 needs Django 6 smoke test in Phase 6; select_for_update() fallback ready
+- v0.2 init: Cross-Origin-Opener-Policy override scoped to OAuth initiation view only — global same-origin stays
+- v0.2 init: InvitationToken expand-contract 3-step: Phase 6 (add purpose column), Phase 9 (backfill + non-null), post-v0.2 (rename)
+- v0.2 init: StaffAccessScope lives in apps/accounts to avoid circular imports with regions/shops apps
 
 ### Pending Todos
 
@@ -150,16 +73,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 1: User model (AUTH_USER_MODEL) must be set and migrated before any other app references it. Do not create Organisation or InvitationToken migrations until accounts/0001 exists.
-
-### Quick Tasks Completed
-
-| ID | Description | Commits | Date |
-|----|-------------|---------|------|
-| 260424-n33 | Rebrand frontend UI from "Review Master" to "Review Bee" — new logo images, favicon, all template text | fbf955c, d69dfaf | 2026-04-24 |
+- Phase 8: GBP API production approval from Google is a non-code prerequisite for production launch (code can be built and tested against sandbox first).
+- Phase 6: django-sequences Django 6 compatibility must be smoke-tested before Phase 7 begins.
 
 ## Session Continuity
 
-Last session: 2026-04-24T11:16:52.568Z
-Stopped at: Completed quick task 260424-n33: rebrand frontend to Review Bee
+Last session: 2026-04-27T00:00:00Z
+Stopped at: Roadmap written — run /gsd:plan-phase 6 to begin Phase 6 planning
 Resume file: None
