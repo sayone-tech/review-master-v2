@@ -55,11 +55,23 @@ class CustomLoginView(LoginView):
 
     def form_valid(self, form: CustomAuthenticationForm) -> HttpResponse:  # type: ignore[override]
         remember = self.request.POST.get("remember_me")
+        # Call super() FIRST — it logs the user in and creates the session.
         response = super().form_valid(form)
+        # Session expiry MUST be set after super() (super creates a fresh session).
         if remember:
             self.request.session.set_expiry(SESSION_AGE_30D)
         else:
             self.request.session.set_expiry(SESSION_AGE_24H)
+        # Role-based redirect overrides Django's get_success_url for known roles.
+        # STAFF_ADMIN and edge cases fall through to the response from super()
+        # which honours next= params and LOGIN_REDIRECT_URL.
+        user = self.request.user
+        if not isinstance(user, User):
+            return response
+        if user.role == User.Role.SUPERADMIN:
+            return redirect("/admin/organisations/")
+        if user.role == User.Role.ORG_ADMIN and getattr(user, "organisation_id", None) is not None:
+            return redirect("/admin/org/dashboard/")
         return response
 
 

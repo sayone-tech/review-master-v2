@@ -87,13 +87,14 @@ def test_remember_me(anon_client: Client, superadmin: User) -> None:
 
 
 def test_login_next_param(anon_client: Client, superadmin: User) -> None:
+    # Role-based redirect wins over next= for SUPERADMIN — they always land on /admin/organisations/
     resp = anon_client.post(
         "/login/?next=/admin/profile/",
         {"username": "super@example.com", "password": "testpass1234", "next": "/admin/profile/"},
     )
     assert resp.status_code == 302
-    assert resp.url == "/admin/profile/"
-    # Absolute URLs rejected → falls back to LOGIN_REDIRECT_URL
+    assert resp.url == "/admin/organisations/"
+    # Absolute URLs also redirect to /admin/organisations/ (role override wins either way)
     anon_client.get("/logout/")
     resp2 = anon_client.post(
         "/login/",
@@ -591,3 +592,120 @@ class TestPasswordChangeView:
         assert resp.status_code == 302
         # update_session_auth_hash must have kept session alive
         assert "_auth_user_id" in client_logged_in.session
+
+
+# -------- Phase 6 Plan 03: CustomLoginView role-based redirect --------
+
+_SESSION_AGE_24H = 60 * 60 * 24
+_SESSION_AGE_30D = 60 * 60 * 24 * 30
+
+
+_DEFAULT_PW = "testpass1234"
+
+
+def _post_login(
+    client: Client, email: str, password: str = _DEFAULT_PW, remember: bool = False
+) -> object:
+    data: dict = {"username": email, "password": password}
+    if remember:
+        data["remember_me"] = "on"
+    return client.post("/login/", data, follow=False)
+
+
+def test_login_redirect_superadmin_to_organisations() -> None:
+    from apps.accounts.tests.factories import UserFactory
+
+    UserFactory(
+        email="sa-redirect@example.com",
+        role=User.Role.SUPERADMIN,
+        password="testpass1234",
+    )
+    client = Client()
+    response = _post_login(client, "sa-redirect@example.com")
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/organisations/"
+
+
+def test_login_redirect_org_admin_with_org_to_dashboard() -> None:
+    from apps.accounts.tests.factories import UserFactory
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory()
+    UserFactory(
+        email="oa-redirect@example.com",
+        role=User.Role.ORG_ADMIN,
+        organisation=org,
+        password="testpass1234",
+    )
+    client = Client()
+    response = _post_login(client, "oa-redirect@example.com")
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/org/dashboard/"
+
+
+def test_login_redirect_org_admin_without_org_falls_back() -> None:
+    from django.conf import settings
+
+    from apps.accounts.tests.factories import UserFactory
+
+    UserFactory(
+        email="oa-noorg@example.com",
+        role=User.Role.ORG_ADMIN,
+        organisation=None,
+        password="testpass1234",
+    )
+    client = Client()
+    response = _post_login(client, "oa-noorg@example.com")
+    assert response.status_code == 302
+    assert response["Location"] == settings.LOGIN_REDIRECT_URL
+
+
+def test_login_redirect_staff_admin_falls_back() -> None:
+    from django.conf import settings
+
+    from apps.accounts.tests.factories import UserFactory
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory()
+    UserFactory(
+        email="staff-redirect@example.com",
+        role=User.Role.STAFF_ADMIN,
+        organisation=org,
+        password="testpass1234",
+    )
+    client = Client()
+    response = _post_login(client, "staff-redirect@example.com")
+    assert response.status_code == 302
+    assert response["Location"] == settings.LOGIN_REDIRECT_URL
+
+
+def test_login_remember_me_unchecked_sets_24h_expiry() -> None:
+    from apps.accounts.tests.factories import UserFactory
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory()
+    UserFactory(
+        email="oa-24h@example.com",
+        role=User.Role.ORG_ADMIN,
+        organisation=org,
+        password="testpass1234",
+    )
+    client = Client()
+    _post_login(client, "oa-24h@example.com", remember=False)
+    assert client.session.get_expiry_age() == _SESSION_AGE_24H
+
+
+def test_login_remember_me_checked_sets_30d_expiry() -> None:
+    from apps.accounts.tests.factories import UserFactory
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    org = OrganisationFactory()
+    UserFactory(
+        email="oa-30d@example.com",
+        role=User.Role.ORG_ADMIN,
+        organisation=org,
+        password="testpass1234",
+    )
+    client = Client()
+    _post_login(client, "oa-30d@example.com", remember=True)
+    assert client.session.get_expiry_age() == _SESSION_AGE_30D
