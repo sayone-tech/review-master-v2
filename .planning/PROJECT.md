@@ -7,8 +7,9 @@ A multi-tenant SaaS platform for managing organisations, their stores, and Googl
 ## Current State
 
 **v1.0 shipped 2026-04-27** — Superadmin module complete.
+**Phase 6 complete 2026-04-27** — Org Admin shell, tenant security scaffold, and full v0.2 data model foundation.
 
-The foundational control plane is live: Superadmins can provision and manage organisations, allocate store slots, control Org Admin access, and manage their own profile. A GitHub Actions CI pipeline enforces quality on every PR.
+The foundational control plane is live and the Org Admin shell is now functional: Org Admins can log in, navigate the 6-item sidebar, see a personalised dashboard with zero-regions setup guidance, and manage their profile. The multi-tenant security scaffold (`IsOrgAdmin`, `IsOrgScoped`, `TenantScopedViewSet`) protects all future Phase 7-9 endpoints from cross-tenant leakage.
 
 ### What's in production (v1.0)
 
@@ -87,4 +88,4 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 </details>
 
 ---
-*Last updated: 2026-04-27 — v1.0 complete*
+*Last updated: 2026-04-27 — Phase 6 complete*
