@@ -251,27 +251,28 @@ def test_org_admin_dashboard_superadmin_redirects_to_organisations(client_logged
     assert resp["Location"] == "/admin/organisations/"
 
 
-def test_org_admin_dashboard_org_admin_without_org_redirects_to_login(client, db):
-    from apps.accounts.models import User
-    from apps.accounts.tests.factories import UserFactory
-
+def test_org_admin_dashboard_org_admin_without_org_returns_403(client, db):
+    """Plan 04 changed behaviour: org-less ORG_ADMIN now receives 403, not redirect."""
     user = UserFactory(role=User.Role.ORG_ADMIN, organisation=None, email="orphan@example.com")
     client.force_login(user)
     resp = client.get("/admin/org-dashboard/")
-    assert resp.status_code == 302
-    assert "/login/" in resp["Location"]
+    assert resp.status_code == 403
 
 
 def test_org_admin_dashboard_org_admin_sees_welcome_card(client, db):
-    from apps.accounts.models import User
-    from apps.accounts.tests.factories import UserFactory
-
     org = OrganisationFactory(name="Acme Holdings")
-    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=org, email="admin@acme.com")
+    user = UserFactory(
+        role=User.Role.ORG_ADMIN,
+        organisation=org,
+        email="admin@acme.com",
+        full_name="Jane Doe",
+    )
     client.force_login(user)
     resp = client.get("/admin/org-dashboard/")
     assert resp.status_code == 200
-    assert b"Welcome to Acme Holdings" in resp.content
+    # Plan 04 updated template: "Welcome, {first_name}" card + org name as subtitle
+    assert b"Welcome, Jane" in resp.content
+    assert b"Acme Holdings" in resp.content
     assert b'data-testid="org-dashboard-card"' in resp.content
 
 

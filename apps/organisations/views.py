@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
@@ -30,6 +30,7 @@ from apps.organisations.services.organisations import (
     delete_organisation,
     update_organisation,
 )
+from apps.regions.models import Region
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -96,12 +97,11 @@ def organisation_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
-    """Stub Org Admin dashboard — post-activation landing page.
+    """Personalised Org Admin dashboard.
 
-    Role-gated:
     - SUPERADMIN → redirect to /admin/organisations/
-    - ORG_ADMIN with organisation → render welcome card
-    - ORG_ADMIN without organisation → redirect to /login/ (cannot use dashboard)
+    - ORG_ADMIN with organisation → render welcome card + conditional setup banner
+    - STAFF_ADMIN or ORG_ADMIN without organisation → 403 (NOT redirect, per SHEL spec)
     - Anonymous → @login_required redirects to /login/?next=...
     """
     user = request.user
@@ -111,11 +111,28 @@ def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
     if user.role == User.Role.SUPERADMIN:
         return redirect("/admin/organisations/")
     if user.role != User.Role.ORG_ADMIN or user.organisation is None:
-        return redirect("/login/")
+        return HttpResponseForbidden("Organisation Admin role required.")
+
+    # First-name extraction per CONTEXT.md decision:
+    # - split user.full_name on first whitespace; take first token
+    # - fall back to part before '@' in user.email if full_name is blank/whitespace-only
+    first_name = ""
+    if user.full_name and user.full_name.strip():
+        first_name = user.full_name.split()[0]
+    elif user.email:
+        first_name = user.email.split("@")[0]
+
+    # Zero-regions banner — .exists() short-circuits at first row (faster than .count())
+    show_setup_banner = not Region.objects.filter(organisation=user.organisation).exists()
+
     return render(
         request,
         "organisations/org_dashboard.html",
-        {"organisation": user.organisation},
+        {
+            "organisation": user.organisation,
+            "first_name": first_name,
+            "show_setup_banner": show_setup_banner,
+        },
     )
 
 
