@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: "Completed 06-02-PLAN.md"
-last_updated: "2026-04-27T11:22:00Z"
+stopped_at: "Completed 06-03-PLAN.md"
+last_updated: "2026-04-27T12:15:00Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -24,29 +24,29 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 ## Current Position
 
 Phase: 06 (org-admin-shell) — EXECUTING
-Plan: 3 of 5 (plans 01-02 complete)
+Plan: 4 of 5 (plans 01-03 complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 2
-- Average duration: 7.5 minutes
-- Total execution time: 0.25 hours
+- Total plans completed: 3
+- Average duration: 8.3 minutes
+- Total execution time: 0.42 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 6. Org Admin Shell | 2/5 | 15m | 7.5m |
+| 6. Org Admin Shell | 3/5 | 30m | 10m |
 | 7. Regions | 0/3 | - | - |
 | 8. Shops | 0/5 | - | - |
 | 9. Team | 0/5 | - | - |
 
 **Recent Trend:**
 
-- Last 5 plans: 06-01 (9m), 06-02 (6m)
-- Trend: improving
+- Last 5 plans: 06-01 (9m), 06-02 (6m), 06-03 (15m)
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -57,6 +57,9 @@ Plan: 3 of 5 (plans 01-02 complete)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- 06-03: Legacy /admin/org-dashboard/ keeps name org_admin_dashboard; new alias /admin/org/dashboard/ gets org_admin_dashboard_v02 — avoids reverse() collision in invite_accept_view
+- 06-03: Role override wins over next= param for SUPERADMIN and ORG_ADMIN — deterministic landing pages, no open-redirect risk
+- 06-03: org_stub_view uses @org_admin_required (403 for wrong roles); dashboard view has separate custom redirect logic
 - 06-02: IsOrgScoped lives in apps/common (not apps/accounts) — cross-cutting role, applies to both ORG_ADMIN and STAFF_ADMIN
 - 06-02: org_admin_required returns HttpResponseForbidden (not redirect) for wrong-role users — prevents silent 302 masking auth failures
 - 06-02: TenantScopedViewSet returns qs.none() when user has no organisation_id — safe default prevents full-table exposure
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T11:22:00Z
-Stopped at: Completed 06-02-PLAN.md
-Resume file: .planning/phases/06-org-admin-shell/06-03-PLAN.md
+Last session: 2026-04-27T12:15:00Z
+Stopped at: Completed 06-03-PLAN.md
+Resume file: .planning/phases/06-org-admin-shell/06-04-PLAN.md

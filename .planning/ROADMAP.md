@@ -41,7 +41,7 @@
 Plans:
 - [x] 06-01-PLAN.md — Data foundation: install django-fernet-encrypted-fields==0.4.0 + django-sequences==3.0; SALT_KEY settings; scaffold regions + shops apps; 5 ordered migrations (Region, Shop, StaffAccessScope, User extensions, InvitationToken purpose enum step 1); SequenceCounter fallback model
 - [x] 06-02-PLAN.md — Tenant security scaffold: IsOrgAdmin (DRF + decorator), IsOrgScoped with mandatory has_object_permission, TenantScopedViewSet, two_orgs_two_admins + assert_query_ceiling fixtures, cross-tenant isolation scaffold, django-sequences smoke test
-- [ ] 06-03-PLAN.md — Org Admin navigation shell: six-item sidebar (Dashboard, Shops, Regions, Team, Profile, Logout), /admin/org/dashboard alias + 3 stub URLs (regions/shops/team) via shared org_stub_view, CustomLoginView role-based redirect
+- [x] 06-03-PLAN.md — Org Admin navigation shell: six-item sidebar (Dashboard, Shops, Regions, Team, Profile, Logout), /admin/org/dashboard alias + 3 stub URLs (regions/shops/team) via shared org_stub_view, CustomLoginView role-based redirect
 - [ ] 06-04-PLAN.md — Personalised dashboard: Welcome, {first name} card (split full_name on first space, fall back to email prefix), conditional yellow zero-regions setup banner with Create Region CTA, role-based 403 enforcement
 - [ ] 06-05-PLAN.md — Org Admin profile reuse: org_profile + org_update_name_view + org_change_password_view sharing services with Superadmin profile, templates/accounts/org_profile.html (3-line diff from profile.html), three new URLs at /admin/org/profile/*
 
@@ -134,7 +134,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 6. Org Admin Shell | v0.2-org-admin | 0/5 | Not started | - |
+| 6. Org Admin Shell | v0.2-org-admin | 3/5 | In Progress | - |
 | 7. Regions | v0.2-org-admin | 0/3 | Not started | - |
 | 8. Shops | v0.2-org-admin | 0/5 | Not started | - |
 | 9. Team | v0.2-org-admin | 0/5 | Not started | - |
