@@ -5,7 +5,7 @@ import secrets
 import factory
 from factory.django import DjangoModelFactory
 
-from apps.accounts.models import InvitationToken, User
+from apps.accounts.models import InvitationToken, StaffAccessScope, User
 
 
 class UserFactory(DjangoModelFactory):
@@ -37,3 +37,13 @@ class InvitationTokenFactory(DjangoModelFactory):
         lambda _: InvitationToken.hash_token(secrets.token_urlsafe(32))
     )
     is_used = False
+
+
+class StaffAccessScopeFactory(DjangoModelFactory):
+    class Meta:
+        model = StaffAccessScope
+
+    user = factory.SubFactory(UserFactory, role=User.Role.STAFF_ADMIN)
+    scope_type = StaffAccessScope.ScopeType.REGION
+    region = factory.SubFactory("apps.regions.tests.factories.RegionFactory")
+    shop = None

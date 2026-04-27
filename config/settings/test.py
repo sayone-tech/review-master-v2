@@ -19,6 +19,9 @@ INSTALLED_APPS = [
     "apps.common",
     "apps.accounts",
     "apps.organisations",
+    "sequences",
+    "apps.regions",
+    "apps.shops",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -30,6 +33,8 @@ CACHES = {
 }
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+SALT_KEY = "test-salt-key-for-unit-tests-only-32chars"
 
 DJANGO_VITE = {
     "default": {

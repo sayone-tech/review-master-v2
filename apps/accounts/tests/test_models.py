@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 from datetime import timedelta
 
 import pytest
 from django.db import IntegrityError
 from django.utils import timezone
 
-from apps.accounts.models import InvitationToken, User
-from apps.accounts.tests.factories import UserFactory
+from apps.accounts.models import InvitationToken, StaffAccessScope, User
+from apps.accounts.tests.factories import StaffAccessScopeFactory, UserFactory
 from apps.organisations.tests.factories import OrganisationFactory
+from apps.regions.tests.factories import RegionFactory
+from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -111,3 +115,46 @@ def test_invitation_token_hash_is_unique() -> None:
     InvitationToken.objects.create(organisation=org, token_hash="d" * 64)
     with pytest.raises(IntegrityError):
         InvitationToken.objects.create(organisation=org, token_hash="d" * 64)
+
+
+def test_user_invitation_extension_fields_accept_values() -> None:
+    inviter = UserFactory(role=User.Role.ORG_ADMIN)
+    invitee = UserFactory(
+        role=User.Role.STAFF_ADMIN,
+        invited_by=inviter,
+        invited_at=timezone.now(),
+        accepted_at=timezone.now(),
+    )
+    invitee.refresh_from_db()
+    assert invitee.invited_by_id == inviter.pk
+    assert invitee.invited_at is not None
+    assert invitee.accepted_at is not None
+
+
+def test_invitation_token_purpose_defaults_null() -> None:
+    from apps.accounts.tests.factories import InvitationTokenFactory
+
+    token = InvitationTokenFactory()
+    assert token.purpose is None
+    assert token.invited_for_role is None
+
+
+def test_staff_access_scope_xor_region_shop_constraint() -> None:
+    staff = UserFactory(role=User.Role.STAFF_ADMIN)
+    region = RegionFactory()
+    shop = ShopFactory()
+    # Both region and shop set with scope_type=REGION should fail the CheckConstraint
+    with pytest.raises(IntegrityError):
+        StaffAccessScope.objects.create(
+            user=staff,
+            scope_type=StaffAccessScope.ScopeType.REGION,
+            region=region,
+            shop=shop,
+        )
+
+
+def test_staff_access_scope_factory_creates_region_scope() -> None:
+    scope = StaffAccessScopeFactory()
+    assert scope.scope_type == StaffAccessScope.ScopeType.REGION
+    assert scope.region_id is not None
+    assert scope.shop_id is None

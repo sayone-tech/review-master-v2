@@ -40,6 +40,8 @@ repos:
           - drf-spectacular
           - django-vite
           - pytest
+          - django-fernet-encrypted-fields==0.4.0
+          - django-sequences==3.0
         args: [--config-file=pyproject.toml]
 
   - repo: https://github.com/PyCQA/bandit

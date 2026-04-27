@@ -25,6 +25,9 @@ INSTALLED_APPS = [
     "apps.common",
     "apps.accounts",
     "apps.organisations",
+    "sequences",
+    "apps.regions",
+    "apps.shops",
 ]
 
 MIDDLEWARE = [
@@ -155,6 +158,11 @@ DJANGO_VITE = {
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 DEFAULT_REPLY_TO = env("DEFAULT_REPLY_TO", default="support@example.com")
+
+# Field-level encryption — django-fernet-encrypted-fields uses SALT_KEY
+# (NOT FERNET_KEYS — wrong name silently falls back to Django SECRET_KEY).
+ENCRYPTED_FIELD_MODE = "ENCRYPT_AND_DECRYPT"
+SALT_KEY = env("FERNET_SALT_KEY", default="")
 
 LOGGING = {
     "version": 1,

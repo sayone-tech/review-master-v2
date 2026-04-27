@@ -22,3 +22,5 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "mailhog"
 EMAIL_PORT = 1025
 EMAIL_USE_TLS = False
+
+SALT_KEY = "dev-salt-key-do-not-use-in-production-32ch"

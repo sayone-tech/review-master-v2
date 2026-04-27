@@ -40,3 +40,6 @@ AWS_SES_FROM_EMAIL = env("AWS_SES_FROM_EMAIL")
 AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default=None)
 AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default=None)
 AWS_SES_CONFIGURATION_SET = env("AWS_SES_CONFIGURATION_SET", default=None)
+
+# Fernet salt key — single key (str) or list (rotation: [new, old])
+SALT_KEY = env("FERNET_SALT_KEY")
