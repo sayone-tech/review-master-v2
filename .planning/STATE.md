@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-04-27T12:18:11.104Z"
+stopped_at: Completed 06-05-PLAN.md
+last_updated: "2026-04-27T12:20:49.927Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -49,6 +49,7 @@ Plan: 5 of 5 (plans 01-04 complete)
 - Trend: stable
 
 *Updated after each plan completion*
+| Phase 06 P05 | 503 | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,8 @@ Recent decisions affecting current work:
 - [Phase 06-04]: org-less ORG_ADMIN now returns 403 (was redirect to /login/) — aligns with CONTEXT.md wrong-role spec
 - [Phase 06-04]: Banner check uses Region.objects.filter(organisation=...).exists() not .count() — short-circuits at first row
 - [Phase 06-04]: first_name extracted via user.full_name.split()[0] with fallback to user.email.split('@')[0] when blank/whitespace-only
+- [Phase 06-05]: @org_admin_required alone used on org profile views — does not stack with @login_required (decorator wraps it internally)
+- [Phase 06-05]: org_profile.html differs from profile.html in exactly 3 lines: extends + 2 url tags — zero business-logic duplication, both call the same services
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-27T12:18:11.101Z
-Stopped at: Completed 06-04-PLAN.md
+Last session: 2026-04-27T12:20:40.537Z
+Stopped at: Completed 06-05-PLAN.md
 Resume file: None

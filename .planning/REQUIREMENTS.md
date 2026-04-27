@@ -13,7 +13,7 @@
 - [x] **SHEL-01**: Organisation Admin sidebar shows six items in order — Dashboard, Shops, Regions, Team, Profile (top group) and Logout (bottom-pinned) — with correct icons and yellow active state
 - [x] **SHEL-02**: Organisation Admin lands on /admin/org/dashboard after login with a "Welcome, {Name}" placeholder card
 - [x] **SHEL-03**: Dashboard displays a yellow info banner "Get started by creating your first region…" with a "Create Region" CTA when the organisation has zero Regions
-- [ ] **SHEL-04**: Profile page at /admin/org/profile reuses the Phase 1 two-card layout (name edit-in-place, password change with strength indicator, same toasts)
+- [x] **SHEL-04**: Profile page at /admin/org/profile reuses the Phase 1 two-card layout (name edit-in-place, password change with strength indicator, same toasts)
 
 ### Regions
 
@@ -125,7 +125,7 @@
 | SHEL-01 | Phase 6 — Org Admin Shell | Complete |
 | SHEL-02 | Phase 6 — Org Admin Shell | Complete |
 | SHEL-03 | Phase 6 — Org Admin Shell | Complete |
-| SHEL-04 | Phase 6 — Org Admin Shell | Pending |
+| SHEL-04 | Phase 6 — Org Admin Shell | Complete |
 | RGN-01 | Phase 7 — Regions | Pending |
 | RGN-02 | Phase 7 — Regions | Pending |
 | RGN-03 | Phase 7 — Regions | Pending |
