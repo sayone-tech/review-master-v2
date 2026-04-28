@@ -17,17 +17,17 @@
 
 ### Regions
 
-- [ ] **RGN-01**: Org Admin sees a list of all regions (creation order) with columns: Region Name, Region ID (pill badge, monospace), and Edit + Delete direct icon buttons (no three-dot menu)
+- [x] **RGN-01**: Org Admin sees a list of all regions (creation order) with columns: Region Name, Region ID (pill badge, monospace), and Edit + Delete direct icon buttons (no three-dot menu)
 - [ ] **RGN-02**: Regions list shows an empty state (Map icon, "No regions yet", "Create your first region" CTA) when no regions exist
-- [ ] **RGN-03**: Org Admin can open a "Create Region" modal from the list page; modal accepts Region Name (2–60 chars, required) and Region ID (uppercase letters + digits, 2–10 chars, unique within organisation, required)
+- [x] **RGN-03**: Org Admin can open a "Create Region" modal from the list page; modal accepts Region Name (2–60 chars, required) and Region ID (uppercase letters + digits, 2–10 chars, unique within organisation, required)
 - [ ] **RGN-04**: As the user types in Region Name, Region ID auto-populates in real time (first letter per word, up to 4 letters, plus 3-digit zero-padded sequence number); auto-population stops once the user manually edits the Region ID field
 - [ ] **RGN-05**: If the user clears a manually-edited Region ID, auto-population resumes
-- [ ] **RGN-06**: Submitting a duplicate Region ID shows an inline field error "This Region ID is already in use."
-- [ ] **RGN-07**: Successful region create closes the modal, shows toast "Region '{name}' created.", and refreshes the list
-- [ ] **RGN-08**: Org Admin can open an Edit Region modal; Region Name is editable; Region ID is editable; typing in Region Name does NOT auto-update Region ID in edit mode
-- [ ] **RGN-09**: Successful region edit shows toast "Region updated." and refreshes the list
-- [ ] **RGN-10**: Attempting to delete a Region that has one or more Shops assigned shows a blocking info popup (amber Warning icon, "Cannot delete region", shop count, "Manage Shops" link to Shops page pre-filtered by this region)
-- [ ] **RGN-11**: Deleting a Region with no Shops shows a red confirmation popup; on confirm, the region is permanently deleted and a toast "Region '{name}' deleted." appears
+- [x] **RGN-06**: Submitting a duplicate Region ID shows an inline field error "This Region ID is already in use."
+- [x] **RGN-07**: Successful region create closes the modal, shows toast "Region '{name}' created.", and refreshes the list
+- [x] **RGN-08**: Org Admin can open an Edit Region modal; Region Name is editable; Region ID is editable; typing in Region Name does NOT auto-update Region ID in edit mode
+- [x] **RGN-09**: Successful region edit shows toast "Region updated." and refreshes the list
+- [x] **RGN-10**: Attempting to delete a Region that has one or more Shops assigned shows a blocking info popup (amber Warning icon, "Cannot delete region", shop count, "Manage Shops" link to Shops page pre-filtered by this region)
+- [x] **RGN-11**: Deleting a Region with no Shops shows a red confirmation popup; on confirm, the region is permanently deleted and a toast "Region '{name}' deleted." appears
 
 ### Shops
 
@@ -81,7 +81,7 @@
 ### Cross-Module
 
 - [ ] **XMOD-01**: A Shop cannot be created without selecting a Region; Region dropdown is disabled with a link to /admin/org/regions when no Regions exist in the organisation
-- [ ] **XMOD-02**: Region deletion is blocked (info popup with shop count and "Manage Shops" link) when the Region has one or more Shops assigned
+- [x] **XMOD-02**: Region deletion is blocked (info popup with shop count and "Manage Shops" link) when the Region has one or more Shops assigned
 - [ ] **XMOD-03**: Deactivated Shops are excluded from the "Select Stores" list in Add and Edit Team Member modals
 - [ ] **XMOD-04**: Shop allocation counter updates transactionally on shop create/activate/deactivate with no race conditions under concurrent admin sessions
 - [x] **XMOD-05**: All Phase 2 list endpoints render within the query-count ceilings asserted in CI tests (no N+1 regardless of result size)
@@ -126,17 +126,17 @@
 | SHEL-02 | Phase 6 — Org Admin Shell | Complete |
 | SHEL-03 | Phase 6 — Org Admin Shell | Complete |
 | SHEL-04 | Phase 6 — Org Admin Shell | Complete |
-| RGN-01 | Phase 7 — Regions | Pending |
+| RGN-01 | Phase 7 — Regions | Complete |
 | RGN-02 | Phase 7 — Regions | Pending |
-| RGN-03 | Phase 7 — Regions | Pending |
+| RGN-03 | Phase 7 — Regions | Complete |
 | RGN-04 | Phase 7 — Regions | Pending |
 | RGN-05 | Phase 7 — Regions | Pending |
-| RGN-06 | Phase 7 — Regions | Pending |
-| RGN-07 | Phase 7 — Regions | Pending |
-| RGN-08 | Phase 7 — Regions | Pending |
-| RGN-09 | Phase 7 — Regions | Pending |
-| RGN-10 | Phase 7 — Regions | Pending |
-| RGN-11 | Phase 7 — Regions | Pending |
+| RGN-06 | Phase 7 — Regions | Complete |
+| RGN-07 | Phase 7 — Regions | Complete |
+| RGN-08 | Phase 7 — Regions | Complete |
+| RGN-09 | Phase 7 — Regions | Complete |
+| RGN-10 | Phase 7 — Regions | Complete |
+| RGN-11 | Phase 7 — Regions | Complete |
 | SHOP-01 | Phase 8 — Shops | Pending |
 | SHOP-02 | Phase 8 — Shops | Pending |
 | SHOP-03 | Phase 8 — Shops | Pending |
@@ -178,7 +178,7 @@
 | TEML-01 | Phase 9 — Team | Pending |
 | TEML-02 | Phase 9 — Team | Pending |
 | XMOD-01 | Phase 8 — Shops | Pending |
-| XMOD-02 | Phase 7 — Regions | Pending |
+| XMOD-02 | Phase 7 — Regions | Complete |
 | XMOD-03 | Phase 9 — Team | Pending |
 | XMOD-04 | Phase 8 — Shops | Pending |
 | XMOD-05 | Phase 6–9 (all) | Complete |
