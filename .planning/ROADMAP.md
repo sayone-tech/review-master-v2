@@ -89,14 +89,14 @@ Plans:
 - Deactivated shops are excluded from Team member scope selectors (XMOD-03 enforcement on the Shop layer: the selector used by Team modals filters `is_active=True`).
 - CI query-count test for the Shops list endpoint required (fixed ceiling, not proportional to row count).
 
-**Plans**: TBD (estimated 5–6 plans)
+**Plans**: 5 plans (5 waves)
 
 Plans:
-- [ ] 08-01: Google integrations layer — apps/integrations/google/: OAuthFlow (server-side code exchange, popup callback view), BusinessProfileClient, PlacesAPI (httpx), exceptions; tenacity retry; no domain model imports
-- [ ] 08-02: Shop services and selectors — create_shop (allocation enforcement with select_for_update), update_shop, activate_shop, deactivate_shop, list_shops (search/filter/paginate), reveal_api_key (audit log), rotate_api_key; full test suite with mocked Google client
-- [ ] 08-03: Shop API viewset and URLs — ShopViewSet (TenantScopedViewSet), serializers (read/create/update), /org/shops/ URL, OAuth callback URL (/oauth/google/start/, /oauth/google/callback/); COOP per-view override; query-count CI test
-- [ ] 08-04: Shops list React widget — allocation counter, search/filter/pagination, Connection Status pill, three-dot action menu, empty states A (no regions) and B (no shops)
-- [ ] 08-05: Shop create/edit/details/action modals — Create (OAuth popup + postMessage/polling + manual fallback), Edit (pre-filled, locked fields), Details (read-only grid), Deactivate/Activate confirmations, Reveal Key (30-second auto-mask, audit log), Rotate Key modal, Reconnect OAuth
+- [ ] 08-01-PLAN.md — Google integrations layer (apps/integrations/google/: oauth.py, places.py, exceptions.py); httpx + tenacity deps; full test suite with mocked HTTP
+- [ ] 08-02-PLAN.md — Shop services and selectors + ShopAuditLog model/migration: create_shop (allocation enforcement with select_for_update), update_shop, activate/deactivate, reveal_api_key, rotate_api_key, reconnect_oauth, list_shops (search/filter), get_allocation_status, get_has_regions
+- [ ] 08-03-PLAN.md — Shop API viewset + URLs + OAuth views: ShopViewSet (TenantScopedViewSet) with custom @action endpoints, OAuth start/callback views with scoped COOP header, allocation envelope, cross-tenant + query-count CI tests
+- [ ] 08-04-PLAN.md — Shops list React widget: types/api/useShops hook, ConnectionStatusPill, ShopRowActionsMenu, ShopTable with search/status/region filters and pagination, Empty States A (no regions) and B (no shops), Vite + template wiring
+- [ ] 08-05-PLAN.md — Shop create/edit/details/action modals + OAuth popup orchestrator: synchronous window.open, postMessage with origin verification, Redis polling fallback, Deactivate/Activate confirms (amber/blue), Reveal Key (30s auto-mask + audit log), Rotate Key, Reconnect Google
 
 ---
 
