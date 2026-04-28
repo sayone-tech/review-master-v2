@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 07-regions-01-PLAN.md
-last_updated: "2026-04-28T07:17:17.478Z"
+stopped_at: Completed 07-regions-03-PLAN.md
+last_updated: "2026-04-28T07:24:11.963Z"
 progress:
   total_phases: 4
   completed_phases: 1
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 ## Current Position
 
 Phase: 07 (regions) — EXECUTING
-Plan: 1 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -51,6 +51,8 @@ Plan: 1 of 3
 *Updated after each plan completion*
 | Phase 06 P05 | 503 | 1 tasks | 4 files |
 | Phase 07-regions P01 | 3 | 2 tasks | 11 files |
+| Phase 07 P03 | 3 | 2 tasks | 12 files |
+| Phase 07-regions P02 | 6 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -83,6 +85,13 @@ Recent decisions affecting current work:
 - [Phase 07-regions]: 07-01: RegionFactory.region_id uses RGN{n:03d} (no hyphen) — matches [A-Z0-9]{2,10} UniqueConstraint
 - [Phase 07-regions]: 07-01: perform_create/perform_update return Region instance (not None) — avoids re-fetch, enables RegionReadSerializer response in 201/200
 - [Phase 07-regions]: 07-01: RegionViewSet uses GenericViewSet + mixins (not ModelViewSet) — only list/create/partial_update/destroy exposed
+- [Phase 07-03]: DataTable uses accessor/label/rowKey API (not render/header) — adapted plan spec to real component interface
+- [Phase 07-03]: emitToast uses kind (not type) and msg (not message) — corrected from plan spec to match actual lib/toast.ts API
+- [Phase 07-03]: Delete-blocked popup uses plain Modal with amber icon block (not ConfirmModal) — single Got it button, ConfirmModal forces two-button footer
+- [Phase 07-03]: 409-as-data: deleteRegion returns RegionBlockedError object instead of throwing — caller type-guards to decide amber vs red popup
+- [Phase 07-regions]: 07-02: test_no_save_when_no_changes asserts 2 queries (SAVEPOINT + RELEASE) not 0 — @transaction.atomic overhead inside test outer transaction
+- [Phase 07-regions]: 07-02: two_orgs_two_admins fixture returns dict — tests use ['org_a'] key access not positional tuple destructuring
+- [Phase 07-regions]: 07-02: conftest.py created in apps/regions/tests/ to re-export assert_query_ceiling and two_orgs_two_admins for auto-discovery
 
 ### Pending Todos
 
@@ -95,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-28T07:17:17.476Z
-Stopped at: Completed 07-regions-01-PLAN.md
+Last session: 2026-04-28T07:24:11.960Z
+Stopped at: Completed 07-regions-02-PLAN.md
 Resume file: None

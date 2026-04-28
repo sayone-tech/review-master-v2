@@ -66,9 +66,9 @@ Plans:
 **Plans**: TBD (estimated 3–5 plans)
 
 Plans:
-- [ ] 07-01: Region services and selectors — create_region (with race-safe ID generation), update_region, delete_region (with shop-assigned guard), list_regions; full test suite
+- [x] 07-01: Region services and selectors — create_region (with race-safe ID generation), update_region, delete_region (with shop-assigned guard), list_regions; full test suite
 - [ ] 07-02: Region API viewset and URLs — RegionViewSet (TenantScopedViewSet), serializers, /org/regions/ URL; query-count CI test
-- [ ] 07-03: Regions React widget — list with empty state, Create modal (auto-ID, duplicate error), Edit modal (no ID auto-update in edit mode), Delete flow (blocking popup + confirmation popup); integration with toast system
+- [x] 07-03: Regions React widget — list with empty state, Create modal (auto-ID, duplicate error), Edit modal (no ID auto-update in edit mode), Delete flow (blocking popup + confirmation popup); integration with toast system
 
 ---
 

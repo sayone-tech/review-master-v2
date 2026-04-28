@@ -18,10 +18,10 @@
 ### Regions
 
 - [x] **RGN-01**: Org Admin sees a list of all regions (creation order) with columns: Region Name, Region ID (pill badge, monospace), and Edit + Delete direct icon buttons (no three-dot menu)
-- [ ] **RGN-02**: Regions list shows an empty state (Map icon, "No regions yet", "Create your first region" CTA) when no regions exist
+- [x] **RGN-02**: Regions list shows an empty state (Map icon, "No regions yet", "Create your first region" CTA) when no regions exist
 - [x] **RGN-03**: Org Admin can open a "Create Region" modal from the list page; modal accepts Region Name (2–60 chars, required) and Region ID (uppercase letters + digits, 2–10 chars, unique within organisation, required)
-- [ ] **RGN-04**: As the user types in Region Name, Region ID auto-populates in real time (first letter per word, up to 4 letters, plus 3-digit zero-padded sequence number); auto-population stops once the user manually edits the Region ID field
-- [ ] **RGN-05**: If the user clears a manually-edited Region ID, auto-population resumes
+- [x] **RGN-04**: As the user types in Region Name, Region ID auto-populates in real time (first letter per word, up to 4 letters, plus 3-digit zero-padded sequence number); auto-population stops once the user manually edits the Region ID field
+- [x] **RGN-05**: If the user clears a manually-edited Region ID, auto-population resumes
 - [x] **RGN-06**: Submitting a duplicate Region ID shows an inline field error "This Region ID is already in use."
 - [x] **RGN-07**: Successful region create closes the modal, shows toast "Region '{name}' created.", and refreshes the list
 - [x] **RGN-08**: Org Admin can open an Edit Region modal; Region Name is editable; Region ID is editable; typing in Region Name does NOT auto-update Region ID in edit mode
@@ -127,10 +127,10 @@
 | SHEL-03 | Phase 6 — Org Admin Shell | Complete |
 | SHEL-04 | Phase 6 — Org Admin Shell | Complete |
 | RGN-01 | Phase 7 — Regions | Complete |
-| RGN-02 | Phase 7 — Regions | Pending |
+| RGN-02 | Phase 7 — Regions | Complete |
 | RGN-03 | Phase 7 — Regions | Complete |
-| RGN-04 | Phase 7 — Regions | Pending |
-| RGN-05 | Phase 7 — Regions | Pending |
+| RGN-04 | Phase 7 — Regions | Complete |
+| RGN-05 | Phase 7 — Regions | Complete |
 | RGN-06 | Phase 7 — Regions | Complete |
 | RGN-07 | Phase 7 — Regions | Complete |
 | RGN-08 | Phase 7 — Regions | Complete |
