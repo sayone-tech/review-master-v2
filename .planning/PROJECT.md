@@ -8,8 +8,9 @@ A multi-tenant SaaS platform for managing organisations, their stores, and Googl
 
 **v1.0 shipped 2026-04-27** — Superadmin module complete.
 **Phase 6 complete 2026-04-27** — Org Admin shell, tenant security scaffold, and full v0.2 data model foundation.
+**Phase 7 complete 2026-04-28** — Regions module: full Django backend + React widget, all 13 requirements verified at 98.67% coverage.
 
-The foundational control plane is live and the Org Admin shell is now functional: Org Admins can log in, navigate the 6-item sidebar, see a personalised dashboard with zero-regions setup guidance, and manage their profile. The multi-tenant security scaffold (`IsOrgAdmin`, `IsOrgScoped`, `TenantScopedViewSet`) protects all future Phase 7-9 endpoints from cross-tenant leakage.
+The foundational control plane is live and the Org Admin shell is now functional. Org Admins can now also manage Regions: list, create (with auto-ID generation from region name), edit, and delete (blocked with 409 when shops are assigned). The multi-tenant security scaffold (`IsOrgAdmin`, `IsOrgScoped`, `TenantScopedViewSet`) protects all endpoints from cross-tenant leakage.
 
 ### What's in production (v1.0)
 
