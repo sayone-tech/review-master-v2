@@ -7,6 +7,7 @@ from apps.organisations.views import (
     org_stub_view,
     organisation_list,
 )
+from apps.regions.views import region_list
 
 urlpatterns = [
     path("admin/organisations/", organisation_list, name="organisation_list"),
@@ -18,13 +19,13 @@ urlpatterns = [
         org_admin_dashboard,
         name="org_admin_dashboard_v02",
     ),
-    # Stub pages — Phases 7/8/9 will replace each view but keep these URL names.
+    # Regions — Phase 7: real list view replaces Phase 6 stub.
     path(
         "admin/org/regions/",
-        org_stub_view,
-        kwargs={"section": "regions"},
+        region_list,
         name="org_regions",
     ),
+    # Stub pages — Phases 8/9 will replace each view but keep these URL names.
     path(
         "admin/org/shops/",
         org_stub_view,

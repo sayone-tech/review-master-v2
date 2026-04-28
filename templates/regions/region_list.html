@@ -1,0 +1,27 @@
+{% extends "base_org.html" %}
+{% load static %}
+
+{% block page_title %}Regions{% endblock %}
+
+{% block content %}
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-[18px] font-semibold text-ink">Regions</h1>
+    <button
+      id="open-create-region"
+      class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
+    >
+      + Create Region
+    </button>
+  </div>
+
+  <div id="region-modals-root"></div>
+
+  {% if regions_count > 0 %}
+    {{ regions_json|json_script:"region-data" }}
+    <div id="region-table-root"></div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'region-management' %}
+{% endblock %}

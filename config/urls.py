@@ -4,11 +4,13 @@ from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 
 from apps.organisations.views import OrganisationViewSet
+from apps.regions.views import RegionViewSet
 
 # SimpleRouter avoids creating a browsable API-root at "/" which would conflict
 # with the Django home view at apps/common/urls.py.
 router = SimpleRouter()
 router.register(r"api/v1/organisations", OrganisationViewSet, basename="organisation")
+router.register(r"api/v1/regions", RegionViewSet, basename="region")
 
 urlpatterns = [
     path("", include(router.urls)),
