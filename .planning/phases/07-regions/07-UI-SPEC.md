@@ -1,7 +1,8 @@
 ---
 phase: 7
 slug: regions
-status: draft
+status: approved
+reviewed_at: 2026-04-28
 shadcn_initialized: false
 preset: none
 created: 2026-04-28
@@ -43,12 +44,18 @@ Declared values (all multiples of 4, matching existing widget patterns):
 | 2xl | 48px | Major section breaks |
 | 3xl | 64px | Page-level spacing (empty state vertical centering) |
 
-Exceptions:
-- Table cell padding: `px-4 py-[14px]` — exact pixel values from `DataTable.tsx` row cells (14px is established pattern, not replaced)
+**Spacing Exceptions — inherited component internals only:**
+
+The following values are read directly from existing shared components (`DataTable.tsx`, `Modal.tsx`, `ConfirmModal.tsx`) which Phase 7 reuses without modification. These are not Phase 7 spacing decisions and are documented here for completeness only. The Phase 7 spacing contract remains 4-pt grid compliant.
+
+- Table cell padding: `px-4 py-[14px]` — exact pixel values from `DataTable.tsx` row cells (established pattern, not replaced)
 - Table header padding: `px-4 py-[11px]` — from `DataTable.tsx` header row (established pattern)
 - Modal header padding: `px-6 pt-[22px]` — from `Modal.tsx` (established pattern)
-- Icon button touch targets: 32px (`w-8 h-8`) minimum for Edit/Delete action buttons in table rows; these are desktop-only admin views
 - Confirm modal icon container: 44px (`w-11 h-11`) — from `ConfirmModal.tsx` (established pattern)
+- Pill badge vertical padding: `py-[3px]` — from `TypeBadge` pattern in `OrgTable.tsx` (established pattern)
+
+Phase 7 new spacing decisions:
+- Icon button touch targets: 32px (`w-8 h-8`) minimum for Edit/Delete action buttons in table rows (desktop-only admin views)
 
 Source: `DataTable.tsx`, `Modal.tsx`, `ConfirmModal.tsx`, `CreateOrgModal.tsx` — detected from codebase.
 
@@ -60,11 +67,13 @@ Source: `DataTable.tsx`, `Modal.tsx`, `ConfirmModal.tsx`, `CreateOrgModal.tsx` �
 |------|------|--------|-------------|------|-------|
 | Body | 13.5px (`text-[13.5px]`) | 400 (regular) | 1.5 | Geist sans | Table cell text, modal form inputs, modal subtitle, descriptive text |
 | Label | 12px (`text-[12px]`) | 600 (semibold) | 1.4 | Geist sans | Field labels (uppercase, `tracking-[0.05em]`), table column headers (uppercase, `tracking-[0.05em]`) |
+| Subheading | 15px (`text-[15px]`) | 600 (semibold) | 1.3 | Geist sans | Empty state heading ("No regions yet") |
 | Heading | 18px (`text-[18px]`) | 600 (semibold) | 1.2 | Geist sans | Modal title, ConfirmModal title |
 | Mono | 12px (`text-[12px]`) | 400 (regular) | 1.4 | Geist Mono | Region ID pill badge display value |
 
 Notes:
-- Pill badges (Region ID, StatusBadge): `text-[12px] font-medium leading-[1.4]` — uses `font-medium` (500) as a tertiary exception only on badge elements; this is the established badge pattern
+- Exactly 2 font weights are declared: `400` (regular) and `600` (semibold). No third weight is used in Phase 7.
+- Pill badges (`RegionIdBadge`, `TypeBadge`-style elements): use `font-normal` (400) for the monospace ID value. The badge container label uses `text-[12px] font-normal` — the neutral `bg-line-soft text-muted` background provides sufficient visual differentiation without a heavier weight.
 - Body letter-spacing: `-0.005em` globally via `tailwind.css` base style
 - All field labels: uppercase, `tracking-[0.05em]`, `text-subtle` (`#71717A`)
 
@@ -84,7 +93,7 @@ Source: `OrgTable.tsx`, `Modal.tsx`, `ConfirmModal.tsx`, `CreateOrgModal.tsx`, `
 Accent reserved for:
 1. "Create Region" primary CTA button (page header + empty state)
 2. "Create Region" modal submit button
-3. Focus ring on all interactive elements (`:focus-visible` — 2px solid `#FACC15`, 2px offset)
+3. Focus ring on keyboard-focused elements via global `:focus-visible` rule (2px solid `#FACC15`, 2px offset — accessibility-only, not decorative)
 4. Active sidebar item (inherited from Phase 6 shell — not changed in Phase 7)
 
 Additional semantic colors (established system, not new):
@@ -134,6 +143,8 @@ Source: `07-CONTEXT.md` §Canonical refs, `org-management.tsx` — canonical pat
 
 ### Surface 1 — Regions List Page (`/admin/org/regions/`)
 
+**Primary focal point:** yellow "Create Region" CTA button in the page header — the only high-contrast element on the neutral background.
+
 **Layout:**
 - Extends `base_org.html`
 - Page header: "Regions" heading (left) + "Create Region" button (right, yellow CTA, `+` icon left)
@@ -144,7 +155,7 @@ Source: `07-CONTEXT.md` §Canonical refs, `org-management.tsx` — canonical pat
 
 | Column | Key | Accessor | Width hint |
 |--------|-----|----------|------------|
-| Region Name | `name` | `text-[13.5px] font-medium text-ink` | `skeletonWidth: "140px"` |
+| Region Name | `name` | `text-[13.5px] font-normal text-ink` | `skeletonWidth: "140px"` |
 | Region ID | `region_id` | `RegionIdBadge` component | `skeletonWidth: "80px"` |
 | Actions | — | Edit + Delete icon buttons (direct, no three-dot menu) | `w-20` |
 
@@ -157,7 +168,7 @@ Source: `07-CONTEXT.md` §Canonical refs, `org-management.tsx` — canonical pat
 ### Surface 2 — Region ID Pill Badge (`RegionIdBadge`)
 
 **Visual spec:**
-- Inline `<span>` with `font-mono text-[12px] font-medium px-2 py-[3px] rounded-[999px]`
+- Inline `<span>` with `font-mono text-[12px] font-normal px-2 py-[3px] rounded-[999px]`
 - Colors: `bg-line-soft text-muted` (neutral — no dot indicator, no color status)
 - Same shape/padding as `TypeBadge` in `OrgTable.tsx`
 - `data-testid="region-id-badge"`
@@ -207,8 +218,8 @@ Source: `07-CONTEXT.md` §Specifics, RGN-02, org-management entrypoint bridge pa
 **Inline error style (RGN-06):** `mt-1 text-[12px] text-red`, `role="alert"`, `data-testid="error-{field-id}"`
 
 **Footer buttons:**
-- Cancel / Discard: `px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft`
-- Submit "Create Region": `px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-60`
+- Cancel / Discard: `px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-normal hover:bg-line-soft`
+- Submit "Create Region": `px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover disabled:opacity-60`
 - Submit shows spinner `w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin` when `submitting === true`
 
 **Duplicate ID error (RGN-06):** Server returns 400 with `region_id` field error. Map to inline error beneath the Region ID field with exact copy: `"This Region ID is already in use."`
@@ -227,9 +238,9 @@ Source: `CreateOrgModal.tsx` — inputCls, Field, footer button patterns. `07-CO
 **Key differences from Create:**
 - `autoMode` is permanently `false` — typing in Region Name does NOT update Region ID
 - Clearing Region ID leaves it empty; user must type a valid ID (no auto-resume in edit mode per `07-CONTEXT.md` §Edit mode Region ID)
-- Submit button label: `"Save Changes"`
+- Submit button label: `"Save Region"`
 
-**Footer buttons:** same pattern as Create modal (Cancel + Save Changes)
+**Footer buttons:** same pattern as Create modal (Cancel + Save Region)
 
 Source: `07-CONTEXT.md` §Edit mode Region ID, RGN-08.
 
@@ -244,16 +255,16 @@ confirmLabel — not applicable; this is an INFO popup, not a destructive action
 
 **Interaction contract:**
 - This popup has NO confirm action (it is purely informational — user cannot proceed to delete)
-- Footer: single "Close" button only (no confirm button)
+- Footer: single "Got it" button only (no confirm button)
 - `ConfirmModal` is used for layout consistency but `onConfirm` is a no-op; OR implement as a plain `Modal` with `size="sm"` if the ConfirmModal footer layout forces two buttons
-- Preferred implementation: use `Modal` directly with `size="sm"` and single "Close" footer button, with manual amber icon block matching `ConfirmModal`'s icon layout
+- Preferred implementation: use `Modal` directly with `size="sm"` and single "Got it" footer button, with manual amber icon block matching `ConfirmModal`'s icon layout
 
 **Content:**
 - Icon: `AlertTriangle` (Lucide, 22px) in `bg-amber-tint text-amber` container (`w-11 h-11 rounded-confirm-icon`)
 - Title: `"Cannot delete region"` — `text-[18px] font-semibold text-ink`
 - Body: `"This region has {count} shop{count > 1 ? 's' : ''} assigned to it. Reassign or remove all shops before deleting this region."` — `text-[13.5px] text-muted leading-[1.5]`
-- Link: `"Manage Shops"` — `text-yellow hover:text-yellow-hover underline font-medium`, href = `/admin/org/shops/?region={region.pk}`
-- Footer button: `"Close"` — same cancel button style as ConfirmModal
+- Link: `"Manage Shops"` — `text-yellow hover:text-yellow-hover underline font-normal`, href = `/admin/org/shops/?region={region.pk}`
+- Footer button: `"Got it"` — same cancel button style as ConfirmModal
 
 Source: `ConfirmModal.tsx`, `07-CONTEXT.md` §Delete guard, RGN-10, XMOD-02.
 
@@ -263,7 +274,7 @@ Source: `ConfirmModal.tsx`, `07-CONTEXT.md` §Delete guard, RGN-10, XMOD-02.
 ```
 variant="red"
 title="Delete region"
-confirmLabel={submitting ? "Deleting…" : "Delete"}
+confirmLabel={submitting ? "Deleting…" : "Delete Region"}
 requireTypeToConfirm — NOT used (regions do not require type-to-confirm; only org delete uses it)
 ```
 
@@ -271,7 +282,7 @@ requireTypeToConfirm — NOT used (regions do not require type-to-confirm; only 
 - Icon: `AlertCircle` (Lucide, 22px) in `bg-red-tint text-red` container
 - Title: `"Delete region"` — `text-[18px] font-semibold text-ink`
 - Body: `"This will permanently delete {region.name}. This action cannot be undone."` — `text-[13.5px] text-muted leading-[1.5]`
-- Footer: Cancel + Delete (red button: `bg-red text-white border-transparent hover:bg-[#B91C1C]`)
+- Footer: Cancel + Delete Region (red button: `bg-red text-white border-transparent hover:bg-[#B91C1C]`)
 
 Source: `ConfirmModal.tsx`, `DeleteConfirmModal.tsx` pattern, RGN-11.
 
@@ -305,7 +316,7 @@ Source: `ConfirmModal.tsx`, `DeleteConfirmModal.tsx` pattern, RGN-11.
 | Create submit button | `"Create Region"` |
 | Edit modal title | `"Edit Region"` |
 | Edit modal subtitle | `"Update the region name or ID."` |
-| Edit submit button | `"Save Changes"` |
+| Edit submit button | `"Save Region"` |
 | Success toast — create (RGN-07) | `"Region '{name}' created."` |
 | Success toast — edit (RGN-09) | `"Region updated."` |
 | Success toast — delete (RGN-11) | `"Region '{name}' deleted."` |
@@ -315,9 +326,10 @@ Source: `ConfirmModal.tsx`, `DeleteConfirmModal.tsx` pattern, RGN-11.
 | Delete-blocked popup title (RGN-10) | `"Cannot delete region"` |
 | Delete-blocked popup body (RGN-10) | `"This region has {count} shop{plural} assigned to it. Reassign or remove all shops before deleting this region."` |
 | Delete-blocked popup link (RGN-10) | `"Manage Shops"` |
+| Delete-blocked popup close button (RGN-10) | `"Got it"` |
 | Delete confirmation title (RGN-11) | `"Delete region"` |
 | Delete confirmation body (RGN-11) | `"This will permanently delete {region.name}. This action cannot be undone."` |
-| Delete confirmation button (RGN-11) | `"Delete"` / `"Deleting…"` (submitting) |
+| Delete confirmation button (RGN-11) | `"Delete Region"` / `"Deleting…"` (submitting) |
 | Generic error toast | `"Something went wrong."` with msg `"Please try again. If the problem persists, contact support."` |
 | Field label — Region Name | `"REGION NAME"` |
 | Field label — Region ID | `"REGION ID"` |
