@@ -447,7 +447,7 @@ def test_org_stub_view_renders_regions_section() -> None:
     response = client.get("/admin/org/regions/")
     assert response.status_code == 200
     assert b"Regions" in response.content
-    assert b"This section is coming soon." in response.content
+    assert b"region-modals-root" in response.content
 
 
 def test_org_stub_view_renders_shops_section() -> None:
