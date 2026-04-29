@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-04-29T18:52:31.568Z"
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-04-29T18:58:43.802Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 17
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 ## Current Position
 
 Phase: 09 (team) — EXECUTING
-Plan: 2 of 5
+Plan: 4 of 5
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Plan: 2 of 5
 | Phase 08-shops P06 | 28 | 4 tasks | 13 files |
 | Phase 08-shops P07 | ~35 | 3 tasks | 12 files |
 | Phase 09-team P01 | 10 | 3 tasks | 19 files |
+| Phase 09-team P03 | 3 | 1 task | 5 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,8 @@ Recent decisions affecting current work:
 - [Phase 09-team]: resend_team_invitation nulls out old token's invited_user before creating new — avoids OneToOneField uniqueness violation
 - [Phase 09-team]: last-manager guard counts active ORG_ADMINs via .exclude(pk=member.pk) — disabled managers don't protect the invariant
 - [Phase 09-team]: to_attr='prefetched_scopes' distinct from relation name 'access_scopes' — avoids shadowing manager with plain list
+- [Phase 09-team]: 09-03: team_invitation_resent.html is a standalone file (not extends) — email clients need fully self-contained HTML
+- [Phase 09-team]: 09-03: Resend notice placed before scope lists — immediately visible after intro paragraph
 
 ### Pending Todos
 
@@ -138,6 +141,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T18:52:23.380Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-04-29T18:58:43.798Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None
