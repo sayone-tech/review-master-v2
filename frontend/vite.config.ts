@@ -16,6 +16,7 @@ export default defineConfig({
         showcase: resolve(__dirname, "src/entrypoints/showcase.tsx"),
         "org-management": resolve(__dirname, "src/entrypoints/org-management.tsx"),
         "region-management": resolve(__dirname, "src/entrypoints/region-management.tsx"),
+        "shop-management": resolve(__dirname, "src/entrypoints/shop-management.tsx"),
       },
     },
   },
