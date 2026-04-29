@@ -4,11 +4,10 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.integrations.google.places import validate_place_id
 from apps.organisations.models import Organisation
 from apps.regions.models import Region
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
-from apps.shops.models import Shop, ShopAuditLog
+from apps.shops.models import Shop
 
 _LOCKED_FIELDS = {"connection_method", "place_id"}
 
@@ -22,12 +21,8 @@ def create_shop(
     connection_method: str,
     place_id: str = "",
     google_refresh_token: str = "",
-    api_key: str = "",
     phone: str = "",
     street_address: str = "",
-    city: str = "",
-    state: str = "",
-    zip_code: str = "",
     connection_status: str | None = None,
 ) -> Shop:
     # Allocation lock — XMOD-04
@@ -36,17 +31,8 @@ def create_shop(
     if current_count >= org.number_of_stores:
         raise ShopAtLimitError()
 
-    # SHOP-10: manual flow validates Place ID + API key BEFORE write
-    if connection_method == Shop.ConnectionMethod.MANUAL and place_id and api_key:
-        validate_place_id(place_id=place_id, api_key=api_key)
-        # PlaceIDNotFoundError / APIKeyInvalidError / GoogleUnreachableError
-        # propagate for the caller (viewset) to convert into field/non-field errors.
-
     if connection_status is None:
-        if (
-            connection_method == Shop.ConnectionMethod.GOOGLE_OAUTH
-            or connection_method == Shop.ConnectionMethod.MANUAL
-        ):
+        if connection_method == Shop.ConnectionMethod.GOOGLE_OAUTH:
             connection_status = Shop.ConnectionStatus.CONNECTED
         else:
             connection_status = Shop.ConnectionStatus.NOT_CONNECTED
@@ -59,12 +45,8 @@ def create_shop(
         connection_status=connection_status,
         place_id=place_id,
         google_refresh_token=google_refresh_token or None,
-        api_key=api_key or None,
         phone=phone,
         street_address=street_address,
-        city=city,
-        state=state,
-        zip_code=zip_code,
     )
 
 
@@ -97,32 +79,6 @@ def deactivate_shop(*, shop: Shop) -> Shop:
     if shop.is_active:
         shop.is_active = False
         shop.save(update_fields=["is_active", "updated_at"])
-    return shop
-
-
-@transaction.atomic
-def reveal_api_key(*, shop: Shop, actor: Any) -> str:
-    ShopAuditLog.objects.create(
-        shop=shop,
-        actor=actor,
-        action=ShopAuditLog.Action.API_KEY_REVEALED,
-    )
-    return shop.api_key or ""
-
-
-@transaction.atomic
-def rotate_api_key(*, shop: Shop, actor: Any, new_api_key: str) -> Shop:
-    if shop.connection_method != Shop.ConnectionMethod.MANUAL:
-        raise ValueError("Shop is not on manual connection method.")
-    # Validate BEFORE replacing — propagates GoogleUnreachableError, APIKeyInvalidError
-    validate_place_id(place_id=shop.place_id, api_key=new_api_key)
-    shop.api_key = new_api_key
-    shop.save(update_fields=["api_key", "updated_at"])
-    ShopAuditLog.objects.create(
-        shop=shop,
-        actor=actor,
-        action=ShopAuditLog.Action.API_KEY_ROTATED,
-    )
     return shop
 
 

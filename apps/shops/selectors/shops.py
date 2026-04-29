@@ -19,11 +19,7 @@ def list_shops(
     if active_only:
         qs = qs.filter(is_active=True)
     if search:
-        qs = qs.filter(
-            Q(name__icontains=search)
-            | Q(street_address__icontains=search)
-            | Q(city__icontains=search)
-        )
+        qs = qs.filter(Q(name__icontains=search) | Q(street_address__icontains=search))
     if status == "active":
         qs = qs.filter(is_active=True)
     elif status == "inactive":

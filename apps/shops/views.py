@@ -22,10 +22,8 @@ from apps.accounts.permissions import IsOrgAdmin, org_admin_required
 from apps.common.permissions import IsOrgScoped
 from apps.common.viewsets import TenantScopedViewSet
 from apps.integrations.google.exceptions import (
-    APIKeyInvalidError,
     GoogleAuthError,
     GoogleUnreachableError,
-    PlaceIDNotFoundError,
 )
 from apps.integrations.google.oauth import (
     build_auth_url,
@@ -38,7 +36,6 @@ from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
 from apps.shops.models import Shop
 from apps.shops.selectors.shops import get_allocation_status, get_has_regions, list_shops
 from apps.shops.serializers import (
-    RotateKeySerializer,
     ShopCreateSerializer,
     ShopReadSerializer,
     ShopUpdateSerializer,
@@ -48,8 +45,6 @@ from apps.shops.services.shops import (
     create_shop,
     deactivate_shop,
     reconnect_oauth,
-    reveal_api_key,
-    rotate_api_key,
     update_shop,
 )
 
@@ -115,8 +110,6 @@ class ShopViewSet(
             return ShopCreateSerializer
         if self.action in ("partial_update", "update"):
             return ShopUpdateSerializer
-        if self.action == "rotate_key":
-            return RotateKeySerializer
         return ShopReadSerializer
 
     def get_serializer_context(self) -> dict[str, Any]:
@@ -194,8 +187,6 @@ class ShopViewSet(
             raise drf_serializers.ValidationError(
                 {"non_field_errors": ["Shop allocation limit reached."]}
             ) from None
-        except (PlaceIDNotFoundError, APIKeyInvalidError, GoogleUnreachableError) as exc:
-            raise self._map_google_error_to_drf(exc) from exc
 
     # ------------------------------------------------------------------
     # Update — returns ShopReadSerializer in 200
@@ -225,25 +216,6 @@ class ShopViewSet(
             ) from exc
 
     # ------------------------------------------------------------------
-    # Helper — maps Google API errors to DRF ValidationError
-    # ------------------------------------------------------------------
-
-    def _map_google_error_to_drf(self, exc: Exception) -> drf_serializers.ValidationError:
-        if isinstance(exc, PlaceIDNotFoundError):
-            return drf_serializers.ValidationError({"place_id": ["This Place ID was not found."]})
-        if isinstance(exc, APIKeyInvalidError):
-            return drf_serializers.ValidationError({"api_key": ["This API key is not valid."]})
-        if isinstance(exc, GoogleUnreachableError):
-            return drf_serializers.ValidationError(
-                {
-                    "non_field_errors": [
-                        "Could not reach Google to verify this API key. Please try again."
-                    ]
-                }
-            )
-        raise exc
-
-    # ------------------------------------------------------------------
     # Custom actions
     # ------------------------------------------------------------------
 
@@ -257,32 +229,6 @@ class ShopViewSet(
     def deactivate(self, request: Request, pk: int | None = None) -> Response:
         shop = self.get_object()
         deactivate_shop(shop=shop)
-        return Response(ShopReadSerializer(shop).data)
-
-    @action(detail=True, methods=["post"], url_path="reveal_key")
-    def reveal_key(self, request: Request, pk: int | None = None) -> Response:
-        shop = self.get_object()
-        if shop.connection_method != Shop.ConnectionMethod.MANUAL:
-            return Response(
-                {"detail": "Reveal key is only valid for manual-connection shops."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        key = reveal_api_key(shop=shop, actor=request.user)
-        return Response({"api_key": key})
-
-    @action(detail=True, methods=["post"], url_path="rotate_key")
-    def rotate_key(self, request: Request, pk: int | None = None) -> Response:
-        shop = self.get_object()
-        ser = RotateKeySerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        try:
-            rotate_api_key(
-                shop=shop,
-                actor=request.user,
-                new_api_key=ser.validated_data["new_api_key"],
-            )
-        except (PlaceIDNotFoundError, APIKeyInvalidError, GoogleUnreachableError) as exc:
-            raise self._map_google_error_to_drf(exc) from exc
         return Response(ShopReadSerializer(shop).data)
 
     @action(detail=True, methods=["post"], url_path="reconnect")
@@ -399,7 +345,7 @@ class GoogleOAuthCallbackView(View):
                 30,
                 json.dumps(
                     {
-                        "type": "oauth_success",
+                        "type": "oauth_listings",
                         "state": state,
                         "listings": listings,
                     }
@@ -411,28 +357,7 @@ class GoogleOAuthCallbackView(View):
         response = render(
             request,
             "shops/oauth/callback.html",
-            {"listings": listings, "state": state},
-        )
-        response["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-        return response
-
-    def post(self, request: Any) -> Any:
-        state = request.POST.get("state", "") or request.GET.get("state", "")
-        idx_str = request.POST.get("listing_index", "")
-        try:
-            idx = int(idx_str)
-        except (TypeError, ValueError):
-            return self._render_error(request, "auth_error", state)
-
-        listings = request.session.get(f"oauth_listings:{state}", [])
-        if not listings or idx >= len(listings):
-            return self._render_error(request, "auth_error", state)
-
-        selected = [listings[idx]]
-        response = render(
-            request,
-            "shops/oauth/callback.html",
-            {"listings": selected, "state": state},
+            {"listings": listings, "listings_json": json.dumps(listings), "state": state},
         )
         response["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
         return response
