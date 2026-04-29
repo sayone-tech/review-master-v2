@@ -4,44 +4,25 @@
     <title>Connect Google Business Profile</title>
     <meta name="viewport" content="width=device-width">
   </head>
-  <body class="bg-bg font-sans p-4">
+  <body>
     {% if oauth_error_code %}
       <script>
-        window.opener && window.opener.postMessage({type: "oauth_error", code: "{{ oauth_error_code|escapejs }}"}, window.location.origin);
+        window.opener && window.opener.postMessage(
+          {type: "oauth_error", code: "{{ oauth_error_code|escapejs }}"},
+          window.location.origin
+        );
         setTimeout(() => window.close(), 50);
       </script>
       <p>Connection error. You can close this window.</p>
-    {% elif listings|length == 1 %}
-      {% with l=listings.0 %}
-        <script>
-          window.opener && window.opener.postMessage({
-            type: "oauth_success",
-            state: "{{ state|escapejs }}",
-            listingName: "{{ l.name|escapejs }}",
-            address: "{{ l.address|escapejs }}",
-            placeId: "{{ l.place_id|escapejs }}"
-          }, window.location.origin);
-          setTimeout(() => window.close(), 50);
-        </script>
-        <p>Connected. You can close this window.</p>
-      {% endwith %}
     {% else %}
-      <h1 class="text-[18px] font-semibold text-ink mb-4">Choose a business listing</h1>
-      <form method="post" class="space-y-3">
-        {% csrf_token %}
-        <input type="hidden" name="state" value="{{ state|escapejs }}">
-        {% for l in listings %}
-          <label class="block p-3 border border-line rounded-md cursor-pointer hover:bg-line-soft">
-            <input type="radio" name="listing_index" value="{{ forloop.counter0 }}" required>
-            <span class="font-medium text-ink ml-2">{{ l.name }}</span>
-            <span class="text-muted ml-2 text-sm">{{ l.address }}</span>
-          </label>
-        {% endfor %}
-        <button
-          type="submit"
-          class="bg-yellow text-black border border-yellow-hover rounded-md px-4 py-2 text-[13.5px] font-semibold"
-        >Connect this listing</button>
-      </form>
+      <script>
+        window.opener && window.opener.postMessage(
+          {type: "oauth_listings", state: "{{ state|escapejs }}", listings: {{ listings_json|safe }}},
+          window.location.origin
+        );
+        setTimeout(() => window.close(), 50);
+      </script>
+      <p>Connected. You can close this window.</p>
     {% endif %}
   </body>
 </html>

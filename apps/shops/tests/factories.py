@@ -15,7 +15,6 @@ class ShopFactory(DjangoModelFactory):
     name = factory.Sequence(lambda n: f"Shop {n}")
     phone = ""
     street_address = ""
-    city = ""
     connection_method = Shop.ConnectionMethod.NOT_CONNECTED
     connection_status = Shop.ConnectionStatus.NOT_CONNECTED
     is_active = True

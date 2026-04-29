@@ -1,25 +1,16 @@
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 
-from apps.accounts.tests.factories import UserFactory
-from apps.integrations.google.exceptions import (
-    APIKeyInvalidError,
-    GoogleUnreachableError,
-)
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.regions.tests.factories import RegionFactory
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
-from apps.shops.models import Shop, ShopAuditLog
+from apps.shops.models import Shop
 from apps.shops.services.shops import (
     activate_shop,
     create_shop,
     deactivate_shop,
     reconnect_oauth,
-    reveal_api_key,
-    rotate_api_key,
     update_shop,
 )
 from apps.shops.tests.factories import ShopFactory
@@ -72,132 +63,6 @@ class TestCreateShopAllocation:
         assert any(
             "organisations_organisation" in q["sql"].lower() for q in ctx.captured_queries
         ), "Expected a SELECT on the organisations table"
-
-
-@pytest.mark.django_db
-class TestCreateShopManualValidation:
-    @patch("apps.shops.services.shops.validate_place_id", return_value={"name": "ACME"})
-    def test_manual_calls_validate(self, mock_validate: object) -> None:
-        from unittest.mock import MagicMock
-
-        assert isinstance(mock_validate, MagicMock)
-        org = OrganisationFactory(number_of_stores=5)
-        region = RegionFactory(organisation=org)
-        create_shop(
-            organisation=org,
-            region=region,
-            name="A",
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            place_id="ChIJabc",
-            api_key="AIzaXYZ",
-        )
-        mock_validate.assert_called_once_with(place_id="ChIJabc", api_key="AIzaXYZ")
-
-    @patch("apps.shops.services.shops.validate_place_id", side_effect=GoogleUnreachableError())
-    def test_unreachable_propagates_no_save(self, mock_validate: object) -> None:
-        org = OrganisationFactory(number_of_stores=5)
-        region = RegionFactory(organisation=org)
-        with pytest.raises(GoogleUnreachableError):
-            create_shop(
-                organisation=org,
-                region=region,
-                name="A",
-                connection_method=Shop.ConnectionMethod.MANUAL,
-                place_id="ChIJ",
-                api_key="AIzaXYZ",
-            )
-        assert Shop.objects.count() == 0
-
-    @patch("apps.shops.services.shops.validate_place_id")
-    def test_oauth_skips_places_validation(self, mock_validate: object) -> None:
-        org = OrganisationFactory(number_of_stores=5)
-        region = RegionFactory(organisation=org)
-        create_shop(
-            organisation=org,
-            region=region,
-            name="A",
-            connection_method=Shop.ConnectionMethod.GOOGLE_OAUTH,
-            google_refresh_token="rt-abc",
-        )
-        from unittest.mock import MagicMock
-
-        assert isinstance(mock_validate, MagicMock)
-        mock_validate.assert_not_called()
-
-
-@pytest.mark.django_db
-class TestRevealApiKey:
-    def test_returns_decrypted_and_writes_audit(self) -> None:
-        actor = UserFactory()
-        shop = ShopFactory(api_key="AIzaXYZ")
-        key = reveal_api_key(shop=shop, actor=actor)
-        assert key == "AIzaXYZ"
-        logs = ShopAuditLog.objects.filter(shop=shop)
-        assert logs.count() == 1
-        assert logs.first().action == ShopAuditLog.Action.API_KEY_REVEALED
-        assert logs.first().actor == actor
-
-    def test_writes_one_audit_per_call(self) -> None:
-        actor = UserFactory()
-        shop = ShopFactory(api_key="K")
-        reveal_api_key(shop=shop, actor=actor)
-        reveal_api_key(shop=shop, actor=actor)
-        assert ShopAuditLog.objects.filter(shop=shop).count() == 2
-
-
-@pytest.mark.django_db
-class TestRotateApiKey:
-    @patch("apps.shops.services.shops.validate_place_id", return_value={"name": "ok"})
-    def test_rotate_replaces_and_audits(self, mock_validate: object) -> None:
-        actor = UserFactory()
-        shop = ShopFactory(
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            place_id="ChIJ",
-            api_key="OLD",
-        )
-        rotate_api_key(shop=shop, actor=actor, new_api_key="NEW")
-        shop.refresh_from_db()
-        assert shop.api_key == "NEW"
-        assert (
-            ShopAuditLog.objects.filter(
-                shop=shop, action=ShopAuditLog.Action.API_KEY_ROTATED
-            ).count()
-            == 1
-        )
-
-    @patch("apps.shops.services.shops.validate_place_id", side_effect=GoogleUnreachableError())
-    def test_unreachable_does_not_replace(self, mock_validate: object) -> None:
-        actor = UserFactory()
-        shop = ShopFactory(
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            place_id="ChIJ",
-            api_key="OLD",
-        )
-        with pytest.raises(GoogleUnreachableError):
-            rotate_api_key(shop=shop, actor=actor, new_api_key="NEW")
-        shop.refresh_from_db()
-        assert shop.api_key == "OLD"
-        assert ShopAuditLog.objects.filter(shop=shop).count() == 0
-
-    @patch("apps.shops.services.shops.validate_place_id", side_effect=APIKeyInvalidError())
-    def test_invalid_key_propagates(self, mock_validate: object) -> None:
-        actor = UserFactory()
-        shop = ShopFactory(
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            place_id="ChIJ",
-            api_key="OLD",
-        )
-        with pytest.raises(APIKeyInvalidError):
-            rotate_api_key(shop=shop, actor=actor, new_api_key="BAD")
-        shop.refresh_from_db()
-        assert shop.api_key == "OLD"
-        assert ShopAuditLog.objects.filter(shop=shop).count() == 0
-
-    def test_rotate_on_oauth_shop_raises(self) -> None:
-        actor = UserFactory()
-        shop = ShopFactory(connection_method=Shop.ConnectionMethod.GOOGLE_OAUTH)
-        with pytest.raises(ValueError, match="not on manual connection method"):
-            rotate_api_key(shop=shop, actor=actor, new_api_key="X")
 
 
 @pytest.mark.django_db

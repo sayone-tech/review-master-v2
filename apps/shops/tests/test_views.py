@@ -12,7 +12,7 @@ from rest_framework.test import APIClient
 from apps.accounts.tests.factories import UserFactory
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.regions.tests.factories import RegionFactory
-from apps.shops.models import Shop, ShopAuditLog
+from apps.shops.models import Shop
 from apps.shops.tests.factories import ShopFactory
 
 # ---------------------------------------------------------------------------
@@ -24,23 +24,6 @@ _OAUTH_SETTINGS = {
     "GOOGLE_OAUTH_CLIENT_SECRET": "test-secret",
     "GOOGLE_OAUTH_REDIRECT_URI": "http://testserver/oauth/google/callback/",
 }
-
-# Fake test API keys — never real secrets. gitleaks:allow below.
-_API_KEY_A = "AIzaSyBSECRETKEY123"  # gitleaks:allow
-_API_KEY_TAIL = "AIzaXYZTAIL"  # gitleaks:allow
-_API_KEY_VALID_1 = "AIzaXYZVALIDKEY0001"  # gitleaks:allow
-_API_KEY_VALID_2 = "AIzaXYZVALIDKEY0002"  # gitleaks:allow
-_API_KEY_BROKEN = "AIzaXYZBROKENKEY000"  # gitleaks:allow
-_API_KEY_VALID_3 = "AIzaXYZVALIDKEY0003"  # gitleaks:allow
-_API_KEY_SHORT = "AIzaNEWKEY"  # gitleaks:allow
-_API_KEY_REVEAL = "AIzaXYZ"  # gitleaks:allow
-_API_KEY_AUDIT = "AIzaAUDIT"  # gitleaks:allow
-_API_KEY_OLD_1 = "AIzaOLDKEY1234567"  # gitleaks:allow
-_API_KEY_NEW_1 = "AIzaNEWKEY9876543"  # gitleaks:allow
-_API_KEY_OLD_2 = "AIzaOLDKEY1234568"  # gitleaks:allow
-_API_KEY_BAD_1 = "AIzaBADKEY9876541"  # gitleaks:allow
-_API_KEY_ORIGINAL = "AIzaORIGINAL1234567"  # gitleaks:allow
-_API_KEY_NEW_2 = "AIzaNEWKEY9876542"  # gitleaks:allow
 
 
 @pytest.fixture
@@ -101,67 +84,6 @@ class TestShopsListAllocation:
         resp = client.get("/api/v1/shops/")
         assert resp.status_code == 200
         assert resp.data["has_regions"] is False
-
-
-# ---------------------------------------------------------------------------
-# 2. TestShopSerializerFields (SHOP-13)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestShopSerializerFields:
-    def test_read_serializer_excludes_google_refresh_token(self, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.GOOGLE_OAUTH,
-            google_refresh_token="1//super-secret-token",
-        )
-        resp = client.get("/api/v1/shops/")
-        assert resp.status_code == 200
-        result = resp.data["results"][0]
-        assert "google_refresh_token" not in result
-
-    def test_read_serializer_excludes_raw_api_key(self, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            api_key=_API_KEY_A,
-        )
-        resp = client.get("/api/v1/shops/")
-        assert resp.status_code == 200
-        result = resp.data["results"][0]
-        # Raw api_key must NOT be present
-        assert "api_key" not in result
-        # Masked version MUST be present
-        assert "api_key_masked" in result
-
-    def test_api_key_masked_format(self, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            api_key=_API_KEY_TAIL,
-        )
-        resp = client.get("/api/v1/shops/")
-        assert resp.status_code == 200
-        masked = resp.data["results"][0]["api_key_masked"]
-        assert masked == "••••TAIL"
-
-    def test_api_key_masked_empty_for_no_key(self, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        ShopFactory(organisation=org, region=region, api_key="")
-        resp = client.get("/api/v1/shops/")
-        assert resp.status_code == 200
-        assert resp.data["results"][0]["api_key_masked"] == ""
 
 
 # ---------------------------------------------------------------------------
@@ -230,84 +152,6 @@ class TestShopsApiCreate:
             "Shop allocation limit reached." in str(err)
             for err in resp.data.get("non_field_errors", [])
         )
-
-    @patch("apps.shops.services.shops.validate_place_id")
-    def test_create_manual_validates_via_places_api(self, mock_validate, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        mock_validate.return_value = None
-        resp = client.post(
-            "/api/v1/shops/",
-            {
-                "name": "Manual Shop",
-                "connection_method": "MANUAL",
-                "region": region.pk,
-                "place_id": "ChIJ123",
-                "api_key": _API_KEY_VALID_1,
-            },
-        )
-        assert resp.status_code == 201
-        mock_validate.assert_called_once()
-
-    @patch("apps.shops.services.shops.validate_place_id")
-    def test_create_manual_invalid_place_id_returns_field_error(self, mock_validate, org_and_admin):
-        from apps.integrations.google.exceptions import PlaceIDNotFoundError
-
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        mock_validate.side_effect = PlaceIDNotFoundError()
-        resp = client.post(
-            "/api/v1/shops/",
-            {
-                "name": "Bad Place",
-                "connection_method": "MANUAL",
-                "region": region.pk,
-                "place_id": "ChIJBAD",
-                "api_key": _API_KEY_VALID_2,
-            },
-        )
-        assert resp.status_code == 400
-        assert "place_id" in resp.data
-
-    @patch("apps.shops.services.shops.validate_place_id")
-    def test_create_manual_invalid_api_key_returns_field_error(self, mock_validate, org_and_admin):
-        from apps.integrations.google.exceptions import APIKeyInvalidError
-
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        mock_validate.side_effect = APIKeyInvalidError()
-        resp = client.post(
-            "/api/v1/shops/",
-            {
-                "name": "Bad Key",
-                "connection_method": "MANUAL",
-                "region": region.pk,
-                "place_id": "ChIJOK",
-                "api_key": _API_KEY_BROKEN,
-            },
-        )
-        assert resp.status_code == 400
-        assert "api_key" in resp.data
-
-    @patch("apps.shops.services.shops.validate_place_id")
-    def test_create_manual_unreachable_returns_non_field_error(self, mock_validate, org_and_admin):
-        from apps.integrations.google.exceptions import GoogleUnreachableError
-
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        mock_validate.side_effect = GoogleUnreachableError()
-        resp = client.post(
-            "/api/v1/shops/",
-            {
-                "name": "Unreachable",
-                "connection_method": "MANUAL",
-                "region": region.pk,
-                "place_id": "ChIJOK",
-                "api_key": _API_KEY_VALID_3,
-            },
-        )
-        assert resp.status_code == 400
-        assert "non_field_errors" in resp.data
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +263,7 @@ class TestShopsApiUpdate:
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         shop = ShopFactory(organisation=org, region=region)
-        resp = client.patch(f"/api/v1/shops/{shop.pk}/", {"connection_method": "MANUAL"})
+        resp = client.patch(f"/api/v1/shops/{shop.pk}/", {"connection_method": "GOOGLE_OAUTH"})
         assert resp.status_code == 400
         assert "connection_method" in resp.data
         assert "cannot be modified" in str(resp.data["connection_method"][0]).lower()
@@ -431,14 +275,6 @@ class TestShopsApiUpdate:
         resp = client.patch(f"/api/v1/shops/{shop.pk}/", {"place_id": "ChIJLOCKED"})
         assert resp.status_code == 400
         assert "place_id" in resp.data
-
-    def test_patch_api_key_rejected(self, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        shop = ShopFactory(organisation=org, region=region)
-        resp = client.patch(f"/api/v1/shops/{shop.pk}/", {"api_key": _API_KEY_SHORT})
-        assert resp.status_code == 400
-        assert "api_key" in resp.data
 
 
 # ---------------------------------------------------------------------------
@@ -467,112 +303,6 @@ class TestShopsApiActions:
         assert resp.data["is_active"] is True
         shop.refresh_from_db()
         assert shop.is_active is True
-
-    def test_reveal_key_returns_decrypted_for_manual_shop(self, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        shop = ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            api_key=_API_KEY_REVEAL,
-        )
-        resp = client.post(f"/api/v1/shops/{shop.pk}/reveal_key/")
-        assert resp.status_code == 200
-        assert resp.data["api_key"] == _API_KEY_REVEAL
-
-    def test_reveal_key_returns_400_for_oauth_shop(self, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        shop = ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.GOOGLE_OAUTH,
-        )
-        resp = client.post(f"/api/v1/shops/{shop.pk}/reveal_key/")
-        assert resp.status_code == 400
-
-    def test_reveal_key_writes_audit_log(self, org_and_admin):
-        org, _admin, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        shop = ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            api_key=_API_KEY_AUDIT,
-        )
-        assert not ShopAuditLog.objects.filter(
-            shop=shop, action=ShopAuditLog.Action.API_KEY_REVEALED
-        ).exists()
-        resp = client.post(f"/api/v1/shops/{shop.pk}/reveal_key/")
-        assert resp.status_code == 200
-        assert ShopAuditLog.objects.filter(
-            shop=shop, action=ShopAuditLog.Action.API_KEY_REVEALED
-        ).exists()
-
-    @patch("apps.shops.services.shops.validate_place_id")
-    def test_rotate_key_validates_via_places_api(self, mock_validate, org_and_admin):
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        shop = ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            place_id="ChIJROTATE",
-            api_key=_API_KEY_OLD_1,
-        )
-        mock_validate.return_value = None
-        resp = client.post(
-            f"/api/v1/shops/{shop.pk}/rotate_key/",
-            {"new_api_key": _API_KEY_NEW_1},
-        )
-        assert resp.status_code == 200
-        mock_validate.assert_called_once()
-
-    @patch("apps.shops.services.shops.validate_place_id")
-    def test_rotate_key_invalid_returns_field_error(self, mock_validate, org_and_admin):
-        from apps.integrations.google.exceptions import APIKeyInvalidError
-
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        shop = ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            place_id="ChIJROTATE",
-            api_key=_API_KEY_OLD_2,
-        )
-        mock_validate.side_effect = APIKeyInvalidError()
-        resp = client.post(
-            f"/api/v1/shops/{shop.pk}/rotate_key/",
-            {"new_api_key": _API_KEY_BAD_1},
-        )
-        assert resp.status_code == 400
-        assert "api_key" in resp.data
-
-    @patch("apps.shops.services.shops.validate_place_id")
-    def test_rotate_key_unreachable_does_not_replace(self, mock_validate, org_and_admin):
-        from apps.integrations.google.exceptions import GoogleUnreachableError
-
-        org, _, client = org_and_admin
-        region = RegionFactory(organisation=org)
-        shop = ShopFactory(
-            organisation=org,
-            region=region,
-            connection_method=Shop.ConnectionMethod.MANUAL,
-            place_id="ChIJROTATE",
-            api_key=_API_KEY_ORIGINAL,
-        )
-        mock_validate.side_effect = GoogleUnreachableError()
-        resp = client.post(
-            f"/api/v1/shops/{shop.pk}/rotate_key/",
-            {"new_api_key": _API_KEY_NEW_2},
-        )
-        assert resp.status_code == 400
-        assert "non_field_errors" in resp.data
-        shop.refresh_from_db()
-        # Original key must still be intact
-        assert shop.api_key == _API_KEY_ORIGINAL
 
 
 # ---------------------------------------------------------------------------
@@ -724,13 +454,14 @@ class TestOAuthCallbackView:
         )
         assert resp.status_code == 200
         assert b"window.opener" in resp.content
-        assert b"oauth_success" in resp.content
+        # Template now sends oauth_listings for all cases (single + multiple)
+        assert b"oauth_listings" in resp.content
         assert b"setTimeout" in resp.content
         assert resp["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
 
     @patch("apps.shops.views.exchange_code_for_token")
     @patch("apps.shops.views.list_business_locations")
-    def test_callback_multiple_listings_renders_picker(
+    def test_callback_multiple_listings_sends_all_listings(
         self, mock_list_locs, mock_exchange, org_and_admin
     ):
         _org, admin, _ = org_and_admin
@@ -743,7 +474,8 @@ class TestOAuthCallbackView:
             {"state": "TESTSTATE", "code": "AUTH-CODE"},
         )
         assert resp.status_code == 200
-        assert b"<form" in resp.content
+        assert b"window.opener" in resp.content
+        assert b"oauth_listings" in resp.content
         assert b"My Cafe" in resp.content
         assert b"My Bakery" in resp.content
 

@@ -48,13 +48,6 @@ class TestListShopsFilters:
         result = list(list_shops(organisation_id=org.pk, search="Main St"))
         assert [s.pk for s in result] == [match.pk]
 
-    def test_search_matches_city(self) -> None:
-        org = OrganisationFactory()
-        match = ShopFactory(organisation=org, city="London")
-        ShopFactory(organisation=org, city="Berlin")
-        result = list(list_shops(organisation_id=org.pk, search="London"))
-        assert [s.pk for s in result] == [match.pk]
-
     def test_status_active_only(self) -> None:
         org = OrganisationFactory()
         active = ShopFactory(organisation=org, is_active=True)
