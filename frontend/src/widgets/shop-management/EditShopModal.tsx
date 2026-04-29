@@ -7,8 +7,6 @@ import type { ShopRow, ShopUpdatePayload } from "./types";
 const inputCls =
   "w-full px-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
 const inputErrorCls = inputCls + " border-red";
-const inputDisabledCls =
-  "w-full px-3 py-2 text-[13.5px] bg-line-soft border border-line rounded-md text-muted cursor-not-allowed";
 const labelCls =
   "block text-[12px] font-semibold text-subtle tracking-[0.05em] uppercase mb-1";
 
@@ -107,7 +105,7 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
     <Modal
       open={open}
       title="Edit Shop"
-      subtitle="Update shop details. Connection method and Place ID are locked after creation."
+      subtitle="Update shop details."
       size="default"
       onClose={handleClose}
       footer={
@@ -134,38 +132,6 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
       }
     >
       <form id="edit-shop-form" onSubmit={handleSubmit} className="space-y-4">
-        {/* Connection method — locked after creation (SHOP-16) */}
-        <fieldset className="space-y-2 opacity-60" disabled>
-          <legend className={labelCls}>Connection method</legend>
-          <label className="flex items-center gap-2 text-[13.5px] cursor-not-allowed">
-            <input
-              type="radio"
-              name="edit-method"
-              disabled
-              readOnly
-              checked={shop?.connection_method === "GOOGLE_OAUTH"}
-              title="Locked after creation"
-            />{" "}
-            Connect with Google
-          </label>
-        </fieldset>
-        <div>
-          <label htmlFor="es-place-id" className={labelCls}>
-            Google Place ID <span className="text-muted normal-case font-normal">(locked)</span>
-          </label>
-          <input
-            id="es-place-id"
-            type="text"
-            value={shop?.place_id ?? ""}
-            disabled
-            readOnly
-            title="Locked after creation"
-            className={inputDisabledCls}
-          />
-          <p className="mt-0.5 text-[11.5px] text-muted">Locked after creation</p>
-        </div>
-
-        {/* Editable fields */}
         <div>
           <label htmlFor="es-name" className={labelCls}>
             Shop Name

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, Edit2, Power, PowerOff, RefreshCcw } from "lucide-react";
 import { DataTable } from "../data-table/DataTable";
-import { ConnectionStatusPill } from "./ConnectionStatusPill";
 import { ShopsEmptyStateA } from "./ShopsEmptyStateA";
 import { ShopsEmptyStateB } from "./ShopsEmptyStateB";
 import { ShopRowActionsMenu, type RowAction } from "./ShopRowActionsMenu";
@@ -125,13 +124,6 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
       ),
     },
     {
-      key: "location",
-      label: "LOCATION",
-      skeletonWidth: "200px",
-      accessor: (row: ShopRow) =>
-        row.street_address ? row.street_address : <span className="text-muted">—</span>,
-    },
-    {
       key: "region",
       label: "REGION",
       skeletonWidth: "60px",
@@ -152,19 +144,6 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
         row.phone ? row.phone : <span className="text-muted">—</span>,
     },
     {
-      key: "place_id",
-      label: "PLACE ID",
-      skeletonWidth: "120px",
-      accessor: (row: ShopRow) => (
-        <span
-          className="font-mono text-[12px] truncate max-w-[120px] inline-block"
-          title={row.place_id}
-        >
-          {row.place_id || "—"}
-        </span>
-      ),
-    },
-    {
       key: "status",
       label: "STATUS",
       skeletonWidth: "60px",
@@ -179,14 +158,6 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
         >
           {row.is_active ? "Active" : "Inactive"}
         </span>
-      ),
-    },
-    {
-      key: "connection",
-      label: "CONNECTION",
-      skeletonWidth: "140px",
-      accessor: (row: ShopRow) => (
-        <ConnectionStatusPill method={row.connection_method} status={row.connection_status} />
       ),
     },
     {

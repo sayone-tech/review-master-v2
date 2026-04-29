@@ -59,10 +59,12 @@ function CreateButtonBridge({
 interface ShopModalsProps {
   allocation: AllocationStatus;
   regions: RegionLite[];
+  initialPlaceIds?: string[];
 }
 
-export function ShopModals({ allocation, regions }: ShopModalsProps) {
+export function ShopModals({ allocation, regions, initialPlaceIds = [] }: ShopModalsProps) {
   const [createOpen, setCreateOpen] = useState(false);
+  const [takenPlaceIds, setTakenPlaceIds] = useState<Set<string>>(new Set(initialPlaceIds));
   const [selected, setSelected] = useState<ShopRow | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -171,11 +173,13 @@ export function ShopModals({ allocation, regions }: ShopModalsProps) {
       <CreateShopModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => {
+        onCreated={(shop) => {
+          if (shop.place_id) setTakenPlaceIds((prev) => new Set([...prev, shop.place_id]));
           setCreateOpen(false);
           refresh();
         }}
         regions={regions}
+        existingPlaceIds={takenPlaceIds}
       />
 
       <EditShopModal

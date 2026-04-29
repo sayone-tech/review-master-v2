@@ -43,9 +43,14 @@ if (tableRoot) {
 
 const modalsRoot = document.getElementById("shop-modals-root");
 if (modalsRoot) {
+  const initialPlaceIds = initialRows.map((r) => r.place_id).filter(Boolean);
   createRoot(modalsRoot).render(
     <StrictMode>
-      <ShopModals allocation={initialAllocation} regions={initialRegions} />
+      <ShopModals
+        allocation={initialAllocation}
+        regions={initialRegions}
+        initialPlaceIds={initialPlaceIds}
+      />
     </StrictMode>,
   );
 }

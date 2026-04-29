@@ -34,9 +34,10 @@ interface Props {
   onClose: () => void;
   onCreated: (shop: ShopRow) => void;
   regions: RegionLite[];
+  existingPlaceIds?: Set<string>;
 }
 
-export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
+export function CreateShopModal({ open, onClose, onCreated, regions, existingPlaceIds }: Props) {
   const [step, setStep] = useState<Step>("connect");
   const [oauthState, setOauthState] = useState<string>("");
   const [listings, setListings] = useState<Listing[]>([]);
@@ -246,7 +247,7 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
               value={listingQuery}
               onChange={(e) => setListingQuery(e.target.value)}
               placeholder="Search by name or address…"
-              className="w-full pl-8 pr-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink"
+              className="w-full pl-9 pr-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink"
             />
           </div>
 
@@ -290,55 +291,69 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
                 </div>
               </div>
             ) : (
-              filteredListings.map((l, i) => (
-                <div
-                  key={i}
-                  role="radio"
-                  aria-checked="false"
-                  tabIndex={0}
-                  onClick={() => handleSelectListing(l)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleSelectListing(l);
-                    }
-                  }}
-                  className="flex items-center gap-3 cursor-pointer hover:bg-[#FAFAFA] transition-colors"
-                  style={{
-                    padding: "12px 14px",
-                    borderLeft: "3px solid transparent",
-                    borderBottom:
-                      i < filteredListings.length - 1 ? "1px solid #F4F4F5" : "none",
-                  }}
-                >
-                  {/* Radio circle */}
+              filteredListings.map((l, i) => {
+                const alreadyAdded = !!(existingPlaceIds && l.placeId && existingPlaceIds.has(l.placeId));
+                return (
                   <div
-                    className="shrink-0 flex items-center justify-center"
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: "50%",
-                      border: "1.5px solid #D4D4D8",
-                      background: "#fff",
+                    key={i}
+                    role="radio"
+                    aria-checked="false"
+                    aria-disabled={alreadyAdded}
+                    tabIndex={alreadyAdded ? -1 : 0}
+                    onClick={alreadyAdded ? undefined : () => handleSelectListing(l)}
+                    onKeyDown={alreadyAdded ? undefined : (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectListing(l);
+                      }
                     }}
-                    aria-hidden="true"
-                  />
-                  {/* Name + address */}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13.5px] font-semibold text-ink leading-snug">
-                      {highlight(l.name)}
-                    </div>
-                    {l.address && (
-                      <div
-                        className="text-[12px] mt-px"
-                        style={{ color: "#71717A", lineHeight: 1.45 }}
-                      >
-                        {highlight(l.address)}
+                    className={`flex items-center gap-3 transition-colors ${alreadyAdded ? "cursor-not-allowed" : "cursor-pointer hover:bg-[#FAFAFA]"}`}
+                    style={{
+                      padding: "12px 14px",
+                      borderLeft: "3px solid transparent",
+                      borderBottom:
+                        i < filteredListings.length - 1 ? "1px solid #F4F4F5" : "none",
+                      opacity: alreadyAdded ? 0.55 : 1,
+                    }}
+                  >
+                    {/* Radio circle */}
+                    <div
+                      className="shrink-0 flex items-center justify-center"
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        border: "1.5px solid #D4D4D8",
+                        background: "#fff",
+                      }}
+                      aria-hidden="true"
+                    />
+                    {/* Name + address */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13.5px] font-semibold text-ink leading-snug">
+                        {highlight(l.name)}
                       </div>
+                      {l.address && (
+                        <div
+                          className="text-[12px] mt-px"
+                          style={{ color: "#71717A", lineHeight: 1.45 }}
+                        >
+                          {highlight(l.address)}
+                        </div>
+                      )}
+                    </div>
+                    {/* Already connected badge */}
+                    {alreadyAdded && (
+                      <span
+                        className="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full"
+                        style={{ background: "#F0FDF4", color: "#16A34A", border: "1px solid rgba(22,163,74,0.25)" }}
+                      >
+                        Connected
+                      </span>
                     )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

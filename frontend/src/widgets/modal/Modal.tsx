@@ -60,12 +60,12 @@ export function Modal({
         onClick={dismissible ? onClose : undefined}
       >
         <div
-          className={`w-full ${SIZE_CLASS[size]} bg-white rounded-modal overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.08)] max-h-[80vh] overflow-y-auto`}
+          className={`w-full ${SIZE_CLASS[size]} bg-white rounded-modal overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.08)] max-h-[80vh] flex flex-col`}
           onClick={(e) => e.stopPropagation()}
           data-testid="modal-panel"
         >
           {title && (
-            <div className="px-6 pt-[22px] flex items-start justify-between gap-4">
+            <div className="shrink-0 px-6 pt-[22px] flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-[18px] font-semibold text-ink tracking-[-0.01em]">{title}</h2>
                 {subtitle && <p className="text-[13.5px] text-muted mt-1">{subtitle}</p>}
@@ -81,9 +81,9 @@ export function Modal({
               </button>
             </div>
           )}
-          <div className="px-6 py-5">{children}</div>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">{children}</div>
           {footer && (
-            <div className="px-6 py-4 bg-[#FBFBFB] border-t border-line-soft flex justify-end gap-2">
+            <div className="shrink-0 px-6 py-4 bg-[#FBFBFB] border-t border-line-soft flex justify-end gap-2">
               {footer}
             </div>
           )}
