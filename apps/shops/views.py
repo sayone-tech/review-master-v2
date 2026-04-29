@@ -296,6 +296,18 @@ class GoogleOAuthCallbackView(View):
     """
 
     def _render_error(self, request: Any, code: str, state: str = "") -> Any:
+        # Write error to Redis so the COOP close-watcher fallback can detect
+        # the error type instead of falling through to generic "closed".
+        if state:
+            try:
+                r = get_redis_connection("default")
+                r.setex(
+                    f"oauth:result:{state}",
+                    30,
+                    json.dumps({"type": "oauth_error", "state": state, "code": code}),
+                )
+            except Exception:
+                pass
         response = render(
             request,
             "shops/oauth/callback.html",

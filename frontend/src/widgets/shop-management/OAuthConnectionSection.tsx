@@ -88,14 +88,17 @@ export function OAuthConnectionSection({ onConnected, onError }: Props) {
         if (successFiredRef.current) return; // postMessage already handled it
 
         // Immediate one-shot poll — bridges the gap when postMessage is blocked
-        // by COOP (Docker missing same-origin-allow-popups header).
+        // by COOP. Also handles error cases (e.g. no_listings) that _render_error
+        // now writes to Redis so we surface the right message instead of "closed".
         try {
           const result = await getOAuthResult("");
           const r = result as {
+            type?: string;
             state?: string;
+            code?: string;
             listings?: Array<{ name?: string; address?: string; place_id?: string }>;
           };
-          if (r?.state && Array.isArray(r.listings) && r.listings.length > 0) {
+          if (r?.type === "oauth_listings" && r?.state && Array.isArray(r.listings) && r.listings.length > 0) {
             successFiredRef.current = true;
             cleanup();
             onConnected({
@@ -106,6 +109,12 @@ export function OAuthConnectionSection({ onConnected, onError }: Props) {
                 placeId: l.place_id ?? "",
               })),
             });
+            return;
+          }
+          if (r?.type === "oauth_error" && r?.code) {
+            successFiredRef.current = true;
+            cleanup();
+            onError(r.code as "denied" | "auth_error" | "no_listings");
             return;
           }
         } catch {
@@ -131,12 +140,14 @@ export function OAuthConnectionSection({ onConnected, onError }: Props) {
       void (async () => {
         try {
           const result = await getOAuthResult("");
-          if (result && typeof result === "object" && "state" in result) {
+          if (result && typeof result === "object") {
             const r = result as {
+              type?: string;
               state?: string;
+              code?: string;
               listings?: Array<{ name?: string; address?: string; place_id?: string }>;
             };
-            if (r.state && Array.isArray(r.listings) && r.listings.length > 0) {
+            if (r.type === "oauth_listings" && r.state && Array.isArray(r.listings) && r.listings.length > 0) {
               successFiredRef.current = true;
               cleanup();
               onConnected({
@@ -147,6 +158,10 @@ export function OAuthConnectionSection({ onConnected, onError }: Props) {
                   placeId: l.place_id ?? "",
                 })),
               });
+            } else if (r.type === "oauth_error" && r.code) {
+              successFiredRef.current = true;
+              cleanup();
+              onError(r.code as "denied" | "auth_error" | "no_listings");
             }
           }
         } catch {
