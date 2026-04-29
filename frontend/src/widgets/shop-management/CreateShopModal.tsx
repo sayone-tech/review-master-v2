@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, ChevronRight, MapPin } from "lucide-react";
 import { Modal } from "../modal/Modal";
 import { ApiError, createShop } from "./api";
 import { emitToast } from "../../lib/toast";
@@ -195,20 +195,39 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
 
       {/* ── Step 2: Pick location ── */}
       {step === "pick" && (
-        <div className="space-y-2.5">
-          {listings.map((l, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => handleSelectListing(l)}
-              className="w-full text-left px-3.5 py-3 border border-line rounded-md hover:bg-line-soft transition-colors"
-            >
-              <div className="text-[13.5px] font-semibold text-ink">{l.name}</div>
-              {l.address && (
-                <div className="text-[12.5px] text-muted mt-0.5">{l.address}</div>
-              )}
-            </button>
-          ))}
+        <div className="space-y-3">
+          <p className="text-[12.5px] text-muted">
+            {listings.length} location{listings.length !== 1 ? "s" : ""} found in your Google account.
+          </p>
+          <div className="space-y-2 max-h-[320px] overflow-y-auto pr-0.5">
+            {listings.map((l, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleSelectListing(l)}
+                className="w-full text-left flex items-start gap-3 px-4 py-3.5 border border-line rounded-lg hover:border-yellow-hover hover:bg-yellow/5 transition-colors group"
+              >
+                <div
+                  className="mt-0.5 shrink-0 flex items-center justify-center w-8 h-8 rounded-full"
+                  style={{ backgroundColor: "#FEF9C3" }}
+                >
+                  <MapPin size={14} style={{ color: "#B45309" }} aria-hidden="true" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13.5px] font-semibold text-ink leading-snug">{l.name}</div>
+                  {l.address && (
+                    <div className="text-[12px] text-muted mt-0.5 leading-snug">{l.address}</div>
+                  )}
+                </div>
+                <ChevronRight
+                  size={15}
+                  className="shrink-0 mt-1 transition-colors"
+                  style={{ color: "var(--color-muted, #9CA3AF)" }}
+                  aria-hidden="true"
+                />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
