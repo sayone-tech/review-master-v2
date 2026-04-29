@@ -9,8 +9,9 @@ A multi-tenant SaaS platform for managing organisations, their stores, and Googl
 **v1.0 shipped 2026-04-27** — Superadmin module complete.
 **Phase 6 complete 2026-04-27** — Org Admin shell, tenant security scaffold, and full v0.2 data model foundation.
 **Phase 7 complete 2026-04-28** — Regions module: full Django backend + React widget, all 13 requirements verified at 98.67% coverage.
+**Phase 8 complete 2026-04-29** — Shops module: Google OAuth connection flow, multi-tenant shop CRUD, React table + modal suite, unique place_id constraint, searchable location picker.
 
-The foundational control plane is live and the Org Admin shell is now functional. Org Admins can now also manage Regions: list, create (with auto-ID generation from region name), edit, and delete (blocked with 409 when shops are assigned). The multi-tenant security scaffold (`IsOrgAdmin`, `IsOrgScoped`, `TenantScopedViewSet`) protects all endpoints from cross-tenant leakage.
+The Shops module is fully operational. Org Admins can add shops via Google OAuth (popup flow with COOP handling and Redis fallback), browse and filter their shop list, view/edit details, and activate/deactivate. Already-connected Google locations are visually disabled in the picker. Duplicate place_id is blocked at both serializer and DB constraint levels.
 
 ### What's in production (v1.0)
 
@@ -89,4 +90,4 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 </details>
 
 ---
-*Last updated: 2026-04-27 — Phase 6 complete*
+*Last updated: 2026-04-29 — Phase 8 complete*
