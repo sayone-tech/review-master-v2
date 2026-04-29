@@ -4,11 +4,11 @@ milestone: v1.0
 milestone_name: milestone
 status: unknown
 stopped_at: Completed 08-05-PLAN.md
-last_updated: "2026-04-29T11:29:30.276Z"
+last_updated: "2026-04-29T14:02:33.601Z"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 10
+  completed_phases: 1
+  total_plans: 12
   completed_plans: 10
 ---
 
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 ## Current Position
 
 Phase: 08 (shops) — EXECUTING
-Plan: 4 of 5
+Plan: 7 of 7
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: 4 of 5
 | Phase 08-shops P03 | 23 | 2 tasks | 9 files |
 | Phase 08-shops P04 | 15 | 2 tasks | 14 files |
 | Phase 08-shops P05 | 12 | 3 tasks | 12 files |
+| Phase 08-shops P06 | 28 | 4 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,9 @@ Recent decisions affecting current work:
 - [Phase 08-shops]: 08-04: ShopTable CustomEvent bus: 7 events dispatched (shop:open-{details,edit,deactivate,activate,reveal-key,rotate-key,reconnect}); Plan 08-05 subscribes
 - [Phase 08-shops]: act() from @testing-library/react required when dispatching CustomEvents that trigger React state in tests — plain dispatchEvent causes act() warnings and test failures
 - [Phase 08-shops]: 08-05: ShopModals seeds regions from template context (shop_list view adds regions_json via list_regions + RegionReadSerializer) — avoids extra API call on modal open
+- [Phase 08-shops]: 08-06: ShopAuditLog model + Action enum (API_KEY_REVEALED/API_KEY_ROTATED) retained at ORM level — table frozen in place, no service writes after this plan, avoids no-op migration
+- [Phase 08-shops]: 08-06: api_key removed from ShopUpdateSerializer LOCKED_FIELDS — column gone, DRF silently ignores undeclared fields for removed columns
+- [Phase 08-shops]: 08-06: REQUIREMENTS.md uses [~] status + RETIRED datestamp for retired (not deleted) requirements SHOP-10/19/20
 
 ### Pending Todos
 
@@ -125,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T11:20:43.799Z
-Stopped at: Completed 08-05-PLAN.md
+Last session: 2026-04-29T14:31:25Z
+Stopped at: Completed 08-06-PLAN.md
 Resume file: None

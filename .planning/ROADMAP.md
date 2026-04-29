@@ -94,10 +94,10 @@ Plans:
 Plans:
 - [x] 08-01-PLAN.md — Google integrations layer (apps/integrations/google/: oauth.py, places.py, exceptions.py); httpx + tenacity deps; full test suite with mocked HTTP
 - [x] 08-02-PLAN.md — Shop services and selectors + ShopAuditLog model/migration: create_shop (allocation enforcement with select_for_update), update_shop, activate/deactivate, reveal_api_key, rotate_api_key, reconnect_oauth, list_shops (search/filter), get_allocation_status, get_has_regions
-- [ ] 08-03-PLAN.md — Shop API viewset + URLs + OAuth views: ShopViewSet (TenantScopedViewSet) with custom @action endpoints, OAuth start/callback views with scoped COOP header, allocation envelope, cross-tenant + query-count CI tests
-- [ ] 08-04-PLAN.md — Shops list React widget: types/api/useShops hook, ConnectionStatusPill, ShopRowActionsMenu, ShopTable with search/status/region filters and pagination, Empty States A (no regions) and B (no shops), Vite + template wiring
-- [ ] 08-05-PLAN.md — Shop create/edit/details/action modals + OAuth popup orchestrator: synchronous window.open, postMessage with origin verification, Redis polling fallback, Deactivate/Activate confirms (amber/blue), Reveal Key (30s auto-mask + audit log), Rotate Key, Reconnect Google
-- [ ] 08-06-PLAN.md — Gap closure (backend): drop MANUAL ConnectionMethod + api_key field + city/state/zip_code columns; migration 0003; remove RotateKeySerializer, reveal_key/rotate_key viewset actions, reveal_api_key/rotate_api_key services; trim list_shops search; cleanup tests
+- [x] 08-03-PLAN.md — Shop API viewset + URLs + OAuth views: ShopViewSet (TenantScopedViewSet) with custom @action endpoints, OAuth start/callback views with scoped COOP header, allocation envelope, cross-tenant + query-count CI tests
+- [x] 08-04-PLAN.md — Shops list React widget: types/api/useShops hook, ConnectionStatusPill, ShopRowActionsMenu, ShopTable with search/status/region filters and pagination, Empty States A (no regions) and B (no shops), Vite + template wiring
+- [x] 08-05-PLAN.md — Shop create/edit/details/action modals + OAuth popup orchestrator: synchronous window.open, postMessage with origin verification, Redis polling fallback, Deactivate/Activate confirms (amber/blue), Reveal Key (30s auto-mask + audit log), Rotate Key, Reconnect Google
+- [x] 08-06-PLAN.md — Gap closure (backend): drop MANUAL ConnectionMethod + api_key field + city/state/zip_code columns; migration 0003; remove RotateKeySerializer, reveal_key/rotate_key viewset actions, reveal_api_key/rotate_api_key services; trim list_shops search; cleanup tests
 - [ ] 08-07-PLAN.md — Gap closure (frontend): drop MANUAL from ConnectionMethod TS type; remove city/state/zip/api_key from types/payloads; delete RevealKeyModal/RotateKeyModal; trim CreateShopModal/EditShopModal/ShopDetailsModal/ShopTable/ShopModals; restyle Connect Google button to brand yellow primary
 
 ---
@@ -138,7 +138,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 6. Org Admin Shell | v0.2-org-admin | 3/5 | In Progress | - |
 | 7. Regions | v0.2-org-admin | 0/3 | Not started | - |
-| 8. Shops | v0.2-org-admin | 1/5 | In progress | - |
+| 8. Shops | v0.2-org-admin | 6/7 | In progress | - |
 | 9. Team | v0.2-org-admin | 0/5 | Not started | - |
 
 ---
