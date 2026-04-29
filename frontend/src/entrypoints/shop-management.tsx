@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import type { AllocationStatus, ShopRow } from "../widgets/shop-management/types";
 import { ShopTableWidget } from "../widgets/shop-management/ShopTable";
+import { ShopModals } from "../widgets/shop-management/ShopModals";
 
 function parseJson<T>(id: string, fallback: T): T {
   const el = document.getElementById(id);
@@ -20,6 +21,10 @@ const initialAllocation = parseJson<AllocationStatus>("shop-allocation", {
   at_limit: false,
 });
 const initialHasRegions = parseJson<boolean>("shop-has-regions", false);
+const initialRegions = parseJson<{ id: number; region_id: string; name: string }[]>(
+  "shop-regions-data",
+  [],
+);
 
 const tableRoot = document.getElementById("shop-table-root");
 if (tableRoot) {
@@ -36,5 +41,11 @@ if (tableRoot) {
   );
 }
 
-// Plan 08-05 will mount the modals widget on #shop-modals-root.
-// For now, leave that root empty so the page renders.
+const modalsRoot = document.getElementById("shop-modals-root");
+if (modalsRoot) {
+  createRoot(modalsRoot).render(
+    <StrictMode>
+      <ShopModals allocation={initialAllocation} regions={initialRegions} />
+    </StrictMode>,
+  );
+}

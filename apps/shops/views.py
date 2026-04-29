@@ -32,6 +32,8 @@ from apps.integrations.google.oauth import (
     exchange_code_for_token,
     list_business_locations,
 )
+from apps.regions.selectors.regions import list_regions
+from apps.regions.serializers import RegionReadSerializer
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
 from apps.shops.models import Shop
 from apps.shops.selectors.shops import get_allocation_status, get_has_regions, list_shops
@@ -63,6 +65,8 @@ def shop_list(request):  # type: ignore[no-untyped-def]
     org = request.user.organisation
     qs = list_shops(organisation_id=org.pk)[:10]  # SHOP-06: default page size 10
     shops_data = list(ShopReadSerializer(qs, many=True).data)
+    regions_qs = list_regions(organisation_id=org.pk)
+    regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
     return render(
         request,
         "shops/shop_list.html",
@@ -71,6 +75,7 @@ def shop_list(request):  # type: ignore[no-untyped-def]
             "shops_count": Shop.objects.filter(organisation=org).count(),
             "allocation": get_allocation_status(organisation=org),
             "has_regions": get_has_regions(organisation_id=org.pk),
+            "regions_json": regions_data,
         },
     )
 

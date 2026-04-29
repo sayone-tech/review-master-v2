@@ -27,6 +27,7 @@
   {{ shops_json|json_script:"shop-data" }}
   {{ allocation|json_script:"shop-allocation" }}
   {{ has_regions|json_script:"shop-has-regions" }}
+  {{ regions_json|json_script:"shop-regions-data" }}
 
   <div id="shop-table-root"></div>
 {% endblock %}
