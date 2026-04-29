@@ -1,14 +1,17 @@
-{{ invitee_name }}, you have been invited to join {{ organisation.name }}.
+You're invited to join {{ organisation.name }}
 
-Role: {{ role_display }}
-Invited by: {{ inviter_name }}
+Hi {{ invitee_name }},
 
-Accept your invitation: {{ accept_url }}
-
-This invitation expires in {{ expires_in_hours }} hours.
+{{ inviter_name }} has invited you to join {{ organisation.name }} on Review Master as a {{ role_display }}.
 {% if is_staff_role and assigned_region_names %}
 Regions: {{ assigned_region_names|join:", " }}
-{% endif %}
-{% if is_staff_role and assigned_shop_names %}
+{% endif %}{% if is_staff_role and assigned_shop_names %}
 Stores: {{ assigned_shop_names|join:", " }}
 {% endif %}
+Accept the invitation by visiting:
+
+{{ accept_url }}
+
+This invitation link expires in {{ expires_in_hours }} hours and can only be used once.
+
+If you did not expect this email, you can safely ignore it.
