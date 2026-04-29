@@ -1,0 +1,27 @@
+{% extends "base_org.html" %}
+{% load static django_vite %}
+
+{% block page_title %}Shops{% endblock %}
+
+{% block content %}
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-[18px] font-semibold text-ink">
+      Shops
+      <span class="text-muted font-normal text-[14px]">
+        ({{ allocation.current }} / {{ allocation.max }})
+      </span>
+    </h1>
+  </div>
+
+  <div id="shop-modals-root"></div>
+
+  {{ shops_json|json_script:"shop-data" }}
+  {{ allocation|json_script:"shop-allocation" }}
+  {{ has_regions|json_script:"shop-has-regions" }}
+
+  <div id="shop-table-root"></div>
+{% endblock %}
+
+{% block extra_js %}
+  {# Plan 08-04 will add: {% vite_asset 'src/entrypoints/shop-management.tsx' %} #}
+{% endblock %}

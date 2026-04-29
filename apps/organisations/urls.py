@@ -8,6 +8,7 @@ from apps.organisations.views import (
     organisation_list,
 )
 from apps.regions.views import region_list
+from apps.shops.views import shop_list
 
 urlpatterns = [
     path("admin/organisations/", organisation_list, name="organisation_list"),
@@ -25,13 +26,13 @@ urlpatterns = [
         region_list,
         name="org_regions",
     ),
-    # Stub pages — Phases 8/9 will replace each view but keep these URL names.
+    # Shops — Phase 8: real list view replaces Phase 6 stub.
     path(
         "admin/org/shops/",
-        org_stub_view,
-        kwargs={"section": "shops"},
+        shop_list,
         name="org_shops",
     ),
+    # Stub pages — Phase 9 will replace each view but keep these URL names.
     path(
         "admin/org/team/",
         org_stub_view,
