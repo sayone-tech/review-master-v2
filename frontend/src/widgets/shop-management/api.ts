@@ -1,6 +1,4 @@
 import type {
-  RevealKeyResponse,
-  RotateKeyPayload,
   ShopCreatePayload,
   ShopFilterParams,
   ShopRow,
@@ -92,25 +90,6 @@ export async function deactivateShop(id: number): Promise<ShopRow> {
     method: "POST",
     credentials: "same-origin",
     headers: headers("POST"),
-  });
-  return (await handle(resp)) as ShopRow;
-}
-
-export async function revealKey(id: number): Promise<RevealKeyResponse> {
-  const resp = await fetch(`/api/v1/shops/${id}/reveal_key/`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: headers("POST"),
-  });
-  return (await handle(resp)) as RevealKeyResponse;
-}
-
-export async function rotateKey(id: number, payload: RotateKeyPayload): Promise<ShopRow> {
-  const resp = await fetch(`/api/v1/shops/${id}/rotate_key/`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: headers("POST"),
-    body: JSON.stringify(payload),
   });
   return (await handle(resp)) as ShopRow;
 }
