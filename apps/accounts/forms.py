@@ -16,7 +16,7 @@ class CustomAuthenticationForm(AuthenticationForm):
 
     error_messages: ClassVar[dict[str, str | StrPromise]] = {  # type: ignore[misc]
         "invalid_login": "Invalid email or password.",
-        "inactive": "This account is inactive.",
+        "inactive": "Your account has been disabled. Contact your administrator.",
     }
 
 

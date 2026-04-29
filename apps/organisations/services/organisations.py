@@ -52,6 +52,8 @@ def create_organisation(
     InvitationToken.objects.create(
         organisation=org,
         token_hash=InvitationToken.hash_token(raw_token),
+        purpose=InvitationToken.Purpose.ORG_ADMIN,
+        invited_for_role=InvitationToken.InvitedForRole.ORG_ADMIN,
     )
     from django.conf import settings
 
@@ -93,6 +95,8 @@ def resend_invitation(
     InvitationToken.objects.create(
         organisation=organisation,
         token_hash=InvitationToken.hash_token(raw_token),
+        purpose=InvitationToken.Purpose.ORG_ADMIN,
+        invited_for_role=InvitationToken.InvitedForRole.ORG_ADMIN,
     )
 
     # Step 3: send resend-flavoured invitation email

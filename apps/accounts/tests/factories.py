@@ -28,6 +28,14 @@ class UserFactory(DjangoModelFactory):
         self.save()
 
 
+class OrgAdminFactory(UserFactory):
+    role = User.Role.ORG_ADMIN
+
+
+class StaffAdminFactory(UserFactory):
+    role = User.Role.STAFF_ADMIN
+
+
 class InvitationTokenFactory(DjangoModelFactory):
     class Meta:
         model = InvitationToken
@@ -37,6 +45,8 @@ class InvitationTokenFactory(DjangoModelFactory):
         lambda _: InvitationToken.hash_token(secrets.token_urlsafe(32))
     )
     is_used = False
+    purpose = InvitationToken.Purpose.ORG_ADMIN
+    invited_for_role = InvitationToken.InvitedForRole.ORG_ADMIN
 
 
 class StaffAccessScopeFactory(DjangoModelFactory):
