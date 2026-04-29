@@ -1,7 +1,7 @@
 from django.core.cache import cache
 from django.db import connection
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 
 def healthz(request: HttpRequest) -> JsonResponse:
@@ -28,8 +28,19 @@ def readyz(request: HttpRequest) -> JsonResponse:
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    """Phase 1 placeholder landing page — renders the shell."""
-    return render(request, "pages/placeholder.html")
+    """Root URL handler — redirects authenticated users to their role dashboard.
+
+    Unauthenticated users are sent to the login page.
+    This replaces the Phase 1 placeholder that accidentally rendered a shell with
+    hardcoded /stores/ and /reviews/ sidebar links for ORG_ADMIN users.
+    """
+    if not request.user.is_authenticated:
+        return redirect("login")
+    role = getattr(request.user, "role", None)
+    if role == "SUPERADMIN":
+        return redirect("organisation_list")
+    # ORG_ADMIN and STAFF_ADMIN both land on the org dashboard.
+    return redirect("org_admin_dashboard_v02")
 
 
 def showcase(request: HttpRequest) -> HttpResponse:

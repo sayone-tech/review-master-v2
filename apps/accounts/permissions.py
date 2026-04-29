@@ -4,7 +4,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from rest_framework.permissions import BasePermission
 from rest_framework.request import Request
 from rest_framework.views import APIView
@@ -56,8 +56,10 @@ def org_admin_required(
         user = request.user
         if not isinstance(user, User):
             return HttpResponseRedirect("/login/")
+        if user.role == User.Role.SUPERADMIN:
+            return HttpResponseRedirect("/admin/organisations/")
         if user.role != User.Role.ORG_ADMIN or user.organisation_id is None:
-            return HttpResponseForbidden("Organisation Admin role required.")
+            return HttpResponseRedirect("/login/")
         return view_func(request, *args, **kwargs)
 
     return wrapper

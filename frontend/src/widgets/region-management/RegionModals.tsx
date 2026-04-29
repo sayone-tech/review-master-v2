@@ -10,27 +10,31 @@ import { useRegions } from "./useRegions";
 import type { RegionRow } from "./types";
 
 /**
- * CreateButtonBridge: listens for clicks on the "Create Region" buttons rendered
- * by Django template (page header) and empty state CTA, and triggers the React modal.
+ * CreateButtonBridge: opens the Create Region modal in response to:
+ *   1. A direct click on the Django-template-rendered "#open-create-region" button
+ *      (page header — present in the DOM when this component mounts).
+ *   2. The "region:open-create" CustomEvent dispatched by RegionEmptyState
+ *      (that button lives in a separate React root and may not exist at mount time,
+ *      so DOM-ID querying at mount was a timing race — event bus is race-free).
  */
 function CreateButtonBridge({ onOpen }: { onOpen: () => void }) {
   useEffect(() => {
-    const ids = ["open-create-region", "open-create-region-empty"];
-    const handlers: Array<{ btn: HTMLElement; handler: () => void }> = [];
-
-    for (const id of ids) {
-      const btn = document.getElementById(id);
-      if (btn) {
-        const handler = () => onOpen();
-        btn.addEventListener("click", handler);
-        handlers.push({ btn, handler });
-      }
+    // Wire up the static Django-template button (always present in the DOM on mount).
+    const headerBtn = document.getElementById("open-create-region");
+    const headerHandler = () => onOpen();
+    if (headerBtn) {
+      headerBtn.addEventListener("click", headerHandler);
     }
 
+    // Listen for the event dispatched by the React-rendered empty-state button.
+    const eventHandler = () => onOpen();
+    window.addEventListener("region:open-create", eventHandler);
+
     return () => {
-      for (const { btn, handler } of handlers) {
-        btn.removeEventListener("click", handler);
+      if (headerBtn) {
+        headerBtn.removeEventListener("click", headerHandler);
       }
+      window.removeEventListener("region:open-create", eventHandler);
     };
   }, [onOpen]);
   return null;

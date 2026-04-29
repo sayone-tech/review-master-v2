@@ -18,10 +18,10 @@
 
   {% if regions_count > 0 %}
     {{ regions_json|json_script:"region-data" }}
-    <div id="region-table-root"></div>
   {% endif %}
+  <div id="region-table-root"></div>
 {% endblock %}
 
 {% block extra_js %}
-  {% vite_asset 'region-management' %}
+  {% vite_asset 'src/entrypoints/region-management.tsx' %}
 {% endblock %}

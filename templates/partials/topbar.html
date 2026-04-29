@@ -22,7 +22,7 @@
 
     <div class="text-[15px] font-medium text-muted truncate" data-testid="topbar-title">
       {% block breadcrumb %}
-        <strong class="text-ink font-semibold">{% block page_title %}Dashboard{% endblock %}</strong>
+        <strong class="text-ink font-semibold">{{ page_title|default:"Dashboard" }}</strong>
       {% endblock %}
     </div>
   </div>

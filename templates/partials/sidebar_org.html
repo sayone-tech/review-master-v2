@@ -18,7 +18,7 @@
   </div>
 
   {% if user.is_authenticated %}
-    <nav class="flex-1 overflow-y-auto" aria-label="Primary">
+    <nav class="flex-1 min-h-0 overflow-y-auto" aria-label="Primary">
       <span class="md:hidden lg:block px-5 pb-2 text-[11px] font-medium text-[#52525B] uppercase tracking-[0.08em]">
         Manage
       </span>
@@ -31,7 +31,7 @@
       </ul>
     </nav>
 
-    <div class="mt-auto border-t border-[#27272A] pt-4 px-5">
+    <div class="mt-auto shrink-0 border-t border-[#27272A] pt-4 px-5">
       <form method="post" action="{% url 'logout' %}">
         {% csrf_token %}
         <button

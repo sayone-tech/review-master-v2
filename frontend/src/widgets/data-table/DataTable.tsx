@@ -31,9 +31,7 @@ export function DataTable<T>({
   renderRowActions,
   rowKey,
 }: DataTableProps<T>) {
-  if (!loading && rows.length === 0 && emptyState) {
-    return <>{emptyState}</>;
-  }
+  const colSpan = columns.length + (renderRowActions ? 1 : 0);
 
   return (
     <div
@@ -61,55 +59,61 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {loading
-              ? Array.from({ length: 6 }).map((_, i) => (
-                  <tr
-                    key={`sk-${i}`}
-                    data-testid="data-table-skeleton-row"
-                    aria-busy="true"
-                  >
-                    {columns.map((col) => (
-                      <td key={col.key} className="px-4 py-[14px] border-b border-line-soft">
-                        <span
-                          className="inline-block bg-line rounded-sm animate-sk-pulse"
-                          style={{ width: col.skeletonWidth || "120px", height: "14px" }}
-                          aria-hidden="true"
-                        />
-                      </td>
-                    ))}
-                    {renderRowActions && (
-                      <td className="px-4 py-[14px] border-b border-line-soft">
-                        <span
-                          className="inline-block w-5 h-5 bg-line rounded-sm animate-sk-pulse"
-                          aria-hidden="true"
-                        />
-                      </td>
-                    )}
-                  </tr>
-                ))
-              : rows.map((row) => (
-                  <tr
-                    key={rowKey(row)}
-                    className="group hover:bg-[#FBFBFB] [&:last-child>td]:border-b-0"
-                    data-testid="data-table-row"
-                  >
-                    {columns.map((col) => (
-                      <td
-                        key={col.key}
-                        className={`px-4 py-[14px] border-b border-line-soft align-middle ${col.align === "right" ? "text-right" : ""}`}
-                      >
-                        {col.accessor(row)}
-                      </td>
-                    ))}
-                    {renderRowActions && (
-                      <td className="px-4 py-[14px] border-b border-line-soft">
-                        <span className="opacity-35 group-hover:opacity-100 transition-opacity">
-                          {renderRowActions(row)}
-                        </span>
-                      </td>
-                    )}
-                  </tr>
-                ))}
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr
+                  key={`sk-${i}`}
+                  data-testid="data-table-skeleton-row"
+                  aria-busy="true"
+                >
+                  {columns.map((col) => (
+                    <td key={col.key} className="px-4 py-[14px] border-b border-line-soft">
+                      <span
+                        className="inline-block bg-line rounded-sm animate-sk-pulse"
+                        style={{ width: col.skeletonWidth || "120px", height: "14px" }}
+                        aria-hidden="true"
+                      />
+                    </td>
+                  ))}
+                  {renderRowActions && (
+                    <td className="px-4 py-[14px] border-b border-line-soft">
+                      <span
+                        className="inline-block w-5 h-5 bg-line rounded-sm animate-sk-pulse"
+                        aria-hidden="true"
+                      />
+                    </td>
+                  )}
+                </tr>
+              ))
+            ) : rows.length === 0 && emptyState ? (
+              <tr data-testid="data-table-empty-row">
+                <td colSpan={colSpan}>{emptyState}</td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr
+                  key={rowKey(row)}
+                  className="group hover:bg-[#FBFBFB] [&:last-child>td]:border-b-0"
+                  data-testid="data-table-row"
+                >
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className={`px-4 py-[14px] border-b border-line-soft align-middle ${col.align === "right" ? "text-right" : ""}`}
+                    >
+                      {col.accessor(row)}
+                    </td>
+                  ))}
+                  {renderRowActions && (
+                    <td className="px-4 py-[14px] border-b border-line-soft">
+                      <span className="opacity-35 group-hover:opacity-100 transition-opacity">
+                        {renderRowActions(row)}
+                      </span>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

@@ -1,6 +1,10 @@
 import { MapPin } from "lucide-react";
 
 export function RegionEmptyState() {
+  const handleClick = () => {
+    window.dispatchEvent(new CustomEvent("region:open-create"));
+  };
+
   return (
     <div
       className="flex flex-col items-center justify-center py-16"
@@ -13,6 +17,7 @@ export function RegionEmptyState() {
       </p>
       <button
         id="open-create-region-empty"
+        onClick={handleClick}
         className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
       >
         Create your first region

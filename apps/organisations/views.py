@@ -56,6 +56,12 @@ def _page_url_params(request: HttpRequest, per_page: int) -> str:
 
 @login_required
 def organisation_list(request: HttpRequest) -> HttpResponse:
+    user = request.user
+    if not isinstance(user, User):
+        return redirect("/login/")
+    if user.role != User.Role.SUPERADMIN:
+        return redirect("/admin/org/dashboard/")
+
     per_page = _resolve_per_page(request.GET.get("per_page"))
     search = request.GET.get("search", "")
     current_status = request.GET.get("status", "")
@@ -132,6 +138,7 @@ def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
             "organisation": user.organisation,
             "first_name": first_name,
             "show_setup_banner": show_setup_banner,
+            "page_title": "Dashboard",
         },
     )
 

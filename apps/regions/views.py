@@ -31,6 +31,7 @@ def region_list(request):  # type: ignore[no-untyped-def]
         {
             "regions_json": regions_data,
             "regions_count": len(regions_data),
+            "page_title": "Regions",
         },
     )
 

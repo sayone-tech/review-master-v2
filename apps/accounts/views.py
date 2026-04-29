@@ -173,7 +173,7 @@ def update_name_view(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "accounts/profile.html",
-        {"name_form": form, "pw_form": ProfilePasswordChangeForm()},
+        {"name_form": form, "pw_form": ProfilePasswordChangeForm(), "page_title": "Profile"},
     )
 
 
@@ -196,7 +196,7 @@ def change_password_view(request: HttpRequest) -> HttpResponse:
             return render(
                 request,
                 "accounts/profile.html",
-                {"name_form": ProfileNameForm(), "pw_form": form},
+                {"name_form": ProfileNameForm(), "pw_form": form, "page_title": "Profile"},
             )
         update_session_auth_hash(request, user)
         messages.success(request, "Password updated.")
@@ -204,7 +204,7 @@ def change_password_view(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "accounts/profile.html",
-        {"name_form": ProfileNameForm(), "pw_form": form},
+        {"name_form": ProfileNameForm(), "pw_form": form, "page_title": "Profile"},
     )
 
 
@@ -215,7 +215,7 @@ def org_profile(request: HttpRequest) -> HttpResponse:
     Mirrors the Superadmin `profile` view exactly but renders inside base_org.html.
     Reuses the same form classes and service functions.
     """
-    return render(request, "accounts/org_profile.html")
+    return render(request, "accounts/org_profile.html", {"page_title": "Profile"})
 
 
 @org_admin_required
@@ -235,7 +235,7 @@ def org_update_name_view(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "accounts/org_profile.html",
-        {"name_form": form, "pw_form": ProfilePasswordChangeForm()},
+        {"name_form": form, "pw_form": ProfilePasswordChangeForm(), "page_title": "Profile"},
     )
 
 
@@ -258,7 +258,7 @@ def org_change_password_view(request: HttpRequest) -> HttpResponse:
             return render(
                 request,
                 "accounts/org_profile.html",
-                {"name_form": ProfileNameForm(), "pw_form": form},
+                {"name_form": ProfileNameForm(), "pw_form": form, "page_title": "Profile"},
             )
         update_session_auth_hash(request, user)
         messages.success(request, "Password changed.")
@@ -266,5 +266,5 @@ def org_change_password_view(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "accounts/org_profile.html",
-        {"name_form": ProfileNameForm(), "pw_form": form},
+        {"name_form": ProfileNameForm(), "pw_form": form, "page_title": "Profile"},
     )
