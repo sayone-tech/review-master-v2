@@ -93,7 +93,7 @@ Plans:
 
 Plans:
 - [x] 08-01-PLAN.md — Google integrations layer (apps/integrations/google/: oauth.py, places.py, exceptions.py); httpx + tenacity deps; full test suite with mocked HTTP
-- [ ] 08-02-PLAN.md — Shop services and selectors + ShopAuditLog model/migration: create_shop (allocation enforcement with select_for_update), update_shop, activate/deactivate, reveal_api_key, rotate_api_key, reconnect_oauth, list_shops (search/filter), get_allocation_status, get_has_regions
+- [x] 08-02-PLAN.md — Shop services and selectors + ShopAuditLog model/migration: create_shop (allocation enforcement with select_for_update), update_shop, activate/deactivate, reveal_api_key, rotate_api_key, reconnect_oauth, list_shops (search/filter), get_allocation_status, get_has_regions
 - [ ] 08-03-PLAN.md — Shop API viewset + URLs + OAuth views: ShopViewSet (TenantScopedViewSet) with custom @action endpoints, OAuth start/callback views with scoped COOP header, allocation envelope, cross-tenant + query-count CI tests
 - [ ] 08-04-PLAN.md — Shops list React widget: types/api/useShops hook, ConnectionStatusPill, ShopRowActionsMenu, ShopTable with search/status/region filters and pagination, Empty States A (no regions) and B (no shops), Vite + template wiring
 - [ ] 08-05-PLAN.md — Shop create/edit/details/action modals + OAuth popup orchestrator: synchronous window.open, postMessage with origin verification, Redis polling fallback, Deactivate/Activate confirms (amber/blue), Reveal Key (30s auto-mask + audit log), Rotate Key, Reconnect Google

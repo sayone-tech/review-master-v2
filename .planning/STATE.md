@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-04-29T10:15:00.000Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-04-29T10:13:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 ## Current Position
 
 Phase: 08 (shops) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Plan: 2 of 5
 | Phase 07 P03 | 3 | 2 tasks | 12 files |
 | Phase 07-regions P02 | 6 | 2 tasks | 5 files |
 | Phase 08-shops P01 | 739 | 3 tasks | 12 files |
+| Phase 08-shops P02 | 6 | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Recent decisions affecting current work:
 - [Phase 07-regions]: 07-02: test_no_save_when_no_changes asserts 2 queries (SAVEPOINT + RELEASE) not 0 — @transaction.atomic overhead inside test outer transaction
 - [Phase 07-regions]: 07-02: two_orgs_two_admins fixture returns dict — tests use ['org_a'] key access not positional tuple destructuring
 - [Phase 07-regions]: 07-02: conftest.py created in apps/regions/tests/ to re-export assert_query_ceiling and two_orgs_two_admins for auto-discovery
+- [Phase 08-shops]: 08-02: SQLite test DB omits FOR UPDATE in SQL — select_for_update test asserts organisations table queried (source code is authoritative)
+- [Phase 08-shops]: 08-02: ShopFactory.region changed from None to SubFactory(RegionFactory) — matches production data shape, tests create fully-linked shops by default
+- [Phase 08-shops]: 08-02: pytest.raises(ValueError, match=...) required to satisfy PT011 ruff rule on broad ValueError raises
 
 ### Pending Todos
 
@@ -109,6 +113,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T10:15:00.000Z
-Stopped at: Completed 08-01-PLAN.md
-Resume file: .planning/phases/08-shops/08-02-PLAN.md
+Last session: 2026-04-29T10:13:00.000Z
+Stopped at: Completed 08-02-PLAN.md
+Resume file: .planning/phases/08-shops/08-03-PLAN.md
