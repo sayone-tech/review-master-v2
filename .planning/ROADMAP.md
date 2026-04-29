@@ -15,7 +15,7 @@
 
 - [ ] **Phase 6: Org Admin Shell** — Sidebar, dashboard, profile page reuse, data model migrations, and tenant security scaffold
 - [ ] **Phase 7: Regions** — Full Regions CRUD with race-safe auto-ID generation and deletion guard
-- [ ] **Phase 8: Shops** — Full Shops module with allocation enforcement, Google OAuth popup, and manual Place ID fallback
+- [x] **Phase 8: Shops** — Full Shops module with allocation enforcement, Google OAuth popup flow, GOOGLE_OAUTH-only connection (MANUAL removed)
 - [ ] **Phase 9: Team** — Team invite/manage with Manager/Staff scoping, self-protection rules, and email templates
 
 ## Phase Details
@@ -98,7 +98,7 @@ Plans:
 - [x] 08-04-PLAN.md — Shops list React widget: types/api/useShops hook, ConnectionStatusPill, ShopRowActionsMenu, ShopTable with search/status/region filters and pagination, Empty States A (no regions) and B (no shops), Vite + template wiring
 - [x] 08-05-PLAN.md — Shop create/edit/details/action modals + OAuth popup orchestrator: synchronous window.open, postMessage with origin verification, Redis polling fallback, Deactivate/Activate confirms (amber/blue), Reveal Key (30s auto-mask + audit log), Rotate Key, Reconnect Google
 - [x] 08-06-PLAN.md — Gap closure (backend): drop MANUAL ConnectionMethod + api_key field + city/state/zip_code columns; migration 0003; remove RotateKeySerializer, reveal_key/rotate_key viewset actions, reveal_api_key/rotate_api_key services; trim list_shops search; cleanup tests
-- [ ] 08-07-PLAN.md — Gap closure (frontend): drop MANUAL from ConnectionMethod TS type; remove city/state/zip/api_key from types/payloads; delete RevealKeyModal/RotateKeyModal; trim CreateShopModal/EditShopModal/ShopDetailsModal/ShopTable/ShopModals; restyle Connect Google button to brand yellow primary
+- [x] 08-07-PLAN.md — Gap closure (frontend): drop MANUAL from ConnectionMethod TS type; remove city/state/zip/api_key from types/payloads; delete RevealKeyModal/RotateKeyModal; trim CreateShopModal/EditShopModal/ShopDetailsModal/ShopTable/ShopModals; restyle Connect Google button to brand yellow primary
 
 ---
 

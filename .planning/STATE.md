@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-stopped_at: Completed 08-05-PLAN.md
-last_updated: "2026-04-29T14:02:33.601Z"
+status: phase-complete
+stopped_at: Completed 08-07-PLAN.md
+last_updated: "2026-04-29T21:15:00Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 12
-  completed_plans: 10
+  total_plans: 14
+  completed_plans: 12
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-04-27)
 
 ## Current Position
 
-Phase: 08 (shops) — EXECUTING
-Plan: 7 of 7
+Phase: 08 (shops) — COMPLETE (all 7 plans executed)
+Next: Phase 09 (team)
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Plan: 7 of 7
 | Phase 08-shops P04 | 15 | 2 tasks | 14 files |
 | Phase 08-shops P05 | 12 | 3 tasks | 12 files |
 | Phase 08-shops P06 | 28 | 4 tasks | 13 files |
+| Phase 08-shops P07 | ~35 | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,9 @@ Recent decisions affecting current work:
 - [Phase 08-shops]: 08-06: ShopAuditLog model + Action enum (API_KEY_REVEALED/API_KEY_ROTATED) retained at ORM level — table frozen in place, no service writes after this plan, avoids no-op migration
 - [Phase 08-shops]: 08-06: api_key removed from ShopUpdateSerializer LOCKED_FIELDS — column gone, DRF silently ignores undeclared fields for removed columns
 - [Phase 08-shops]: 08-06: REQUIREMENTS.md uses [~] status + RETIRED datestamp for retired (not deleted) requirements SHOP-10/19/20
+- [Phase 08-shops]: 08-07: ShopTable CustomEvent bus reduced to 5 events (reveal-key/rotate-key removed); ShopModals no longer subscribes to those events
+- [Phase 08-shops]: 08-07: OAuthConnectionSection button uses bg-yellow primary — removed outline style; data-testid="oauth-connect-button" kept for test targeting
+- [Phase 08-shops]: 08-07: RevealKeyModal.tsx + RotateKeyModal.tsx deleted; CreateShopModal.test.tsx reduced to 1 smoke test for OAuth step
 
 ### Pending Todos
 
@@ -129,6 +133,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T14:31:25Z
-Stopped at: Completed 08-06-PLAN.md
+Last session: 2026-04-29T21:15:00Z
+Stopped at: Completed 08-07-PLAN.md — Phase 8 fully complete
 Resume file: None

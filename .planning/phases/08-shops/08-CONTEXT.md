@@ -3,6 +3,16 @@
 **Gathered:** 2026-04-28
 **Status:** Ready for planning
 
+> **Post-discuss-phase update (2026-04-29):** User decided to simplify shop creation to
+> Google OAuth only. The MANUAL connection method, the `api_key` field, and the
+> Reveal/Rotate API Key flows (SHOP-10, SHOP-19, SHOP-20) are **removed** rather than
+> deferred. The address model is also reduced to a single `street_address` line — `city`,
+> `state`, `zip_code` are dropped. Sections below referencing those flows are retained for
+> historical context but marked SUPERSEDED. The retired decisions are repeated in the
+> `<deferred>` block at the bottom of this file so downstream planners do not reintroduce
+> them. Plans 08-06 and 08-07 are gap-closure plans that surgically remove this surface
+> from the backend and frontend.
+
 <domain>
 ## Phase Boundary
 
@@ -31,7 +41,12 @@ logic are entirely separate phases.
   Shop Name and Address fields in the Create modal auto-populate from the listing data (per
   SHOP-09). User may overwrite them before submitting.
 
-### Audit log (SHOP-19/20)
+### Audit log (SHOP-19/20) — SUPERSEDED
+> **Retired by post-discuss-phase decision.** Reveal/Rotate API Key flows are removed; no
+> code writes ShopAuditLog entries anymore. The `ShopAuditLog` model and `Action` enum are
+> retained at the ORM/table level for forward compatibility (no migration to drop them) but
+> service-layer writers are deleted. See `<deferred>` section for the retirement note.
+
 - **New `ShopAuditLog` model** in `apps/shops/` — queryable history for compliance.
 - **Fields:** `shop` (FK to Shop), `actor` (FK to `settings.AUTH_USER_MODEL`), `action`
   (CharField, values: `shop.api_key.revealed` / `shop.api_key.rotated`), `created_at`
@@ -53,7 +68,11 @@ logic are entirely separate phases.
 - **No denormalized counter** — live COUNT query at list time is accurate, avoids sync
   complexity, negligible at typical shop counts.
 
-### Manual Place ID + API Key validation error handling (SHOP-10/20)
+### Manual Place ID + API Key validation error handling (SHOP-10/20) — SUPERSEDED
+> **Retired by post-discuss-phase decision.** MANUAL connection method is removed. There is
+> no Place ID + API Key form path on Create, and no Rotate Key flow. The error-handling
+> rules below no longer have a UI surface to fire on. Retained here as historical record.
+
 - **Google unreachable (timeout / 5xx) → hard fail:** Return non-field error
   "Could not reach Google to verify this API key. Please try again." Shop is NOT saved.
   Consistent policy on both create (SHOP-10) and rotate (SHOP-20).
@@ -182,9 +201,37 @@ logic are entirely separate phases.
 - Google review fetching using the connected Shop credentials — Phase 4 (post-v0.2)
 - Staff Admin access to shop-scoped views — Phase 9 (StaffAccessScope uses Shop FK)
 
+### Retired (post-discuss-phase, 2026-04-29)
+
+> User decided post-discuss-phase: shop creation simplified to Google OAuth only —
+> MANUAL connection method, api_key field, Reveal/Rotate API key flows (SHOP-10, SHOP-19,
+> SHOP-20) are removed rather than deferred. The address model is reduced to a single
+> `street_address` line; city/state/zip_code columns are dropped. Plans 08-06 (backend) and
+> 08-07 (frontend) execute the gap closure. Downstream planners MUST NOT reintroduce these:
+
+- **MANUAL Place ID validation flow (SHOP-10)** — no "Enter manually" radio in the Create
+  modal; no Place ID / API Key fields; no `validate_place_id()` call from `create_shop`.
+  The Google Places API is only consulted via the OAuth popup listing-picker flow.
+- **Reveal API Key (SHOP-19)** — no `reveal_key` viewset action, no `reveal_api_key`
+  service, no RevealKeyModal in the frontend, no row-action menu entry, no audit log writer.
+- **Rotate API Key (SHOP-20)** — no `rotate_key` viewset action, no `rotate_api_key`
+  service, no `RotateKeySerializer`, no RotateKeyModal in the frontend, no row-action menu
+  entry, no audit log writer.
+- **`Shop.api_key` column** — removed via migration `0003_remove_manual_and_address_subfields`.
+  The `EncryptedTextField` import remains (still used by `google_refresh_token`).
+- **City / State / Zip Code address subfields** — removed from the Shop model, all
+  serializers, the list-search filter, and the React types/forms. Single `street_address`
+  line replaces the three-line address grid.
+- **`ConnectionMethod.MANUAL` enum value** — removed from both Django model and TypeScript
+  union; `ConnectionMethod` is now exactly `GOOGLE_OAUTH | NOT_CONNECTED`.
+- **`ShopAuditLog` writers** — model and table retained for forward compatibility, but no
+  service writes to it. The `Action` enum members (`API_KEY_REVEALED`, `API_KEY_ROTATED`)
+  stay as ORM-level constants but have no live call sites.
+
 </deferred>
 
 ---
 
 *Phase: 08-shops*
 *Context gathered: 2026-04-28*
+*Updated: 2026-04-29 — post-discuss-phase decision to retire MANUAL/Reveal/Rotate flows*
