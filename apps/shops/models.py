@@ -12,7 +12,6 @@ from apps.common.models import TimeStampedModel
 class Shop(TimeStampedModel):
     class ConnectionMethod(models.TextChoices):
         GOOGLE_OAUTH = "GOOGLE_OAUTH", "Google OAuth"
-        MANUAL = "MANUAL", "Manual API Key"
         NOT_CONNECTED = "NOT_CONNECTED", "Not Connected"
 
     class ConnectionStatus(models.TextChoices):
@@ -37,9 +36,6 @@ class Shop(TimeStampedModel):
     name = models.CharField(max_length=200, db_index=True)
     phone = models.CharField(max_length=20, blank=True)
     street_address = models.CharField(max_length=300, blank=True)
-    city = models.CharField(max_length=100, blank=True)
-    state = models.CharField(max_length=100, blank=True)
-    zip_code = models.CharField(max_length=20, blank=True)
     place_id = models.CharField(max_length=300, blank=True, db_index=True)
     connection_method = models.CharField(
         max_length=15,
@@ -56,7 +52,6 @@ class Shop(TimeStampedModel):
     # Encrypted at rest — never add db_index to encrypted fields (ciphertext is per-row unique)
     # null=True is required: EncryptedTextField returns None for empty string (no ciphertext stored)
     google_refresh_token = EncryptedTextField(null=True, blank=True, default="")
-    api_key = EncryptedTextField(null=True, blank=True, default="")
     is_active = models.BooleanField(default=True, db_index=True)
 
     class Meta:
