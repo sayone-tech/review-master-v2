@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, Edit2, Power, PowerOff, Key, RefreshCcw } from "lucide-react";
+import { Eye, Edit2, Power, PowerOff, RefreshCcw } from "lucide-react";
 import { DataTable } from "../data-table/DataTable";
 import { ConnectionStatusPill } from "./ConnectionStatusPill";
 import { ShopsEmptyStateA } from "./ShopsEmptyStateA";
@@ -39,21 +39,6 @@ const SHOP_ACTIONS: RowAction[] = [
     icon: <Power size={14} />,
     visible: (r) => !r.is_active,
     onSelect: (r) => dispatchShopEvent("shop:open-activate", r),
-  },
-  {
-    key: "reveal",
-    label: "Reveal Key",
-    icon: <Eye size={14} />,
-    separatorBefore: true,
-    visible: (r) => r.connection_method === "MANUAL",
-    onSelect: (r) => dispatchShopEvent("shop:open-reveal-key", r),
-  },
-  {
-    key: "rotate",
-    label: "Rotate Key",
-    icon: <Key size={14} />,
-    visible: (r) => r.connection_method === "MANUAL",
-    onSelect: (r) => dispatchShopEvent("shop:open-rotate-key", r),
   },
   {
     key: "reconnect",
@@ -143,14 +128,8 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
       key: "location",
       label: "LOCATION",
       skeletonWidth: "200px",
-      accessor: (row: ShopRow) => (
-        <div>
-          <div className="text-[13px]">{row.street_address || "—"}</div>
-          <div className="text-[12px] text-muted">
-            {[row.city, row.state, row.zip_code].filter(Boolean).join(", ")}
-          </div>
-        </div>
-      ),
+      accessor: (row: ShopRow) =>
+        row.street_address ? row.street_address : <span className="text-muted">—</span>,
     },
     {
       key: "region",
@@ -184,17 +163,6 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
           {row.place_id || "—"}
         </span>
       ),
-    },
-    {
-      key: "api_key",
-      label: "API KEY",
-      skeletonWidth: "80px",
-      accessor: (row: ShopRow) =>
-        row.api_key_masked ? (
-          <span className="font-mono text-[12px]">{row.api_key_masked}</span>
-        ) : (
-          <span className="text-muted">—</span>
-        ),
     },
     {
       key: "status",
@@ -240,7 +208,7 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
       <div className="flex items-center gap-2 flex-wrap">
         <input
           type="search"
-          placeholder="Search name, address, city…"
+          placeholder="Search name, address…"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className={`${inputCls} flex-1 min-w-[180px]`}

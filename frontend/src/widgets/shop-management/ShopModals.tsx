@@ -4,8 +4,6 @@ import { Modal } from "../modal/Modal";
 import { CreateShopModal } from "./CreateShopModal";
 import { EditShopModal } from "./EditShopModal";
 import { ShopDetailsModal } from "./ShopDetailsModal";
-import { RevealKeyModal } from "./RevealKeyModal";
-import { RotateKeyModal } from "./RotateKeyModal";
 import { OAuthConnectionSection } from "./OAuthConnectionSection";
 import { activateShop, deactivateShop, reconnectShop } from "./api";
 import { emitToast } from "../../lib/toast";
@@ -70,14 +68,11 @@ export function ShopModals({ allocation, regions }: ShopModalsProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [activateOpen, setActivateOpen] = useState(false);
-  const [revealOpen, setRevealOpen] = useState(false);
-  const [rotateOpen, setRotateOpen] = useState(false);
   const [reconnectOpen, setReconnectOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleOpenCreate = useCallback(() => setCreateOpen(true), []);
 
-  // Listen for CustomEvents from ShopTable (Plan 08-04)
   useEffect(() => {
     const map: Array<[string, (e: Event) => void]> = [
       [
@@ -106,20 +101,6 @@ export function ShopModals({ allocation, regions }: ShopModalsProps) {
         (e) => {
           setSelected((e as CustomEvent<ShopRow>).detail);
           setActivateOpen(true);
-        },
-      ],
-      [
-        "shop:open-reveal-key",
-        (e) => {
-          setSelected((e as CustomEvent<ShopRow>).detail);
-          setRevealOpen(true);
-        },
-      ],
-      [
-        "shop:open-rotate-key",
-        (e) => {
-          setSelected((e as CustomEvent<ShopRow>).detail);
-          setRotateOpen(true);
         },
       ],
       [
@@ -269,29 +250,6 @@ export function ShopModals({ allocation, regions }: ShopModalsProps) {
         onConfirm={() => void handleActivateConfirm()}
       />
 
-      <RevealKeyModal
-        open={revealOpen}
-        shop={selected}
-        onClose={() => {
-          setRevealOpen(false);
-          setSelected(null);
-        }}
-      />
-
-      <RotateKeyModal
-        open={rotateOpen}
-        shop={selected}
-        onClose={() => {
-          setRotateOpen(false);
-          setSelected(null);
-        }}
-        onRotated={() => {
-          setRotateOpen(false);
-          setSelected(null);
-          refresh();
-        }}
-      />
-
       {/* Reconnect Google — reuses OAuthConnectionSection in a simple modal (SHOP-21) */}
       <Modal
         open={reconnectOpen}
@@ -320,12 +278,10 @@ export function ShopModals({ allocation, regions }: ShopModalsProps) {
             Click below to reconnect via Google OAuth. The old token will be replaced.
           </p>
           <OAuthConnectionSection
-            connected={null}
-            onConnected={(d) => void handleReconnectComplete(d.state)}
+            onConnected={(result) => void handleReconnectComplete(result.state)}
             onError={() =>
               emitToast({ kind: "error", title: "Could not complete connection." })
             }
-            onChangeConnection={() => {}}
           />
         </div>
       </Modal>
