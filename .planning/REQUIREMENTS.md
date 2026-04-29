@@ -60,29 +60,29 @@
 - [ ] **TEAM-03**: Team list is paginated (10/25/50/100, default 10)
 - [ ] **TEAM-04**: Three stats cards below the table show live counts: Total Members, Managers, Active Members
 - [ ] **TEAM-05**: When only the Org Admin exists (no other team members), a subtle info banner appears above the table with an "+ Add Team Member" inline action
-- [ ] **TEAM-06**: Add Team Member modal accepts: Name (2–100 chars), Email (valid, unique across platform), Role (Manager / Staff); when Role = Manager, no extra fields appear; when Role = Staff, Region multi-select and Store multi-select appear (at least one Region or Store selection required)
-- [ ] **TEAM-07**: Sending an invite refreshes the Team list with a new Pending row, shows toast "Invitation sent to {email}.", and sends the Team Invitation email with a 48-hour token
+- [x] **TEAM-06**: Add Team Member modal accepts: Name (2–100 chars), Email (valid, unique across platform), Role (Manager / Staff); when Role = Manager, no extra fields appear; when Role = Staff, Region multi-select and Store multi-select appear (at least one Region or Store selection required)
+- [x] **TEAM-07**: Sending an invite refreshes the Team list with a new Pending row, shows toast "Invitation sent to {email}.", and sends the Team Invitation email with a 48-hour token
 - [ ] **TEAM-08**: Edit Team Member modal (disabled for own row): Name, Role, Regions, Stores editable; Email is locked; changing role between Manager and Staff dynamically shows/hides scope selectors
 - [ ] **TEAM-09**: Successful team member edit shows toast "Team member updated." and refreshes the list with updated access chips
-- [ ] **TEAM-10**: Enabled toggle disable (ON → OFF): amber confirmation popup; on confirm, all active sessions for the user are terminated immediately; success toast "{Name} disabled."
-- [ ] **TEAM-11**: Enabled toggle enable (OFF → ON): one-click, no confirmation; success toast "{Name} enabled."
-- [ ] **TEAM-12**: Disabled user attempting to log in sees "Your account has been disabled. Contact your administrator." on the login form
-- [ ] **TEAM-13**: Remove Team Member shows red confirmation popup; on confirm, access is revoked, all sessions are terminated, any pending invitations are invalidated; success toast "{Name} removed from team."
+- [x] **TEAM-10**: Enabled toggle disable (ON → OFF): amber confirmation popup; on confirm, all active sessions for the user are terminated immediately; success toast "{Name} disabled."
+- [x] **TEAM-11**: Enabled toggle enable (OFF → ON): one-click, no confirmation; success toast "{Name} enabled."
+- [x] **TEAM-12**: Disabled user attempting to log in sees "Your account has been disabled. Contact your administrator." on the login form
+- [x] **TEAM-13**: Remove Team Member shows red confirmation popup; on confirm, access is revoked, all sessions are terminated, any pending invitations are invalidated; success toast "{Name} removed from team."
 - [ ] **TEAM-14**: Self-protection rules enforced in UI (disabled buttons + tooltips) AND at API layer (403): Org Admin cannot remove self, disable self, or demote self to Staff
-- [ ] **TEAM-15**: Last-Manager rule enforced at API layer: removing the last Manager from an organisation returns an error "Cannot remove the last Manager."
-- [ ] **TEAM-16**: Pending team members have a Resend Invitation action; blue confirmation popup; previous token invalidated; new Team Invitation email sent; toast "Invitation resent to {email}."
-- [ ] **TEAM-17**: Team invitation acceptance page (/invite/accept/<token>/) pre-fills Name (editable by invitee) and Email (locked); on success, account is created with the invited role, user is auto-logged in and redirected to role-appropriate dashboard (Manager → /admin/org/dashboard; Staff → placeholder welcome page)
+- [x] **TEAM-15**: Last-Manager rule enforced at API layer: removing the last Manager from an organisation returns an error "Cannot remove the last Manager."
+- [x] **TEAM-16**: Pending team members have a Resend Invitation action; blue confirmation popup; previous token invalidated; new Team Invitation email sent; toast "Invitation resent to {email}."
+- [x] **TEAM-17**: Team invitation acceptance page (/invite/accept/<token>/) pre-fills Name (editable by invitee) and Email (locked); on success, account is created with the invited role, user is auto-logged in and redirected to role-appropriate dashboard (Manager → /admin/org/dashboard; Staff → placeholder welcome page)
 
 ### Team Email Templates
 
-- [ ] **TEML-01**: Team Invitation email: addressed to invitee by name; mentions inviter name, organisation, and role; for Staff role includes comma-separated list of assigned regions/stores; primary CTA "Accept Invitation"; 48-hour expiry notice; plain-text fallback
-- [ ] **TEML-02**: Team Invitation Resent email: same structure as original plus "This replaces any previous invitation. The earlier link is no longer valid."; subject "New invitation link for {OrganisationName}"
+- [x] **TEML-01**: Team Invitation email: addressed to invitee by name; mentions inviter name, organisation, and role; for Staff role includes comma-separated list of assigned regions/stores; primary CTA "Accept Invitation"; 48-hour expiry notice; plain-text fallback
+- [x] **TEML-02**: Team Invitation Resent email: same structure as original plus "This replaces any previous invitation. The earlier link is no longer valid."; subject "New invitation link for {OrganisationName}"
 
 ### Cross-Module
 
 - [x] **XMOD-01**: A Shop cannot be created without selecting a Region; Region dropdown is disabled with a link to /admin/org/regions when no Regions exist in the organisation
 - [x] **XMOD-02**: Region deletion is blocked (info popup with shop count and "Manage Shops" link) when the Region has one or more Shops assigned
-- [ ] **XMOD-03**: Deactivated Shops are excluded from the "Select Stores" list in Add and Edit Team Member modals
+- [x] **XMOD-03**: Deactivated Shops are excluded from the "Select Stores" list in Add and Edit Team Member modals
 - [x] **XMOD-04**: Shop allocation counter updates transactionally on shop create/activate/deactivate with no race conditions under concurrent admin sessions
 - [x] **XMOD-05**: All Phase 2 list endpoints render within the query-count ceilings asserted in CI tests (no N+1 regardless of result size)
 
@@ -163,23 +163,23 @@
 | TEAM-03 | Phase 9 — Team | Pending |
 | TEAM-04 | Phase 9 — Team | Pending |
 | TEAM-05 | Phase 9 — Team | Pending |
-| TEAM-06 | Phase 9 — Team | Pending |
-| TEAM-07 | Phase 9 — Team | Pending |
+| TEAM-06 | Phase 9 — Team | Complete |
+| TEAM-07 | Phase 9 — Team | Complete |
 | TEAM-08 | Phase 9 — Team | Pending |
 | TEAM-09 | Phase 9 — Team | Pending |
-| TEAM-10 | Phase 9 — Team | Pending |
-| TEAM-11 | Phase 9 — Team | Pending |
-| TEAM-12 | Phase 9 — Team | Pending |
-| TEAM-13 | Phase 9 — Team | Pending |
+| TEAM-10 | Phase 9 — Team | Complete |
+| TEAM-11 | Phase 9 — Team | Complete |
+| TEAM-12 | Phase 9 — Team | Complete |
+| TEAM-13 | Phase 9 — Team | Complete |
 | TEAM-14 | Phase 9 — Team | Pending |
-| TEAM-15 | Phase 9 — Team | Pending |
-| TEAM-16 | Phase 9 — Team | Pending |
-| TEAM-17 | Phase 9 — Team | Pending |
-| TEML-01 | Phase 9 — Team | Pending |
-| TEML-02 | Phase 9 — Team | Pending |
+| TEAM-15 | Phase 9 — Team | Complete |
+| TEAM-16 | Phase 9 — Team | Complete |
+| TEAM-17 | Phase 9 — Team | Complete |
+| TEML-01 | Phase 9 — Team | Complete |
+| TEML-02 | Phase 9 — Team | Complete |
 | XMOD-01 | Phase 8 — Shops | Complete |
 | XMOD-02 | Phase 7 — Regions | Complete |
-| XMOD-03 | Phase 9 — Team | Pending |
+| XMOD-03 | Phase 9 — Team | Complete |
 | XMOD-04 | Phase 8 — Shops | Complete |
 | XMOD-05 | Phase 6–9 (all) | Complete |
 

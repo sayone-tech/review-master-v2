@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 9 context gathered
-last_updated: "2026-04-29T17:54:42.245Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-04-29T18:52:31.568Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 17
+  completed_plans: 13
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Organisation Admins can manage their Shops, Regions, and Team — the operational layer built on top of the Superadmin control plane.
-**Current focus:** Phase 08 — shops
+**Current focus:** Phase 09 — team
 
 ## Current Position
 
-Phase: 08 (shops) — COMPLETE (all 7 plans executed)
-Next: Phase 09 (team)
+Phase: 09 (team) — EXECUTING
+Plan: 2 of 5
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Next: Phase 09 (team)
 | Phase 08-shops P05 | 12 | 3 tasks | 12 files |
 | Phase 08-shops P06 | 28 | 4 tasks | 13 files |
 | Phase 08-shops P07 | ~35 | 3 tasks | 12 files |
+| Phase 09-team P01 | 10 | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,10 @@ Recent decisions affecting current work:
 - [Phase 08-shops]: 08-07: ShopTable CustomEvent bus reduced to 5 events (reveal-key/rotate-key removed); ShopModals no longer subscribes to those events
 - [Phase 08-shops]: 08-07: OAuthConnectionSection button uses bg-yellow primary — removed outline style; data-testid="oauth-connect-button" kept for test targeting
 - [Phase 08-shops]: 08-07: RevealKeyModal.tsx + RotateKeyModal.tsx deleted; CreateShopModal.test.tsx reduced to 1 smoke test for OAuth step
+- [Phase 09-team]: Migration 0005: RunPython backfill BEFORE AlterField NOT NULL — execution order guarantees no IntegrityError
+- [Phase 09-team]: resend_team_invitation nulls out old token's invited_user before creating new — avoids OneToOneField uniqueness violation
+- [Phase 09-team]: last-manager guard counts active ORG_ADMINs via .exclude(pk=member.pk) — disabled managers don't protect the invariant
+- [Phase 09-team]: to_attr='prefetched_scopes' distinct from relation name 'access_scopes' — avoids shadowing manager with plain list
 
 ### Pending Todos
 
@@ -133,6 +138,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T17:54:42.238Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-team/09-CONTEXT.md
+Last session: 2026-04-29T18:52:23.380Z
+Stopped at: Completed 09-01-PLAN.md
+Resume file: None
