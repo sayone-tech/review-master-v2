@@ -18,9 +18,6 @@ function pillFor(method: ConnectionMethod, status: ConnectionStatus): PillSpec {
   if (method === "GOOGLE_OAUTH" && status === "CONNECTED") {
     return { dotColor: "#16A34A", label: "Connected via Google", bgColor: "#F0FDF4", textColor: "#16A34A" };
   }
-  if (method === "MANUAL" && status === "CONNECTED") {
-    return { dotColor: "#2563EB", label: "Connected via API key", bgColor: "#EFF6FF", textColor: "#2563EB" };
-  }
   // NOT_CONNECTED or any fallback
   return { dotColor: "#6B7280", label: "Not connected", bgColor: "#F9FAFB", textColor: "#6B7280" };
 }

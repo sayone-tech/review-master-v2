@@ -31,9 +31,6 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
   const [phone, setPhone] = useState("");
   const [region, setRegion] = useState<number | "">("");
   const [streetAddress, setStreetAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [stateField, setStateField] = useState("");
-  const [zipCode, setZipCode] = useState("");
   const [errors, setErrors] = useState<Record<string, string | string[]>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,9 +41,6 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
       setPhone(shop.phone ?? "");
       setRegion(shop.region ?? "");
       setStreetAddress(shop.street_address ?? "");
-      setCity(shop.city ?? "");
-      setStateField(shop.state ?? "");
-      setZipCode(shop.zip_code ?? "");
       setErrors({});
       setSubmitting(false);
     }
@@ -57,9 +51,6 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
     setPhone("");
     setRegion("");
     setStreetAddress("");
-    setCity("");
-    setStateField("");
-    setZipCode("");
     setErrors({});
     setSubmitting(false);
   }
@@ -85,9 +76,6 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
       phone,
       region: region === "" ? undefined : (region as number),
       street_address: streetAddress,
-      city,
-      state: stateField,
-      zip_code: zipCode,
     };
     try {
       const updated = await updateShop(shop.id, payload);
@@ -114,13 +102,6 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
       setSubmitting(false);
     }
   }
-
-  const connectionMethodLabel =
-    shop?.connection_method === "GOOGLE_OAUTH"
-      ? "Connect with Google"
-      : shop?.connection_method === "MANUAL"
-        ? "Enter manually"
-        : "Not connected";
 
   return (
     <Modal
@@ -166,17 +147,6 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
               title="Locked after creation"
             />{" "}
             Connect with Google
-          </label>
-          <label className="flex items-center gap-2 text-[13.5px] cursor-not-allowed">
-            <input
-              type="radio"
-              name="edit-method"
-              disabled
-              readOnly
-              checked={shop?.connection_method === "MANUAL"}
-              title="Locked after creation"
-            />{" "}
-            Enter manually
           </label>
         </fieldset>
         <div>
@@ -260,46 +230,6 @@ export function EditShopModal({ open, shop, onClose, onUpdated, regions }: Props
             className={inputCls}
           />
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label htmlFor="es-city" className={labelCls}>
-              City
-            </label>
-            <input
-              id="es-city"
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label htmlFor="es-state" className={labelCls}>
-              State
-            </label>
-            <input
-              id="es-state"
-              type="text"
-              value={stateField}
-              onChange={(e) => setStateField(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label htmlFor="es-zip" className={labelCls}>
-              ZIP
-            </label>
-            <input
-              id="es-zip"
-              type="text"
-              value={zipCode}
-              onChange={(e) => setZipCode(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-        </div>
-        {/* Hidden so linter doesn't complain about unused variable */}
-        <input type="hidden" value={connectionMethodLabel} />
       </form>
     </Modal>
   );

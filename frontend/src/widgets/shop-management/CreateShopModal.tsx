@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import { Modal } from "../modal/Modal";
 import { ApiError, createShop } from "./api";
 import { emitToast } from "../../lib/toast";
-import { OAuthConnectionSection, type OAuthConnectedState } from "./OAuthConnectionSection";
-import type { ConnectionMethod, ShopCreatePayload, ShopRow } from "./types";
+import { OAuthConnectionSection, type OAuthListingsResult } from "./OAuthConnectionSection";
+import type { ShopCreatePayload, ShopRow } from "./types";
 
 const inputCls =
   "w-full px-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
@@ -20,6 +20,9 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   closed: "Connection cancelled. Please try again.",
 };
 
+type Listing = { name: string; address: string; placeId: string };
+type Step = "connect" | "pick" | "form";
+
 interface RegionLite {
   id: number;
   region_id: string;
@@ -34,36 +37,28 @@ interface Props {
 }
 
 export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
-  const [method, setMethod] = useState<ConnectionMethod>("GOOGLE_OAUTH");
-  const [oauthConnected, setOauthConnected] = useState<OAuthConnectedState | null>(null);
+  const [step, setStep] = useState<Step>("connect");
+  const [oauthState, setOauthState] = useState<string>("");
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [region, setRegion] = useState<number | "">(regions[0]?.id ?? "");
-  const [placeId, setPlaceId] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [streetAddress, setStreetAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [stateField, setStateField] = useState("");
-  const [zipCode, setZipCode] = useState("");
   const [errors, setErrors] = useState<Record<string, string | string[]>>({});
   const [submitting, setSubmitting] = useState(false);
 
   function reset() {
-    setMethod("GOOGLE_OAUTH");
-    setOauthConnected(null);
+    setStep("connect");
+    setOauthState("");
+    setListings([]);
+    setSelectedListing(null);
     setOauthError(null);
     setName("");
     setPhone("");
     setRegion(regions[0]?.id ?? "");
-    setPlaceId("");
-    setApiKey("");
-    setApiKeyVisible(false);
     setStreetAddress("");
-    setCity("");
-    setStateField("");
-    setZipCode("");
     setErrors({});
     setSubmitting(false);
   }
@@ -73,13 +68,19 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Auto-populate Name + Address after OAuth (SHOP-09)
-  useEffect(() => {
-    if (!oauthConnected) return;
-    if (!name) setName(oauthConnected.listingName);
-    if (!streetAddress) setStreetAddress(oauthConnected.address);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oauthConnected]);
+  function handleOAuthConnected(result: OAuthListingsResult) {
+    setOauthState(result.state);
+    setListings(result.listings);
+    setOauthError(null);
+    setStep("pick");
+  }
+
+  function handleSelectListing(l: Listing) {
+    setSelectedListing(l);
+    if (!name) setName(l.name);
+    if (!streetAddress) setStreetAddress(l.address);
+    setStep("form");
+  }
 
   function fieldError(key: string): string | undefined {
     const e = errors[key];
@@ -94,31 +95,17 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
       setErrors({ region: ["Region is required."] });
       return;
     }
-    if (method === "GOOGLE_OAUTH" && !oauthConnected) {
-      setOauthError("Please connect Google Business Profile first.");
-      return;
-    }
+    if (!selectedListing) return;
     setSubmitting(true);
     const payload: ShopCreatePayload = {
       name,
       region: region as number,
-      connection_method: method,
+      connection_method: "GOOGLE_OAUTH",
       phone,
       street_address: streetAddress,
-      city,
-      state: stateField,
-      zip_code: zipCode,
+      place_id: selectedListing.placeId,
+      google_refresh_token: oauthState,
     };
-    if (method === "GOOGLE_OAUTH" && oauthConnected) {
-      payload.place_id = oauthConnected.placeId;
-      // The backend resolves the actual refresh_token from session using the state.
-      // We send the state in google_refresh_token field; the backend's perform_create
-      // looks up request.session[f"oauth_token:{state}"] to get the real token (SHOP-13).
-      payload.google_refresh_token = oauthConnected.state;
-    } else if (method === "MANUAL") {
-      payload.place_id = placeId;
-      payload.api_key = apiKey;
-    }
     try {
       const shop = await createShop(payload);
       emitToast({ kind: "success", title: `Shop '${shop.name}' created.` });
@@ -141,253 +128,202 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
     }
   }
 
+  const subtitleMap: Record<Step, string> = {
+    connect: "Connect your Google Business Profile to get started.",
+    pick: "Select the location to connect.",
+    form: "Review and save your shop details.",
+  };
+
+  const footer = (
+    <>
+      {step === "pick" && (
+        <button
+          type="button"
+          onClick={() => setStep("connect")}
+          className="px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-normal hover:bg-line-soft"
+        >
+          Back
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onClose}
+        className="px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-normal hover:bg-line-soft"
+      >
+        Cancel
+      </button>
+      {step === "form" && (
+        <button
+          type="submit"
+          form="create-shop-form"
+          disabled={submitting}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover disabled:opacity-60"
+        >
+          {submitting ? "Saving…" : "Add Shop"}
+        </button>
+      )}
+    </>
+  );
+
   const nonField = errors.non_field_errors;
 
   return (
     <Modal
       open={open}
       title="Add Shop"
-      subtitle="Connect via Google or enter Place ID and API key manually."
+      subtitle={subtitleMap[step]}
       size="default"
       onClose={onClose}
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-normal hover:bg-line-soft"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="create-shop-form"
-            disabled={submitting}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover disabled:opacity-60"
-          >
-            {submitting ? "Saving…" : "Add Shop"}
-          </button>
-        </>
-      }
+      footer={footer}
     >
-      <form id="create-shop-form" onSubmit={handleSubmit} className="space-y-4" aria-label="Add Shop">
-        {nonField && (
+      {/* ── Step 1: Connect ── */}
+      {step === "connect" && (
+        <div className="flex flex-col items-center py-10 gap-3">
+          <OAuthConnectionSection
+            onConnected={handleOAuthConnected}
+            onError={(code) =>
+              setOauthError(OAUTH_ERROR_MESSAGES[code] ?? "Could not complete connection.")
+            }
+          />
+          {oauthError && (
+            <p role="alert" data-testid="oauth-error" className="text-[12px]" style={{ color: "#DC2626" }}>
+              {oauthError}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── Step 2: Pick location ── */}
+      {step === "pick" && (
+        <div className="space-y-2.5">
+          {listings.map((l, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => handleSelectListing(l)}
+              className="w-full text-left px-3.5 py-3 border border-line rounded-md hover:bg-line-soft transition-colors"
+            >
+              <div className="text-[13.5px] font-semibold text-ink">{l.name}</div>
+              {l.address && (
+                <div className="text-[12.5px] text-muted mt-0.5">{l.address}</div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Step 3: Form ── */}
+      {step === "form" && (
+        <form id="create-shop-form" onSubmit={handleSubmit} className="space-y-4" aria-label="Add Shop">
+          {nonField && (
+            <div
+              className="rounded-md border p-2.5 text-[13px]"
+              style={{ backgroundColor: "#FEF2F2", borderColor: "rgba(220,38,38,0.3)", color: "#DC2626" }}
+              role="alert"
+              data-testid="non-field-error"
+            >
+              {Array.isArray(nonField) ? nonField[0] : nonField}
+            </div>
+          )}
+
+          {/* Connected listing pill */}
           <div
-            className="rounded-md border p-2.5 text-[13px]"
-            style={{ backgroundColor: "#FEF2F2", borderColor: "rgba(220,38,38,0.3)", color: "#DC2626" }}
-            role="alert"
-            data-testid="non-field-error"
+            className="flex items-center gap-2.5 rounded-md border p-3"
+            style={{ backgroundColor: "#F0FDF4", borderColor: "rgba(22,163,74,0.3)" }}
           >
-            {Array.isArray(nonField) ? nonField[0] : nonField}
-          </div>
-        )}
-
-        {/* Connection method radio */}
-        <fieldset className="space-y-2">
-          <legend className={labelCls}>Connection method</legend>
-          <label className="flex items-center gap-2 text-[13.5px]">
-            <input
-              type="radio"
-              name="method"
-              aria-label="Connect with Google"
-              checked={method === "GOOGLE_OAUTH"}
-              onChange={() => setMethod("GOOGLE_OAUTH")}
-            />{" "}
-            Connect with Google
-          </label>
-          <label className="flex items-center gap-2 text-[13.5px]">
-            <input
-              type="radio"
-              name="method"
-              aria-label="Enter manually"
-              checked={method === "MANUAL"}
-              onChange={() => setMethod("MANUAL")}
-            />{" "}
-            Enter manually
-          </label>
-        </fieldset>
-
-        {method === "GOOGLE_OAUTH" && (
-          <div>
-            <OAuthConnectionSection
-              connected={oauthConnected}
-              onConnected={(d) => {
-                setOauthConnected(d);
-                setOauthError(null);
-              }}
-              onError={(code) =>
-                setOauthError(
-                  OAUTH_ERROR_MESSAGES[code] ?? "Could not complete connection.",
-                )
-              }
-              onChangeConnection={() => setOauthConnected(null)}
+            <CheckCircle
+              size={16}
+              style={{ color: "#16A34A" }}
+              className="shrink-0 mt-0.5"
+              aria-hidden="true"
             />
-            {oauthError && (
-              <p role="alert" data-testid="oauth-error" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
-                {oauthError}
+            <div className="flex-1 min-w-0">
+              <div className="text-[13.5px] font-semibold text-ink truncate">{selectedListing?.name}</div>
+              {selectedListing?.address && (
+                <div className="text-[12.5px] text-muted truncate">{selectedListing.address}</div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setStep("pick")}
+              className="text-[12px] underline shrink-0 hover:opacity-80"
+              style={{ color: "#B9860F" }}
+            >
+              Change
+            </button>
+          </div>
+
+          <div>
+            <label htmlFor="cs-name" className={labelCls}>
+              Shop Name
+            </label>
+            <input
+              id="cs-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={fieldError("name") ? inputErrorCls : inputCls}
+              aria-label="Shop Name"
+            />
+            {fieldError("name") && (
+              <p role="alert" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
+                {fieldError("name")}
               </p>
             )}
           </div>
-        )}
 
-        {method === "MANUAL" && (
-          <>
-            <div>
-              <label htmlFor="cs-place-id" className={labelCls}>
-                Google Place ID
-              </label>
-              <input
-                id="cs-place-id"
-                type="text"
-                value={placeId}
-                onChange={(e) => setPlaceId(e.target.value)}
-                className={fieldError("place_id") ? inputErrorCls : inputCls}
-                placeholder="ChIJ..."
-                aria-label="Google Place ID"
-              />
-              {fieldError("place_id") && (
-                <p role="alert" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
-                  {fieldError("place_id")}
-                </p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="cs-api-key" className={labelCls}>
-                Google Places API Key
-              </label>
-              <div className="relative">
-                <input
-                  id="cs-api-key"
-                  type={apiKeyVisible ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className={fieldError("api_key") ? inputErrorCls : inputCls}
-                  aria-label="Google Places API Key"
-                />
-                <button
-                  type="button"
-                  onClick={() => setApiKeyVisible(!apiKeyVisible)}
-                  aria-label={apiKeyVisible ? "Hide" : "Show"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted"
-                >
-                  {apiKeyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {fieldError("api_key") && (
-                <p role="alert" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
-                  {fieldError("api_key")}
-                </p>
-              )}
-            </div>
-          </>
-        )}
+          <div>
+            <label htmlFor="cs-region" className={labelCls}>
+              Region
+            </label>
+            <select
+              id="cs-region"
+              value={region === "" ? "" : String(region)}
+              onChange={(e) => setRegion(e.target.value ? Number(e.target.value) : "")}
+              className={fieldError("region") ? inputErrorCls : inputCls}
+              aria-label="Region"
+            >
+              <option value="">Select region…</option>
+              {regions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.region_id})
+                </option>
+              ))}
+            </select>
+            {fieldError("region") && (
+              <p role="alert" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
+                {fieldError("region")}
+              </p>
+            )}
+          </div>
 
-        {/* Common fields */}
-        <div>
-          <label htmlFor="cs-name" className={labelCls}>
-            Shop Name
-          </label>
-          <input
-            id="cs-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={fieldError("name") ? inputErrorCls : inputCls}
-            aria-label="Shop Name"
-          />
-          {fieldError("name") && (
-            <p role="alert" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
-              {fieldError("name")}
-            </p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="cs-region" className={labelCls}>
-            Region
-          </label>
-          <select
-            id="cs-region"
-            value={region === "" ? "" : String(region)}
-            onChange={(e) => setRegion(e.target.value ? Number(e.target.value) : "")}
-            className={fieldError("region") ? inputErrorCls : inputCls}
-            aria-label="Region"
-          >
-            <option value="">Select region…</option>
-            {regions.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} ({r.region_id})
-              </option>
-            ))}
-          </select>
-          {fieldError("region") && (
-            <p role="alert" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
-              {fieldError("region")}
-            </p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="cs-phone" className={labelCls}>
-            Phone (optional)
-          </label>
-          <input
-            id="cs-phone"
-            type="text"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label htmlFor="cs-street" className={labelCls}>
-            Street Address
-          </label>
-          <input
-            id="cs-street"
-            type="text"
-            value={streetAddress}
-            onChange={(e) => setStreetAddress(e.target.value)}
-            className={inputCls}
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-2">
           <div>
-            <label htmlFor="cs-city" className={labelCls}>
-              City
+            <label htmlFor="cs-phone" className={labelCls}>
+              Phone (optional)
             </label>
             <input
-              id="cs-city"
+              id="cs-phone"
               type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               className={inputCls}
             />
           </div>
+
           <div>
-            <label htmlFor="cs-state" className={labelCls}>
-              State
+            <label htmlFor="cs-street" className={labelCls}>
+              Street Address
             </label>
             <input
-              id="cs-state"
+              id="cs-street"
               type="text"
-              value={stateField}
-              onChange={(e) => setStateField(e.target.value)}
+              value={streetAddress}
+              onChange={(e) => setStreetAddress(e.target.value)}
               className={inputCls}
             />
           </div>
-          <div>
-            <label htmlFor="cs-zip" className={labelCls}>
-              ZIP
-            </label>
-            <input
-              id="cs-zip"
-              type="text"
-              value={zipCode}
-              onChange={(e) => setZipCode(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-        </div>
-      </form>
+        </form>
+      )}
     </Modal>
   );
 }

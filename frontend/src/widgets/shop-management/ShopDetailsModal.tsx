@@ -133,21 +133,11 @@ export function ShopDetailsModal({
             </span>
           </Row>
           <Row label="Street Address">{shop.street_address || "—"}</Row>
-          <Row label="City / State / ZIP">
-            {[shop.city, shop.state, shop.zip_code].filter(Boolean).join(", ") || "—"}
-          </Row>
           <Row label="Place ID">
             <code className="font-mono text-[12.5px]">{shop.place_id || "—"}</code>
           </Row>
-          <Row label="API Key">
-            <code className="font-mono text-[12.5px]">{shop.api_key_masked || "—"}</code>
-          </Row>
           <Row label="Connection Method">
-            {shop.connection_method === "GOOGLE_OAUTH"
-              ? "Google OAuth"
-              : shop.connection_method === "MANUAL"
-                ? "Manual (API Key)"
-                : "Not connected"}
+            {shop.connection_method === "GOOGLE_OAUTH" ? "Google OAuth" : "Not connected"}
           </Row>
           <Row label="Connection Status">
             <ConnectionStatusPill
