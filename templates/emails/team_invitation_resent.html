@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <p>{{ invitee_name }}, here is your new invitation to join {{ organisation.name }}.</p>
+        <p>Role: {{ role_display }}</p>
+        <p>Invited by: {{ inviter_name }}</p>
+        <p>Accept your invitation: <a href="{{ accept_url }}">{{ accept_url }}</a></p>
+        <p>This invitation expires in {{ expires_in_hours }} hours.</p>
+        <p>This replaces any previous invitation. The earlier link is no longer valid.</p>
+        {% if is_staff_role and assigned_region_names %}
+            <p>Regions: {{ assigned_region_names|join:", " }}</p>
+        {% endif %}
+        {% if is_staff_role and assigned_shop_names %}
+            <p>Stores: {{ assigned_shop_names|join:", " }}</p>
+        {% endif %}
+    </body>
+</html>
