@@ -132,6 +132,45 @@ class TestShopsApiCreate:
         )
         assert resp.status_code == 400
 
+    def test_create_duplicate_place_id_same_org_returns_400(self, org_and_admin):
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        ShopFactory(
+            organisation=org, region=region, place_id="ChIJDUPE", connection_method="GOOGLE_OAUTH"
+        )
+        resp = client.post(
+            "/api/v1/shops/",
+            {
+                "name": "Duplicate",
+                "connection_method": "GOOGLE_OAUTH",
+                "region": region.pk,
+                "place_id": "ChIJDUPE",
+                "google_refresh_token": "tok",
+            },
+        )
+        assert resp.status_code == 400
+        assert "place_id" in resp.data
+
+    def test_create_same_place_id_different_org_allowed_at_db_level(self, db, two_orgs_two_admins):
+        """DB constraint is scoped per-org — same place_id is valid across organisations."""
+        d = two_orgs_two_admins
+        region_a = RegionFactory(organisation=d["org_a"])
+        region_b = RegionFactory(organisation=d["org_b"])
+        ShopFactory(
+            organisation=d["org_a"],
+            region=region_a,
+            place_id="ChIJSHARED",
+            connection_method="GOOGLE_OAUTH",
+        )
+        # Second org can have the same place_id — no IntegrityError expected
+        shop_b = ShopFactory(
+            organisation=d["org_b"],
+            region=region_b,
+            place_id="ChIJSHARED",
+            connection_method="GOOGLE_OAUTH",
+        )
+        assert shop_b.pk is not None
+
     def test_create_at_limit_returns_400(self, db):
         org = OrganisationFactory(number_of_stores=1)
         admin = UserFactory(role="ORG_ADMIN", organisation=org)

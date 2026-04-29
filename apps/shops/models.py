@@ -63,6 +63,15 @@ class Shop(TimeStampedModel):
                 name="shop_org_active_conn_idx",
             ),
         ]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            # Prevent the same Google Place being added twice within one org.
+            # Condition excludes blank place_id (NOT_CONNECTED shops have place_id="").
+            models.UniqueConstraint(
+                fields=["organisation", "place_id"],
+                condition=models.Q(place_id__gt=""),
+                name="shop_unique_place_id_per_org",
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.name

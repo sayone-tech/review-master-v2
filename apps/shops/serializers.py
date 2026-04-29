@@ -77,6 +77,14 @@ class ShopCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
                 raise serializers.ValidationError(
                     {"place_id": ["This field is required for Google OAuth connection."]}
                 )
+            # Duplicate place check — friendly error before hitting the DB constraint.
+            place_id = attrs["place_id"]
+            req = self.context.get("request")
+            org_id = getattr(getattr(req, "user", None), "organisation_id", None)
+            if org_id and Shop.objects.filter(organisation_id=org_id, place_id=place_id).exists():
+                raise serializers.ValidationError(
+                    {"place_id": ["This location has already been added to your organisation."]}
+                )
         return attrs
 
 
