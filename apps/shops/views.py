@@ -94,6 +94,7 @@ class ShopsPagination(PageNumberPagination):
 class ShopViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
     TenantScopedViewSet,
 ):
