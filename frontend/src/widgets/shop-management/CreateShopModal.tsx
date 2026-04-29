@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { CheckCircle, ChevronRight, MapPin } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CheckCircle, Search } from "lucide-react";
 import { Modal } from "../modal/Modal";
 import { ApiError, createShop } from "./api";
 import { emitToast } from "../../lib/toast";
@@ -48,6 +48,33 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
   const [streetAddress, setStreetAddress] = useState("");
   const [errors, setErrors] = useState<Record<string, string | string[]>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [listingQuery, setListingQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const filteredListings = listingQuery.trim()
+    ? listings.filter(
+        (l) =>
+          l.name.toLowerCase().includes(listingQuery.toLowerCase()) ||
+          l.address.toLowerCase().includes(listingQuery.toLowerCase()),
+      )
+    : listings;
+
+  function highlight(text: string): React.ReactNode {
+    if (!listingQuery.trim()) return text;
+    const q = listingQuery.toLowerCase();
+    const t = String(text);
+    const i = t.toLowerCase().indexOf(q);
+    if (i < 0) return text;
+    return (
+      <>
+        {t.slice(0, i)}
+        <mark style={{ background: "#FEF08A", color: "inherit", padding: 0, borderRadius: 2 }}>
+          {t.slice(i, i + listingQuery.length)}
+        </mark>
+        {t.slice(i + listingQuery.length)}
+      </>
+    );
+  }
 
   function reset() {
     setStep("connect");
@@ -61,7 +88,16 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
     setStreetAddress("");
     setErrors({});
     setSubmitting(false);
+    setListingQuery("");
   }
+
+  // Autofocus search when entering the pick step
+  useEffect(() => {
+    if (step === "pick") {
+      setListingQuery("");
+      setTimeout(() => searchRef.current?.focus(), 50);
+    }
+  }, [step]);
 
   useEffect(() => {
     if (!open) reset();
@@ -195,38 +231,115 @@ export function CreateShopModal({ open, onClose, onCreated, regions }: Props) {
 
       {/* ── Step 2: Pick location ── */}
       {step === "pick" && (
-        <div className="space-y-3">
-          <p className="text-[12.5px] text-muted">
-            {listings.length} location{listings.length !== 1 ? "s" : ""} found in your Google account.
-          </p>
-          <div className="space-y-2 max-h-[320px] overflow-y-auto pr-0.5">
-            {listings.map((l, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleSelectListing(l)}
-                className="w-full text-left flex items-start gap-3 px-4 py-3.5 border border-line rounded-lg hover:border-yellow-hover hover:bg-yellow/5 transition-colors group"
-              >
+        <div className="flex flex-col gap-2.5">
+          {/* Search input */}
+          <div className="relative">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: "#A1A1AA" }}
+              aria-hidden="true"
+            />
+            <input
+              ref={searchRef}
+              type="text"
+              value={listingQuery}
+              onChange={(e) => setListingQuery(e.target.value)}
+              placeholder="Search by name or address…"
+              className="w-full pl-8 pr-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink"
+            />
+          </div>
+
+          {/* Result count — only when searching */}
+          {listingQuery.trim() && (
+            <div className="text-[11.5px]" style={{ color: "#71717A" }}>
+              {filteredListings.length}{" "}
+              {filteredListings.length === 1 ? "match" : "matches"} for{" "}
+              <strong style={{ color: "#18181B" }}>"{listingQuery}"</strong>
+            </div>
+          )}
+
+          {/* Scrollable radio list */}
+          <div
+            role="radiogroup"
+            aria-label="Locations"
+            className="bg-white overflow-y-auto"
+            style={{
+              maxHeight: 280,
+              border: "1px solid #E4E4E7",
+              borderRadius: 10,
+            }}
+          >
+            {filteredListings.length === 0 ? (
+              <div className="py-9 px-4 text-center">
                 <div
-                  className="mt-0.5 shrink-0 flex items-center justify-center w-8 h-8 rounded-full"
-                  style={{ backgroundColor: "#FEF9C3" }}
+                  className="mx-auto mb-2.5 flex items-center justify-center"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 11,
+                    background: "#FAFAFA",
+                    border: "1px solid #E4E4E7",
+                  }}
                 >
-                  <MapPin size={14} style={{ color: "#B45309" }} aria-hidden="true" />
+                  <Search size={18} style={{ color: "#A1A1AA" }} aria-hidden="true" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] font-semibold text-ink leading-snug">{l.name}</div>
-                  {l.address && (
-                    <div className="text-[12px] text-muted mt-0.5 leading-snug">{l.address}</div>
-                  )}
+                <div className="text-[13px] font-semibold text-ink">No matches found</div>
+                <div className="text-[12px] mt-1" style={{ color: "#71717A" }}>
+                  Try a different search term.
                 </div>
-                <ChevronRight
-                  size={15}
-                  className="shrink-0 mt-1 transition-colors"
-                  style={{ color: "var(--color-muted, #9CA3AF)" }}
-                  aria-hidden="true"
-                />
-              </button>
-            ))}
+              </div>
+            ) : (
+              filteredListings.map((l, i) => (
+                <div
+                  key={i}
+                  role="radio"
+                  aria-checked="false"
+                  tabIndex={0}
+                  onClick={() => handleSelectListing(l)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleSelectListing(l);
+                    }
+                  }}
+                  className="flex items-center gap-3 cursor-pointer hover:bg-[#FAFAFA] transition-colors"
+                  style={{
+                    padding: "12px 14px",
+                    borderLeft: "3px solid transparent",
+                    borderBottom:
+                      i < filteredListings.length - 1 ? "1px solid #F4F4F5" : "none",
+                  }}
+                >
+                  {/* Radio circle */}
+                  <div
+                    className="shrink-0 flex items-center justify-center"
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      border: "1.5px solid #D4D4D8",
+                      background: "#fff",
+                    }}
+                    aria-hidden="true"
+                  />
+                  {/* Name + address */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13.5px] font-semibold text-ink leading-snug">
+                      {highlight(l.name)}
+                    </div>
+                    {l.address && (
+                      <div
+                        className="text-[12px] mt-px"
+                        style={{ color: "#71717A", lineHeight: 1.45 }}
+                      >
+                        {highlight(l.address)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
