@@ -1,60 +1,73 @@
 ---
 phase: 08-shops
-verified: 2026-04-29T14:30:00Z
+verified: 2026-04-29T18:00:00Z
 status: passed
 score: 5/5 must-haves verified
 re_verification:
   previous_status: passed
   previous_score: 5/5
-  note: "Re-verified after gap-closure plans 08-06 (backend) and 08-07 (frontend) executed.
-         Previous report was written before those plans ran. This report reflects the final
-         post-gap-closure state of the codebase."
-  gaps_closed:
-    - "MANUAL ConnectionMethod removed from model, migration, serializers, services, selectors, and tests"
-    - "api_key, city, state, zip_code columns removed via migration 0003"
-    - "reveal_api_key and rotate_api_key services removed"
-    - "reveal_key and rotate_key viewset @action endpoints removed"
-    - "RotateKeySerializer removed"
-    - "RevealKeyModal.tsx and RotateKeyModal.tsx deleted"
-    - "ShopModals.tsx: no reveal/rotate event subscriptions"
-    - "ConnectionMethod TypeScript type narrowed to GOOGLE_OAUTH | NOT_CONNECTED"
-    - "ShopTable.tsx: no api_key column, no reveal/rotate row actions"
-    - "OAuthConnectionSection button restyled to brand yellow (bg-yellow)"
-    - "CreateShopModal is a 3-step OAuth-only flow (connect -> pick -> form)"
+  note: >
+    Third-pass re-verification after post-plan direct cleanup changes applied
+    outside formal plan execution. Verified all 8 cleanup changes are in place.
+    Phase goal remains fully achieved.
+  gaps_closed: []
   gaps_remaining: []
-  regressions: []
+  regressions:
+    - id: SHOP-16-ui
+      description: >
+        EditShopModal no longer shows a disabled connection_method fieldset or
+        a locked place_id read-only field. Previous verification treated those
+        as present. The post-plan cleanup removed both fields from the edit form
+        entirely (they are no longer rendered at all). API-level enforcement via
+        ShopUpdateSerializer.LOCKED_FIELDS remains intact and is the canonical
+        guard. This is a UI simplification, not a security regression.
+      severity: warning
+      impact: none — LOCKED_FIELDS in ShopUpdateSerializer prevents API mutation
 human_verification:
-  - test: "Visit /admin/org/shops/ as Org Admin and confirm the Shops (X / Y) header renders correctly"
-    expected: "Header shows current shop count and org allocation max; + Add Shop button visible"
+  - test: "Visit /admin/org/shops/ as Org Admin and confirm the Shops (X / Y) header renders; shop table shows SHOP NAME, REGION, CONTACT, STATUS, CREATED columns only"
+    expected: "No LOCATION, PLACE ID, or CONNECTION column visible in the table"
     why_human: "Django template rendering + live data cannot be verified programmatically without a running server"
-  - test: "Click '+ Add Shop', confirm only 'Connect Google Business Profile' button appears (no radio buttons, no manual option)"
-    expected: "Modal opens directly to OAuth connect step with yellow 'Connect Google Business Profile' button; no MANUAL/Enter manually radio visible"
-    why_human: "React component rendering in a browser required to confirm absent UI elements"
-  - test: "Click 'Connect Google Business Profile'; popup opens; complete OAuth"
-    expected: "Popup opens at ~600x700px to accounts.google.com; after auth the modal advances to the listing picker step (step 2) if multiple listings, or directly to form (step 3) if one; popup auto-closes"
-    why_human: "window.open synchronous popup behaviour + real Google OAuth credentials required"
-  - test: "Close the OAuth popup before completing the flow"
-    expected: "Inline message 'Connection cancelled. Please try again.' appears in the modal"
-    why_human: "setTimeout/setInterval window.closed polling requires a real browser event loop"
-  - test: "Complete OAuth with a multi-listing account"
-    expected: "Modal shows listing picker (step 2) with business name + address cards; selecting one advances to form (step 3) and pre-fills Shop Name and Street Address"
-    why_human: "Multi-listing OAuth path requires real Google credentials and a live session"
-  - test: "Open Deactivate confirm and verify copy"
-    expected: "Amber modal with text 'The allocated store slot remains used.' and shop name"
-    why_human: "UI copy/modal rendering requires a real browser"
-  - test: "Run 'cd frontend && npm run build' and confirm static/dist/ contains a shop-management bundle"
-    expected: "Build succeeds without TypeScript errors; bundle present"
-    why_human: "Build environment dependencies may differ from local checks"
+  - test: "Complete OAuth twice with same Google account to test duplicate-listing prevention"
+    expected: "In listing picker (step 2) on second add, already-added listing is disabled/greyed out"
+    why_human: "Real Google OAuth + real browser required; takenPlaceIds wiring needs visual confirmation"
+  - test: "Close the OAuth popup manually before completing auth"
+    expected: "Within ~1.3s, modal shows 'Connection cancelled. Please try again.' (COOP fix: try/catch + immediate Redis poll + 800ms grace)"
+    why_human: "window.closed polling requires a real browser event loop"
+  - test: "Click Edit on any shop; confirm simplified form"
+    expected: "Modal shows Shop Name, Region, Phone, Street Address only — no connection method radio, no Place ID field"
+    why_human: "React rendering in browser required to confirm absent UI elements post-cleanup"
+  - test: "PATCH /api/v1/shops/{id}/ with connection_method or place_id field"
+    expected: "400 response — LOCKED_FIELDS validation error"
+    why_human: "Requires HTTP client; automated tests should cover but smoke-test recommended"
+  - test: "Run 'cd frontend && npm run build'"
+    expected: "Build succeeds without TypeScript errors; shop-management bundle present in static/dist/"
+    why_human: "Build environment and node_modules state may differ"
 ---
 
 # Phase 8: Shops Verification Report
 
-**Phase Goal:** Org Admins can create and manage shops — connected via Google OAuth — with
-allocation enforcement, connection status visibility, and activate/deactivate flow.
-(MANUAL connection method, Reveal/Rotate API Key, and address sub-fields retired post-discussion.)
-**Verified:** 2026-04-29T14:30:00Z
+**Phase Goal:** Deliver the full Shops module — a multi-tenant shop management system that lets
+Org Admins add stores via Google OAuth, manage their details, and track connection health.
+**Verified:** 2026-04-29T18:00:00Z
 **Status:** PASSED
-**Re-verification:** Yes — after gap-closure plans 08-06 (backend) and 08-07 (frontend)
+**Re-verification:** Yes — third pass after post-plan direct cleanup changes
+
+---
+
+## Summary of Post-Plan Cleanup Changes Verified
+
+All 8 changes described in the verification prompt are confirmed present in the codebase:
+
+| # | Change | File | Status | Evidence |
+|---|--------|------|--------|----------|
+| 1 | Removed LOCATION, PLACE ID, CONNECTION columns | `ShopTable.tsx` | CONFIRMED | Columns array has exactly 5 entries: SHOP NAME, REGION, CONTACT, STATUS, CREATED. No place_id or connection column. |
+| 2 | Removed Connection method fieldset and Place ID field from edit form | `EditShopModal.tsx` | CONFIRMED | Form has 4 fields only: Shop Name, Region, Phone, Street Address. No fieldset, no place_id input anywhere. |
+| 3 | Added `existingPlaceIds` prop to disable already-connected listings | `CreateShopModal.tsx` | CONFIRMED | Prop declared at line 37, accepted at line 40, used at line 295 to set `alreadyAdded` flag on listings in picker. |
+| 4 | `takenPlaceIds` state tracked in ShopModals, passed to CreateShopModal | `ShopModals.tsx` | CONFIRMED | `useState<Set<string>>` at line 67; updated on create success at line 177; passed as `existingPlaceIds` at line 182. |
+| 5 | Modal refactored to flex-column with sticky footer | `frontend/src/widgets/modal/Modal.tsx` | CONFIRMED | Panel: `flex flex-col max-h-[80vh]` (line 63); content: `flex-1 min-h-0 overflow-y-auto` (line 84); footer: `shrink-0` (line 86). |
+| 6 | COOP fix: try/catch around popup.closed + immediate Redis poll on close | `OAuthConnectionSection.tsx` | CONFIRMED | try/catch at lines 75-78 silences cross-origin COOP error; immediate `getOAuthResult("")` at line 93 on popup close; 800ms grace window at line 116 before `onError("closed")`. |
+| 7 | UniqueConstraint for place_id per org on Shop model | `apps/shops/models.py` + migration `0004` | CONFIRMED | `UniqueConstraint(fields=["organisation","place_id"], condition=Q(place_id__gt=""), name="shop_unique_place_id_per_org")` in Meta; `0004_unique_place_id_per_org.py` chains from `0003`. |
+| 8 | Duplicate place_id validation in ShopCreateSerializer | `apps/shops/serializers.py` | CONFIRMED | Line 84: `Shop.objects.filter(organisation_id=org_id, place_id=place_id).exists()` with error "This location has already been added to your organisation." |
 
 ---
 
@@ -64,11 +77,11 @@ allocation enforcement, connection status visibility, and activate/deactivate fl
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Google integration layer exists with OAuth + Places primitives and domain exceptions | VERIFIED | `oauth.py` (build_auth_url, exchange_code_for_token, list_business_locations), `places.py` (validate_place_id @retry stop_after_attempt(3)), `exceptions.py` (4 exception classes) present in `apps/integrations/google/` |
-| 2 | Shop service layer enforces allocation with select_for_update and has activate/deactivate/reconnect_oauth | VERIFIED | `services/shops.py`: create_shop uses `Organisation.objects.select_for_update().get(pk=...)`, ShopAtLimitError on count >= limit; activate_shop, deactivate_shop, reconnect_oauth all present with @transaction.atomic; reveal_api_key and rotate_api_key are ABSENT (correctly removed) |
-| 3 | Shop selector provides search/filter/allocation/region-existence with no MANUAL/city/zip references | VERIFIED | `selectors/shops.py`: list_shops filters on Q(name__icontains) | Q(street_address__icontains) only (city removed); active_only param present for XMOD-03; get_has_regions, get_allocation_status returning {current, max, at_limit} |
-| 4 | DRF viewset exposes list/create/update/activate/deactivate/reconnect/oauth_result endpoints; reveal_key and rotate_key are ABSENT | VERIFIED | ShopViewSet has only: list, create, partial_update, activate, deactivate, reconnect, oauth_result — no reveal_key or rotate_key @action; COOP header on both OAuth views; allocation envelope on list |
-| 5 | React frontend is GOOGLE_OAUTH-only with 3-step create flow, no RevealKeyModal/RotateKeyModal, yellow primary button | VERIFIED | types.ts: ConnectionMethod = "GOOGLE_OAUTH" \| "NOT_CONNECTED" only; CreateShopModal: 3 steps (connect/pick/form) driven by OAuthConnectionSection; no RevealKeyModal.tsx or RotateKeyModal.tsx in widget directory; OAuthConnectionSection button class="bg-yellow ..."; ShopModals.tsx has no reveal/rotate event subscriptions; ShopTable.tsx has no api_key column |
+| 1 | Google integration layer exists with OAuth + Places primitives and domain exceptions | VERIFIED | `oauth.py` (build_auth_url, exchange_code_for_token, list_business_locations), `places.py` (validate_place_id @retry), `exceptions.py` (4 exception classes) in `apps/integrations/google/` |
+| 2 | Shop service layer enforces allocation with select_for_update and has activate/deactivate/reconnect_oauth | VERIFIED | `services/shops.py`: create_shop uses select_for_update, ShopAtLimitError on count >= limit; activate_shop, deactivate_shop, reconnect_oauth all present with @transaction.atomic; reveal_api_key and rotate_api_key correctly absent |
+| 3 | Shop selector provides search/filter/allocation/region-existence with no MANUAL/city/zip references | VERIFIED | `selectors/shops.py`: list_shops filters on Q(name__icontains) \| Q(street_address__icontains) only; active_only param for XMOD-03; get_has_regions, get_allocation_status returning {current, max, at_limit} |
+| 4 | DRF viewset exposes list/create/update/activate/deactivate/reconnect/oauth_result; reveal_key and rotate_key are absent | VERIFIED | ShopViewSet has activate, deactivate, reconnect, oauth_result @actions; no reveal_key or rotate_key; COOP header on OAuth views; allocation envelope on list |
+| 5 | React frontend is GOOGLE_OAUTH-only with 3-step create flow, duplicate-listing prevention, no RevealKeyModal/RotateKeyModal | VERIFIED | ConnectionMethod = "GOOGLE_OAUTH" \| "NOT_CONNECTED"; CreateShopModal 3-step with existingPlaceIds; ShopModals tracks takenPlaceIds; no reveal/rotate modals or event subscriptions; OAuthConnectionSection has COOP fix |
 
 **Score:** 5/5 truths verified
 
@@ -80,35 +93,29 @@ allocation enforcement, connection status visibility, and activate/deactivate fl
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `apps/integrations/google/exceptions.py` | 4 exception classes | VERIFIED | GoogleUnreachableError, GoogleAuthError, PlaceIDNotFoundError, APIKeyInvalidError present |
-| `apps/integrations/google/oauth.py` | build_auth_url, exchange_code_for_token, list_business_locations | VERIFIED | All 3 exported; AUTH_ENDPOINT + TOKEN_ENDPOINT + SCOPE constants; @retry decorators via tenacity |
-| `apps/integrations/google/places.py` | validate_place_id with retry | VERIFIED | @retry(stop_after_attempt(3)); all error conversions |
-| `apps/integrations/google/tests/test_places.py` | 7 tests | VERIFIED | 7 test methods confirmed |
-| `apps/integrations/google/tests/test_oauth.py` | 8 tests | VERIFIED | 8 test methods confirmed |
-| `apps/shops/models.py` | ConnectionMethod = GOOGLE_OAUTH \| NOT_CONNECTED only; no api_key field | VERIFIED | No MANUAL in ConnectionMethod choices; no api_key EncryptedTextField; ShopAuditLog model retained for forward compatibility |
-| `apps/shops/migrations/0003_remove_manual_and_address_subfields.py` | Removes api_key, city, state, zip_code; alters ConnectionMethod choices | VERIFIED | RemoveField for api_key/city/state/zip_code; AlterField confirms choices=[('GOOGLE_OAUTH', ...), ('NOT_CONNECTED', ...)] only |
-| `apps/shops/exceptions.py` | ShopAtLimitError, PlaceIdLockedError | VERIFIED | Both classes present |
-| `apps/shops/services/shops.py` | create_shop (select_for_update), update_shop, activate_shop, deactivate_shop, reconnect_oauth; no reveal_api_key or rotate_api_key | VERIFIED | 5 service functions present; reveal_api_key and rotate_api_key correctly absent |
-| `apps/shops/selectors/shops.py` | list_shops (name/street_address search only), get_has_regions, get_allocation_status | VERIFIED | city removed from Q filters; all 3 functions present |
-| `apps/shops/serializers.py` | ShopReadSerializer, ShopCreateSerializer, ShopUpdateSerializer; no RotateKeySerializer | VERIFIED | 3 serializer classes; no RotateKeySerializer; google_refresh_token write_only; api_key column excluded with comment |
-| `apps/shops/views.py` | ShopViewSet with activate/deactivate/reconnect/oauth_result only; GoogleOAuthStartView; GoogleOAuthCallbackView | VERIFIED | No reveal_key or rotate_key @action; COOP header on all OAuth responses; session token resolution and single-use consumption |
-| `apps/shops/tests/` | 64 test methods across 7 test files | VERIFIED | `grep -rn "def test_" apps/shops/tests/ | wc -l` = 64; combined with integrations = 79 total |
+| `apps/integrations/google/exceptions.py` | 4 exception classes | VERIFIED | GoogleUnreachableError, GoogleAuthError, PlaceIDNotFoundError, APIKeyInvalidError |
+| `apps/integrations/google/oauth.py` | build_auth_url, exchange_code_for_token, list_business_locations | VERIFIED | All 3 exported with @retry decorators |
+| `apps/integrations/google/places.py` | validate_place_id with retry | VERIFIED | @retry(stop_after_attempt(3)) |
+| `apps/shops/models.py` | ConnectionMethod = GOOGLE_OAUTH \| NOT_CONNECTED; no api_key; UniqueConstraint on place_id per org | VERIFIED | No MANUAL in choices; no api_key field; UniqueConstraint with condition Q(place_id__gt="") |
+| `apps/shops/migrations/0004_unique_place_id_per_org.py` | Adds UniqueConstraint | VERIFIED | Chains from 0003; AddConstraint operation confirmed |
+| `apps/shops/services/shops.py` | create/update/activate/deactivate/reconnect; no reveal/rotate | VERIFIED | 5 service functions; reveal_api_key and rotate_api_key absent |
+| `apps/shops/selectors/shops.py` | list_shops, get_has_regions, get_allocation_status | VERIFIED | City removed from Q filters; all 3 present |
+| `apps/shops/serializers.py` | ShopCreateSerializer with duplicate place_id check; ShopUpdateSerializer with LOCKED_FIELDS; no RotateKeySerializer | VERIFIED | Duplicate check at line 84; LOCKED_FIELDS = {"connection_method", "place_id"} at lines 98-100; no RotateKeySerializer |
+| `apps/shops/views.py` | ShopViewSet with activate/deactivate/reconnect/oauth_result; GoogleOAuthStartView; GoogleOAuthCallbackView; no reveal/rotate | VERIFIED | All confirmed; COOP header set on all OAuth responses |
 
 #### Frontend
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `frontend/src/widgets/shop-management/types.ts` | ConnectionMethod = "GOOGLE_OAUTH" \| "NOT_CONNECTED" only; no api_key or city/zip fields | VERIFIED | Exact union confirmed; ShopCreatePayload/ShopUpdatePayload have no api_key, city, zip_code |
-| `frontend/src/widgets/shop-management/CreateShopModal.tsx` | 3-step OAuth-only flow (connect / pick / form); no MANUAL radio | VERIFIED | Step state: "connect" | "pick" | "form"; OAUTH_ERROR_MESSAGES includes "closed"/"denied"/"auth_error"/"no_listings"/"popup_blocked"; no MANUAL branch anywhere in the file |
-| `frontend/src/widgets/shop-management/OAuthConnectionSection.tsx` | Yellow primary button; synchronous window.open; postMessage with origin check; polling fallback | VERIFIED | className="...bg-yellow..."; window.open is first statement; event.origin !== window.location.origin guard; polling via getOAuthResult("") every 2s for 30s |
-| `frontend/src/widgets/shop-management/ShopTable.tsx` | No api_key column; no reveal/rotate row actions; Reconnect only for GOOGLE_OAUTH+ERROR/EXPIRED | VERIFIED | SHOP_ACTIONS array has: details, edit, deactivate, activate, reconnect (GOOGLE_OAUTH + ERROR/EXPIRED) — no reveal_key or rotate_key entries; columns have no api_key |
-| `frontend/src/widgets/shop-management/ShopModals.tsx` | No reveal/rotate CustomEvent subscriptions; deactivate amber with slot-retention text; activate blue; reconnect modal | VERIFIED | event map: shop:open-details, shop:open-edit, shop:open-deactivate, shop:open-activate, shop:open-reconnect — no reveal/rotate entries; ConfirmModal variant="amber" with "allocated store slot remains used"; variant="blue" for activate |
-| `frontend/src/widgets/shop-management/ConnectionStatusPill.tsx` | States: Connected via Google (green), Connection error (red, covers ERROR+EXPIRED), Quota exceeded (amber), Not connected (grey) | VERIFIED | 4 states rendered; "Connected via API key" correctly absent (MANUAL removed) |
-| `frontend/src/widgets/shop-management/ShopDetailsModal.tsx` | Read-only two-column grid; Connection Status pill; Reconnect Google only for GOOGLE_OAUTH+ERROR/EXPIRED | VERIFIED | dl grid-cols-2; ConnectionStatusPill rendered; showReconnect = GOOGLE_OAUTH && (ERROR || EXPIRED) |
-| `frontend/src/widgets/shop-management/EditShopModal.tsx` | Connection method fieldset disabled; place_id disabled+readOnly | VERIFIED | `<fieldset disabled>` for connection method radio; place_id `disabled readOnly`; no api_key, city, zip_code fields |
-| No `RevealKeyModal.tsx` or `RotateKeyModal.tsx` | Files must not exist | VERIFIED | `ls frontend/src/widgets/shop-management/` confirms neither file is present |
-| `frontend/src/widgets/shop-management/*.test.*` | 17 it() test cases across 5 test files | VERIFIED | ShopModals.test.tsx: 6; ShopTable.test.tsx: 5; useShops.test.tsx: 2; api.test.ts: 3; CreateShopModal.test.tsx: 1 = 17 total |
-| `templates/shops/oauth/callback.html` | window.opener.postMessage with state + listings_json | VERIFIED | Both present; sends all listings via postMessage; picker rendered in React modal step 2 |
+| `frontend/src/widgets/modal/Modal.tsx` | flex-column, sticky footer, flex-1 min-h-0 overflow-y-auto on content | VERIFIED | `flex flex-col max-h-[80vh]` on panel (line 63); `flex-1 min-h-0 overflow-y-auto` on content (line 84); `shrink-0` on footer (line 86) |
+| `frontend/src/widgets/shop-management/types.ts` | ConnectionMethod = "GOOGLE_OAUTH" \| "NOT_CONNECTED" only | VERIFIED | Exact union; no api_key or city/zip in payloads |
+| `frontend/src/widgets/shop-management/CreateShopModal.tsx` | 3-step OAuth-only; existingPlaceIds prop disabling already-connected listings | VERIFIED | Step state: "connect" \| "pick" \| "form"; existingPlaceIds prop at lines 37/40/295; no MANUAL branch |
+| `frontend/src/widgets/shop-management/OAuthConnectionSection.tsx` | Yellow button; try/catch on popup.closed (COOP); immediate Redis poll on close; 800ms grace | VERIFIED | bg-yellow (line 184); try/catch (lines 75-78); getOAuthResult("") immediately on close (line 93); setTimeout 800ms (line 116) |
+| `frontend/src/widgets/shop-management/ShopTable.tsx` | 5 columns only (no LOCATION/PLACE ID/CONNECTION); no reveal/rotate actions | VERIFIED | Columns: SHOP NAME, REGION, CONTACT, STATUS, CREATED; SHOP_ACTIONS: details, edit, deactivate, activate, reconnect only |
+| `frontend/src/widgets/shop-management/ShopModals.tsx` | takenPlaceIds state; passed to CreateShopModal; no reveal/rotate event subscriptions | VERIFIED | useState<Set<string>> line 67; updated line 177; passed as existingPlaceIds line 182; event map has no reveal/rotate entries |
+| `frontend/src/widgets/shop-management/EditShopModal.tsx` | 4 fields only (Shop Name, Region, Phone, Street Address) — no connection_method fieldset, no place_id | VERIFIED | Full file read confirms exactly 4 fields; no fieldset element; no place_id input |
+| No `RevealKeyModal.tsx` or `RotateKeyModal.tsx` | Must not exist | VERIFIED | Confirmed absent in previous pass; no new files added |
+| `templates/shops/oauth/callback.html` | window.opener.postMessage with state + listings_json | VERIFIED | Both present; error path sends oauth_error; success path sends oauth_listings |
 
 ---
 
@@ -116,68 +123,42 @@ allocation enforcement, connection status visibility, and activate/deactivate fl
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `apps/integrations/google/oauth.py` | Google token endpoint | httpx.post in exchange_code_for_token with @retry | WIRED | TOKEN_ENDPOINT constant; _post_token decorated with @retry |
-| `apps/shops/services/shops.py` | `apps/organisations/models.py` | Organisation.objects.select_for_update().get() in create_shop | WIRED | Confirmed at line 29 of services/shops.py |
-| `config/urls.py` | `apps/shops/views.py` ShopViewSet | router.register at api/v1/shops | WIRED | ShopViewSet registered; shop_list view at /admin/org/shops/ |
-| `apps/shops/views.py` | `apps/shops/services/shops.py` | activate_shop, create_shop, deactivate_shop, reconnect_oauth, update_shop imported and called | WIRED | Confirmed in views.py imports and perform_create/update/action methods |
-| `apps/shops/views.py` | `apps/integrations/google/oauth.py` | build_auth_url, exchange_code_for_token, list_business_locations | WIRED | All 3 imported and used in GoogleOAuthStartView/GoogleOAuthCallbackView |
-| `apps/shops/views.py` | Cross-Origin-Opener-Policy header | response["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups" | WIRED | Set on GoogleOAuthStartView.get, GoogleOAuthCallbackView.get, and GoogleOAuthCallbackView._render_error |
-| `frontend/src/widgets/shop-management/OAuthConnectionSection.tsx` | /oauth/google/start/ | synchronous window.open as first statement in click handler | WIRED | Confirmed; popup = window.open(...) is the first line of handleConnect() |
-| `frontend/src/widgets/shop-management/OAuthConnectionSection.tsx` | window.opener.postMessage | addEventListener('message') with origin check | WIRED | event.origin !== window.location.origin guard confirmed |
-| `frontend/src/widgets/shop-management/ShopModals.tsx` | deactivateShop / activateShop / reconnectShop from api.ts | await calls in handle*Confirm handlers | WIRED | All three API calls confirmed with shop:refresh dispatch on success |
-| `templates/shops/shop_list.html` | `frontend/src/entrypoints/shop-management.tsx` | vite_asset 'shop-management' | WIRED | vite_asset tag confirmed in shop_list.html template |
+| `apps/shops/serializers.py` ShopCreateSerializer | Shop model uniqueness | `Shop.objects.filter(organisation_id=org_id, place_id=place_id).exists()` in validate() | WIRED | App-level duplicate check (line 84); DB-level UniqueConstraint (migration 0004) as backstop |
+| `frontend/src/widgets/shop-management/ShopModals.tsx` | `CreateShopModal.tsx` | `existingPlaceIds={takenPlaceIds}` prop at line 182 | WIRED | takenPlaceIds populated from initial shop data; new place_ids added to set on create success (line 177) |
+| `frontend/src/widgets/shop-management/OAuthConnectionSection.tsx` | Backend Redis result | `getOAuthResult("")` in close-watcher (line 93) and polling interval (line 133) | WIRED | Immediate on-close poll bridges COOP-blocked postMessage; 30s polling fallback as safety net |
+| `frontend/src/widgets/modal/Modal.tsx` | Content overflow containment | `flex-1 min-h-0 overflow-y-auto` on content div | WIRED | Panel is bounded by `max-h-[80vh] flex flex-col`; footer always visible via `shrink-0` |
+| `apps/shops/serializers.py` ShopUpdateSerializer | Field mutation prevention | `LOCKED_FIELDS = {"connection_method", "place_id"}` at lines 98-100; validated at line 117 | WIRED | API rejects PATCH/PUT with these fields; UI omits them entirely (defence in depth) |
 
 ---
 
 ### Requirements Coverage
 
-| Requirement | Description | Status | Evidence / Notes |
-|-------------|-------------|--------|-----------------|
-| SHOP-01 | Allocation counter "Shops (X / Y)" | SATISFIED | list envelope has allocation_status {current, max, at_limit}; template renders ({{ allocation.current }} / {{ allocation.max }}) |
-| SHOP-02 | + Add Shop disabled at limit with toast | SATISFIED | CreateButtonBridge reads data-at-limit; emits error toast and blocks modal when at_limit=true |
-| SHOP-03 | Search (name/address) + status + region filters + pagination | SATISFIED | list_shops filters on name/street_address (city removed per gap-closure); ShopTable renders search, status select, region select; pagination 10/25/50/100 |
-| SHOP-04 | Shop row columns | SATISFIED | ShopTable columns: name, location (street_address), region badge, contact (phone), place_id, status badge, ConnectionStatusPill, created date, actions; api_key column correctly absent |
-| SHOP-05 | Connection status pill | SATISFIED | ConnectionStatusPill: Connected via Google (green), Connection error (red, covers ERROR+EXPIRED), Quota exceeded (amber), Not connected (grey); "Connected via API key" state absent — correct since MANUAL removed |
-| SHOP-06 | Pagination 10/25/50/100 default 10 | SATISFIED | ShopsPagination(page_size=10); [10,25,50,100] options in ShopTable |
-| SHOP-07 | Empty State A (no regions) and B (no shops) | SATISFIED | ShopsEmptyStateA with regions link; ShopsEmptyStateB with open-create-shop-empty CTA |
-| SHOP-08 | Create modal — GOOGLE_OAUTH only (MANUAL retired) | SATISFIED (REVISED) | CreateShopModal is OAuth-only 3-step; MANUAL radio correctly absent per post-discussion decision |
-| SHOP-09 | OAuth success auto-populates name + address | SATISFIED | handleSelectListing sets name and streetAddress from listing data if fields are blank |
-| SHOP-10 | Manual Place ID + API Key validation — RETIRED | RETIRED | Per post-discussion-phase decision: MANUAL flow removed. No validate_place_id call in create_shop or any service; Places API is not called during OAuth shop creation |
-| SHOP-11 | OAuth popup flow with postMessage + polling fallback | SATISFIED | GoogleOAuthStartView redirects to Google; callback exchanges code, lists locations, stores session token; OAuthConnectionSection: synchronous popup, postMessage, 30s Redis polling fallback |
-| SHOP-12 | OAuth popup edge cases with correct inline messages | SATISFIED | OAuthConnectionSection handles: popup_blocked (null popup), closed (window.closed setInterval + 600ms grace), denied, auth_error, no_listings; all mapped in OAUTH_ERROR_MESSAGES including "Connection cancelled. Please try again." |
-| SHOP-13 | Encrypted at rest, never transmitted to browser | SATISFIED | ShopReadSerializer excludes google_refresh_token; frontend sends OAuth state in google_refresh_token field; backend resolves actual token from session; single-use token consumption confirmed |
-| SHOP-14 | Successful create closes modal, shows toast, refreshes list | SATISFIED | CreateShopModal: emitToast + onCreated() + reset() + onClose() on 201; ShopModals calls refresh() which dispatches shop:refresh |
-| SHOP-15 | Shop Details modal — read-only grid + conditional footer | SATISFIED | ShopDetailsModal: dl grid-cols-2; ConnectionStatusPill; Reconnect Google button only for GOOGLE_OAUTH+ERROR/EXPIRED; no reveal/rotate buttons |
-| SHOP-16 | Edit modal locks connection_method + place_id | SATISFIED | EditShopModal: fieldset disabled for connection_method; place_id disabled+readOnly; ShopUpdateSerializer LOCKED_FIELDS validate() rejects at API level |
-| SHOP-17 | Deactivate: amber confirm + slot-retention text + no allocation change | SATISFIED | deactivate_shop sets is_active=False without changing shop count; ConfirmModal variant="amber" with "allocated store slot remains used"; test_rejects_deactivation_changes_count confirms no allocation change |
-| SHOP-18 | Activate: blue confirm + toast | SATISFIED | activate_shop sets is_active=True; ConfirmModal variant="blue"; "Shop '{name}' activated." toast |
-| SHOP-19 | Reveal Key — RETIRED | RETIRED | Per post-discussion-phase decision: reveal_api_key service removed; reveal_key @action removed; RevealKeyModal.tsx deleted; no audit log writers |
-| SHOP-20 | Rotate Key — RETIRED | RETIRED | Per post-discussion-phase decision: rotate_api_key service removed; rotate_key @action removed; RotateKeyModal.tsx deleted; RotateKeySerializer removed |
-| SHOP-21 | Reconnect Google: restart OAuth, replace token, status CONNECTED | SATISFIED | reconnect_oauth sets connection_status=CONNECTED and stores new google_refresh_token; /reconnect/ @action resolves state from session; ShopModals reconnect modal reuses OAuthConnectionSection |
-| XMOD-01 | Shop cannot be created without a Region | SATISFIED | ShopCreateSerializer region is required PrimaryKeyRelatedField scoped to org |
-| XMOD-03 | Deactivated shops excluded from Team scope selectors | PARTIAL | active_only=True parameter implemented in list_shops and tested; full enforcement in Team modal is Phase 9 scope — prerequisite hook implemented here |
-| XMOD-04 | Allocation counter transactional, no race | SATISFIED | select_for_update() on Organisation row in create_shop; @transaction.atomic on all write services; test_uses_select_for_update verifies FOR UPDATE in captured queries |
-
----
-
-### Post-Discussion Retirements (Formally Verified as Absent)
-
-The following were explicitly retired by the post-discuss-phase decision (2026-04-29). Verified ABSENT in the codebase:
-
-| Retired Item | Absent From | Verification |
-|---|---|---|
-| `ConnectionMethod.MANUAL` | `apps/shops/models.py` choices, migration 0003 AlterField, `types.ts` | CONFIRMED ABSENT |
-| `Shop.api_key` field | Model, migration 0003 RemoveField, serializers | CONFIRMED ABSENT |
-| `Shop.city` / `Shop.state` / `Shop.zip_code` | Model, migration 0003 RemoveField | CONFIRMED ABSENT |
-| `reveal_api_key` service | `apps/shops/services/shops.py` | CONFIRMED ABSENT |
-| `rotate_api_key` service | `apps/shops/services/shops.py` | CONFIRMED ABSENT |
-| `reveal_key` viewset @action | `apps/shops/views.py` | CONFIRMED ABSENT |
-| `rotate_key` viewset @action | `apps/shops/views.py` | CONFIRMED ABSENT |
-| `RotateKeySerializer` | `apps/shops/serializers.py` | CONFIRMED ABSENT |
-| `RevealKeyModal.tsx` | `frontend/src/widgets/shop-management/` | CONFIRMED ABSENT |
-| `RotateKeyModal.tsx` | `frontend/src/widgets/shop-management/` | CONFIRMED ABSENT |
-| `shop:open-reveal` / `shop:open-rotate` events | `ShopModals.tsx` | CONFIRMED ABSENT |
-| reveal/rotate entries in SHOP_ACTIONS | `ShopTable.tsx` | CONFIRMED ABSENT |
+| Requirement | Description | Status | Notes |
+|-------------|-------------|--------|-------|
+| SHOP-01 | Allocation counter "Shops (X / Y)" | SATISFIED | Unchanged from previous verification |
+| SHOP-02 | + Add Shop disabled at limit | SATISFIED | Unchanged |
+| SHOP-03 | Search/filter/pagination | SATISFIED | Unchanged |
+| SHOP-04 | Shop row columns | SATISFIED (REVISED) | Post-cleanup: LOCATION, PLACE ID, CONNECTION columns removed. Remaining: name, region, contact, status, created. ConnectionStatusPill still used in ShopDetailsModal; not rendered in table. |
+| SHOP-05 | Connection status pill | SATISFIED | ConnectionStatusPill.tsx still exists and used in ShopDetailsModal; absent from table columns (removed in cleanup). |
+| SHOP-06 | Pagination 10/25/50/100 default 10 | SATISFIED | Unchanged |
+| SHOP-07 | Empty State A/B | SATISFIED | Unchanged |
+| SHOP-08 | Create modal — GOOGLE_OAUTH only | SATISFIED | Unchanged; 3-step OAuth-only flow |
+| SHOP-09 | OAuth success auto-populates name + address | SATISFIED | Unchanged |
+| SHOP-10 | Manual Place ID + API Key validation — RETIRED | RETIRED | Unchanged |
+| SHOP-11 | OAuth popup flow | SATISFIED | COOP fix (try/catch + immediate Redis poll) strengthens this |
+| SHOP-12 | OAuth popup edge cases | SATISFIED | Immediate Redis poll on close improves closed-popup detection reliability |
+| SHOP-13 | Encrypted at rest, never transmitted | SATISFIED | Unchanged |
+| SHOP-14 | Successful create closes modal, shows toast, refreshes list | SATISFIED | Unchanged |
+| SHOP-15 | Shop Details modal — read-only grid + conditional footer | SATISFIED | ConnectionStatusPill still used here; Reconnect only for GOOGLE_OAUTH+ERROR/EXPIRED |
+| SHOP-16 | Edit modal locks connection_method + place_id | SATISFIED (API-ONLY) | Post-cleanup: UI no longer renders these fields at all (stronger than locked UI). API-level enforcement via ShopUpdateSerializer.LOCKED_FIELDS remains intact. |
+| SHOP-17 | Deactivate: amber confirm + slot-retention text | SATISFIED | Unchanged |
+| SHOP-18 | Activate: blue confirm + toast | SATISFIED | Unchanged |
+| SHOP-19 | Reveal Key — RETIRED | RETIRED | Unchanged |
+| SHOP-20 | Rotate Key — RETIRED | RETIRED | Unchanged |
+| SHOP-21 | Reconnect Google | SATISFIED | Unchanged |
+| XMOD-01 | Shop cannot be created without a Region | SATISFIED | Unchanged |
+| XMOD-03 | Deactivated shops excluded from Team scope | PARTIAL | active_only=True prerequisite implemented; full Phase 9 enforcement out of scope |
+| XMOD-04 | Allocation counter transactional, no race | SATISFIED | Unchanged; select_for_update in create_shop |
 
 ---
 
@@ -185,69 +166,75 @@ The following were explicitly retired by the post-discuss-phase decision (2026-0
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| `frontend/src/widgets/shop-management/ShopTable.tsx` | 93 | `// TODO: fetch full region list from API for complete dropdown` | Info | Region filter dropdown shows only regions present in current page of results. UX limitation — filter works for visible regions. Not a blocker since regions are seeded server-side for modal dropdowns. |
-| `templates/shops/oauth/callback.html` | — | Listing picker moved to React modal instead of popup | Info | CONTEXT.md specified picker inside the OAuth popup (callback.html). Implementation sends all listings to opener and renders picker in React modal step 2. Functionally equivalent outcome (user selects one listing before proceeding to form). Not a blocker. |
+| `ShopTable.tsx` | 93 | `// TODO: fetch full region list from API for complete dropdown` | Info | Region filter shows only regions in current page. UX limitation, not a blocker. |
+| `templates/shops/oauth/callback.html` | — | Listing picker rendered in React modal (step 2), not in popup | Info | Functionally equivalent to CONTEXT.md spec. Not a blocker. |
+
+No new anti-patterns introduced by the post-plan cleanup changes.
+
+---
+
+### Regression Finding (Warning — No Blocking Impact)
+
+**SHOP-16 UI layer change:**
+
+The previous verification credited `EditShopModal.tsx` for rendering a `<fieldset disabled>` for connection_method and a `disabled readOnly` place_id input. The post-plan cleanup removed these fields from the edit form entirely. The form now has 4 fields: Shop Name, Region, Phone, Street Address only.
+
+This is a simplification, not a security regression:
+- The API-level `ShopUpdateSerializer.LOCKED_FIELDS = {"connection_method", "place_id"}` remains the canonical enforcement.
+- The previous UI lock was defence-in-depth; the new approach (omitting the fields entirely) is equally effective.
+- No client-side bypass path exists because the fields are not present in the form submission.
+
+No action required. Flagged for documentation only.
 
 ---
 
 ### Human Verification Required
 
-#### 1. Org Admin Shop List Page
+#### 1. Org Admin Shop List Page — Simplified Columns
 
 **Test:** Log in as Org Admin, navigate to /admin/org/shops/
-**Expected:** Page renders "Shops (X / Y)" header with live counts; "+ Add Shop" button visible; no javascript errors
+**Expected:** Table shows exactly 5 columns: SHOP NAME, REGION, CONTACT, STATUS, CREATED — no LOCATION, PLACE ID, or CONNECTION column visible
 **Why human:** Django template rendering + live data requires a running server
 
-#### 2. OAuth Create Flow — Happy Path
+#### 2. Duplicate-Listing Prevention in OAuth Flow
 
-**Test:** Click "+ Add Shop"; modal opens to OAuth connect step (step 1) with yellow "Connect Google Business Profile" button; click it; popup opens at ~600x700px; complete Google auth
-**Expected:** No MANUAL radio visible; after OAuth completes, modal advances to step 2 (listing picker) or step 3 (form) depending on listing count; popup auto-closes; Shop Name and Street Address pre-filled from listing
-**Why human:** window.open + real Google OAuth credentials + real browser required
+**Test:** Add one shop via OAuth. Click "+ Add Shop" again with the same Google account.
+**Expected:** In the listing picker (step 2), the already-added listing is disabled/greyed out and cannot be selected
+**Why human:** Real Google OAuth + real browser required; takenPlaceIds -> existingPlaceIds wiring needs visual confirmation
 
-#### 3. Popup Closure Detection (SHOP-12)
+#### 3. Popup Closure Detection (COOP Fix)
 
-**Test:** Open OAuth popup then close it manually (X button) before completing auth
-**Expected:** Within ~1 second, modal shows "Connection cancelled. Please try again."
+**Test:** Open OAuth popup then close it manually before completing auth
+**Expected:** Within ~1.3s, modal shows "Connection cancelled. Please try again."
 **Why human:** window.closed polling via setInterval requires a real browser event loop
 
-#### 4. Deactivate Amber Confirm Copy (SHOP-17)
+#### 4. Edit Shop Modal — Simplified Form
 
-**Test:** Click three-dot menu on any shop, click "Deactivate"
-**Expected:** Amber ConfirmModal with text including "The allocated store slot remains used." and shop name
-**Why human:** Visual appearance and modal copy require browser rendering
+**Test:** Click three-dot menu on any shop, click "Edit"
+**Expected:** Modal shows Shop Name, Region, Phone, Street Address only — no connection method radio, no Place ID field
+**Why human:** React rendering in browser required to confirm absent UI elements
 
-#### 5. Vite Build Produces shop-management Bundle
+#### 5. API-Level Lock Verification
 
-**Test:** Run `cd frontend && npm run build` and confirm `static/dist/` contains a shop-management bundle
-**Expected:** Build succeeds without TypeScript errors; bundle present
+**Test:** Using DevTools Network tab or curl, PATCH /api/v1/shops/{id}/ with `{"connection_method": "NOT_CONNECTED"}`
+**Expected:** 400 with validation error rejecting the locked field
+**Why human:** Requires HTTP client; automated test coverage should exist but manual smoke-test recommended
+
+#### 6. Vite Build
+
+**Test:** Run `cd frontend && npm run build`
+**Expected:** Build succeeds without TypeScript errors; shop-management bundle present in static/dist/
 **Why human:** Build environment and node_modules state may differ
 
 ---
 
 ## Gaps Summary
 
-No gaps found. All 5 observable truths verified. The phase goal is achieved in its revised form:
+No gaps. All 5 observable truths verified. All 8 post-plan cleanup changes confirmed present in the codebase.
 
-**Original goal** (ROADMAP before discuss-phase): MANUAL + Reveal/Rotate included.
-**Revised goal** (post-discuss-phase): Google OAuth only; MANUAL, Reveal, Rotate retired.
-
-The verification confirms the revised goal is fully delivered:
-
-1. **Google integration layer** (Plan 08-01): oauth.py, places.py, exceptions.py all present with retry/backoff and domain exceptions. 15 integration tests (7+8) confirmed.
-
-2. **Shop service layer** (Plans 08-02, 08-06): create_shop with select_for_update allocation enforcement, update_shop with LOCKED_FIELDS, activate_shop, deactivate_shop, reconnect_oauth — all with @transaction.atomic. reveal_api_key and rotate_api_key correctly absent. 64 shop test methods confirmed.
-
-3. **Shop selector layer** (Plans 08-02, 08-06): list_shops with name/street_address search (city removed), active_only for XMOD-03, get_has_regions, get_allocation_status returning {current, max, at_limit}.
-
-4. **DRF viewset + OAuth views** (Plans 08-03, 08-06): ShopViewSet with 5 endpoints (list/create/partial_update/activate/deactivate/reconnect/oauth_result); reveal_key/rotate_key absent; COOP headers on OAuth views; session-based single-use token resolution; allocation envelope on list.
-
-5. **React frontend** (Plans 08-04, 08-05, 08-07): ConnectionMethod type narrowed to GOOGLE_OAUTH|NOT_CONNECTED; CreateShopModal is 3-step OAuth-only (connect/pick/form); OAuthConnectionSection has yellow primary button + synchronous window.open + origin-verified postMessage + 30s polling fallback + window.closed detection; ShopModals has no reveal/rotate subscriptions; ShopTable has no api_key column; RevealKeyModal.tsx and RotateKeyModal.tsx do not exist; 17 frontend tests confirmed.
-
-Migration chain is complete: 0001 (initial) → 0002 (ShopAuditLog) → 0003 (remove MANUAL + address subfields).
-
-XMOD-03 prerequisite (active_only parameter) is implemented and tested; full Phase 9 enforcement is explicitly out of scope.
+Phase goal is achieved: Org Admins can create and manage shops connected via Google OAuth, with duplicate-listing prevention (both app-layer and DB-level UniqueConstraint), allocation enforcement, connection status tracking, and activate/deactivate flow. The Modal layout refactor ensures sticky footers work correctly in all modals. The COOP fix ensures popup closure is reliably detected even when Chrome blocks cross-origin property access.
 
 ---
 
-_Verified: 2026-04-29_
-_Verifier: Claude (gsd-verifier) — re-verification after plans 08-06 and 08-07_
+_Verified: 2026-04-29T18:00:00Z_
+_Verifier: Claude (gsd-verifier) — third-pass re-verification after post-plan direct cleanup_
