@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from django.conf import settings
 from django.db import models
 from encrypted_fields.fields import EncryptedTextField
 
@@ -70,3 +71,30 @@ class Shop(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.name
+
+
+class ShopAuditLog(models.Model):
+    class Action(models.TextChoices):
+        API_KEY_REVEALED = "shop.api_key.revealed", "API Key Revealed"
+        API_KEY_ROTATED = "shop.api_key.rotated", "API Key Rotated"
+
+    shop = models.ForeignKey(
+        Shop,
+        on_delete=models.CASCADE,
+        related_name="audit_logs",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="shop_audit_logs",
+    )
+    action = models.CharField(max_length=30, choices=Action.choices)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "shops_shopauditlog"
+        ordering: ClassVar[list[str]] = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.shop_id}:{self.action}"
