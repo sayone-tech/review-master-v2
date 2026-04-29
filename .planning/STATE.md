@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-04-29T19:19:19.571Z"
+stopped_at: Completed 09-04-PLAN.md
+last_updated: "2026-04-29T19:39:50.936Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 17
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -63,6 +63,7 @@ Plan: 4 of 5
 | Phase 09-team P01 | 10 | 3 tasks | 19 files |
 | Phase 09-team P03 | 3 | 1 task | 5 files |
 | Phase 09 P02 | 21 | 2 tasks | 11 files |
+| Phase 09-team P04 | 10 | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,9 @@ Recent decisions affecting current work:
 - [Phase 09-team]: 09-03: Resend notice placed before scope lists — immediately visible after intro paragraph
 - [Phase 09]: 09-02: Tasks 1+2 committed atomically — organisations/urls.py imports team_list/org_welcome from organisations/views.py; pre-commit hook failed when staged separately
 - [Phase 09]: 09-02: org_welcome uses @login_required not @org_admin_required — STAFF_ADMIN (not ORG_ADMIN) needs to reach /admin/org/welcome/ after activation
+- [Phase 09-04]: ScopeSection/AddTeamMemberModal/EditTeamMemberModal implemented (not stubbed) because Plan 05 test files pre-existed in the widget directory and plan verification requires all tests in src/widgets/team-management/ to pass
+- [Phase 09-04]: EnabledToggle emits team:open-disable/team:open-enable CustomEvents rather than toggling state directly — confirmation happens in Plan 05 TeamModals
+- [Phase 09-04]: AddTeamMemberModal validation errors consolidated into single role=alert banner so getByRole('alert') test assertion works with a single element
 
 ### Pending Todos
 
@@ -144,6 +148,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T19:19:19.569Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-04-29T19:39:50.934Z
+Stopped at: Completed 09-04-PLAN.md
 Resume file: None

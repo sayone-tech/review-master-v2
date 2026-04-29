@@ -59,7 +59,7 @@
 - [x] **TEAM-02**: Team list has a search input (Name + Email) and filter dropdowns for Region and Store (Store narrows when a Region is selected)
 - [x] **TEAM-03**: Team list is paginated (10/25/50/100, default 10)
 - [x] **TEAM-04**: Three stats cards below the table show live counts: Total Members, Managers, Active Members
-- [ ] **TEAM-05**: When only the Org Admin exists (no other team members), a subtle info banner appears above the table with an "+ Add Team Member" inline action
+- [x] **TEAM-05**: When only the Org Admin exists (no other team members), a subtle info banner appears above the table with an "+ Add Team Member" inline action
 - [x] **TEAM-06**: Add Team Member modal accepts: Name (2–100 chars), Email (valid, unique across platform), Role (Manager / Staff); when Role = Manager, no extra fields appear; when Role = Staff, Region multi-select and Store multi-select appear (at least one Region or Store selection required)
 - [x] **TEAM-07**: Sending an invite refreshes the Team list with a new Pending row, shows toast "Invitation sent to {email}.", and sends the Team Invitation email with a 48-hour token
 - [x] **TEAM-08**: Edit Team Member modal (disabled for own row): Name, Role, Regions, Stores editable; Email is locked; changing role between Manager and Staff dynamically shows/hides scope selectors
@@ -162,7 +162,7 @@
 | TEAM-02 | Phase 9 — Team | Complete |
 | TEAM-03 | Phase 9 — Team | Complete |
 | TEAM-04 | Phase 9 — Team | Complete |
-| TEAM-05 | Phase 9 — Team | Pending |
+| TEAM-05 | Phase 9 — Team | Complete |
 | TEAM-06 | Phase 9 — Team | Complete |
 | TEAM-07 | Phase 9 — Team | Complete |
 | TEAM-08 | Phase 9 — Team | Complete |
