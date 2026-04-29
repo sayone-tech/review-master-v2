@@ -33,14 +33,14 @@
 
 - [x] **SHOP-01**: Shops page header shows a live allocation counter "Shops (X / Y)" where X is current shop count and Y is the Superadmin-set allocation
 - [x] **SHOP-02**: "+ Add Shop" button is visually disabled with a tooltip "Shop limit reached." when the organisation is at allocation; clicking it shows a toast "You've reached your shop limit…" — the Create modal does not open
-- [x] **SHOP-03**: Shops list has a search input (searches Name + Street Address + City), a Status filter (All / Active / Inactive), and a Region filter (All / per-region)
+- [x] **SHOP-03**: Shops list has a search input (searches Name + Street Address), a Status filter (All / Active / Inactive), and a Region filter (All / per-region)
 - [x] **SHOP-04**: Shops list shows columns: Shop Name (bold, clickable), Location (address + city/state/zip), Region badge, Contact (phone), Google Place ID (truncated monospace), API Key (masked, manual fallback only), Status badge (Active / Inactive), Connection Status pill, Created Date, Actions (three-dot menu)
 - [x] **SHOP-05**: Connection Status pill shows one of four states: "Connected via Google" (green dot), "Connected via API key" (blue dot), "Connection error" (red dot), "Quota exceeded" (amber dot)
 - [x] **SHOP-06**: Shops list is paginated (rows-per-page selector: 10/25/50/100, default 10) with "Showing X–Y of Z" display
 - [x] **SHOP-07**: Empty State A (no Regions exist) shows "Create a region first" with a "Go to Regions" CTA; Empty State B (Regions exist but no Shops) shows "No shops yet" with "Add your first shop" CTA
 - [x] **SHOP-08**: Create Shop modal has a connection method radio (Connect with Google / Enter manually), common fields (Shop Name 2–100 chars required; Phone optional E.164; Region dropdown required; Street Address required; City required; State/ZIP optional)
 - [x] **SHOP-09**: When "Connect with Google" is selected, a "Connect Google Business Profile" button opens an OAuth popup (~600×700px); after successful connection, the button is replaced with a success row showing the connected listing name and address and a "Change connection" link
-- [x] **SHOP-10**: When "Enter manually" is selected, Google Place ID (starts with 'ChIJ' or valid prefix, 20–256 chars) and Google Places API Key (masked, show/hide toggle) fields appear; both are validated against the Google Places API on submit
+- [~] **SHOP-10** (RETIRED 2026-04-29 — see `.planning/phases/08-shops/08-CONTEXT.md` `<deferred>` section): When "Enter manually" is selected, Google Place ID (starts with 'ChIJ' or valid prefix, 20–256 chars) and Google Places API Key (masked, show/hide toggle) fields appear; both are validated against the Google Places API on submit
 - [x] **SHOP-11**: Google OAuth popup flow: popup opens to /oauth/google/start/, user authenticates and grants permissions, callback page at /oauth/google/callback/ exchanges code for refresh token, presents listing picker if multiple listings, calls window.opener.postMessage with listing details and auto-closes; parent modal listens (origin verified) and shows success row
 - [x] **SHOP-12**: OAuth popup edge cases handled correctly: user closes popup → "Connection cancelled. Please try again."; user denies consent → "Permission was not granted."; Google error → "Could not complete connection."; no listings → "No business listings found in this Google account."
 - [x] **SHOP-13**: OAuth refresh token (Google) and manual API key are both encrypted at rest before persisting; they are never transmitted to the browser
@@ -49,8 +49,8 @@
 - [x] **SHOP-16**: Edit Shop modal mirrors Create modal with current values pre-filled; connection method radio and Google Place ID are locked; all other fields (Name, Phone, Region, Address fields, API Key via Rotate Key) are editable
 - [x] **SHOP-17**: Deactivate Shop shows amber confirmation popup ("allocated store slot remains used"); success toast "Shop '{name}' deactivated."; deactivation does NOT free an allocation slot
 - [x] **SHOP-18**: Activate Shop shows blue confirmation popup; success toast "Shop '{name}' activated."
-- [x] **SHOP-19**: Reveal API Key action (manual fallback only) requires confirmation popup; shows the full key for 30 seconds then auto-masks; writes an audit log entry shop.api_key.revealed
-- [x] **SHOP-20**: Rotate Key action opens a Rotate Key modal with a new API Key field; server validates the new key against the Google Places API, then replaces the old key atomically; success toast "API key rotated for '{name}'."; writes audit log entry shop.api_key.rotated
+- [~] **SHOP-19** (RETIRED 2026-04-29 — see `.planning/phases/08-shops/08-CONTEXT.md` `<deferred>` section): Reveal API Key action (manual fallback only) requires confirmation popup; shows the full key for 30 seconds then auto-masks; writes an audit log entry shop.api_key.revealed
+- [~] **SHOP-20** (RETIRED 2026-04-29 — see `.planning/phases/08-shops/08-CONTEXT.md` `<deferred>` section): Rotate Key action opens a Rotate Key modal with a new API Key field; server validates the new key against the Google Places API, then replaces the old key atomically; success toast "API key rotated for '{name}'."; writes audit log entry shop.api_key.rotated
 - [x] **SHOP-21**: Reconnect Google action (OAuth-connected shops with Connection error) restarts the OAuth popup flow; on success, the new refresh token replaces the old one and Connection Status returns to healthy
 
 ### Team
@@ -146,7 +146,7 @@
 | SHOP-07 | Phase 8 — Shops | Complete |
 | SHOP-08 | Phase 8 — Shops | Complete |
 | SHOP-09 | Phase 8 — Shops | Complete |
-| SHOP-10 | Phase 8 — Shops | Complete |
+| SHOP-10 | Phase 8 — Shops | Retired (2026-04-29) |
 | SHOP-11 | Phase 8 — Shops | Complete |
 | SHOP-12 | Phase 8 — Shops | Complete |
 | SHOP-13 | Phase 8 — Shops | Complete |
@@ -155,8 +155,8 @@
 | SHOP-16 | Phase 8 — Shops | Complete |
 | SHOP-17 | Phase 8 — Shops | Complete |
 | SHOP-18 | Phase 8 — Shops | Complete |
-| SHOP-19 | Phase 8 — Shops | Complete |
-| SHOP-20 | Phase 8 — Shops | Complete |
+| SHOP-19 | Phase 8 — Shops | Retired (2026-04-29) |
+| SHOP-20 | Phase 8 — Shops | Retired (2026-04-29) |
 | SHOP-21 | Phase 8 — Shops | Complete |
 | TEAM-01 | Phase 9 — Team | Pending |
 | TEAM-02 | Phase 9 — Team | Pending |

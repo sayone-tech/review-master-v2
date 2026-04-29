@@ -77,7 +77,7 @@ Plans:
 **Depends on**: Phase 7 (Region FK required for Shop creation)
 **Requirements**: SHOP-01, SHOP-02, SHOP-03, SHOP-04, SHOP-05, SHOP-06, SHOP-07, SHOP-08, SHOP-09, SHOP-10, SHOP-11, SHOP-12, SHOP-13, SHOP-14, SHOP-15, SHOP-16, SHOP-17, SHOP-18, SHOP-19, SHOP-20, SHOP-21, XMOD-01, XMOD-03, XMOD-04
 **Success Criteria** (what must be TRUE):
-  1. The Shops list at /admin/org/shops shows the allocation counter "Shops (X / Y)" and the "+ Add Shop" button is visually disabled with a tooltip when at limit; the list supports search (name, address, city), Status filter (All/Active/Inactive), and Region filter; pagination works with 10/25/50/100 rows-per-page selector.
+  1. The Shops list at /admin/org/shops shows the allocation counter "Shops (X / Y)" and the "+ Add Shop" button is visually disabled with a tooltip when at limit; the list supports search (name, address), Status filter (All/Active/Inactive), and Region filter; pagination works with 10/25/50/100 rows-per-page selector.
   2. The Create Shop modal offers a "Connect with Google" radio that opens an OAuth popup (~600×700px); after successful OAuth, the modal shows a success row with connected listing name and "Change connection" link; popup close/deny/error/no-listings each show the correct inline message; the flow works in Safari (synchronous window.open before any async call) and falls back to polling via a 30-second Redis key when postMessage is unavailable due to COOP.
   3. The Create Shop modal "Enter manually" radio shows Google Place ID and API Key fields; both are validated against the Google Places API on submit; the OAuth refresh token and API key are never transmitted to the browser and are stored Fernet-encrypted at rest.
   4. Shop Details modal shows all fields in a read-only two-column grid with the Connection Status pill (Connected via Google / Connected via API key / Connection error / Quota exceeded) and footer action buttons; Edit modal pre-fills all editable fields; connection method and Place ID are locked in edit mode.
@@ -89,7 +89,7 @@ Plans:
 - Deactivated shops are excluded from Team member scope selectors (XMOD-03 enforcement on the Shop layer: the selector used by Team modals filters `is_active=True`).
 - CI query-count test for the Shops list endpoint required (fixed ceiling, not proportional to row count).
 
-**Plans**: 5 plans (5 waves)
+**Plans**: 7 plans (6 waves) — includes 2 gap-closure plans (08-06, 08-07)
 
 Plans:
 - [x] 08-01-PLAN.md — Google integrations layer (apps/integrations/google/: oauth.py, places.py, exceptions.py); httpx + tenacity deps; full test suite with mocked HTTP
@@ -97,6 +97,8 @@ Plans:
 - [ ] 08-03-PLAN.md — Shop API viewset + URLs + OAuth views: ShopViewSet (TenantScopedViewSet) with custom @action endpoints, OAuth start/callback views with scoped COOP header, allocation envelope, cross-tenant + query-count CI tests
 - [ ] 08-04-PLAN.md — Shops list React widget: types/api/useShops hook, ConnectionStatusPill, ShopRowActionsMenu, ShopTable with search/status/region filters and pagination, Empty States A (no regions) and B (no shops), Vite + template wiring
 - [ ] 08-05-PLAN.md — Shop create/edit/details/action modals + OAuth popup orchestrator: synchronous window.open, postMessage with origin verification, Redis polling fallback, Deactivate/Activate confirms (amber/blue), Reveal Key (30s auto-mask + audit log), Rotate Key, Reconnect Google
+- [ ] 08-06-PLAN.md — Gap closure (backend): drop MANUAL ConnectionMethod + api_key field + city/state/zip_code columns; migration 0003; remove RotateKeySerializer, reveal_key/rotate_key viewset actions, reveal_api_key/rotate_api_key services; trim list_shops search; cleanup tests
+- [ ] 08-07-PLAN.md — Gap closure (frontend): drop MANUAL from ConnectionMethod TS type; remove city/state/zip/api_key from types/payloads; delete RevealKeyModal/RotateKeyModal; trim CreateShopModal/EditShopModal/ShopDetailsModal/ShopTable/ShopModals; restyle Connect Google button to brand yellow primary
 
 ---
 
