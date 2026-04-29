@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 8 context gathered
-last_updated: "2026-04-28T08:14:08.656Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-04-29T10:15:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 10
+  completed_plans: 6
 ---
 
 # Project State
@@ -19,20 +19,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Organisation Admins can manage their Shops, Regions, and Team — the operational layer built on top of the Superadmin control plane.
-**Current focus:** Phase 07 — regions
+**Current focus:** Phase 08 — shops
 
 ## Current Position
 
-Phase: 07 (regions) — EXECUTING
-Plan: 3 of 3
+Phase: 08 (shops) — EXECUTING
+Plan: 2 of 5
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 4
-- Average duration: 8.75 minutes
-- Total execution time: 0.58 hours
+- Total plans completed: 6
+- Average duration: 9.5 minutes
+- Total execution time: 0.96 hours
 
 **By Phase:**
 
@@ -40,7 +40,7 @@ Plan: 3 of 3
 |-------|-------|-------|----------|
 | 6. Org Admin Shell | 4/5 | 35m | 8.75m |
 | 7. Regions | 0/3 | - | - |
-| 8. Shops | 0/5 | - | - |
+| 8. Shops | 1/5 | 12m | 12m |
 | 9. Team | 0/5 | - | - |
 
 **Recent Trend:**
@@ -53,6 +53,7 @@ Plan: 3 of 3
 | Phase 07-regions P01 | 3 | 2 tasks | 11 files |
 | Phase 07 P03 | 3 | 2 tasks | 12 files |
 | Phase 07-regions P02 | 6 | 2 tasks | 5 files |
+| Phase 08-shops P01 | 739 | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,10 @@ Recent decisions affecting current work:
 - [Phase 06-04]: first_name extracted via user.full_name.split()[0] with fallback to user.email.split('@')[0] when blank/whitespace-only
 - [Phase 06-05]: @org_admin_required alone used on org profile views — does not stack with @login_required (decorator wraps it internally)
 - [Phase 06-05]: org_profile.html differs from profile.html in exactly 3 lines: extends + 2 url tags — zero business-logic duplication, both call the same services
+- [Phase 08-shops]: 08-01: _setting() helper with getattr+cast used instead of direct settings.ATTR — avoids django-stubs attr-defined errors on custom GOOGLE_OAUTH_* settings
+- [Phase 08-shops]: 08-01: TOKEN_ENDPOINT constant name triggers bandit B105 + ruff S105 false positives — suppressed with # noqa: S105  # nosec B105
+- [Phase 08-shops]: 08-01: Django override_settings cannot decorate plain pytest classes — applied per-method in oauth tests
+- [Phase 08-shops]: 08-01: Pre-commit mypy hook requires httpx + tenacity in additional_dependencies to avoid import errors
 - [Phase 07-regions]: 07-01: RegionFactory.region_id uses RGN{n:03d} (no hyphen) — matches [A-Z0-9]{2,10} UniqueConstraint
 - [Phase 07-regions]: 07-01: perform_create/perform_update return Region instance (not None) — avoids re-fetch, enables RegionReadSerializer response in 201/200
 - [Phase 07-regions]: 07-01: RegionViewSet uses GenericViewSet + mixins (not ModelViewSet) — only list/create/partial_update/destroy exposed
@@ -104,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-28T08:14:08.648Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-shops/08-CONTEXT.md
+Last session: 2026-04-29T10:15:00.000Z
+Stopped at: Completed 08-01-PLAN.md
+Resume file: .planning/phases/08-shops/08-02-PLAN.md

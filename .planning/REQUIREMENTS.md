@@ -40,10 +40,10 @@
 - [ ] **SHOP-07**: Empty State A (no Regions exist) shows "Create a region first" with a "Go to Regions" CTA; Empty State B (Regions exist but no Shops) shows "No shops yet" with "Add your first shop" CTA
 - [ ] **SHOP-08**: Create Shop modal has a connection method radio (Connect with Google / Enter manually), common fields (Shop Name 2–100 chars required; Phone optional E.164; Region dropdown required; Street Address required; City required; State/ZIP optional)
 - [ ] **SHOP-09**: When "Connect with Google" is selected, a "Connect Google Business Profile" button opens an OAuth popup (~600×700px); after successful connection, the button is replaced with a success row showing the connected listing name and address and a "Change connection" link
-- [ ] **SHOP-10**: When "Enter manually" is selected, Google Place ID (starts with 'ChIJ' or valid prefix, 20–256 chars) and Google Places API Key (masked, show/hide toggle) fields appear; both are validated against the Google Places API on submit
-- [ ] **SHOP-11**: Google OAuth popup flow: popup opens to /oauth/google/start/, user authenticates and grants permissions, callback page at /oauth/google/callback/ exchanges code for refresh token, presents listing picker if multiple listings, calls window.opener.postMessage with listing details and auto-closes; parent modal listens (origin verified) and shows success row
+- [x] **SHOP-10**: When "Enter manually" is selected, Google Place ID (starts with 'ChIJ' or valid prefix, 20–256 chars) and Google Places API Key (masked, show/hide toggle) fields appear; both are validated against the Google Places API on submit
+- [x] **SHOP-11**: Google OAuth popup flow: popup opens to /oauth/google/start/, user authenticates and grants permissions, callback page at /oauth/google/callback/ exchanges code for refresh token, presents listing picker if multiple listings, calls window.opener.postMessage with listing details and auto-closes; parent modal listens (origin verified) and shows success row
 - [ ] **SHOP-12**: OAuth popup edge cases handled correctly: user closes popup → "Connection cancelled. Please try again."; user denies consent → "Permission was not granted."; Google error → "Could not complete connection."; no listings → "No business listings found in this Google account."
-- [ ] **SHOP-13**: OAuth refresh token (Google) and manual API key are both encrypted at rest before persisting; they are never transmitted to the browser
+- [x] **SHOP-13**: OAuth refresh token (Google) and manual API key are both encrypted at rest before persisting; they are never transmitted to the browser
 - [ ] **SHOP-14**: Successful shop create closes modal, shows toast "Shop '{name}' created.", refreshes list with new row at top, increments allocation counter
 - [ ] **SHOP-15**: Shop Details modal (triggered by clicking shop name or "View Details") shows all fields in a read-only two-column grid, including Connection Status pill, and has footer buttons: Reconnect Google (OAuth error only), Edit, Activate/Deactivate, Close
 - [ ] **SHOP-16**: Edit Shop modal mirrors Create modal with current values pre-filled; connection method radio and Google Place ID are locked; all other fields (Name, Phone, Region, Address fields, API Key via Rotate Key) are editable
@@ -146,10 +146,10 @@
 | SHOP-07 | Phase 8 — Shops | Pending |
 | SHOP-08 | Phase 8 — Shops | Pending |
 | SHOP-09 | Phase 8 — Shops | Pending |
-| SHOP-10 | Phase 8 — Shops | Pending |
-| SHOP-11 | Phase 8 — Shops | Pending |
+| SHOP-10 | Phase 8 — Shops | Complete |
+| SHOP-11 | Phase 8 — Shops | Complete |
 | SHOP-12 | Phase 8 — Shops | Pending |
-| SHOP-13 | Phase 8 — Shops | Pending |
+| SHOP-13 | Phase 8 — Shops | Complete |
 | SHOP-14 | Phase 8 — Shops | Pending |
 | SHOP-15 | Phase 8 — Shops | Pending |
 | SHOP-16 | Phase 8 — Shops | Pending |
