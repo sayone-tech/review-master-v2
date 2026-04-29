@@ -65,21 +65,61 @@ export function OAuthConnectionSection({ onConnected, onError }: Props) {
       }
     };
 
-    // Race guard: popup closes 50ms after postMessage; give the handler 600ms to fire
-    // before treating closure as a user cancellation.
+    // Close watcher: fires every 500ms to detect popup closure.
+    // try/catch around .closed silences the COOP warning Chrome logs while the
+    // popup is on Google's cross-origin domain (popup is still open — skip).
+    // On actual closure: do an immediate Redis poll before timing out, so the
+    // fallback path succeeds even when postMessage was blocked by COOP.
     const closeWatch = window.setInterval(() => {
-      if (popupRef.current?.closed) {
-        if (closeWatchRef.current !== null) {
-          window.clearInterval(closeWatchRef.current);
-          closeWatchRef.current = null;
+      let isClosed = false;
+      try {
+        isClosed = popupRef.current?.closed ?? false;
+      } catch {
+        return; // COOP blocked access — popup still open on cross-origin URL
+      }
+      if (!isClosed) return;
+
+      if (closeWatchRef.current !== null) {
+        window.clearInterval(closeWatchRef.current);
+        closeWatchRef.current = null;
+      }
+
+      void (async () => {
+        if (successFiredRef.current) return; // postMessage already handled it
+
+        // Immediate one-shot poll — bridges the gap when postMessage is blocked
+        // by COOP (Docker missing same-origin-allow-popups header).
+        try {
+          const result = await getOAuthResult("");
+          const r = result as {
+            state?: string;
+            listings?: Array<{ name?: string; address?: string; place_id?: string }>;
+          };
+          if (r?.state && Array.isArray(r.listings) && r.listings.length > 0) {
+            successFiredRef.current = true;
+            cleanup();
+            onConnected({
+              state: r.state,
+              listings: r.listings.map((l) => ({
+                name: l.name ?? "",
+                address: l.address ?? "",
+                placeId: l.place_id ?? "",
+              })),
+            });
+            return;
+          }
+        } catch {
+          // Redis unavailable or no result yet — fall through to postMessage wait
         }
+
+        // Give the postMessage handler one final window (800ms) before giving up.
         window.setTimeout(() => {
           if (!successFiredRef.current) {
             cleanup();
             onError("closed");
           }
-        }, 600);
-      }
+        }, 800);
+      })();
     }, 500);
     closeWatchRef.current = closeWatch;
 
