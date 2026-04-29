@@ -21,7 +21,7 @@ describe("listShops", () => {
           has_regions: true,
         }),
     });
-    global.fetch = mock as unknown as typeof fetch;
+    vi.stubGlobal("fetch", mock);
     await listShops({ search: "abc", status: "active", region: 7 });
     const url = mock.mock.calls[0][0] as string;
     expect(url).toContain("/api/v1/shops/");
@@ -31,11 +31,14 @@ describe("listShops", () => {
   });
 
   it("throws ApiError on 400", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 400,
-      json: () => Promise.resolve({ detail: "bad" }),
-    }) as unknown as typeof fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ detail: "bad" }),
+      }),
+    );
     await expect(listShops()).rejects.toBeInstanceOf(ApiError);
   });
 });
@@ -47,7 +50,7 @@ describe("createShop", () => {
       status: 201,
       json: () => Promise.resolve({ id: 1 }),
     });
-    global.fetch = mock as unknown as typeof fetch;
+    vi.stubGlobal("fetch", mock);
     await createShop({ name: "X", region: 1, connection_method: "NOT_CONNECTED" });
     const init = mock.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>)["X-CSRFToken"]).toBe("test-csrf");
