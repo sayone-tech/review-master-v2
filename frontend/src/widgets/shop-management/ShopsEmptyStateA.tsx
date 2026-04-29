@@ -4,16 +4,16 @@ export function ShopsEmptyStateA() {
   return (
     <div
       data-testid="empty-state-a"
-      className="bg-white border border-line rounded-card p-12 flex flex-col items-center text-center"
+      className="flex flex-col items-center justify-center py-16"
     >
-      <Map size={32} className="text-muted mb-3" aria-hidden="true" />
-      <h3 className="text-[16px] font-semibold text-ink mb-1">Create a region first</h3>
-      <p className="text-[13.5px] text-muted mb-4">
+      <Map size={40} className="text-faint" aria-hidden="true" />
+      <h3 className="text-[15px] font-semibold text-ink mt-4">Create a region first</h3>
+      <p className="text-[13.5px] text-muted mt-1.5">
         Shops belong to a region. Add a region to start tracking shops.
       </p>
       <a
         href="/admin/org/regions/"
-        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
+        className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
       >
         Go to Regions
       </a>

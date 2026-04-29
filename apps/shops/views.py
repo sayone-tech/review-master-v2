@@ -67,15 +67,17 @@ def shop_list(request):  # type: ignore[no-untyped-def]
     shops_data = list(ShopReadSerializer(qs, many=True).data)
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
+    shops_count = len(shops_data)
     return render(
         request,
         "shops/shop_list.html",
         {
             "shops_json": shops_data,
-            "shops_count": Shop.objects.filter(organisation=org).count(),
+            "shops_count": shops_count,
             "allocation": get_allocation_status(organisation=org),
             "has_regions": get_has_regions(organisation_id=org.pk),
             "regions_json": regions_data,
+            "page_title": "Shops",
         },
     )
 

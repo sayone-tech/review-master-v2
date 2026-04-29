@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from django.core.paginator import Paginator
 from django.db import IntegrityError
+from django.http import HttpRequest
 from django.shortcuts import render
 from rest_framework import mixins, serializers, status
 from rest_framework.request import Request
@@ -20,17 +22,47 @@ from apps.regions.serializers import (
 )
 from apps.regions.services.regions import create_region, delete_region, update_region
 
+PER_PAGE_OPTIONS: tuple[int, ...] = (10, 25, 50, 100)
+DEFAULT_PER_PAGE: int = 10
+
+
+def _resolve_per_page(raw: str | None) -> int:
+    try:
+        value = int(raw) if raw is not None else DEFAULT_PER_PAGE
+    except (TypeError, ValueError):
+        return DEFAULT_PER_PAGE
+    return value if value in PER_PAGE_OPTIONS else DEFAULT_PER_PAGE
+
+
+def _page_url_params(request: HttpRequest, per_page: int) -> str:
+    params = request.GET.copy()
+    params["per_page"] = str(per_page)
+    params.pop("page", None)
+    return params.urlencode()
+
 
 @org_admin_required
 def region_list(request):  # type: ignore[no-untyped-def]
-    regions_qs = list_regions(organisation_id=request.user.organisation_id)
-    regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
+    search = request.GET.get("search", "")
+    per_page = _resolve_per_page(request.GET.get("per_page"))
+
+    regions_qs = list_regions(organisation_id=request.user.organisation_id, search=search)
+    paginator = Paginator(regions_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+
+    regions_data = list(RegionReadSerializer(list(page_obj.object_list), many=True).data)
+
     return render(
         request,
         "regions/region_list.html",
         {
             "regions_json": regions_data,
             "regions_count": len(regions_data),
+            "page_obj": page_obj,
+            "per_page": per_page,
+            "per_page_options": list(PER_PAGE_OPTIONS),
+            "page_url_params": _page_url_params(request, per_page),
+            "search": search,
             "page_title": "Regions",
         },
     )

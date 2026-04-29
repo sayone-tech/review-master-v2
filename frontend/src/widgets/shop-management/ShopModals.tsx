@@ -30,29 +30,30 @@ function CreateButtonBridge({
   allocationAtLimit: boolean;
 }) {
   useEffect(() => {
-    const ids = ["open-create-shop", "open-create-shop-empty"];
-    const handlers: Array<{ btn: HTMLElement; handler: (e: Event) => void }> = [];
-    for (const id of ids) {
-      const btn = document.getElementById(id);
-      if (!btn) continue;
-      const handler = (e: Event) => {
-        // Check both the prop and the DOM attribute — the attribute is set by Django template
-        const atLimit =
-          allocationAtLimit || btn.getAttribute("data-at-limit") === "true";
-        if (atLimit && id === "open-create-shop") {
-          e.preventDefault();
-          emitToast({
-            kind: "error",
-            title: "You've reached your shop limit. Contact support to increase.",
-          });
-          return;
-        }
-        onOpen();
-      };
-      btn.addEventListener("click", handler);
-      handlers.push({ btn, handler });
-    }
-    return () => handlers.forEach(({ btn, handler }) => btn.removeEventListener("click", handler));
+    // Wire Django-template "+ Add Shop" button (always in DOM)
+    const btn = document.getElementById("open-create-shop");
+    const btnHandler = (e: Event) => {
+      const atLimit = allocationAtLimit || btn?.getAttribute("data-at-limit") === "true";
+      if (atLimit) {
+        e.preventDefault();
+        emitToast({
+          kind: "error",
+          title: "You've reached your shop limit. Contact support to increase.",
+        });
+        return;
+      }
+      onOpen();
+    };
+    btn?.addEventListener("click", btnHandler);
+
+    // Wire empty-state CTA button via CustomEvent (rendered by React in separate root)
+    const eventHandler = () => onOpen();
+    window.addEventListener("shop:open-create", eventHandler);
+
+    return () => {
+      btn?.removeEventListener("click", btnHandler);
+      window.removeEventListener("shop:open-create", eventHandler);
+    };
   }, [onOpen, allocationAtLimit]);
   return null;
 }

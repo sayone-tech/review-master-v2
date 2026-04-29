@@ -1,8 +1,6 @@
 {% extends "base_org.html" %}
 {% load static django_vite %}
 
-{% block page_title %}Shops{% endblock %}
-
 {% block content %}
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-[18px] font-semibold text-ink">
@@ -24,7 +22,9 @@
 
   <div id="shop-modals-root"></div>
 
-  {{ shops_json|json_script:"shop-data" }}
+  {% if shops_count > 0 %}
+    {{ shops_json|json_script:"shop-data" }}
+  {% endif %}
   {{ allocation|json_script:"shop-allocation" }}
   {{ has_regions|json_script:"shop-has-regions" }}
   {{ regions_json|json_script:"shop-regions-data" }}
@@ -33,5 +33,5 @@
 {% endblock %}
 
 {% block extra_js %}
-  {% vite_asset 'shop-management' %}
+  {% vite_asset 'src/entrypoints/shop-management.tsx' %}
 {% endblock %}

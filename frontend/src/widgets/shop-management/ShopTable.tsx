@@ -114,16 +114,14 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
     ).entries(),
   );
 
-  // Empty state branching
   const noActiveFilters =
     !filters.search && !filters.status && (filters.region === undefined || filters.region === "");
 
-  if (!hasRegions && rows.length === 0 && noActiveFilters) {
-    return <ShopsEmptyStateA />;
-  }
-  if (hasRegions && rows.length === 0 && noActiveFilters && allocation.current === 0) {
-    return <ShopsEmptyStateB />;
-  }
+  const emptyState = noActiveFilters ? (
+    !hasRegions ? <ShopsEmptyStateA /> : <ShopsEmptyStateB />
+  ) : (
+    <div className="p-12 text-center text-muted text-[13.5px]">No matching shops.</div>
+  );
 
   const columns = [
     {
@@ -284,9 +282,7 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
         rows={rows}
         loading={loading}
         rowKey={(r) => String(r.id)}
-        emptyState={
-          <div className="p-12 text-center text-muted text-[13.5px]">No matching shops.</div>
-        }
+        emptyState={emptyState}
         renderRowActions={(row) => <ShopRowActionsMenu row={row} actions={SHOP_ACTIONS} />}
       />
 
