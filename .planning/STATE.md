@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-04-PLAN.md
-last_updated: "2026-04-29T11:06:00.000Z"
+stopped_at: Completed 08-05-PLAN.md
+last_updated: "2026-04-29T11:20:43.803Z"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -57,6 +57,7 @@ Plan: 4 of 5
 | Phase 08-shops P02 | 6 | 3 tasks | 12 files |
 | Phase 08-shops P03 | 23 | 2 tasks | 9 files |
 | Phase 08-shops P04 | 15 | 2 tasks | 14 files |
+| Phase 08-shops P05 | 12 | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,8 @@ Recent decisions affecting current work:
 - [Phase 08-shops]: 08-04: Inline hex colours used in ConnectionStatusPill and status badge — Tailwind JIT cannot generate dynamic class names from ternary expressions
 - [Phase 08-shops]: 08-04: vi.stubGlobal replaces global.fetch in Vitest tests — browser lib tsconfig mode doesn't define global; vi.stubGlobal is the idiomatic Vitest pattern
 - [Phase 08-shops]: 08-04: ShopTable CustomEvent bus: 7 events dispatched (shop:open-{details,edit,deactivate,activate,reveal-key,rotate-key,reconnect}); Plan 08-05 subscribes
+- [Phase 08-shops]: act() from @testing-library/react required when dispatching CustomEvents that trigger React state in tests — plain dispatchEvent causes act() warnings and test failures
+- [Phase 08-shops]: 08-05: ShopModals seeds regions from template context (shop_list view adds regions_json via list_regions + RegionReadSerializer) — avoids extra API call on modal open
 
 ### Pending Todos
 
@@ -122,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T11:06:00.000Z
-Stopped at: Completed 08-04-PLAN.md
+Last session: 2026-04-29T11:20:43.799Z
+Stopped at: Completed 08-05-PLAN.md
 Resume file: None
