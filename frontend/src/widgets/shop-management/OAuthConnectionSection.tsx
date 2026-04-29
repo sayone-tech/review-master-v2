@@ -21,6 +21,11 @@ export function OAuthConnectionSection({ onConnected, onError, connected, onChan
   const pollRef = useRef<number | null>(null);
   const closeWatchRef = useRef<number | null>(null);
   const cleanupRef = useRef<() => void>(() => {});
+  // Tracks whether a success (postMessage or polling) has already been handled.
+  // Used by closeWatch's grace-period timeout to distinguish "user cancelled" from
+  // "popup closed itself after success". Cannot use pollRef for this because cleanup()
+  // nulls pollRef on both success AND the 30 s polling timeout.
+  const successFiredRef = useRef<boolean>(false);
 
   useEffect(() => () => cleanupRef.current(), []);
 
@@ -37,6 +42,7 @@ export function OAuthConnectionSection({ onConnected, onError, connected, onChan
       return;
     }
     popupRef.current = popup;
+    successFiredRef.current = false;
 
     const messageHandler = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -54,6 +60,7 @@ export function OAuthConnectionSection({ onConnected, onError, connected, onChan
         data.placeId !== undefined &&
         data.state !== undefined
       ) {
+        successFiredRef.current = true;
         cleanup();
         onConnected({
           listingName: data.listingName,
@@ -62,6 +69,7 @@ export function OAuthConnectionSection({ onConnected, onError, connected, onChan
           state: data.state,
         });
       } else if (data?.type === "oauth_error" && typeof data.code === "string") {
+        successFiredRef.current = true; // treated as "handled" — don't also fire "closed"
         cleanup();
         const c = data.code as "denied" | "auth_error" | "no_listings";
         onError(c);
@@ -69,20 +77,38 @@ export function OAuthConnectionSection({ onConnected, onError, connected, onChan
     };
 
     // SHOP-12: detect popup closure (user dismissed before completion).
-    // Note: COOP "same-origin-allow-popups" still permits reading popup.closed
-    // on a window we opened. Poll every 500ms.
+    // Note: COOP "same-origin-allow-popups" on both the main window and the callback
+    // page allows reading popup.closed and postMessage to work across the Google
+    // redirect. Poll every 500ms.
+    // Race guard: the callback template sends postMessage then closes the popup after
+    // 50ms. Give the message handler 600ms to fire before treating closure as a user
+    // cancellation. Use successFiredRef (not pollRef) as the sentinel — pollRef is
+    // nulled by both the success path AND the 30 s polling timeout, making it an
+    // unreliable indicator that success hasn't fired yet.
     const closeWatch = window.setInterval(() => {
       if (popupRef.current?.closed) {
-        cleanup();
-        onError("closed");
+        if (closeWatchRef.current !== null) {
+          window.clearInterval(closeWatchRef.current);
+          closeWatchRef.current = null;
+        }
+        window.setTimeout(() => {
+          if (!successFiredRef.current) {
+            cleanup();
+            onError("closed");
+          }
+        }, 600);
       }
     }, 500);
     closeWatchRef.current = closeWatch;
 
-    // Polling fallback: when COOP blocks postMessage from popup -> opener,
-    // poll the backend Redis key (keyed by session via the backend).
-    // The backend's oauth_result action falls back to request.session["oauth_state"]
-    // when no query param is provided, so empty string works here.
+    // Polling fallback: COOP "same-origin-allow-popups" should allow postMessage,
+    // but this provides a resilient backstop via a backend Redis key (30 s TTL)
+    // written by the OAuth callback view. The oauth_result action falls back to
+    // request.session["oauth_state"] when no state param is provided.
+    // Only auto-connects when exactly 1 listing is returned — matching the
+    // callback template's auto-select logic. Multiple listings are handled by
+    // the in-popup picker (the user submits the form; the popup's POST response
+    // renders a single-listing template which fires postMessage).
     let elapsed = 0;
     const interval = window.setInterval(() => {
       elapsed += 2000;
@@ -94,12 +120,13 @@ export function OAuthConnectionSection({ onConnected, onError, connected, onChan
               state?: string;
               listings?: Array<{ name?: string; address?: string; place_id?: string }>;
             };
-            if (r.state) {
+            if (r.state && r.listings?.length === 1) {
+              successFiredRef.current = true;
               cleanup();
               onConnected({
-                listingName: r.listings?.[0]?.name ?? "",
-                address: r.listings?.[0]?.address ?? "",
-                placeId: r.listings?.[0]?.place_id ?? "",
+                listingName: r.listings[0].name ?? "",
+                address: r.listings[0].address ?? "",
+                placeId: r.listings[0].place_id ?? "",
                 state: r.state,
               });
             }
@@ -108,8 +135,12 @@ export function OAuthConnectionSection({ onConnected, onError, connected, onChan
           // ignore — polling is best-effort
         }
         if (elapsed >= 30000) {
-          cleanup();
-          // popup still open or stuck — closeWatch will fire onError("closed") if user closes it
+          // Stop polling after 30 s. Do NOT set successFiredRef — if the user then
+          // closes the popup, closeWatch should still fire onError("closed").
+          if (pollRef.current !== null) {
+            window.clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
         }
       })();
     }, 2000);

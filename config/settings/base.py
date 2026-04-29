@@ -99,6 +99,12 @@ LOGIN_REDIRECT_URL = "/admin/organisations/"
 LOGOUT_REDIRECT_URL = "/login/"
 SITE_URL = env("SITE_URL", default="http://localhost:8000")
 
+# Allow popup windows that navigate cross-origin (e.g. Google OAuth) to retain
+# window.opener so postMessage can reach back to the main window.
+# Django's SecurityMiddleware defaults to "same-origin" which severs window.opener
+# when the popup navigates to a third-party domain (Google consent screen) and back.
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+
 SESSION_COOKIE_AGE = (
     60 * 60 * 24
 )  # 24 hours; CustomLoginView.form_valid overrides to 30 days when remember_me is checked
