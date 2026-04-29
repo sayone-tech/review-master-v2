@@ -751,29 +751,32 @@ def test_org_profile_renders_inside_base_org_shell() -> None:
     assert b'data-testid="sidebar"' in response.content
 
 
-def test_org_profile_returns_403_for_superadmin() -> None:
+def test_org_profile_redirects_superadmin() -> None:
     user = UserFactory(role=User.Role.SUPERADMIN)
     client = Client()
     client.force_login(user)
     response = client.get("/admin/org/profile/")
-    assert response.status_code == 403
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/organisations/"
 
 
-def test_org_profile_returns_403_for_staff_admin() -> None:
+def test_org_profile_redirects_staff_admin_to_login() -> None:
     org = OrganisationFactory()
     user = UserFactory(role=User.Role.STAFF_ADMIN, organisation=org)
     client = Client()
     client.force_login(user)
     response = client.get("/admin/org/profile/")
-    assert response.status_code == 403
+    assert response.status_code == 302
+    assert response["Location"] == "/login/"
 
 
-def test_org_profile_returns_403_for_org_admin_without_organisation() -> None:
+def test_org_profile_redirects_org_admin_without_organisation_to_login() -> None:
     user = UserFactory(role=User.Role.ORG_ADMIN, organisation=None)
     client = Client()
     client.force_login(user)
     response = client.get("/admin/org/profile/")
-    assert response.status_code == 403
+    assert response.status_code == 302
+    assert response["Location"] == "/login/"
 
 
 def test_org_profile_update_name_success() -> None:

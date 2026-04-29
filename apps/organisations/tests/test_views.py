@@ -464,7 +464,7 @@ def test_org_stub_view_renders_team_section() -> None:
     assert b"Team" in response.content
 
 
-def test_org_stub_view_returns_403_for_superadmin() -> None:
+def test_org_stub_view_redirects_superadmin() -> None:
     from apps.accounts.models import User
     from apps.accounts.tests.factories import UserFactory
 
@@ -472,10 +472,11 @@ def test_org_stub_view_returns_403_for_superadmin() -> None:
     client = Client()
     client.force_login(user)
     response = client.get("/admin/org/regions/")
-    assert response.status_code == 403
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/organisations/"
 
 
-def test_org_stub_view_returns_403_for_staff_admin() -> None:
+def test_org_stub_view_redirects_staff_admin_to_login() -> None:
     from apps.accounts.models import User
     from apps.accounts.tests.factories import UserFactory
 
@@ -484,7 +485,8 @@ def test_org_stub_view_returns_403_for_staff_admin() -> None:
     client = Client()
     client.force_login(user)
     response = client.get("/admin/org/team/")
-    assert response.status_code == 403
+    assert response.status_code == 302
+    assert response["Location"] == "/login/"
 
 
 def test_named_url_patterns_resolve_correctly() -> None:

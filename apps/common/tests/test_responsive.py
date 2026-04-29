@@ -74,7 +74,7 @@ def test_topbar_has_avatar_dropdown_alpine_state(client, django_user_model):
         role="SUPERADMIN",
     )
     client.force_login(user)
-    resp = client.get("/")
+    resp = client.get("/", follow=True)
     html = resp.content.decode()
     assert 'x-data="{ open: false }"' in html
     assert '@click.outside="open = false"' in html
@@ -92,7 +92,7 @@ def test_sidebar_and_topbar_render_logout_url_without_noreversematch(client, dja
         role="SUPERADMIN",
     )
     client.force_login(user)
-    resp = client.get("/")
+    resp = client.get("/", follow=True)
     assert resp.status_code == 200
     html = resp.content.decode()
     # Logout form action resolves to the stub URL

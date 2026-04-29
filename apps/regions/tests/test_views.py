@@ -238,7 +238,8 @@ def test_region_list_template_empty_state(client, db):
     resp = client.get("/admin/org/regions/")
     assert resp.status_code == 200
     assert b"region-modals-root" in resp.content
-    assert b"region-table-root" not in resp.content  # no regions exist
+    assert b"region-table-root" in resp.content  # mount div always present
+    assert b"region-data" not in resp.content  # json_script omitted when empty
 
 
 @pytest.mark.django_db

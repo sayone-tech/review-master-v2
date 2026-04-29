@@ -79,7 +79,7 @@ def test_is_org_admin_rejects_anonymous() -> None:
     assert IsOrgAdmin().has_permission(_django_req(AnonymousUser()), None) is False
 
 
-def test_org_admin_required_decorator_returns_403_for_superadmin() -> None:
+def test_org_admin_required_decorator_redirects_superadmin() -> None:
     @org_admin_required
     def _view(request):
         return HttpResponse("OK")
@@ -88,7 +88,8 @@ def test_org_admin_required_decorator_returns_403_for_superadmin() -> None:
     req = RequestFactory().get("/")
     req.user = user
     response = _view(req)
-    assert response.status_code == 403
+    assert response.status_code == 302
+    assert response["Location"] == "/admin/organisations/"
 
 
 def test_org_admin_required_decorator_allows_org_admin() -> None:
