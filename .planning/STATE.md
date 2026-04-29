@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-04-29T10:13:00.000Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-04-29T10:43:23.770Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -55,6 +55,7 @@ Plan: 3 of 5
 | Phase 07-regions P02 | 6 | 2 tasks | 5 files |
 | Phase 08-shops P01 | 739 | 3 tasks | 12 files |
 | Phase 08-shops P02 | 6 | 3 tasks | 12 files |
+| Phase 08-shops P03 | 23 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,10 @@ Recent decisions affecting current work:
 - [Phase 08-shops]: 08-02: SQLite test DB omits FOR UPDATE in SQL — select_for_update test asserts organisations table queried (source code is authoritative)
 - [Phase 08-shops]: 08-02: ShopFactory.region changed from None to SubFactory(RegionFactory) — matches production data shape, tests create fully-linked shops by default
 - [Phase 08-shops]: 08-02: pytest.raises(ValueError, match=...) required to satisfy PT011 ruff rule on broad ValueError raises
+- [Phase 08-shops]: 08-03: ShopViewSet includes RetrieveModelMixin so GET /api/v1/shops/{id}/ returns 404 on cross-tenant (not 405)
+- [Phase 08-shops]: 08-03: Test API keys extracted to module-level constants with # gitleaks:allow to pass secret scanner
+- [Phase 08-shops]: 08-03: ShopUpdateSerializer LOCKED_FIELDS validate() raises field errors (not silently drops extra fields)
+- [Phase 08-shops]: 08-03: Redis best-effort in OAuth callback: postMessage is primary path, Redis failure is non-fatal
 
 ### Pending Todos
 
@@ -113,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T10:13:00.000Z
-Stopped at: Completed 08-02-PLAN.md
-Resume file: .planning/phases/08-shops/08-03-PLAN.md
+Last session: 2026-04-29T10:43:23.767Z
+Stopped at: Completed 08-03-PLAN.md
+Resume file: None

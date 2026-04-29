@@ -31,18 +31,18 @@
 
 ### Shops
 
-- [ ] **SHOP-01**: Shops page header shows a live allocation counter "Shops (X / Y)" where X is current shop count and Y is the Superadmin-set allocation
+- [x] **SHOP-01**: Shops page header shows a live allocation counter "Shops (X / Y)" where X is current shop count and Y is the Superadmin-set allocation
 - [ ] **SHOP-02**: "+ Add Shop" button is visually disabled with a tooltip "Shop limit reached." when the organisation is at allocation; clicking it shows a toast "You've reached your shop limit…" — the Create modal does not open
 - [ ] **SHOP-03**: Shops list has a search input (searches Name + Street Address + City), a Status filter (All / Active / Inactive), and a Region filter (All / per-region)
-- [ ] **SHOP-04**: Shops list shows columns: Shop Name (bold, clickable), Location (address + city/state/zip), Region badge, Contact (phone), Google Place ID (truncated monospace), API Key (masked, manual fallback only), Status badge (Active / Inactive), Connection Status pill, Created Date, Actions (three-dot menu)
+- [x] **SHOP-04**: Shops list shows columns: Shop Name (bold, clickable), Location (address + city/state/zip), Region badge, Contact (phone), Google Place ID (truncated monospace), API Key (masked, manual fallback only), Status badge (Active / Inactive), Connection Status pill, Created Date, Actions (three-dot menu)
 - [ ] **SHOP-05**: Connection Status pill shows one of four states: "Connected via Google" (green dot), "Connected via API key" (blue dot), "Connection error" (red dot), "Quota exceeded" (amber dot)
-- [ ] **SHOP-06**: Shops list is paginated (rows-per-page selector: 10/25/50/100, default 10) with "Showing X–Y of Z" display
+- [x] **SHOP-06**: Shops list is paginated (rows-per-page selector: 10/25/50/100, default 10) with "Showing X–Y of Z" display
 - [ ] **SHOP-07**: Empty State A (no Regions exist) shows "Create a region first" with a "Go to Regions" CTA; Empty State B (Regions exist but no Shops) shows "No shops yet" with "Add your first shop" CTA
-- [ ] **SHOP-08**: Create Shop modal has a connection method radio (Connect with Google / Enter manually), common fields (Shop Name 2–100 chars required; Phone optional E.164; Region dropdown required; Street Address required; City required; State/ZIP optional)
+- [x] **SHOP-08**: Create Shop modal has a connection method radio (Connect with Google / Enter manually), common fields (Shop Name 2–100 chars required; Phone optional E.164; Region dropdown required; Street Address required; City required; State/ZIP optional)
 - [ ] **SHOP-09**: When "Connect with Google" is selected, a "Connect Google Business Profile" button opens an OAuth popup (~600×700px); after successful connection, the button is replaced with a success row showing the connected listing name and address and a "Change connection" link
 - [x] **SHOP-10**: When "Enter manually" is selected, Google Place ID (starts with 'ChIJ' or valid prefix, 20–256 chars) and Google Places API Key (masked, show/hide toggle) fields appear; both are validated against the Google Places API on submit
 - [x] **SHOP-11**: Google OAuth popup flow: popup opens to /oauth/google/start/, user authenticates and grants permissions, callback page at /oauth/google/callback/ exchanges code for refresh token, presents listing picker if multiple listings, calls window.opener.postMessage with listing details and auto-closes; parent modal listens (origin verified) and shows success row
-- [ ] **SHOP-12**: OAuth popup edge cases handled correctly: user closes popup → "Connection cancelled. Please try again."; user denies consent → "Permission was not granted."; Google error → "Could not complete connection."; no listings → "No business listings found in this Google account."
+- [x] **SHOP-12**: OAuth popup edge cases handled correctly: user closes popup → "Connection cancelled. Please try again."; user denies consent → "Permission was not granted."; Google error → "Could not complete connection."; no listings → "No business listings found in this Google account."
 - [x] **SHOP-13**: OAuth refresh token (Google) and manual API key are both encrypted at rest before persisting; they are never transmitted to the browser
 - [ ] **SHOP-14**: Successful shop create closes modal, shows toast "Shop '{name}' created.", refreshes list with new row at top, increments allocation counter
 - [ ] **SHOP-15**: Shop Details modal (triggered by clicking shop name or "View Details") shows all fields in a read-only two-column grid, including Connection Status pill, and has footer buttons: Reconnect Google (OAuth error only), Edit, Activate/Deactivate, Close
@@ -80,10 +80,10 @@
 
 ### Cross-Module
 
-- [ ] **XMOD-01**: A Shop cannot be created without selecting a Region; Region dropdown is disabled with a link to /admin/org/regions when no Regions exist in the organisation
+- [x] **XMOD-01**: A Shop cannot be created without selecting a Region; Region dropdown is disabled with a link to /admin/org/regions when no Regions exist in the organisation
 - [x] **XMOD-02**: Region deletion is blocked (info popup with shop count and "Manage Shops" link) when the Region has one or more Shops assigned
 - [ ] **XMOD-03**: Deactivated Shops are excluded from the "Select Stores" list in Add and Edit Team Member modals
-- [ ] **XMOD-04**: Shop allocation counter updates transactionally on shop create/activate/deactivate with no race conditions under concurrent admin sessions
+- [x] **XMOD-04**: Shop allocation counter updates transactionally on shop create/activate/deactivate with no race conditions under concurrent admin sessions
 - [x] **XMOD-05**: All Phase 2 list endpoints render within the query-count ceilings asserted in CI tests (no N+1 regardless of result size)
 
 ---
@@ -137,18 +137,18 @@
 | RGN-09 | Phase 7 — Regions | Complete |
 | RGN-10 | Phase 7 — Regions | Complete |
 | RGN-11 | Phase 7 — Regions | Complete |
-| SHOP-01 | Phase 8 — Shops | Pending |
+| SHOP-01 | Phase 8 — Shops | Complete |
 | SHOP-02 | Phase 8 — Shops | Pending |
 | SHOP-03 | Phase 8 — Shops | Pending |
-| SHOP-04 | Phase 8 — Shops | Pending |
+| SHOP-04 | Phase 8 — Shops | Complete |
 | SHOP-05 | Phase 8 — Shops | Pending |
-| SHOP-06 | Phase 8 — Shops | Pending |
+| SHOP-06 | Phase 8 — Shops | Complete |
 | SHOP-07 | Phase 8 — Shops | Pending |
-| SHOP-08 | Phase 8 — Shops | Pending |
+| SHOP-08 | Phase 8 — Shops | Complete |
 | SHOP-09 | Phase 8 — Shops | Pending |
 | SHOP-10 | Phase 8 — Shops | Complete |
 | SHOP-11 | Phase 8 — Shops | Complete |
-| SHOP-12 | Phase 8 — Shops | Pending |
+| SHOP-12 | Phase 8 — Shops | Complete |
 | SHOP-13 | Phase 8 — Shops | Complete |
 | SHOP-14 | Phase 8 — Shops | Pending |
 | SHOP-15 | Phase 8 — Shops | Pending |
@@ -177,10 +177,10 @@
 | TEAM-17 | Phase 9 — Team | Pending |
 | TEML-01 | Phase 9 — Team | Pending |
 | TEML-02 | Phase 9 — Team | Pending |
-| XMOD-01 | Phase 8 — Shops | Pending |
+| XMOD-01 | Phase 8 — Shops | Complete |
 | XMOD-02 | Phase 7 — Regions | Complete |
 | XMOD-03 | Phase 9 — Team | Pending |
-| XMOD-04 | Phase 8 — Shops | Pending |
+| XMOD-04 | Phase 8 — Shops | Complete |
 | XMOD-05 | Phase 6–9 (all) | Complete |
 
 **Coverage:**
