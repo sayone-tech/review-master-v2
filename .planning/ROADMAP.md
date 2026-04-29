@@ -119,14 +119,14 @@ Plans:
 - The invitation acceptance view (`invite_accept_view` in `apps/accounts/views.py`) must branch on `InvitationToken.purpose` to route Org Admin invitations through the existing activation flow and Staff/Manager invitations through the new Team acceptance flow.
 - XMOD-03 (deactivated shops excluded from scope selectors) is enforced on the Team side by using the `list_shops(active_only=True)` selector for scope multi-selects in Add and Edit modals.
 
-**Plans**: TBD (estimated 5–6 plans)
+**Plans**: 5 plans (3 waves)
 
 Plans:
-- [ ] 09-01: InvitationToken purpose enum step 2 — data migration backfill + non-null constraint; UserInvitation model additions; team.py service layer (invite_member, update_member, enable_member, disable_member, remove_member, resend_invitation); full test suite
-- [ ] 09-02: Team API viewset and URLs — TeamViewSet (TenantScopedViewSet), StaffAccessScope serializers, /org/team/ URL, invitation acceptance view (purpose-branching); query-count CI test
-- [ ] 09-03: Team email templates — team_invitation.html + team_invitation.txt (inviter name, org, role, regions/stores for Staff); team_invitation_resent.html + team_invitation_resent.txt; send_team_invitation_email service; test assertions (recipient, subject, HTML + text bodies)
-- [ ] 09-04: Team list React widget — columns (name, role badge, access chips with "+N more", status badge, invited date, enabled toggle, edit/remove buttons), stats cards, search/filter/pagination, solo-user info banner
-- [ ] 09-05: Team add/edit/action modals — Add modal (role selector, dynamic scope selects, active-shops-only filter), Edit modal (role change shows/hides scopes), Disable confirmation + session termination, Remove confirmation, Resend Invitation confirmation; self-protection + last-manager guard in UI + API
+- [ ] 09-01-PLAN.md — InvitationToken purpose backfill (migration 0005) + accounts/exceptions.py + accounts/services/team.py (invite/activate/update/enable/disable/remove/resend + send_team_invitation_email) + accounts/selectors/team.py (list_team_members N+1-safe + get_team_stats) + Wave 0 test scaffolding + CustomAuthenticationForm inactive copy update
+- [ ] 09-02-PLAN.md — TeamViewSet (TenantScopedViewSet) + serializers (read/create/update with prefetched_scopes + email-locked update) + custom actions (disable/enable/resend/stats) + self-protection + last-manager guard + invite_accept_view purpose branching + team_list Django view + team_invite_accept template + Staff welcome stub
+- [ ] 09-03-PLAN.md — Production email templates: team_invitation.{html,txt} (TEML-01 with conditional regions/stores for Staff) + team_invitation_resent.{html,txt} (TEML-02 with replaces-previous notice and alternate subject) + body-content tests
+- [ ] 09-04-PLAN.md — Team React widget: types/api/useTeam hook + RoleBadge + AccessChips (+N more truncation) + EnabledToggle (custom switch) + TeamStatsCards + SoloMemberBanner + TeamEmptyState + TeamTable (columns, filters, pagination, self-protection + last-manager UI guards) + entrypoint mounting
+- [ ] 09-05-PLAN.md — Modals: ScopeSection reusable multi-select + AddTeamMemberModal + EditTeamMemberModal (Email locked) + DisableMemberModal (amber) + RemoveMemberModal (red) + ResendMemberInviteModal (blue) + TeamModals orchestrator (replaces Plan 04 stub, handles enable inline)
 
 ---
 
@@ -139,7 +139,7 @@ Plans:
 | 6. Org Admin Shell | v0.2-org-admin | 3/5 | In Progress | - |
 | 7. Regions | v0.2-org-admin | 0/3 | Not started | - |
 | 8. Shops | v0.2-org-admin | 6/7 | In progress | - |
-| 9. Team | v0.2-org-admin | 0/5 | Not started | - |
+| 9. Team | v0.2-org-admin | 0/5 | Planned | - |
 
 ---
 
