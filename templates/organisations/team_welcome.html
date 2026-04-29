@@ -1,0 +1,12 @@
+{% extends "base_org.html" %}
+
+{% block content %}
+  <div class="bg-white border border-line rounded-card p-6 max-w-[640px]">
+    <h1 class="text-[20px] font-semibold text-ink mb-2">
+      Welcome to {{ user.organisation.name }}
+    </h1>
+    <p class="text-[14px] text-ink leading-relaxed">
+      Your account is ready. Your administrator will let you know when your access is configured.
+    </p>
+  </div>
+{% endblock %}
