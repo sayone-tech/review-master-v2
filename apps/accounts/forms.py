@@ -19,6 +19,9 @@ class CustomAuthenticationForm(AuthenticationForm):
         "inactive": "Your account has been disabled. Contact your administrator.",
     }
 
+    def clean_username(self) -> str:
+        return self.cleaned_data.get("username", "").lower()
+
 
 class ActivationForm(forms.Form):
     """Org Admin account activation form (ACTV-02).
