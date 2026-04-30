@@ -6,15 +6,21 @@ A multi-tenant SaaS platform for managing organisations, their stores, and Googl
 
 ## Current State
 
-**v1.0 shipped 2026-04-27** — Superadmin module complete.
-**Phase 6 complete 2026-04-27** — Org Admin shell, tenant security scaffold, and full v0.2 data model foundation.
-**Phase 7 complete 2026-04-28** — Regions module: full Django backend + React widget, all 13 requirements verified at 98.67% coverage.
-**Phase 8 complete 2026-04-29** — Shops module: Google OAuth connection flow, multi-tenant shop CRUD, React table + modal suite, unique place_id constraint, searchable location picker.
-**Phase 9 complete 2026-04-30** — Team module: invite Staff Admins (Manager full-access / Staff scoped), edit/enable/disable/remove members, resend invitations; React team list + full modal suite; self-protection + last-manager guards; production email templates. 438 tests passing.
+**v0.2-org-admin shipped 2026-04-30** — Organisation Admin module complete. Org Admins can fully manage their Regions, Shops, and Team from a dedicated dashboard.
 
-The Shops module is fully operational. Org Admins can add shops via Google OAuth (popup flow with COOP handling and Redis fallback), browse and filter their shop list, view/edit details, and activate/deactivate. Already-connected Google locations are visually disabled in the picker. Duplicate place_id is blocked at both serializer and DB constraint levels.
+**438 tests passing. 57/57 requirements delivered.**
 
-### What's in production (v1.0)
+### What's shipped (v0.2-org-admin, Phases 6–9)
+
+- Org Admin shell — 6-item sidebar, personalised dashboard (welcome card + zero-regions setup banner), profile page (name edit-in-place, password change)
+- TenantScopedViewSet + IsOrgScoped — cross-tenant isolation enforced on every Org Admin viewset; CI fixture asserts 403 for cross-tenant access
+- Data model foundation — Region, Shop, StaffAccessScope, SequenceCounter; Fernet-encrypted token storage; InvitationToken purpose enum
+- Regions — list, create (race-safe auto-ID via django-sequences), edit, delete (blocked with shop count when occupied)
+- Shops — list (allocation counter, search, status/region filters, pagination); create via Google OAuth popup (COOP/Safari/Redis-polling handled); Fernet-encrypted refresh tokens; view/edit/activate/deactivate; Reconnect Google
+- Team — invite Manager (full-access) or Staff (region+store scoped); edit; enable/disable (immediate session termination); remove (invitations invalidated); resend; self-protection + last-manager API guards
+- 6 transactional emails — invitation, resend (org), team invitation, team invitation resent, password reset, activation — all HTML + plain-text via Amazon SES
+
+### What's in production (v1.0, Phases 1–5)
 
 - Superadmin login, logout, forgot-password, session management
 - Global design system — left sidebar, topbar, 10+ reusable components, WCAG AA, fully responsive
@@ -24,34 +30,45 @@ The Shops module is fully operational. Org Admins can add shops via Google OAuth
 - Invitation token flow — send on create, resend; atomic invalidate + re-issue
 - Org Admin account activation page — token-gated, strength indicator, three token states
 - Superadmin profile management — name edit-in-place, password change with strength indicator
-- 4 transactional emails (invitation, resend, password reset, activation) via Amazon SES
 - CI pipeline — pre-commit, mypy, pytest ≥85%, migration check, deploy check
 - Production security headers — HSTS, CSP, X-Frame-Options, secure cookies, SSL redirect
 
-## Current Milestone: v0.2-org-admin — Organisation Admin Module
+## Requirements
 
-**Goal:** Organisation Admins can manage their Shops, Regions, and Team from a dedicated dashboard — the operational layer built on top of the Superadmin control plane.
+### Validated
 
-**Target features:**
-- Org Admin shell — sidebar (Dashboard, Shops, Regions, Team, Profile, Logout), dashboard placeholder with welcome + setup banner, profile page reuse
-- Regions module — list, create (with auto-ID generation), edit, delete (blocked when shops assigned)
-- Shops module — list (allocation counter, search/filter/pagination), create via OAuth or manual Place ID, view/edit, activate/deactivate, API key management, Google reconnect
-- Team module — invite (Manager full-access / Staff scoped by region+store), edit, enable/disable, remove, resend invitation; self-protection + last-manager rules
-- Team invitation email and acceptance flow (reusing Phase 1 token infrastructure)
-- Data model additions: Region, Shop, StaffAccessScope; User updates (invited_by_id, invited_at, accepted_at); OrganisationInvitation → UserInvitation with purpose enum
+- ✓ Superadmin control plane (organisations, allocation, invitations) — v1.0
+- ✓ Org Admin shell with tenant security scaffold — v0.2
+- ✓ Regions CRUD with race-safe auto-ID and deletion guard — v0.2
+- ✓ Shops with Google OAuth connection, allocation enforcement, Fernet-encrypted tokens — v0.2
+- ✓ Team management — invite/edit/enable/disable/remove with self-protection and last-manager guard — v0.2
+- ✓ Team invitation acceptance flow with role-based redirect — v0.2
+- ✓ N+1-safe query ceilings on all list endpoints — v0.2
 
-**Source:** `docs/Requirements_Phase2_OrgAdmin.docx` (v1.0, April 2026)
+### Active (next milestone)
 
-Likely candidates:
-- Organisation Admin dashboard and store management (Phase 2 in original scope)
-- Staff Admin role and dashboard
-- Google Business Profile OAuth connection per store
+- [ ] Staff Admin dashboard — store-level review views
+- [ ] Google review fetching, storage, and response interface
+- [ ] Analytics dashboards and reporting
+
+### Out of Scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Staff Admin dashboard | Phase 3 — no review data exists yet |
+| Google review fetching and response | Phase 4 |
+| Shop hard-delete / freeing allocation slot | Deactivate + future scheduled purge |
+| Email address change flow | Requires verification loop; deferred |
+| Bulk region / shop actions | Not needed until tenant count grows |
+| Region hierarchy beyond one level | Anti-feature for current scope |
+| Two-factor authentication | Future security hardening |
+| Billing and subscriptions | Phase 5+ |
 
 ## Constraints
 
 - **Tech Stack**: Django 6.0+, Python 3.12+, DRF, PostgreSQL 16, Redis 7, Tailwind CSS, React (embedded widgets) — no deviations
 - **Architecture**: Domain-driven app layout under `apps/`; services/selectors pattern; no business logic in views or serializers
-- **Performance**: P95 API response < 400ms for list endpoints at 1,000 organisations; page load < 2s
+- **Performance**: P95 API response < 400ms for list endpoints; page load < 2s
 - **Security**: HTTPS everywhere, secure cookies, HSTS, CSRF, CSP; secrets in GCP Secret Manager
 - **Query policy**: Strict no-N+1; CI must assert fixed query count ceiling on every list endpoint
 - **Coverage**: Minimum 85% line coverage on services, selectors, and permissions; enforced in CI
@@ -60,35 +77,54 @@ Likely candidates:
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Django templates + Tailwind for shell; React only for complex widgets | Reduces frontend complexity; server-rendered pages are simpler to secure and test | Confirmed — OrgManagement and Profile widgets use this hybrid pattern |
-| Amazon SES via django-ses | Standard for transactional email on GCP-hosted Django apps | Confirmed — send_transactional_email helper wired in Phase 03 |
-| Django session auth (not JWT) for Phase 1 | Token auth only needed if a separate client is added | Confirmed — session auth used throughout v1.0 |
-| Soft-delete for organisations | Permanent purge deferred to a scheduled job in a future phase | Confirmed — delete_organisation() soft-deletes; no hard-delete in v1.0 |
-| Invitation tokens via TimestampSigner | Built-in to Django; no extra dependencies; 48-hour expiry and single-use enforced | Confirmed — full activation flow shipped in Phase 04 |
-| Django 6 built-in CSP middleware | Zero new dependencies vs third-party django-csp | Confirmed — CSP uses unsafe-inline for Alpine.js + Tailwind; nonce migration deferred |
+| Django templates + Tailwind for shell; React only for complex widgets | Reduces frontend complexity; server-rendered pages are simpler to secure and test | ✓ Confirmed — hybrid pattern used across all org admin pages |
+| Amazon SES via django-ses | Standard for transactional email on GCP-hosted Django apps | ✓ Confirmed — 6 email types shipped |
+| Django session auth (not JWT) | Token auth only needed if a separate client is added | ✓ Confirmed — session auth used throughout v1.0 and v0.2 |
+| Soft-delete for organisations | Permanent purge deferred to a scheduled job | ✓ Confirmed — soft-delete pattern consistent across v1.0 and v0.2 |
+| django-sequences for race-safe Region ID generation | select_for_update() fallback ready; smoke test passed Django 6 | ✓ Confirmed — django-sequences compatible; SequenceCounter model exists as fallback |
+| GOOGLE_OAUTH-only shop connection (MANUAL removed in gap-closure) | Manual API key flow added complexity without production need | ✓ Confirmed — SHOP-10/19/20 retired; cleaner UX |
+| TenantScopedViewSet in apps/common | Cross-cutting concern; used by both ORG_ADMIN and STAFF_ADMIN roles | ✓ Confirmed — enforced on all Org Admin viewsets |
+| InvitationToken purpose enum expand-contract (3 steps) | Safe schema migration without downtime | ✓ Steps 1+2 complete (v0.2); step 3 (rename) deferred post-v0.2 |
+| Cross-Origin-Opener-Policy scoped to OAuth view only | Global same-origin policy must not change | ✓ Confirmed — per-view header override on OAuth start view |
+| StaffAccessScope in apps/accounts | Avoids circular imports with regions/shops apps | ✓ Confirmed |
+| Django 6 built-in CSP middleware | Zero new dependencies vs third-party django-csp | ✓ Confirmed — unsafe-inline for Alpine.js + Tailwind; nonce migration deferred |
 
 ## Context
 
-- Requirements archive: `.planning/milestones/v1.0-REQUIREMENTS.md`
+- Requirements archives: `.planning/milestones/v1.0-REQUIREMENTS.md`, `.planning/milestones/v0.2-org-admin-REQUIREMENTS.md`
 - Three-role RBAC: SUPERADMIN, ORG_ADMIN, STAFF_ADMIN
 - Brand: Primary Yellow #FACC15, Primary Black #0A0A0A — clean SaaS aesthetic
 - All email via Amazon SES (`django-ses`); local dev uses MailHog
-- Tech debt accepted at v1.0: 20 non-critical items (browser UAT deferred, premailer CSS inlining deferred, ORG_ADMIN /admin/organisations/ UX gap)
+- GBP API production approval from Google is a non-code prerequisite for Shops to go live in production
+- Tech debt carried forward: CSP nonce migration deferred; premailer CSS inlining deferred; InvitationToken rename (step 3 of expand-contract) deferred
 
 ---
+
+<details>
+<summary>v0.2-org-admin milestone (archived)</summary>
+
+**Shipped:** 2026-04-30
+**Phases:** 4 (6–9) | **Plans:** 17 | **Requirements:** 57/57
+**Files:** 248 changed | **Insertions:** 34,438 | **Timeline:** 3 days
+
+Org Admins can manage their Regions, Shops, and Team from a dedicated dashboard. Google OAuth popup flow with COOP/Safari/Redis-polling fallback. Fernet-encrypted tokens. Full team invite/manage lifecycle with self-protection and last-manager guards.
+
+Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
+
+</details>
 
 <details>
 <summary>v1.0 milestone (archived)</summary>
 
 **Shipped:** 2026-04-27
-**Phases:** 5 | **Plans:** 24 | **Requirements:** 52/52
+**Phases:** 5 (1–5) | **Plans:** 24 | **Requirements:** 52/52
 **Commits:** 146 | **Files:** 271 | **LOC:** ~50,000
 
-Core value: Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
+Superadmins can provision and manage organisations, allocate store slots, and control Org Admin access — the foundational control plane every subsequent phase depends on.
 
 Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 </details>
 
 ---
-*Last updated: 2026-04-29 — Phase 8 complete*
+Last updated: 2026-04-30 after v0.2-org-admin milestone

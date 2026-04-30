@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: unknown
-stopped_at: Completed 09-05-PLAN.md
-last_updated: "2026-04-30T04:34:38.829Z"
+milestone: v0.2-org-admin
+milestone_name: Organisation Admin Module
+status: complete
+stopped_at: Milestone v0.2-org-admin archived 2026-04-30
+last_updated: "2026-04-30T18:21:47.795Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 17
   completed_plans: 17
 ---
@@ -16,10 +16,10 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-27)
+See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** Organisation Admins can manage their Shops, Regions, and Team — the operational layer built on top of the Superadmin control plane.
-**Current focus:** Phase 09 — team
+**Current focus:** Planning v0.3 — Staff Admin + Reviews
 
 ## Current Position
 
