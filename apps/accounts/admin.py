@@ -1,10 +1,11 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from apps.accounts.models import InvitationToken, User
 
 
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+class UserAdmin(BaseUserAdmin):
     list_display = (
         "email",
         "full_name",
@@ -17,6 +18,34 @@ class UserAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     list_filter = ("role", "is_active", "is_staff")
     search_fields = ("email", "full_name")
     raw_id_fields = ("organisation",)
+    ordering = ("email",)
+    fieldsets = (
+        (None, {"fields": ("email", "password")}),
+        ("Personal info", {"fields": ("full_name",)}),
+        ("Role & organisation", {"fields": ("role", "organisation")}),
+        (
+            "Permissions",
+            {
+                "fields": (
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                )
+            },
+        ),
+        ("Important dates", {"fields": ("last_login", "accepted_at")}),
+    )
+    add_fieldsets = (
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": ("email", "full_name", "role", "organisation", "password1", "password2"),
+            },
+        ),
+    )
 
 
 @admin.register(InvitationToken)

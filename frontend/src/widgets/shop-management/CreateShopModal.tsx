@@ -114,8 +114,8 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
 
   function handleSelectListing(l: Listing) {
     setSelectedListing(l);
-    if (!name) setName(l.name);
-    if (!streetAddress) setStreetAddress(l.address);
+    setName(l.name);
+    setStreetAddress(l.address);
     setStep("form");
   }
 
