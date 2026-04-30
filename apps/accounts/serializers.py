@@ -76,10 +76,12 @@ class TeamMemberReadSerializer(serializers.ModelSerializer[User]):
         return StaffAccessScopeSerializer(scopes, many=True).data  # type: ignore[return-value]
 
     def get_status(self, instance: User) -> str:
-        """PENDING: invited but not accepted. ACTIVE: accepted + is_active=True. DISABLED: accepted + is_active=False."""
+        """ACTIVE: is_active=True. PENDING: inactive with no accepted_at. DISABLED: inactive + accepted_at set."""
+        if instance.is_active:
+            return "ACTIVE"
         if instance.accepted_at is None:
             return "PENDING"
-        return "ACTIVE" if instance.is_active else "DISABLED"
+        return "DISABLED"
 
 
 class TeamMemberCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]

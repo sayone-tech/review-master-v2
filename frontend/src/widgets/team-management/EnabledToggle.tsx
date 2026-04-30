@@ -29,14 +29,21 @@ export function EnabledToggle({
       aria-disabled={disabled || undefined}
       title={disabled ? (disabledReason ?? "") : undefined}
       onClick={handleClick}
-      className={`relative w-10 h-6 rounded-full transition-colors duration-150 ${
-        enabled ? "bg-green" : "bg-line"
-      } ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+      className={`inline-flex items-center gap-2 ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
     >
       <span
-        aria-hidden="true"
-        className={`absolute top-1 ${enabled ? "left-5" : "left-1"} w-4 h-4 bg-white rounded-full transition-[left] duration-150`}
-      />
+        className={`relative w-10 h-6 rounded-full transition-colors duration-150 flex-shrink-0 overflow-hidden ${
+          enabled ? "bg-green" : "bg-line"
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`absolute top-1 ${enabled ? "left-5" : "left-1"} w-4 h-4 bg-white rounded-full transition-[left] duration-150`}
+        />
+      </span>
+      <span className={`text-[13px] font-medium ${enabled ? "text-green" : "text-muted"}`}>
+        {enabled ? "Enabled" : "Disabled"}
+      </span>
     </button>
   );
 }

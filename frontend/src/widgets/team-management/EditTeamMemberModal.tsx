@@ -215,6 +215,7 @@ export function EditTeamMemberModal({
             onChangeRegions={setRegionIds}
             onChangeShops={setShopIds}
             validationError={errors.scope}
+            initialMode={initialShopIds(member).size > 0 ? "store" : "region"}
           />
         )}
       </form>

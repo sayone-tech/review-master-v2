@@ -112,11 +112,6 @@ export function TeamTableWidget({
       },
     },
     {
-      key: "invited",
-      label: "INVITED",
-      accessor: (row: TeamMemberRow) => row.invited_at?.slice(0, 10) ?? "—",
-    },
-    {
       key: "enabled",
       label: "ENABLED",
       accessor: (row: TeamMemberRow) => {
@@ -132,9 +127,7 @@ export function TeamTableWidget({
                 : "Pending members cannot be toggled."
             }
             onDisableRequest={() => dispatchTeamEvent("team:open-disable", row)}
-            onEnableRequest={() => {
-              dispatchTeamEvent("team:open-enable", row);
-            }}
+            onEnableRequest={() => dispatchTeamEvent("team:open-enable", row)}
           />
         );
       },

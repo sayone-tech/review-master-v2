@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 
 from apps.accounts.models import InvitationToken
 from apps.common.services.email import send_transactional_email
@@ -148,6 +149,7 @@ def activate_account(
         full_name=full_name,
         role=_User.Role.ORG_ADMIN,
         organisation=locked.organisation,
+        accepted_at=timezone.now(),
     )
     locked.invited_user = user
     locked.is_used = True
