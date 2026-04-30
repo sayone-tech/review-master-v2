@@ -131,12 +131,13 @@ def test_user_invitation_extension_fields_accept_values() -> None:
     assert invitee.accepted_at is not None
 
 
-def test_invitation_token_purpose_defaults_null() -> None:
+def test_invitation_token_purpose_defaults_org_admin() -> None:
+    """After migration 0005, purpose defaults to ORG_ADMIN (NOT NULL — expand-contract step 2)."""
     from apps.accounts.tests.factories import InvitationTokenFactory
 
     token = InvitationTokenFactory()
-    assert token.purpose is None
-    assert token.invited_for_role is None
+    assert token.purpose == "ORG_ADMIN"
+    assert token.invited_for_role == "ORG_ADMIN"
 
 
 def test_staff_access_scope_xor_region_shop_constraint() -> None:

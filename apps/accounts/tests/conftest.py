@@ -6,6 +6,12 @@ from django.test import Client
 
 from apps.accounts.tests.factories import UserFactory
 
+# Re-export shared fixtures so they auto-discover for any test in apps/accounts/tests/.
+from apps.common.tests.fixtures import (  # noqa: F401
+    assert_query_ceiling,
+    two_orgs_two_admins,
+)
+
 
 @pytest.fixture(autouse=True)
 def clear_throttle_cache() -> None:

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 
 from apps.accounts.models import InvitationToken
 from apps.common.services.email import send_transactional_email
@@ -52,6 +53,8 @@ def create_organisation(
     InvitationToken.objects.create(
         organisation=org,
         token_hash=InvitationToken.hash_token(raw_token),
+        purpose=InvitationToken.Purpose.ORG_ADMIN,
+        invited_for_role=InvitationToken.InvitedForRole.ORG_ADMIN,
     )
     from django.conf import settings
 
@@ -93,6 +96,8 @@ def resend_invitation(
     InvitationToken.objects.create(
         organisation=organisation,
         token_hash=InvitationToken.hash_token(raw_token),
+        purpose=InvitationToken.Purpose.ORG_ADMIN,
+        invited_for_role=InvitationToken.InvitedForRole.ORG_ADMIN,
     )
 
     # Step 3: send resend-flavoured invitation email
@@ -144,6 +149,7 @@ def activate_account(
         full_name=full_name,
         role=_User.Role.ORG_ADMIN,
         organisation=locked.organisation,
+        accepted_at=timezone.now(),
     )
     locked.invited_user = user
     locked.is_used = True

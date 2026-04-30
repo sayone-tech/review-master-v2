@@ -4,8 +4,9 @@ from django.urls import path
 
 from apps.organisations.views import (
     org_admin_dashboard,
-    org_stub_view,
+    org_welcome,
     organisation_list,
+    team_list,
 )
 from apps.regions.views import region_list
 from apps.shops.views import shop_list
@@ -32,11 +33,16 @@ urlpatterns = [
         shop_list,
         name="org_shops",
     ),
-    # Stub pages — Phase 9 will replace each view but keep these URL names.
+    # Team — Phase 9: real list view replaces Phase 6 stub.
     path(
         "admin/org/team/",
-        org_stub_view,
-        kwargs={"section": "team"},
+        team_list,
         name="org_team",
+    ),
+    # Staff welcome stub page — redirected to after TEAM_MEMBER acceptance.
+    path(
+        "admin/org/welcome/",
+        org_welcome,
+        name="org_welcome",
     ),
 ]

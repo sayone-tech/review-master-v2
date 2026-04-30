@@ -16,6 +16,7 @@ router.register(r"api/v1/shops", ShopViewSet, basename="shop")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("api/v1/", include("apps.accounts.api_urls")),
     path("", include("apps.organisations.urls")),
     path("", include("apps.accounts.urls")),
     path("", include("apps.common.urls")),

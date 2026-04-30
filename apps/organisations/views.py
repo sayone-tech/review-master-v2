@@ -168,6 +168,57 @@ def org_stub_view(request: HttpRequest, section: str) -> HttpResponse:
     )
 
 
+@org_admin_required
+def team_list(request: HttpRequest) -> HttpResponse:
+    """Org Admin team management page — /admin/org/team/.
+
+    Seeds initial JSON for the React widget. Replaces Phase 6 stub.
+    """
+    from typing import cast as _cast
+
+    from apps.accounts.selectors.team import get_team_stats, list_team_members
+    from apps.accounts.serializers import TeamMemberReadSerializer
+    from apps.regions.selectors.regions import list_regions
+    from apps.regions.serializers import RegionReadSerializer
+    from apps.shops.selectors.shops import list_shops
+    from apps.shops.serializers import ShopReadSerializer
+
+    user = _cast(User, request.user)  # @org_admin_required guarantees authenticated ORG_ADMIN
+    org = user.organisation  # IsOrgAdmin ensures organisation is set
+    if org is None:
+        return HttpResponseForbidden("Organisation required.")
+    members_qs = list_team_members(organisation_id=org.pk)[:10]
+    members_data = list(TeamMemberReadSerializer(members_qs, many=True).data)
+    regions_qs = list_regions(organisation_id=org.pk)
+    regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
+    # XMOD-03 — active shops only for scope selectors
+    active_shops_qs = list_shops(organisation_id=org.pk, active_only=True)
+    active_shops_data = list(ShopReadSerializer(active_shops_qs, many=True).data)
+    stats = get_team_stats(organisation_id=org.pk)
+    return render(
+        request,
+        "team/team_list.html",
+        {
+            "initial_members_json": members_data,
+            "regions_json": regions_data,
+            "active_shops_json": active_shops_data,
+            "stats": stats,
+            "manager_count": stats["managers"],
+            "current_user_id": user.pk,
+            "page_title": "Team",
+        },
+    )
+
+
+@login_required
+def org_welcome(request: HttpRequest) -> HttpResponse:
+    """Staff welcome stub page — /admin/org/welcome/.
+
+    Rendered after TEAM_MEMBER activation for STAFF_ADMIN users.
+    """
+    return render(request, "organisations/team_welcome.html", {"page_title": "Welcome"})
+
+
 class OrganisationViewSet(viewsets.ModelViewSet[Organisation]):
     permission_classes = [IsAuthenticated, IsSuperadmin]  # noqa: RUF012
     pagination_class = PageNumberPagination

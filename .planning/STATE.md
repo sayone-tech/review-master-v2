@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 9 context gathered
-last_updated: "2026-04-29T17:54:42.245Z"
+stopped_at: Completed 09-05-PLAN.md
+last_updated: "2026-04-30T04:34:38.829Z"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  completed_phases: 3
+  total_plans: 17
+  completed_plans: 17
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-27)
 
 **Core value:** Organisation Admins can manage their Shops, Regions, and Team — the operational layer built on top of the Superadmin control plane.
-**Current focus:** Phase 08 — shops
+**Current focus:** Phase 09 — team
 
 ## Current Position
 
-Phase: 08 (shops) — COMPLETE (all 7 plans executed)
-Next: Phase 09 (team)
+Phase: 09 (team) — COMPLETE
+Plan: 5 of 5 (all plans complete)
 
 ## Performance Metrics
 
@@ -60,6 +60,10 @@ Next: Phase 09 (team)
 | Phase 08-shops P05 | 12 | 3 tasks | 12 files |
 | Phase 08-shops P06 | 28 | 4 tasks | 13 files |
 | Phase 08-shops P07 | ~35 | 3 tasks | 12 files |
+| Phase 09-team P01 | 10 | 3 tasks | 19 files |
+| Phase 09-team P03 | 3 | 1 task | 5 files |
+| Phase 09 P02 | 21 | 2 tasks | 11 files |
+| Phase 09-team P04 | 10 | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -121,6 +125,20 @@ Recent decisions affecting current work:
 - [Phase 08-shops]: 08-07: ShopTable CustomEvent bus reduced to 5 events (reveal-key/rotate-key removed); ShopModals no longer subscribes to those events
 - [Phase 08-shops]: 08-07: OAuthConnectionSection button uses bg-yellow primary — removed outline style; data-testid="oauth-connect-button" kept for test targeting
 - [Phase 08-shops]: 08-07: RevealKeyModal.tsx + RotateKeyModal.tsx deleted; CreateShopModal.test.tsx reduced to 1 smoke test for OAuth step
+- [Phase 09-team]: Migration 0005: RunPython backfill BEFORE AlterField NOT NULL — execution order guarantees no IntegrityError
+- [Phase 09-team]: resend_team_invitation nulls out old token's invited_user before creating new — avoids OneToOneField uniqueness violation
+- [Phase 09-team]: last-manager guard counts active ORG_ADMINs via .exclude(pk=member.pk) — disabled managers don't protect the invariant
+- [Phase 09-team]: to_attr='prefetched_scopes' distinct from relation name 'access_scopes' — avoids shadowing manager with plain list
+- [Phase 09-team]: 09-03: team_invitation_resent.html is a standalone file (not extends) — email clients need fully self-contained HTML
+- [Phase 09-team]: 09-03: Resend notice placed before scope lists — immediately visible after intro paragraph
+- [Phase 09]: 09-02: Tasks 1+2 committed atomically — organisations/urls.py imports team_list/org_welcome from organisations/views.py; pre-commit hook failed when staged separately
+- [Phase 09]: 09-02: org_welcome uses @login_required not @org_admin_required — STAFF_ADMIN (not ORG_ADMIN) needs to reach /admin/org/welcome/ after activation
+- [Phase 09-04]: ScopeSection/AddTeamMemberModal/EditTeamMemberModal implemented (not stubbed) because Plan 05 test files pre-existed in the widget directory and plan verification requires all tests in src/widgets/team-management/ to pass
+- [Phase 09-04]: EnabledToggle emits team:open-disable/team:open-enable CustomEvents rather than toggling state directly — confirmation happens in Plan 05 TeamModals
+- [Phase 09-04]: AddTeamMemberModal validation errors consolidated into single role=alert banner so getByRole('alert') test assertion works with a single element
+- [Phase 09-05]: ConfirmModal uses open= prop (not isOpen=) — modal wrapper components accept isOpen for consistency and pass it as open= to ConfirmModal
+- [Phase 09-05]: TeamModals prefixes unused props with _ (_currentUserId, _managerCount) — kept for future revalidation, silences TypeScript unused-variable warnings
+- [Phase 09-05]: Enable flow is inline in TeamModals (no modal) — single useEffect handler calls API and dispatches team:member-toggled directly
 
 ### Pending Todos
 
@@ -133,6 +151,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-29T17:54:42.238Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-team/09-CONTEXT.md
+Last session: 2026-04-30T09:33:00.000Z
+Stopped at: Completed 09-05-PLAN.md
+Resume file: None

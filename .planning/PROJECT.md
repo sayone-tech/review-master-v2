@@ -10,6 +10,7 @@ A multi-tenant SaaS platform for managing organisations, their stores, and Googl
 **Phase 6 complete 2026-04-27** — Org Admin shell, tenant security scaffold, and full v0.2 data model foundation.
 **Phase 7 complete 2026-04-28** — Regions module: full Django backend + React widget, all 13 requirements verified at 98.67% coverage.
 **Phase 8 complete 2026-04-29** — Shops module: Google OAuth connection flow, multi-tenant shop CRUD, React table + modal suite, unique place_id constraint, searchable location picker.
+**Phase 9 complete 2026-04-30** — Team module: invite Staff Admins (Manager full-access / Staff scoped), edit/enable/disable/remove members, resend invitations; React team list + full modal suite; self-protection + last-manager guards; production email templates. 438 tests passing.
 
 The Shops module is fully operational. Org Admins can add shops via Google OAuth (popup flow with COOP handling and Redis fallback), browse and filter their shop list, view/edit details, and activate/deactivate. Already-connected Google locations are visually disabled in the picker. Duplicate place_id is blocked at both serializer and DB constraint levels.
 

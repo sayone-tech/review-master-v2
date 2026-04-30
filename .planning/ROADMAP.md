@@ -122,11 +122,11 @@ Plans:
 **Plans**: 5 plans (3 waves)
 
 Plans:
-- [ ] 09-01-PLAN.md — InvitationToken purpose backfill (migration 0005) + accounts/exceptions.py + accounts/services/team.py (invite/activate/update/enable/disable/remove/resend + send_team_invitation_email) + accounts/selectors/team.py (list_team_members N+1-safe + get_team_stats) + Wave 0 test scaffolding + CustomAuthenticationForm inactive copy update
-- [ ] 09-02-PLAN.md — TeamViewSet (TenantScopedViewSet) + serializers (read/create/update with prefetched_scopes + email-locked update) + custom actions (disable/enable/resend/stats) + self-protection + last-manager guard + invite_accept_view purpose branching + team_list Django view + team_invite_accept template + Staff welcome stub
-- [ ] 09-03-PLAN.md — Production email templates: team_invitation.{html,txt} (TEML-01 with conditional regions/stores for Staff) + team_invitation_resent.{html,txt} (TEML-02 with replaces-previous notice and alternate subject) + body-content tests
-- [ ] 09-04-PLAN.md — Team React widget: types/api/useTeam hook + RoleBadge + AccessChips (+N more truncation) + EnabledToggle (custom switch) + TeamStatsCards + SoloMemberBanner + TeamEmptyState + TeamTable (columns, filters, pagination, self-protection + last-manager UI guards) + entrypoint mounting
-- [ ] 09-05-PLAN.md — Modals: ScopeSection reusable multi-select + AddTeamMemberModal + EditTeamMemberModal (Email locked) + DisableMemberModal (amber) + RemoveMemberModal (red) + ResendMemberInviteModal (blue) + TeamModals orchestrator (replaces Plan 04 stub, handles enable inline)
+- [x] 09-01-PLAN.md — InvitationToken purpose backfill (migration 0005) + accounts/exceptions.py + accounts/services/team.py (invite/activate/update/enable/disable/remove/resend + send_team_invitation_email) + accounts/selectors/team.py (list_team_members N+1-safe + get_team_stats) + Wave 0 test scaffolding + CustomAuthenticationForm inactive copy update
+- [x] 09-02-PLAN.md — TeamViewSet (TenantScopedViewSet) + serializers (read/create/update with prefetched_scopes + email-locked update) + custom actions (disable/enable/resend/stats) + self-protection + last-manager guard + invite_accept_view purpose branching + team_list Django view + team_invite_accept template + Staff welcome stub
+- [x] 09-03-PLAN.md — Production email templates: team_invitation.{html,txt} (TEML-01 with conditional regions/stores for Staff) + team_invitation_resent.{html,txt} (TEML-02 with replaces-previous notice and alternate subject) + body-content tests
+- [x] 09-04-PLAN.md — Team React widget: types/api/useTeam hook + RoleBadge + AccessChips (+N more truncation) + EnabledToggle (custom switch) + TeamStatsCards + SoloMemberBanner + TeamEmptyState + TeamTable (columns, filters, pagination, self-protection + last-manager UI guards) + entrypoint mounting
+- [x] 09-05-PLAN.md — Modals: ScopeSection reusable multi-select + AddTeamMemberModal + EditTeamMemberModal (Email locked) + DisableMemberModal (amber) + RemoveMemberModal (red) + ResendMemberInviteModal (blue) + TeamModals orchestrator (replaces Plan 04 stub, handles enable inline)
 
 ---
 
@@ -139,7 +139,7 @@ Plans:
 | 6. Org Admin Shell | v0.2-org-admin | 3/5 | In Progress | - |
 | 7. Regions | v0.2-org-admin | 0/3 | Not started | - |
 | 8. Shops | v0.2-org-admin | 6/7 | In progress | - |
-| 9. Team | v0.2-org-admin | 0/5 | Planned | - |
+| 9. Team | v0.2-org-admin | 5/5 | Complete | 2026-04-30 |
 
 ---
 

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>You're invited to join {{ organisation.name }}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#FAFAFA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Geist',Helvetica,Arial,sans-serif;color:#27272A;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#FAFAFA;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background:#FFFFFF;border:1px solid #E4E4E7;border-radius:12px;">
+            <tr>
+              <td style="padding:24px 32px 0 32px;">
+                <div style="overflow:hidden;height:80px;text-align:center;">
+                  <img src="{{ site_url }}/static/main_logo.png" alt="Review Master" width="200" height="200" style="width:200px;height:200px;display:inline-block;margin-top:-60px;border:0;">
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 0 32px;">
+                <h1 style="margin:0 0 8px 0;font-size:20px;font-weight:600;color:#18181B;">You're invited to join {{ organisation.name }}</h1>
+                <p style="margin:0 0 16px 0;font-size:14px;line-height:1.5;color:#71717A;">
+                  Hi {{ invitee_name }}, {{ inviter_name }} has invited you to join <strong>{{ organisation.name }}</strong> on Review Master as a <strong>{{ role_display }}</strong>.
+                </p>
+              </td>
+            </tr>
+            {% if is_staff_role and assigned_region_names %}
+              <tr>
+                <td style="padding:0 32px 4px 32px;">
+                  <p style="margin:0 0 8px 0;font-size:13px;line-height:1.5;color:#27272A;">
+                    <strong>Regions:</strong> {{ assigned_region_names|join:", " }}
+                  </p>
+                </td>
+              </tr>
+            {% endif %}
+            {% if is_staff_role and assigned_shop_names %}
+              <tr>
+                <td style="padding:0 32px 12px 32px;">
+                  <p style="margin:0 0 8px 0;font-size:13px;line-height:1.5;color:#27272A;">
+                    <strong>Stores:</strong> {{ assigned_shop_names|join:", " }}
+                  </p>
+                </td>
+              </tr>
+            {% endif %}
+            <tr>
+              <td style="padding:0 32px 24px 32px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="background-color:#FACC15;border-radius:8px;">
+                      <a href="{{ accept_url }}"
+                         style="display:inline-block;padding:12px 20px;font-size:14px;font-weight:600;color:#0A0A0A;text-decoration:none;border-radius:8px;">
+                        Accept Invitation
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#71717A;">
+                  This invitation link expires in {{ expires_in_hours }} hours and can only be used once.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 32px 32px;border-top:1px solid #E4E4E7;">
+                <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#71717A;">
+                  If you did not expect this email, you can safely ignore it.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

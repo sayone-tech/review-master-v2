@@ -84,18 +84,14 @@ class InvitationToken(TimeStampedModel):
     token_hash = models.CharField(max_length=64, unique=True, db_index=True)
     is_used = models.BooleanField(default=False, db_index=True)
     expires_at = models.DateTimeField(db_index=True, default=_default_invitation_expiry)
-    purpose = models.CharField(  # noqa: DJ001 — expand-contract step 1, nullable for backfill
+    purpose = models.CharField(
         max_length=20,
         choices=Purpose.choices,
-        null=True,
-        blank=True,
         db_index=True,
     )
-    invited_for_role = models.CharField(  # noqa: DJ001 — expand-contract step 1, nullable for backfill
+    invited_for_role = models.CharField(
         max_length=20,
         choices=InvitedForRole.choices,
-        null=True,
-        blank=True,
     )
 
     class Meta:
