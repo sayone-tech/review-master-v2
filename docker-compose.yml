@@ -79,6 +79,26 @@ services:
       - .:/app
       - web_venv:/app/.venv
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "uv sync --frozen && celery -A config worker -Q google-sync,ai-enrichment,default --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --loglevel=info"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: dev-insecure-secret
+      DATABASE_URL: postgres://app:app@db:5432/reviewmaster
+      REDIS_URL: redis://redis:6379
+      CELERY_WORKER_CONCURRENCY: "2"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - web_venv:/app/.venv
+
 volumes:
   postgres_data:
   vite_node_modules:
