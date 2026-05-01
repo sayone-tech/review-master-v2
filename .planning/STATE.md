@@ -1,30 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2-org-admin
-milestone_name: Organisation Admin Module
-status: complete
-stopped_at: Milestone v0.2-org-admin archived 2026-04-30
-last_updated: "2026-04-30T18:21:47.795Z"
+milestone: v0.3-reviews-and-action-items
+milestone_name: Reviews and Action Items
+status: defining_requirements
+stopped_at: Milestone v0.3 started 2026-05-01
+last_updated: "2026-05-01T00:00:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-30)
+See: .planning/PROJECT.md (updated 2026-05-01)
 
-**Core value:** Organisation Admins can manage their Shops, Regions, and Team — the operational layer built on top of the Superadmin control plane.
-**Current focus:** Planning v0.3 — Staff Admin + Reviews
+**Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
+**Current focus:** Defining requirements for v0.3 — Reviews and Action Items
 
 ## Current Position
 
-Phase: 09 (team) — COMPLETE
-Plan: 5 of 5 (all plans complete)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-01 — Milestone v0.3 started
 
 ## Performance Metrics
 
