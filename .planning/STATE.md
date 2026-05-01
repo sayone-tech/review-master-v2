@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 10-01-PLAN.md (Celery runtime foundation)
-last_updated: "2026-05-01T11:28:19.157Z"
+stopped_at: Completed 10-03-PLAN.md (Channels ASGI infrastructure)
+last_updated: "2026-05-01T12:58:23.695Z"
 progress:
   total_phases: 10
   completed_phases: 7
   total_plans: 46
-  completed_plans: 39
+  completed_plans: 40
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Plan: 1 of 5
 
 *Updated after each plan completion*
 | Phase 10 P01 | 7 | 3 tasks | 11 files |
+| Phase 10 P03 | 35 | 3 tasks | 20 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting current work:
 - [Phase 09-05]: Enable flow is inline in TeamModals; no confirmation modal
 - [Phase 10]: @shared_task(bind=True) uses type: ignore[misc] + Any for self — mypy strict mode has no stubs for celery decorators
 - [Phase 10]: celery + django-celery-beat added to pre-commit mypy additional_dependencies so isolated hook env can load Django settings
+- [Phase 10]: Shop uses integer PK — WebSocket routing uses <int:shop_id>, not <uuid:shop_id> as plan specified
+- [Phase 10]: channels stubs typed as Any — AsyncJsonWebsocketConsumer subclass and database_sync_to_async get type: ignore[misc] consistent with celery decorator pattern
 
 ### Pending Todos
 
@@ -79,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01T11:28:19.154Z
-Stopped at: Completed 10-01-PLAN.md (Celery runtime foundation)
+Last session: 2026-05-01T12:58:23.692Z
+Stopped at: Completed 10-03-PLAN.md (Channels ASGI infrastructure)
 Resume file: None

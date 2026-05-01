@@ -18,8 +18,8 @@
 - [ ] **INFRA-05**: Tasks auto-retry on failure with exponential backoff: 3 retries, base delay 30s, max delay 10 min
 - [ ] **INFRA-06**: Sentry captures task failures with full traceback and task arguments for both web and Celery worker processes
 - [x] **INFRA-07**: CI smoke test enqueues a task on each queue and verifies completion within 30 seconds
-- [ ] **INFRA-08**: Django Channels is configured with Redis channel layer (DB index 5); ASGI server runs alongside WSGI
-- [ ] **INFRA-09**: `SyncProgressConsumer` at `/ws/sync-progress/` accepts authenticated connections; rejects unauthenticated and cross-tenant connections with code 4403
+- [x] **INFRA-08**: Django Channels is configured with Redis channel layer (DB index 5); ASGI server runs alongside WSGI
+- [x] **INFRA-09**: `SyncProgressConsumer` at `/ws/sync-progress/` accepts authenticated connections; rejects unauthenticated and cross-tenant connections with code 4403
 - [ ] **INFRA-10**: Redis distributed lock helper is implemented (`acquire`, `release`, TTL expiry) and unit-tested
 - [ ] **INFRA-11**: Retry/backoff decorator is implemented and verified with a deliberately-failing test task that retries 3 times then fails permanently
 
@@ -155,8 +155,8 @@
 | INFRA-05 | Phase 10 | Pending |
 | INFRA-06 | Phase 10 | Pending |
 | INFRA-07 | Phase 10 | Complete |
-| INFRA-08 | Phase 10 | Pending |
-| INFRA-09 | Phase 10 | Pending |
+| INFRA-08 | Phase 10 | Complete |
+| INFRA-09 | Phase 10 | Complete |
 | INFRA-10 | Phase 10 | Pending |
 | INFRA-11 | Phase 10 | Pending |
 | SYNC-01 | Phase 11 | Pending |
