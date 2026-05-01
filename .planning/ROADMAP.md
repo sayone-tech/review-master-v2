@@ -41,7 +41,12 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
   2. A WebSocket connection to `/ws/sync-progress/` is accepted for authenticated users and rejected with code 4403 for unauthenticated or cross-tenant requests
   3. A task that fails three times with exponential backoff is marked permanently failed; Sentry captures the traceback and task arguments
   4. The Redis lock helper prevents a second task from acquiring the same lock while the first holds it, verified by a unit test
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 10-01-PLAN.md — Celery app, settings, smoke task, worker compose service (INFRA-01, INFRA-04, INFRA-07)
+  - [ ] 10-02-PLAN.md — Beat scheduler + Flower compose services + Makefile targets (INFRA-02, INFRA-03)
+  - [ ] 10-03-PLAN.md — Channels ASGI + SyncProgressConsumer + reviews/action_items/notifications app skeletons (INFRA-08, INFRA-09)
+  - [ ] 10-04-PLAN.md — Redis distributed_lock helper + tenacity with_retry decorator (INFRA-05, INFRA-10, INFRA-11)
+  - [ ] 10-05-PLAN.md — Sentry integration with PII scrubber + CI smoke test gate (INFRA-06, INFRA-07)
 
 ### Phase 11: Reviews Fetching, Display, Reply
 **Goal**: Org Admins and Staff can see all their Google reviews in a filterable, searchable list — with live sync progress after OAuth, a reply composer, and reliable background fetching every 6 hours
@@ -87,7 +92,7 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 | 7. Regions | v0.2-org-admin | 3/3 | Complete | 2026-04-28 |
 | 8. Shops | v0.2-org-admin | 7/7 | Complete | 2026-04-29 |
 | 9. Team | v0.2-org-admin | 5/5 | Complete | 2026-04-30 |
-| 10. Infrastructure Foundation | v0.3 | 0/TBD | Not started | - |
+| 10. Infrastructure Foundation | v0.3 | 0/5 | Not started | - |
 | 11. Reviews Fetching, Display, Reply | v0.3 | 0/TBD | Not started | - |
 | 12. AI Enrichment Pipeline | v0.3 | 0/TBD | Not started | - |
 | 13. Action Items and Notifications | v0.3 | 0/TBD | Not started | - |
