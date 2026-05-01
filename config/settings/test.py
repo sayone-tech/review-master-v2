@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_vite",
     "drf_spectacular",
+    "django_celery_beat",
     # local
     "apps.common",
     "apps.accounts",
@@ -45,3 +46,8 @@ DJANGO_VITE = {
         "manifest_path": BASE_DIR / "static" / "dist" / "manifest.json",
     }
 }
+
+# Celery — eager mode for tests (no broker needed)
+# See CLAUDE.md §12.8 and §16
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True

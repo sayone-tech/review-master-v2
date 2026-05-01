@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_vite",
     "drf_spectacular",
+    "django_celery_beat",
     # local
     "apps.common",
     "apps.accounts",
@@ -92,6 +93,26 @@ CACHES = {
 }
 DJANGO_REDIS_IGNORE_EXCEPTIONS = True
 DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
+
+# ---------------------------------------------------------------------------
+# Celery (introduced Phase 10) — broker DB 3, result backend DB 4
+# See CLAUDE.md §12 for full architecture notes.
+# ---------------------------------------------------------------------------
+CELERY_BROKER_URL = env("REDIS_URL", default="redis://redis:6379") + "/3"
+CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://redis:6379") + "/4"
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_ROUTES = {
+    "apps.reviews.tasks.sync_shop_reviews_task": {"queue": "google-sync"},
+    "apps.reviews.tasks.initial_backfill_task": {"queue": "google-sync"},
+    "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment"},
+    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment"},
+}
+CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
+CELERY_TASK_SOFT_TIME_LIMIT = 300  # 5-minute soft limit
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/login/"
