@@ -232,3 +232,62 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": "INFO"},
 }
+
+# ---------------------------------------------------------------------------
+# Sentry (introduced Phase 10) — error capture for web AND Celery worker
+# See CLAUDE.md §21 and CONTEXT.md "Sentry integration" decision.
+# Active ONLY when SENTRY_DSN is set. Local dev and tests have no DSN -> silent.
+# ---------------------------------------------------------------------------
+import sentry_sdk  # noqa: E402
+from sentry_sdk.integrations.celery import CeleryIntegration  # noqa: E402
+from sentry_sdk.integrations.django import DjangoIntegration  # noqa: E402
+from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber  # noqa: E402
+from sentry_sdk.types import Event  # noqa: E402
+
+_SENSITIVE_SUBSTRINGS = frozenset(
+    {"email", "token", "key", "secret", "password", "refresh", "access"}
+)
+
+
+def _before_send(event: Event, hint: dict[str, object]) -> Event | None:
+    """Recursively scrub fields whose key contains any sensitive substring.
+
+    See CONTEXT.md locked decision and CLAUDE.md §22.
+    """
+
+    def _scrub(obj: object) -> object:
+        if isinstance(obj, dict):
+            return {
+                k: (
+                    "[Filtered]"
+                    if any(s in str(k).lower() for s in _SENSITIVE_SUBSTRINGS)
+                    else _scrub(v)
+                )
+                for k, v in obj.items()
+            }
+        if isinstance(obj, list):
+            return [_scrub(item) for item in obj]
+        return obj
+
+    return _scrub(event)  # type: ignore[return-value]
+
+
+SENTRY_DSN = env("SENTRY_DSN", default=None)
+ENVIRONMENT = env("ENVIRONMENT", default="local")
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(propagate_traces=True),
+        ],
+        send_default_pii=False,
+        event_scrubber=EventScrubber(
+            denylist=[*DEFAULT_DENYLIST, "organisation_id"],
+            recursive=True,
+        ),
+        before_send=_before_send,
+        traces_sample_rate=0.1,
+    )

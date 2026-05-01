@@ -49,6 +49,7 @@ repos:
           - channels==4.3.2
           - channels-redis==4.3.0
           - daphne==4.2.1
+          - sentry-sdk==2.58.0
         args: [--config-file=pyproject.toml]
 
   - repo: https://github.com/PyCQA/bandit
