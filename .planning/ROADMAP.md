@@ -58,7 +58,20 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
   3. An Org Admin or Staff member can submit a reply via the inline composer; the reply is posted to Google synchronously and the composer is replaced with the posted reply view on success
   4. Re-running sync for a shop updates changed reviews and resets `enrichment_status` to PENDING rather than creating duplicates; soft-deleted reviews are never hard-deleted
   5. `GET /api/v1/reviews/` resolves in 5 or fewer SQL queries regardless of page size, verified in CI
-**Plans**: TBD
+**Plans**: 13 plans
+  - [ ] 11-01-PLAN.md — Review/AuditLog models + Shop GBP fields + factories + django-filter (SYNC-04..06, SYNC-10, REVW-13, REVW-14)
+  - [ ] 11-02-PLAN.md — Google Reviews API client (list_reviews + post_reply) (SYNC-07..09)
+  - [ ] 11-03-PLAN.md — Sync service: fetch_and_persist + run_initial_backfill + Redis progress + token bucket (SYNC-03..07, SYNC-09..10, PROG-10)
+  - [ ] 11-04-PLAN.md — Celery tasks + Beat seed migration for incremental fan-out (SYNC-01, SYNC-02, SYNC-08, SYNC-10)
+  - [ ] 11-05-PLAN.md — SyncProgressConsumer staff-scope tightening + Redis snapshot reader (PROG-08, PROG-09)
+  - [ ] 11-06-PLAN.md — ReviewViewSet + filters + selectors + cursor pagination + REVW-14 query-count test (REVW-01..05, REVW-14)
+  - [ ] 11-07-PLAN.md — Reply service + endpoint + ScopedRateThrottle + AuditLog (REVW-09, REVW-10, REVW-12, REVW-13)
+  - [ ] 11-08-PLAN.md — Shop create dispatches initial_backfill + /shops/syncing/ endpoint + GBP resource names (SYNC-01, PROG-01, PROG-06)
+  - [ ] 11-09-PLAN.md — Frontend foundation: types + api + useReviews hook + template + Vite entry (REVW-01, REVW-03..05, REVW-11)
+  - [ ] 11-10-PLAN.md — Reviews list UI: ReviewTable + filters + badges + empty states (REVW-02..08, REVW-11)
+  - [ ] 11-11-PLAN.md — Inline ReplyComposer accordion (REVW-09, REVW-10, REVW-12)
+  - [ ] 11-12-PLAN.md — ProgressModal + OAuth->modal trigger on Shops page (PROG-01..05, PROG-08, PROG-09)
+  - [ ] 11-13-PLAN.md — TopbarSyncIndicator widget + topbar partial + Vite entry (PROG-03, PROG-06, PROG-07, PROG-08)
 
 ### Phase 12: AI Enrichment Pipeline
 **Goal**: Every fetched review is automatically enriched with sentiment, tags, and action item suggestions by GPT-4o-mini; costs are tracked at log time with immutable pricing, and all calls are traced in LangSmith
@@ -93,6 +106,6 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 | 8. Shops | v0.2-org-admin | 7/7 | Complete | 2026-04-29 |
 | 9. Team | v0.2-org-admin | 5/5 | Complete | 2026-04-30 |
 | 10. Infrastructure Foundation | v0.3 | 5/5 | Complete | 2026-05-01 |
-| 11. Reviews Fetching, Display, Reply | v0.3 | 0/TBD | Not started | - |
+| 11. Reviews Fetching, Display, Reply | v0.3 | 0/13 | Not started | - |
 | 12. AI Enrichment Pipeline | v0.3 | 0/TBD | Not started | - |
 | 13. Action Items and Notifications | v0.3 | 0/TBD | Not started | - |
