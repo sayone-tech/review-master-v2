@@ -11,13 +11,13 @@
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Celery 5.x worker runs with Redis broker (DB index 3) and result backend (DB index 4); two named queues (`google-sync`, `ai-enrichment`) with separate worker pools
+- [x] **INFRA-01**: Celery 5.x worker runs with Redis broker (DB index 3) and result backend (DB index 4); two named queues (`google-sync`, `ai-enrichment`) with separate worker pools
 - [ ] **INFRA-02**: Celery Beat runs as a single instance with `django-celery-beat` DB-backed schedule; schedule is editable at runtime
 - [ ] **INFRA-03**: Flower runs in dev and staging environments only; never deployed to production
-- [ ] **INFRA-04**: Worker concurrency is configurable via env var (default 8 per queue per pod); soft time limit 5 min, hard time limit 10 min
+- [x] **INFRA-04**: Worker concurrency is configurable via env var (default 8 per queue per pod); soft time limit 5 min, hard time limit 10 min
 - [ ] **INFRA-05**: Tasks auto-retry on failure with exponential backoff: 3 retries, base delay 30s, max delay 10 min
 - [ ] **INFRA-06**: Sentry captures task failures with full traceback and task arguments for both web and Celery worker processes
-- [ ] **INFRA-07**: CI smoke test enqueues a task on each queue and verifies completion within 30 seconds
+- [x] **INFRA-07**: CI smoke test enqueues a task on each queue and verifies completion within 30 seconds
 - [ ] **INFRA-08**: Django Channels is configured with Redis channel layer (DB index 5); ASGI server runs alongside WSGI
 - [ ] **INFRA-09**: `SyncProgressConsumer` at `/ws/sync-progress/` accepts authenticated connections; rejects unauthenticated and cross-tenant connections with code 4403
 - [ ] **INFRA-10**: Redis distributed lock helper is implemented (`acquire`, `release`, TTL expiry) and unit-tested
@@ -148,13 +148,13 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 10 | Pending |
+| INFRA-01 | Phase 10 | Complete |
 | INFRA-02 | Phase 10 | Pending |
 | INFRA-03 | Phase 10 | Pending |
-| INFRA-04 | Phase 10 | Pending |
+| INFRA-04 | Phase 10 | Complete |
 | INFRA-05 | Phase 10 | Pending |
 | INFRA-06 | Phase 10 | Pending |
-| INFRA-07 | Phase 10 | Pending |
+| INFRA-07 | Phase 10 | Complete |
 | INFRA-08 | Phase 10 | Pending |
 | INFRA-09 | Phase 10 | Pending |
 | INFRA-10 | Phase 10 | Pending |

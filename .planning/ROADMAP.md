@@ -92,7 +92,7 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 | 7. Regions | v0.2-org-admin | 3/3 | Complete | 2026-04-28 |
 | 8. Shops | v0.2-org-admin | 7/7 | Complete | 2026-04-29 |
 | 9. Team | v0.2-org-admin | 5/5 | Complete | 2026-04-30 |
-| 10. Infrastructure Foundation | v0.3 | 0/5 | Not started | - |
+| 10. Infrastructure Foundation | 1/5 | In Progress|  | - |
 | 11. Reviews Fetching, Display, Reply | v0.3 | 0/TBD | Not started | - |
 | 12. AI Enrichment Pipeline | v0.3 | 0/TBD | Not started | - |
 | 13. Action Items and Notifications | v0.3 | 0/TBD | Not started | - |
