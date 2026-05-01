@@ -17,6 +17,7 @@ GOOGLE_OAUTH_REDIRECT_URI = env(
 )
 
 INSTALLED_APPS = [
+    "daphne",  # MUST be first — overrides runserver for ASGI (RESEARCH.md Pitfall 2)
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -35,6 +36,9 @@ INSTALLED_APPS = [
     "sequences",
     "apps.regions",
     "apps.shops",
+    "apps.reviews",
+    "apps.action_items",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [
