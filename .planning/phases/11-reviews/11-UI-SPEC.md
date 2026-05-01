@@ -59,7 +59,7 @@ Exactly 4 declared sizes, exactly 2 declared weights (inherited from Phase 9 con
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 14px (`text-[14px]`) | 400 (normal) | 1.5 | Table cell text, review card text, reply composer body, modal body copy, progress counts, "Last update: N seconds ago" line, filter chip labels |
-| Label | 12px (`text-[12px]`) | 600 (semibold) for headers; 400 (normal) for hints | 1.4 | Column headers (UPPERCASE, tracking-[0.05em]), badge text, chip text, char counter, field hint text, sentiment badge, reply status badge, "Analyzing..." pill |
+| Label | 12px (`text-[12px]`) | 600 (semibold) for headers; 400 (normal) for hints | 1.4 | Column headers (UPPERCASE, tracking-[0.05em]), badge text, chip text, char counter, field hint text, sentiment badge, reply status badge, "Analyzing..." pill, Reply CTA button |
 | Heading | 20px (`text-[20px]`) | 600 (semibold) | 1.2 | Page title "Reviews", modal titles ("Syncing Reviews", "Reply"), progress modal section headings |
 | Display | 24px (`text-[24px]`) | 600 (semibold) | 1.2 | Not used in this phase's primary surfaces; reserved for any future stat cards |
 
@@ -92,7 +92,7 @@ Source: `DataTable.tsx`, `Modal.tsx`, `ShopTable.tsx`, `09-UI-SPEC.md`
 | Success | `#16A34A` (`green`) | "Replied" badge, replied check icon, sync complete state |
 | Info | `#2563EB` (`blue`) | Not used in Phase 11 (deferred to notification phase) |
 
-**Accent reserved for:** "Reply" inline CTA button on unreplied review rows, "Submit Reply" button in composer, "Connect a Shop" CTA button in empty state. Nothing else uses yellow.
+**Accent reserved for:** "Reply" inline CTA button on unreplied review rows, "Submit Reply" button in composer, "Go to Shops" button in empty state. Nothing else uses yellow.
 
 **Semantic color usage by surface:**
 
@@ -123,6 +123,8 @@ Star rating icons:
 - Filled star: `text-yellow` (`#FACC15`), Lucide Star icon, `fill-current`
 - Empty star: `text-line` (`#E4E4E7`), Lucide Star icon, `fill-current`
 - Size: 14px (`size={14}`)
+
+**Primary focal point:** The DataTable body is the primary focal point of the Reviews page, with yellow "Reply" CTAs as the primary action attractor on unreplied rows. All other elements (filters, pagination, topbar badge) are visually subordinate and use neutral colors.
 
 Source: `tailwind.config.js`, `09-UI-SPEC.md`, `ShopTable.tsx`, `ConnectionStatusPill.tsx`
 
@@ -204,7 +206,7 @@ Active filter chips (appear below filter bar when any filter is active):
 | 4 | `date` | DATE | 80px skeleton | Relative date (e.g. "3 days ago") `text-[14px] text-text`; full ISO in `title` attribute |
 | 5 | `sentiment` | SENTIMENT | 80px skeleton | `SentimentBadge` — shown after enrichment; "Analyzing..." pill during PENDING; red AlertCircle on FAILED |
 | 6 | `reply_status` | REPLY | 80px skeleton | `ReplyStatusBadge` — "Replied" (green) or "Not Replied" (amber) |
-| 7 | `reply_cta` | (empty label) | 100px | "Reply" button (yellow, `bg-yellow text-black text-[13px] font-semibold px-3 py-1 rounded-md hover:bg-yellow-hover`) — visible only on unreplied rows; empty cell otherwise |
+| 7 | `reply_cta` | (empty label) | 100px | "Reply" button (yellow, `bg-yellow text-black text-[12px] font-semibold px-3 py-1 rounded-md hover:bg-yellow-hover`) — visible only on unreplied rows; empty cell otherwise |
 | 8 | row actions | (empty label) | 48px | `•••` menu — "View reply" (if replied), "Copy review text" |
 
 **Row expand — Reply Composer (ReplyComposer):**
@@ -219,7 +221,7 @@ Layout inside expanded row:
   - Label: "Your reply" — `text-[12px] font-semibold text-subtle uppercase tracking-[0.05em] mb-2`
   - `<textarea>` — `w-full min-h-[120px] px-3 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink resize-y`; `maxLength={4000}`
   - Char counter: `text-[12px] text-muted text-right mt-1` — "XXXX / 4000"; turns `text-red` at 3900+
-  - Footer: right-aligned flex row — "Cancel" button (secondary) + "Submit Reply" button (yellow primary)
+  - Footer: right-aligned flex row — "Discard Reply" button (secondary) + "Submit Reply" button (yellow primary)
   - Inline error banner (on Google API failure): `border-l-4 border-red bg-red-tint px-4 py-2 text-[14px] text-red rounded-sm mt-2`
   - Loading state on Submit: button text "Submitting…" + spinner, button disabled
 
@@ -353,7 +355,7 @@ Rationale: The CONTEXT.md specified "accordion / slide-out drawer" as alternativ
 
 Implementation:
 - `ReviewTable` tracks `openComposerId: string | null` in state
-- Clicking "Reply" on a row sets `openComposerId = review.id`; clicking again or "Cancel" sets `null`
+- Clicking "Reply" on a row sets `openComposerId = review.id`; clicking again or "Discard Reply" sets `null`
 - An extra `<tr className="border-b border-line">` is inserted after the review row when `openComposerId === review.id`
 - The extra row uses `<td colSpan={totalColumns}>`
 
@@ -418,7 +420,7 @@ Events dispatched from `TopbarSyncIndicator`:
 | Empty state C heading | "No reviews match your filters" |
 | Empty state C body | "Try adjusting your filters or search terms." |
 | Empty state C CTA | "Clear Filters" |
-| Reply composer cancel | "Cancel" |
+| Reply composer cancel | "Discard Reply" |
 | Reply success toast | "Reply posted." |
 | Reply error banner | "Failed to post reply. Please try again." |
 | Reply throttle error | "You're replying too quickly. Please wait a moment." |
