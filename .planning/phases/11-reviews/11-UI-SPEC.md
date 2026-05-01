@@ -78,7 +78,7 @@ Notes:
 - Review text body: 14px weight 400, `text-text` — truncated at 1000 chars with "Show more" toggle
 - "Show more" / "Show less": 12px weight 600, `text-ink underline cursor-pointer`
 - Progress percentages / counts: 14px weight 600, `text-ink`
-- Topbar badge count: 11px (`text-[11px]`) weight 600, `text-black` on `bg-yellow` — exception to 4-size rule justified by topbar size constraint (matches existing badge patterns in project)
+- Topbar badge count: 12px (`text-[12px]`) weight 600, `text-black` on `bg-yellow` — uses declared Label size
 - Reply char counter: 12px weight 400, `text-muted` — "XXXX / 4000"
 
 Declared weights: **400 (normal)** and **600 (semibold)** only. Weight 500 (medium) is not used.
@@ -303,13 +303,13 @@ The `comment` field is shown truncated at 1000 characters inside the row cell. A
 **Badge (count > 0, no failures):**
 - Container: `inline-flex items-center gap-1 px-2 py-1 bg-yellow rounded-full`
 - Icon: Loader2 size 14, `text-black animate-spin`
-- Count: `text-[11px] font-semibold text-black` — shown only when count > 1
+- Count: `text-[12px] font-semibold text-black` — shown only when count > 1
 - Tooltip (native `title` attribute): "N shop(s) syncing reviews"
 
 **Badge (permanent failure present):**
 - Container: `inline-flex items-center gap-1 px-2 py-1 bg-red rounded-full`
 - Icon: AlertTriangle size 14, `text-white`
-- Count: `text-[11px] font-semibold text-white`
+- Count: `text-[12px] font-semibold text-white`
 
 **Badge absent:** Component renders `null` when count === 0 and no failures.
 
