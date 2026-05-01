@@ -11,10 +11,14 @@ This is a **multi-tenant SaaS platform** for managing organisations, their store
 - **Backend:** Django 6.0+ with Django REST Framework (DRF)
 - **Frontend:** Django templates + Tailwind CSS, with React components embedded for complex interactive views (data tables, modals, dashboards)
 - **Database:** PostgreSQL
-- **Cache / Rate Limiting / Queue backing:** Redis
-- **Background jobs (Phase 1):** Django management commands + GCP Cloud Scheduler
-- **Background jobs (Phase 2, future):** Celery + Celery Beat
-- **External API:** Google Business Profile API (OAuth 2.0, per-store connection)
+- **Cache / Rate Limiting / Queue backing / Channels layer:** Redis
+- **Background jobs (Phase 1 & 2):** Django management commands + GCP Cloud Scheduler
+- **Background jobs (Phase 3+):** Celery + Celery Beat with two named queues (`google-sync`, `ai-enrichment`)
+- **Real-time UI updates (Phase 3+):** Django Channels (ASGI) — scoped narrowly to initial sync progress only
+- **External APIs:**
+  - Google Business Profile API (OAuth 2.0, per-store connection)
+  - OpenAI Chat Completions API (GPT-4o-mini for review enrichment)
+  - LangSmith (tracing of AI calls)
 - **Transactional email:** Amazon SES via `django-ses` backend
 - **Hosting:** Google Cloud (Cloud Run / GKE), Docker + docker-compose for local dev
 - **CI/CD:** GitHub Actions
@@ -58,10 +62,11 @@ repo-root/
 │
 ├── config/                          # Django project package (NOT "myproject")
 │   ├── __init__.py
-│   ├── asgi.py
+│   ├── asgi.py                      # Channels-aware ASGI app (Phase 3+)
 │   ├── wsgi.py
 │   ├── urls.py
-│   ├── celery.py                    # added in Phase 2
+│   ├── routing.py                   # Channels URL routing (Phase 3+)
+│   ├── celery.py                    # Celery app instance (Phase 3+)
 │   └── settings/
 │       ├── __init__.py
 │       ├── base.py                  # shared settings
@@ -88,7 +93,7 @@ repo-root/
 │   │   ├── selectors/               # read-only query functions (see §5)
 │   │   │   ├── __init__.py
 │   │   │   └── users.py
-│   │   ├── tasks.py                 # management-command entry points / Celery tasks
+│   │   ├── tasks.py                 # Celery tasks (Phase 3+)
 │   │   ├── signals.py
 │   │   ├── migrations/
 │   │   └── tests/
@@ -101,20 +106,39 @@ repo-root/
 │   │
 │   ├── organisations/               # Organisation model, superadmin mgmt
 │   ├── stores/                      # Store model, per-org, Google Place linkage
-│   ├── reviews/                     # Google reviews storage + sync logic
-│   │   └── management/
-│   │       └── commands/
-│   │           ├── fetch_google_reviews.py
-│   │           └── refresh_google_tokens.py
-│   ├── integrations/                # Google Business Profile API client
-│   │   └── google/
-│   │       ├── client.py
-│   │       ├── oauth.py
-│   │       └── exceptions.py
+│   ├── reviews/                     # Reviews, replies, sync logic, enrichment orchestration
+│   │   ├── consumers.py             # Channels consumers (Phase 3+)
+│   │   ├── tasks.py                 # Celery tasks: sync, enrich, retry
+│   │   ├── services/
+│   │   │   ├── sync.py              # Google review fetching
+│   │   │   ├── replies.py           # Reply submission and Google posting
+│   │   │   └── enrichment.py        # OpenAI enrichment orchestration
+│   │   └── selectors/
+│   │       └── reviews.py
+│   ├── action_items/                # Action items extracted from reviews + manual creation
+│   │   ├── services/
+│   │   │   ├── lifecycle.py         # Create, status transitions, assignment, notes
+│   │   │   └── extraction.py        # Convert GPT JSON → ActionItem rows
+│   │   └── selectors/items.py
+│   ├── notifications/               # In-app bell counter + delivery model (Phase 3+)
+│   │   └── services/dispatch.py
+│   ├── integrations/                # External API clients
+│   │   ├── google/
+│   │   │   ├── client.py
+│   │   │   ├── oauth.py
+│   │   │   └── exceptions.py
+│   │   └── openai/                  # Phase 3+
+│   │       ├── client.py            # OpenAI SDK wrapper with LangSmith tracing
+│   │       ├── prompts.py           # Versioned prompt templates
+│   │       ├── parser.py            # Structured-JSON response parser
+│   │       ├── pricing.py           # Cost calculator
+│   │       └── tracing.py           # LangSmith integration
 │   └── common/                      # shared utilities, base models, mixins
 │       ├── models.py                # TimeStampedModel, UUIDModel
 │       ├── pagination.py
 │       ├── exceptions.py
+│       ├── locks.py                 # Redis distributed-lock helper (Phase 3+)
+│       ├── retry.py                 # Retry/backoff decorator (Phase 3+)
 │       └── throttling.py
 │
 ├── templates/                       # project-level templates (base.html, emails)
@@ -234,14 +258,29 @@ class OrganisationViewSet(viewsets.ModelViewSet):
                             created_by=self.request.user)
 ```
 
+### Same pattern for Celery tasks (Phase 3+)
+
+Celery tasks are **thin wrappers** — they call service functions. Business logic stays in services so it can be tested without the worker:
+
+```python
+# apps/reviews/tasks.py
+from celery import shared_task
+from apps.reviews.services.enrichment import enrich_review
+
+@shared_task(bind=True, max_retries=3, autoretry_for=(Exception,),
+             retry_backoff=30, retry_backoff_max=600, retry_jitter=True)
+def enrich_review_task(self, review_id: str) -> None:
+    enrich_review(review_id=review_id)
+```
+
 ### Never
 - Put business logic in serializers (they validate + shape data only)
 - Put business logic in model `save()` (override only for trivial normalization)
 - Put multi-step workflows in views
 - Call `.objects.create()` directly from a view for anything with side effects
+- Put business logic inside Celery task bodies — keep tasks thin
 
 ---
-
 ## 6. Database — Query Optimization (Strict No-N+1 Policy)
 
 N+1 queries are a **blocker-level bug**. Every list view, every serializer, every template must be audited.
@@ -329,21 +368,24 @@ def test_list_organisations_query_count(api_client):
 
 **6.11 Always wrap multi-step writes in `transaction.atomic()`.**
 
-**6.12 Use `select_for_update()` inside transactions for row-level locking on critical updates** (e.g., decrementing store allocation counters).
+**6.12 Use `select_for_update()` inside transactions for row-level locking on critical updates** (e.g., decrementing store allocation counters, transitioning enrichment status).
+
+**6.13 Postgres full-text search** (Phase 3+ for review text search) — use `SearchVector` + `GinIndex` on the `Review.text` field, maintained via migration. Never use `icontains` on review text at scale.
 
 ---
 
 ## 7. Redis Usage
 
-Redis has three roles in this project. Keep them logically separated by DB index.
+Redis has multiple roles in this project. Keep them logically separated by DB index.
 
-| Redis DB | Purpose |
-|---|---|
-| `0` | Django cache (`django-redis` backend) |
-| `1` | DRF throttling / rate limiting |
-| `2` | Session store (if not using DB sessions) |
-| `3` | Celery broker (Phase 2) |
-| `4` | Celery result backend (Phase 2) |
+| Redis DB | Purpose | Introduced |
+|---|---|---|
+| `0` | Django cache (`django-redis` backend) | Phase 1 |
+| `1` | DRF throttling / rate limiting | Phase 1 |
+| `2` | Session store (if not using DB sessions) | Phase 1 |
+| `3` | Celery broker | Phase 3 |
+| `4` | Celery result backend | Phase 3 |
+| `5` | Channels layer (WebSocket pub/sub) | Phase 3 |
 
 ### 7.1 Cache configuration
 ```python
@@ -407,30 +449,47 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "user": "1000/hour",
         "anon": "100/hour",
-        "invite": "5/hour",           # scoped throttle for invite endpoints
+        "invite": "5/hour",            # scoped throttle for invite endpoints
         "google_sync": "60/minute",
+        "openai_call": "120/minute",   # Phase 3+
+        "review_reply": "30/minute",   # Phase 3+
     },
 }
 ```
 
-### 7.6 Distributed locks (for Google API sync jobs)
-Use `redis-py`'s lock primitive to prevent duplicate concurrent syncs per store:
-```python
-from django_redis import get_redis_connection
+### 7.6 Distributed locks
 
-def sync_store_reviews(store_id: int):
-    r = get_redis_connection("default")
-    lock = r.lock(f"lock:google_sync:store:{store_id}", timeout=300, blocking=False)
-    if not lock.acquire():
-        return   # another worker is already syncing this store
-    try:
-        _do_sync(store_id)
-    finally:
-        lock.release()
+Use the helper in `apps/common/locks.py` (introduced in Phase 3) for any task that must not run concurrently for the same entity. Backed by `redis-py`'s lock primitive.
+
+```python
+from apps.common.locks import distributed_lock
+
+def sync_shop_reviews(shop_id: str) -> None:
+    with distributed_lock(f"google_sync:shop:{shop_id}", timeout=300, blocking=False) as acquired:
+        if not acquired:
+            return  # another worker is already syncing this shop
+        _do_sync(shop_id)
 ```
 
----
+**Lock key conventions** (Phase 3+):
 
+| Key Pattern | Purpose | TTL |
+|---|---|---|
+| `lock:google_sync:shop:{shop_id}` | Per-shop Google review sync | 5 min |
+| `lock:enrich:review:{review_id}` | Per-review OpenAI enrichment | 5 min |
+| `lock:reply:review:{review_id}` | Per-review reply submission | 30 sec |
+
+Lock acquisition is **non-blocking** by default — if another worker holds the lock, the task exits cleanly without retrying. The next scheduled run will pick it up.
+
+### 7.7 Phase 3 ephemeral state keys
+
+| Key Pattern | Purpose | TTL |
+|---|---|---|
+| `sync:progress:{shop_id}` | Current initial-sync progress for WebSocket and snapshot API | 24h while running, 1h after success, 7d after permanent failure |
+| `rate:openai:org:{organisation_id}` | Per-org OpenAI call counter (token bucket safety net) | rolling 1 min |
+| `rate:google:project` | Global Google API call counter (token bucket) | rolling 1 min |
+
+---
 ## 8. DRF Conventions
 
 - **One ViewSet per resource.** Use `ModelViewSet` only when all CRUD is needed; otherwise compose `GenericViewSet` + mixins.
@@ -449,22 +508,56 @@ def sync_store_reviews(store_id: int):
 - **Role:** enum field `User.role` → `SUPERADMIN | ORG_ADMIN | STAFF_ADMIN`.
 - **Tenant scoping:** `User` has a nullable FK to `Organisation` (null for superadmins). Every queryset in Org/Staff-admin views **must** be filtered by the caller's `organisation_id`. Enforce this in a base permission or mixin, not in each view.
 - **Auth for API:** session auth for the Django-rendered frontend, token auth (SimpleJWT) only if a separate client is added later.
+- **Auth for Channels (Phase 3+):** Channels session middleware reuses the same Django session; consumers verify role + organisation match before accepting the connection (see §13.4).
 - **Invitation tokens:** use `django.core.signing.TimestampSigner` with a 48-hour max age. Store token hash in DB, mark single-use.
 - **Password policy:** Django's built-in validators, minimum length 10.
+
+### Phase 3 — Brand vs Shop scoping for action items
+
+Beyond role + organisation scoping, action items have a **scope** field (`SHOP` or `BRAND`). Staff users must NEVER see brand-scoped action items, even by direct URL access. This is enforced at three layers:
+
+1. **Selector layer** — every Staff queryset includes `.filter(scope=SHOP)`
+2. **Permission layer** — detail/edit/status endpoints return 403 when role is `STAFF_ADMIN` and the target's scope is `BRAND`
+3. **UI layer** — the brand-scope filter and "Create brand action item" controls are not rendered for Staff
+
+Layer 1 is the authoritative defence; layers 2 and 3 are belt-and-braces.
 
 ---
 
 ## 10. Background Jobs
 
-### Phase 1 (current): Management Commands + Cloud Scheduler
+The platform uses **two complementary systems** for background work, chosen based on the workload's needs.
+
+### Phase 1 & 2 features: Management Commands + Cloud Scheduler
+
+Used for low-frequency, low-concurrency, scheduled jobs (e.g., refreshing OAuth tokens, scheduled cleanups).
+
 - Each job is a **thin management command** under `apps/<app>/management/commands/`.
 - The command calls a **service function**. Business logic stays in the service.
 - GCP Cloud Scheduler hits a secured HTTP endpoint (`/internal/jobs/<job_name>/`) that runs the command's service function. Secure with a shared secret header + IP allowlist.
 - Jobs must be **idempotent**. Design them to re-run safely.
 - Always acquire a Redis lock before processing per-entity jobs (see §7.6).
 
-### Phase 2: Celery + Celery Beat
-When migrating: wrap existing service functions with `@shared_task`. Do **not** rewrite business logic in the task.
+This pattern continues to work for Phase 1 and Phase 2 features and **does not require migration**.
+
+### Phase 3+ features: Celery + Celery Beat
+
+Used for high-concurrency, retry-heavy, or real-time-progress workloads. See §12 for the full Celery convention.
+
+### Choosing between them
+
+Use **Celery** when any of:
+- Concurrency > 1 worker per entity
+- Retries with exponential backoff are needed
+- Per-entity locking is required
+- Real-time progress updates over WebSocket are required
+- Tasks may take longer than an HTTP request timeout (60s on Cloud Run by default)
+
+Use **management commands + Cloud Scheduler** when all of:
+- The job runs at a fixed interval
+- Concurrency is 1 (one global runner is fine)
+- Total runtime fits within the HTTP timeout
+- No per-entity progress visibility required
 
 ---
 
@@ -474,17 +567,383 @@ When migrating: wrap existing service functions with `@shared_task`. Do **not** 
 - OAuth flow is **per-store** (each store owner authorizes the app to access that store's reviews).
 - Store refresh tokens **encrypted at rest** using `django-cryptography` or Fernet with a key from GCP Secret Manager.
 - Wrap every API call with retry + exponential backoff (`tenacity`).
-- Respect Google's rate limits. Use token bucket in Redis.
+- Respect Google's rate limits. Use the token bucket in Redis (`rate:google:project`).
 - Always log `request_id` from Google responses for debugging.
 - On `401 invalid_grant`, mark the store's connection as expired and notify the Org Admin.
 
+### Phase 3 — Review fetching specifics
+
+- Reviews are unique on `(shop_id, google_review_id)`. Inserts use `ON CONFLICT DO UPDATE` semantics so re-fetches update rather than duplicate.
+- A review's `text` or `rating` may be edited by the reviewer on Google. When detected, update the local row and reset `enrichment_status = PENDING` so the AI pipeline re-runs.
+- Reviews removed by Google are **soft-deleted** (`deleted_at` set) — never hard-deleted, to preserve audit trail and action item linkage.
+- Replies are posted to Google **synchronously** within the request lifecycle so the user sees Google's accept/reject immediately.
+
+---
+## 12. Celery — Background Job Processor (Phase 3+)
+
+Phase 3 introduces Celery for workloads that exceed what management commands + Cloud Scheduler can do (concurrency, retries with backoff, per-entity locking, real-time progress).
+
+### 12.1 Architecture
+
+- **Broker:** Redis DB index 3
+- **Result backend:** Redis DB index 4
+- **Beat schedule store:** `django-celery-beat` (DB-backed) so schedules can be edited at runtime via Django admin
+- **Two named queues** with separate worker pools:
+  - `google-sync` — Google API operations (review fetch, token refresh)
+  - `ai-enrichment` — OpenAI calls (slower, must not block faster queues)
+  - `default` — everything else (notifications, lightweight fan-outs)
+
+### 12.2 Configuration
+
+```python
+# config/settings/base.py
+CELERY_BROKER_URL = env("REDIS_URL") + "/3"
+CELERY_RESULT_BACKEND = env("REDIS_URL") + "/4"
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_ROUTES = {
+    "apps.reviews.tasks.sync_shop_reviews_task": {"queue": "google-sync"},
+    "apps.reviews.tasks.initial_backfill_task":   {"queue": "google-sync"},
+    "apps.reviews.tasks.enrich_review_task":      {"queue": "ai-enrichment"},
+    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment"},
+}
+CELERY_TASK_TIME_LIMIT = 600         # 10-minute hard limit
+CELERY_TASK_SOFT_TIME_LIMIT = 300    # 5-minute soft limit (raises SoftTimeLimitExceeded)
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_TASK_ACKS_LATE = True         # ack only after task succeeds — survives worker crashes
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # prevent slow tasks blocking fast ones
+```
+
+### 12.3 Task conventions
+
+- Tasks live in `apps/<app>/tasks.py`.
+- **Tasks are thin wrappers around service functions.** No business logic in task bodies.
+- Use `@shared_task(bind=True)` so the task can access `self` for retries and logging.
+- Always declare `autoretry_for`, `retry_backoff`, `retry_backoff_max`, `retry_jitter`, `max_retries`.
+- Tasks receive **IDs**, never model instances (model instances don't serialize to the broker reliably).
+
+```python
+# apps/reviews/tasks.py
+from celery import shared_task
+from apps.reviews.services.enrichment import enrich_review
+
+@shared_task(
+    bind=True,
+    max_retries=3,
+    autoretry_for=(Exception,),
+    retry_backoff=30,
+    retry_backoff_max=600,
+    retry_jitter=True,
+)
+def enrich_review_task(self, review_id: str) -> None:
+    enrich_review(review_id=review_id)
+```
+
+### 12.4 Idempotency — three layers
+
+Background tasks **must be idempotent**. Running the same task twice with the same arguments must produce the same final state, never duplicates or partial-state corruption. Enforce at three layers:
+
+**Layer 1 — Database uniqueness constraints.** Reviews are unique on `(shop_id, google_review_id)`. Inserts use upsert semantics.
+
+**Layer 2 — Per-entity Redis locks** (see §7.6). A task that mutates a single shop or review acquires a lock before proceeding.
+
+**Layer 3 — Status flags + row-level locks.** For example, `Review.enrichment_status` transitions `PENDING → IN_PROGRESS → SUCCESS / FAILED`. The transition uses `select_for_update()` inside `transaction.atomic()`:
+
+```python
+@transaction.atomic
+def enrich_review(*, review_id: str) -> None:
+    review = (
+        Review.objects
+        .select_for_update()
+        .get(id=review_id)
+    )
+    if review.enrichment_status == Review.EnrichmentStatus.SUCCESS:
+        return  # already done; idempotent no-op
+    if review.enrichment_status == Review.EnrichmentStatus.IN_PROGRESS:
+        return  # another worker holds the row lock; exit silently
+    review.enrichment_status = Review.EnrichmentStatus.IN_PROGRESS
+    review.save(update_fields=["enrichment_status", "enrichment_attempted_at"])
+    # ... call OpenAI, parse, persist results, transition to SUCCESS or FAILED
+```
+
+### 12.5 Beat schedules
+
+Beat tasks are stored in the database via `django-celery-beat`. Seed initial schedules via a data migration so they exist in fresh environments.
+
+| Task | Queue | Schedule |
+|---|---|---|
+| `enqueue_incremental_syncs_task` | `google-sync` | Every hour at minute 0 (fans out per-shop tasks with jitter) |
+| `retry_failed_enrichments_task` | `ai-enrichment` | Every 6 hours |
+| `refresh_google_tokens_task` | `google-sync` | Hourly |
+
+### 12.6 Deployment
+
+- Celery worker, Celery Beat, and the web server run as **separate Cloud Run services** (or separate processes in a GKE pod set).
+- All three use the **same Docker image**; the entry command differs per service.
+- **Beat instance count: exactly 1.** Multiple Beat instances = duplicate jobs. Enforce at the deployment template.
+- **Worker instance count:** scales horizontally per queue based on queue depth. Different scaling profiles per queue (e.g., `ai-enrichment` workers can scale slower since OpenAI is the bottleneck).
+- **Sentry integration** captures task failures with full traceback and task arguments.
+
+### 12.7 Monitoring
+
+- **Flower** runs in **dev and staging only** — never in production. Bind to localhost in dev; gate behind staging auth in staging.
+- Worker health metrics shipped to Better Stack / Datadog: queue depth per queue, task throughput, task latency p50/p95/p99, retry rate, failure rate.
+- Per-task log records include `task_id`, `task_name`, `args` (sanitized — no secrets), and `result_status`.
+
+### 12.8 Testing
+
+- Use `CELERY_TASK_ALWAYS_EAGER = True` in `config/settings/test.py` so tasks execute synchronously in the test runner.
+- Tasks must have unit tests against their service function (not the task body) — test the logic, not the wrapper.
+- Integration tests with `--celery-eager` verify that the right tasks are dispatched on the right events (e.g., creating a Review enqueues `enrich_review_task`).
+- A CI smoke test verifies a Celery task completes within 30 seconds in the test runner.
+
 ---
 
-## 12. Transactional Email — Amazon SES
+## 13. Django Channels — Real-time UI Updates (Phase 3+)
+
+Phase 3 adds Channels for **one specific feature**: real-time progress updates during a shop's initial review backfill. The infrastructure is added once and is available for future real-time features, but its surface area is intentionally narrow.
+
+### 13.1 Configuration
+
+- ASGI server: **Daphne** (or Uvicorn) running alongside the WSGI web server
+- Channel layer: **Redis**, DB index 5
+- Routing in `config/routing.py`; consumer in `apps/reviews/consumers.py`
+
+```python
+# config/settings/base.py
+ASGI_APPLICATION = "config.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [env("REDIS_URL") + "/5"],
+            "capacity": 1500,
+            "expiry": 30,
+        },
+    },
+}
+```
+
+### 13.2 Scope discipline (non-negotiable)
+
+In Phase 3, Channels is used **only** for `SyncProgressConsumer` at `/ws/sync-progress/`. The following are explicitly out of scope and must NOT be added without an architecture review:
+
+- Live new-review toast notifications
+- Live action item status sync between concurrent users
+- Real-time review reply confirmations
+- The notification bell counter — uses HTTP polling at 60s, not WebSocket
+- Any other live data synchronisation
+
+This discipline keeps the Channels surface small, auditable, and verifiable in Phase 3. Adding new consumers requires updating this section of CLAUDE.md and explicit sign-off in code review.
+
+### 13.3 Single Phase 3 consumer — `SyncProgressConsumer`
+
+```python
+# apps/reviews/consumers.py
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from apps.reviews.selectors.sync_progress import get_progress_snapshot
+
+class SyncProgressConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        user = self.scope["user"]
+        if not user.is_authenticated:
+            await self.close(code=4401)
+            return
+        shop_id = self.scope["url_route"]["kwargs"]["shop_id"]
+        if not await self._user_can_access_shop(user, shop_id):
+            await self.close(code=4403)
+            return
+        self.group = f"sync-progress-{shop_id}"
+        await self.channel_layer.group_add(self.group, self.channel_name)
+        await self.accept()
+        # Send current snapshot from Redis on connect
+        snapshot = await get_progress_snapshot(shop_id=shop_id)
+        if snapshot:
+            await self.send_json(snapshot)
+
+    async def disconnect(self, code):
+        if hasattr(self, "group"):
+            await self.channel_layer.group_discard(self.group, self.channel_name)
+
+    async def progress_event(self, event):
+        await self.send_json(event["payload"])
+```
+
+### 13.4 Authorisation rules for consumers
+
+Every consumer must enforce, on connect:
+
+1. The user is authenticated. If not → `close(code=4401)`.
+2. The user's `organisation_id` matches the resource's `organisation_id`. If not → `close(code=4403)`.
+3. For Staff users, the shop is in the user's `StaffAccessScope`. If not → `close(code=4403)`.
+
+Failures must close the connection — never leak data via the WebSocket.
+
+### 13.5 Event payload conventions
+
+Server-to-client events are JSON objects with a `type` discriminator. Client code switches on `type`:
+
+| Event | Payload Fields | When Sent |
+|---|---|---|
+| `sync.fetch.progress` | `shop_id, fetched, total_estimate` | After every Google API page is persisted |
+| `sync.enrichment.progress` | `shop_id, enriched, fetched` | After every batch of reviews is enriched |
+| `sync.complete` | `shop_id, total_fetched, total_enriched, duration_seconds` | When initial sync finishes successfully |
+| `sync.error` | `shop_id, stage, error_code, error_message` | When sync fails permanently after retries |
+
+### 13.6 Persistence + reconnect
+
+Progress state for each in-progress sync is mirrored in Redis at `sync:progress:{shop_id}`. On reconnect, the consumer reads from Redis and sends the current snapshot immediately so the UI is correct without waiting for the next event.
+
+---
+
+## 14. OpenAI Integration & AI Cost Tracking (Phase 3+)
+
+Phase 3 introduces GPT-4o-mini for review enrichment (sentiment, tags, action items). Every call is traced, cost-logged, and idempotently retried.
+
+### 14.1 Module layout — `apps/integrations/openai/`
+
+| File | Responsibility |
+|---|---|
+| `client.py` | Thin wrapper around the `openai` SDK with LangSmith tracing, retry, and structured-response parsing |
+| `prompts.py` | Versioned prompt templates. Bumping a prompt version increments `Review.enrichment_version` so future bulk re-enrichment can target a version. |
+| `parser.py` | Parses GPT's JSON response, validates schema with Pydantic, raises `EnrichmentParseError` on malformed output |
+| `pricing.py` | Cost calculator that reads from `AiPricing` table |
+| `tracing.py` | LangSmith SDK integration |
+| `exceptions.py` | `OpenAITransientError` (retry-able), `OpenAIPermanentError` (do not retry) |
+
+### 14.2 Single combined prompt
+
+All enrichment outputs come from **one GPT call per review** that returns structured JSON. Multiple specialised calls are wasteful and prohibited.
+
+The prompt receives:
+- Brand name (= Organisation Name)
+- Shop name
+- Shop address
+- Review text
+- Review rating
+
+The prompt returns JSON conforming to a Pydantic schema:
+
+```python
+# apps/integrations/openai/parser.py
+from pydantic import BaseModel
+from typing import Literal
+
+class Tag(BaseModel):
+    label: str
+    polarity: Literal["positive", "negative", "neutral"]
+
+class ActionItem(BaseModel):
+    title: str
+    scope: Literal["shop", "brand"]
+    priority: Literal["high", "medium", "low"]
+
+class EnrichmentResult(BaseModel):
+    sentiment: Literal["positive", "neutral", "negative"]
+    tags: list[Tag]              # max 5 tags (enforced by prompt + validator)
+    action_items: list[ActionItem]
+```
+
+### 14.3 Cost tracking — `AiUsageLog` and `AiPricing`
+
+Every OpenAI call writes one row to `AiUsageLog`. **Cost is calculated server-side using `AiPricing` rates** — never relying on OpenAI's billing API (not real-time, not per-call).
+
+**`AiUsageLog`** captures: `organisation_id`, `request_type`, `model`, `review_id`, `prompt_tokens`, `completion_tokens`, `cached_tokens`, `total_tokens`, `estimated_cost_usd`, `latency_ms`, `langsmith_trace_id`, `status`, `error_code`, `error_message`, `created_at`. Indexes on `(organisation_id, created_at)`, `(review_id)`, `(status)`.
+
+**`AiPricing`** is **time-versioned**: `model`, `input_token_price_per_1m`, `output_token_price_per_1m`, `cached_token_price_per_1m`, `effective_from`, `effective_to` (nullable for current). Unique on `(model, effective_from)`.
+
+Cost calculation runs at log time using the active pricing record. **Historical pricing changes do NOT retroactively change historical costs** — `estimated_cost_usd` is locked-in at write time.
+
+```python
+# apps/integrations/openai/pricing.py
+from decimal import Decimal
+from apps.integrations.openai.models import AiPricing
+
+def calculate_cost(*, model: str, prompt_tokens: int, completion_tokens: int,
+                   cached_tokens: int = 0) -> Decimal:
+    pricing = AiPricing.objects.get_active(model=model)
+    non_cached_input = prompt_tokens - cached_tokens
+    cost = (
+        Decimal(non_cached_input) / 1_000_000 * pricing.input_token_price_per_1m
+        + Decimal(cached_tokens)   / 1_000_000 * pricing.cached_token_price_per_1m
+        + Decimal(completion_tokens) / 1_000_000 * pricing.output_token_price_per_1m
+    )
+    return cost.quantize(Decimal("0.000001"))
+```
+
+### 14.4 Pricing maintenance
+
+- Pricing rows are managed via Django admin (Phase 3) or a dedicated Superadmin UI (future phase).
+- Adding a new pricing row sets `effective_from = now()` and updates the previous row's `effective_to`.
+- **Never edit a historical pricing row in place.** Add a new row instead.
+- Initial seed data: GPT-4o-mini at the model's published rates as of model release. Stored as `Decimal` to avoid floating-point drift.
+
+### 14.5 LangSmith tracing
+
+- Every OpenAI call is wrapped with the LangSmith Python SDK.
+- LangSmith API key in env / Secret Manager. Project name: `review-platform-{environment}`.
+- Trace metadata includes: `organisation_id`, `review_id`, `shop_id`, `model`, `request_type`.
+- The `langsmith_trace_id` is captured from the SDK response and persisted on `AiUsageLog` so support can cross-reference traces from a usage log row.
+- **LangSmith is best-effort, not blocking.** If LangSmith is unreachable, the OpenAI call still proceeds. Tracing failure is logged at WARNING; the OpenAI call's success is unaffected.
+
+### 14.6 Failure handling
+
+- **OpenAI rate limit (429) or 5xx** → retry up to 3 times with exponential backoff (30s, 2min, 10min).
+- **OpenAI 4xx other than 429** (e.g., context length exceeded) → no retry. Mark `Review.enrichment_status = FAILED` with error code. Record on `AiUsageLog`.
+- **JSON parse failure** (Pydantic validation) → retry once. If still bad, mark `FAILED`.
+- Failed enrichments do NOT block the review from appearing in the Reviews list.
+- The `retry_failed_enrichments_task` (Beat-scheduled every 6 hours) re-attempts `FAILED` reviews up to 3 total attempts before giving up permanently.
+
+### 14.7 Idempotency
+
+`enrich_review(review_id)` follows the three-layer pattern in §12.4. The Redis lock is `lock:enrich:review:{review_id}`. If the review's `enrichment_status` is already `SUCCESS`, the function returns immediately — **no OpenAI call, no cost incurred**. This is critical because the same review may be re-fetched by Google sync and shouldn't be re-billed.
+
+### 14.8 Settings additions
+
+```python
+# config/settings/base.py
+OPENAI_API_KEY = env("OPENAI_API_KEY")
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini-2024-07-18")
+OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
+
+LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
+LANGSMITH_PROJECT = env("LANGSMITH_PROJECT", default=f"review-platform-{ENVIRONMENT}")
+LANGSMITH_ENABLED = bool(LANGSMITH_API_KEY)
+
+INITIAL_SYNC_PAGE_SIZE = env.int("INITIAL_SYNC_PAGE_SIZE", default=50)
+ENRICHMENT_BATCH_SIZE = env.int("ENRICHMENT_BATCH_SIZE", default=10)
+INCREMENTAL_SYNC_INTERVAL_HOURS = env.int("INCREMENTAL_SYNC_INTERVAL_HOURS", default=6)
+INCREMENTAL_SYNC_JITTER_MINUTES = env.int("INCREMENTAL_SYNC_JITTER_MINUTES", default=30)
+```
+
+### 14.9 Required dependencies
+
+```toml
+[project.dependencies]
+celery = "^5.4.0"
+django-celery-beat = "^2.7.0"
+channels = "^4.2.0"
+channels-redis = "^4.2.0"
+daphne = "^4.1.0"
+openai = "^1.55.0"
+langsmith = "^0.2.0"
+tenacity = "^9.0.0"
+pydantic = "^2.10.0"
+```
+
+### 14.10 Testing
+
+- **Never hit real OpenAI in tests.** Mock the client using `respx` or a fake response factory.
+- Use deterministic GPT response fixtures stored in `apps/integrations/openai/tests/fixtures/`.
+- Unit tests for `pricing.py` cover boundary cases: zero cached tokens, all-cached prompt, pricing transition mid-month.
+- Integration tests for `enrichment.py` cover: success path, retry-then-success, malformed-JSON-then-success, permanent failure, idempotency (calling twice = one usage log row).
+
+---
+## 15. Transactional Email — Amazon SES
 
 All outbound email goes through Amazon SES. This covers Org Admin invitations, invitation resends, password resets, and any future notification emails.
 
-### 12.1 Integration approach
+### 15.1 Integration approach
 
 Use `django-ses` as the email backend — it plugs into Django's standard email API so nothing in the application code needs to know about SES specifically. Services call `send_mail()` or `EmailMultiAlternatives.send()` and the backend handles the SES API call.
 
@@ -507,7 +966,7 @@ AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default=None)
 AWS_SES_CONFIGURATION_SET = env("AWS_SES_CONFIGURATION_SET", default=None)
 ```
 
-### 12.2 Local development
+### 15.2 Local development
 
 - **Never send real email from local dev.** Use MailHog (already in `docker-compose.yml`) by overriding the backend in `config/settings/local.py`:
   ```python
@@ -518,14 +977,14 @@ AWS_SES_CONFIGURATION_SET = env("AWS_SES_CONFIGURATION_SET", default=None)
   ```
 - In `config/settings/test.py`, use `django.core.mail.backends.locmem.EmailBackend` so tests capture outgoing mail in `django.core.mail.outbox`.
 
-### 12.3 From-address & domain setup
+### 15.3 From-address & domain setup
 
 - **Production from-address:** `noreply@<your-domain>` — must be verified in SES.
 - **Domain verification:** complete DKIM + SPF records in DNS before going live. Without DKIM, emails land in spam.
 - **Start in the SES sandbox** (can only send to verified addresses). Request production access from AWS before launch.
 - **Reply-to:** set a monitored mailbox (e.g. `support@<your-domain>`) so users can reply.
 
-### 12.4 Service-layer usage
+### 15.4 Service-layer usage
 
 Wrap `send_mail` in a thin service — never call Django's email API directly from views.
 
@@ -564,7 +1023,7 @@ def send_transactional_email(
     msg.send(fail_silently=False)
 ```
 
-### 12.5 Templates
+### 15.5 Templates
 
 - Store email templates under `templates/emails/<name>.html` and `templates/emails/<name>.txt`.
 - Always ship **both** plain-text and HTML versions. SES penalises HTML-only senders.
@@ -572,33 +1031,26 @@ def send_transactional_email(
 - Inline CSS (use `premailer` or `django-premailer`) — email clients ignore `<style>` blocks inconsistently.
 - Keep HTML width at **600px** max for mobile compatibility.
 
-### 12.6 Sending must be resilient and async-safe
+### 15.6 Sending must be resilient and async-safe
 
 - **Never block a web request on `send()` for more than a single attempt.** Wrap the call in try/except and log failures.
-- In Phase 1 the invitation email is small enough to send synchronously. If latency becomes noticeable, move sending to Django 6's built-in Tasks framework:
-  ```python
-  from django.tasks import task
+- In Phase 1 the invitation email is small enough to send synchronously. If latency becomes noticeable, move sending to a Celery task (Phase 3+).
+- In Phase 3+, Celery tasks wrap the same service function. No logic duplication.
 
-  @task()
-  def send_invitation_email_task(invitation_id: int) -> None:
-      ...
-  ```
-- In Phase 2+, Celery tasks wrap the same service function. No logic duplication.
-
-### 12.7 Bounces, complaints, and suppression
+### 15.7 Bounces, complaints, and suppression
 
 - Configure an SNS topic for SES bounce, complaint, and delivery notifications.
 - Set up an internal webhook endpoint (e.g. `/webhooks/ses/`) secured by SNS signature verification.
 - On hard bounce or complaint: mark the user's email as `email_suppressed=True`. Do not attempt to send to suppressed addresses again.
 - Never remove suppressions automatically — requires manual review or user-driven re-opt-in.
 
-### 12.8 Rate limits & throttling
+### 15.8 Rate limits & throttling
 
 - SES has account-level send quotas (starts at 200/day in sandbox, scales after production access).
 - Use Redis (see §7) to track per-minute send counts as a safety net — circuit-break and log if the app approaches the SES limit.
 - Batch transactional sends are **not** appropriate here; every email is triggered by a discrete user event.
 
-### 12.9 Security
+### 15.9 Security
 
 - IAM policy for the SES user must be minimal:
   ```json
@@ -618,13 +1070,13 @@ def send_transactional_email(
 - Rotate the IAM access key every 90 days.
 - All email templates must render user-supplied values through Django's auto-escaping templating — never use `|safe` on user input in emails.
 
-### 12.10 Observability
+### 15.10 Observability
 
 - Log every send with a structured record: `{event: "email.sent", template, to_hash, message_id}`. Hash recipient emails in logs — don't store raw addresses in log aggregators.
 - Monitor the SES dashboard for bounce rate (must stay below 5%) and complaint rate (must stay below 0.1%) — exceeding these thresholds leads to SES suspension.
 - Alert via Better Stack / Datadog if bounce rate > 3% or complaint rate > 0.05% over a 24-hour window.
 
-### 12.11 Required dependencies
+### 15.11 Required dependencies
 
 ```toml
 [project.dependencies]
@@ -633,7 +1085,7 @@ boto3 = "^1.35.0"
 premailer = "^3.10.0"     # for CSS inlining at send time if not done at build time
 ```
 
-### 12.12 Testing
+### 15.12 Testing
 
 - Use `django.core.mail.backends.locmem.EmailBackend` in tests.
 - Every email-sending service must have a test asserting:
@@ -645,7 +1097,7 @@ premailer = "^3.10.0"     # for CSS inlining at send time if not done at build t
 
 ---
 
-## 13. Testing
+## 16. Testing
 
 - **Framework:** `pytest` + `pytest-django`.
 - **Factories:** `factory-boy`. One factory per model in `apps/<app>/tests/factories.py`.
@@ -653,11 +1105,14 @@ premailer = "^3.10.0"     # for CSS inlining at send time if not done at build t
 - **Structure:** one test file per module (`test_services.py`, `test_selectors.py`, `test_views.py`).
 - **Fast tests:** disable migrations in test settings (`MIGRATION_MODULES` → disabled) and use `--reuse-db`.
 - **Query-count tests:** every list endpoint must have a test that asserts a fixed query count regardless of result size (see §6.9).
-- **Never hit external APIs in tests.** Mock the Google client using `responses` or `respx`.
+- **Never hit external APIs in tests.** Mock the Google client using `responses` or `respx`. Mock the OpenAI client (Phase 3+) the same way.
+- **Celery tests:** `CELERY_TASK_ALWAYS_EAGER = True` in test settings. Test the service function directly, not the task wrapper.
+- **Channels tests:** use `channels.testing.WebsocketCommunicator` for consumer tests. Cover authenticated, unauthenticated, and cross-tenant connection attempts.
+- **AI cost tests:** `pricing.py` has unit tests covering: zero cached tokens, all-cached prompt, mid-window pricing transition, decimal precision.
 
 ---
 
-## 14. Pre-commit Rules
+## 17. Pre-commit Rules
 
 All code must pass pre-commit hooks before merge. Install once with `pre-commit install`.
 
@@ -790,7 +1245,7 @@ django_settings_module = "config.settings.local"
 
 ---
 
-## 15. Git & Commit Conventions
+## 18. Git & Commit Conventions
 
 - **Branch naming:** `feat/`, `fix/`, `chore/`, `refactor/`, `docs/` prefixes. e.g. `feat/org-list-filters`.
 - **Commit messages:** Conventional Commits.
@@ -802,7 +1257,7 @@ django_settings_module = "config.settings.local"
 
 ---
 
-## 16. CI/CD (GitHub Actions)
+## 19. CI/CD (GitHub Actions)
 
 `.github/workflows/ci.yml` must run on every PR and include:
 1. `pre-commit run --all-files`
@@ -810,37 +1265,43 @@ django_settings_module = "config.settings.local"
 3. `pytest --cov=apps --cov-fail-under=85`
 4. `python manage.py makemigrations --check --dry-run`
 5. `python manage.py check --deploy` (production settings)
+6. Celery smoke test — verify a sample task completes within 30 seconds via the eager runner (Phase 3+)
 
 `.github/workflows/deploy.yml` runs on merge to `main`:
 1. Build Docker image
 2. Push to Google Artifact Registry
-3. Deploy to Cloud Run (staging)
+3. Deploy **all three services** (web, worker, beat) to Cloud Run (staging) — Phase 3+
 4. Run smoke tests
 5. Manual approval gate → production deploy
 
 ---
 
-## 17. Docker
+## 20. Docker
 
 - **Base image:** `python:3.12-slim` (multi-stage build).
 - **Non-root user** in the final image.
 - **`.dockerignore`** must exclude: `.git`, `.venv`, `node_modules`, `__pycache__`, `.env*`, `media/`.
-- **Healthcheck endpoint:** `/healthz/` returns 200, `/readyz/` checks DB + Redis.
-- **docker-compose** for local dev runs: `web`, `db` (postgres:16), `redis` (redis:7-alpine), `mailhog` (captures outgoing email locally — see §12.2).
+- **Healthcheck endpoint:** `/healthz/` returns 200, `/readyz/` checks DB + Redis (and Channels layer in Phase 3+).
+- **Single image, multiple entry commands.** The same image runs `web`, `worker`, and `beat` services with different `CMD`:
+  - Web: `daphne -b 0.0.0.0 -p 8000 config.asgi:application` (Phase 3+; previously `gunicorn config.wsgi`)
+  - Worker: `celery -A config worker -Q google-sync,ai-enrichment,default --concurrency=8`
+  - Beat: `celery -A config beat --scheduler django_celery_beat.schedulers:DatabaseScheduler`
+- **docker-compose** for local dev runs: `web`, `db` (postgres:16), `redis` (redis:7-alpine), `mailhog` (captures outgoing email locally — see §15.2). Phase 3+ adds: `worker`, `beat`, optionally `flower` (port 5555).
 
 ---
 
-## 18. Logging & Monitoring
+## 21. Logging & Monitoring
 
 - Use **structured JSON logging** in production (`python-json-logger`).
 - Include `request_id`, `user_id`, `organisation_id` in every log record via middleware.
-- **Sentry:** auto-capture unhandled exceptions. Scrub PII (emails, names) before send.
-- **Better Stack / Datadog:** ship logs via sidecar or direct HTTP. Tag by environment and service.
-- **Never log:** passwords, tokens, API keys, full request bodies of auth endpoints.
+- **Sentry:** auto-capture unhandled exceptions in web AND Celery worker processes. Scrub PII (emails, names) before send.
+- **Better Stack / Datadog:** ship logs via sidecar or direct HTTP. Tag by environment and service (web / worker / beat).
+- **Phase 3+ metrics:** queue depth per Celery queue, task throughput, task latency p50/p95/p99, retry rate, failure rate, OpenAI token consumption per organisation per day, sync completion time per shop.
+- **Never log:** passwords, tokens, API keys, full request bodies of auth endpoints, raw OpenAI prompts containing PII, AWS credentials, OAuth refresh tokens.
 
 ---
 
-## 19. Security Checklist (enforced in CI where possible)
+## 22. Security Checklist (enforced in CI where possible)
 
 - `DEBUG = False` in production
 - `SECURE_SSL_REDIRECT = True`, `SESSION_COOKIE_SECURE = True`, `CSRF_COOKIE_SECURE = True`
@@ -852,14 +1313,18 @@ django_settings_module = "config.settings.local"
 - `pip-audit` / `safety` in CI for CVE scanning
 - Never use `mark_safe` on untrusted input
 - Always use DRF serializer validation; never trust `request.data` directly
+- **Phase 3+:** every Celery task that handles user-scoped data verifies `organisation_id` matches the entity it's operating on
+- **Phase 3+:** every Channels consumer enforces auth + tenant scope on connect (see §13.4)
+- **Phase 3+:** Flower is never deployed to production
+- **Phase 3+:** OpenAI prompts containing review content must NOT be logged at INFO or above (treat review text as user PII)
 
 ---
 
-## 20. Common Commands
+## 23. Common Commands
 
 ```bash
 # Local dev
-make up                  # docker-compose up
+make up                  # docker-compose up (web, db, redis, mailhog, worker, beat)
 make migrate             # run migrations
 make makemigrations      # create new migrations
 make shell               # django shell
@@ -867,29 +1332,35 @@ make test                # pytest
 make lint                # pre-commit run --all-files
 make typecheck           # mypy .
 make seed                # load fixtures / demo data
+make worker              # run a celery worker locally
+make beat                # run celery beat locally
+make flower              # run flower locally on :5555
 
 # Inside container
 python manage.py createsuperuser
-python manage.py fetch_google_reviews --store-id=<id>
 python manage.py refresh_google_tokens
+celery -A config inspect active           # show running Celery tasks
+celery -A config inspect reserved         # show queued tasks
 ```
 
 ---
 
-## 21. When You (Claude Code) Are Asked to Add Code
+## 24. When You (Claude Code) Are Asked to Add Code
 
 Follow this order, every time:
 
-1. **Read** the relevant app's existing `models.py`, `services/`, `selectors/`, `views.py` before writing anything.
+1. **Read** the relevant app's existing `models.py`, `services/`, `selectors/`, `views.py`, `tasks.py`, `consumers.py` before writing anything.
 2. **Add models** → create migration → verify migration is reversible.
 3. **Write services and selectors** with full type annotations.
 4. **Write tests first** for services and selectors. Factories go in `tests/factories.py`.
 5. **Wire up serializers and views.** Keep them thin.
 6. **Add URLs** under the app's `urls.py`, include in `config/urls.py`.
 7. **Add permissions.** Never ship a new view without an explicit permission class.
-8. **Verify query counts.** Add a `CaptureQueriesContext` test for every list endpoint.
-9. **Add/update** the OpenAPI schema (via `drf-spectacular`).
-10. **Run** `pre-commit run --all-files` and `pytest` before declaring done.
+8. **For background work (Phase 3+):** add a thin Celery task that calls the service. Choose the right queue. Configure retries.
+9. **For real-time (Phase 3+):** if a new Channels consumer is needed, update §13 and get explicit sign-off — Channels surface area must stay small.
+10. **Verify query counts.** Add a `CaptureQueriesContext` test for every list endpoint.
+11. **Add/update** the OpenAPI schema (via `drf-spectacular`).
+12. **Run** `pre-commit run --all-files` and `pytest` before declaring done.
 
 ### Never
 - Skip tests "because it's small"
@@ -900,10 +1371,16 @@ Follow this order, every time:
 - Use `print()` for debugging — use `logger`
 - Commit a `.env` file
 - Disable a pre-commit hook without discussion
+- Put business logic inside Celery task bodies (Phase 3+) — use service functions
+- Add a new Channels consumer without updating §13 first (Phase 3+)
+- Bypass the `AiUsageLog` write when calling OpenAI (Phase 3+)
+- Hit OpenAI in tests without mocking (Phase 3+)
+- Run multiple Celery Beat instances (Phase 3+)
+- Deploy Flower to production (Phase 3+)
 
 ---
 
-## 22. Brand Assets & Logo
+## 25. Brand Assets & Logo
 
 All logo and favicon files live in `logo/` at the repo root.
 
