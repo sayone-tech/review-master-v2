@@ -99,6 +99,42 @@ services:
       - .:/app
       - web_venv:/app/.venv
 
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "uv sync --frozen && celery -A config beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: dev-insecure-secret
+      DATABASE_URL: postgres://app:app@db:5432/reviewmaster
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - web_venv:/app/.venv
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "uv sync --frozen && celery -A config flower --port=5555"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DATABASE_URL: postgres://app:app@db:5432/reviewmaster
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - worker
+    ports:
+      - "5555:5555"
+    volumes:
+      - .:/app
+      - web_venv:/app/.venv
+
 volumes:
   postgres_data:
   vite_node_modules:
