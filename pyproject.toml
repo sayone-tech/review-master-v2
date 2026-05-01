@@ -19,6 +19,8 @@ dependencies = [
   "boto3==1.35.0",
   "httpx==0.28.1",
   "tenacity==9.1.4",
+  "celery==5.6.3",
+  "django-celery-beat==2.9.0",
 ]
 
 [dependency-groups]
@@ -34,6 +36,8 @@ dev = [
   "djangorestframework-stubs==3.15.1",
   "bandit[toml]==1.8.0",
   "django-debug-toolbar==4.4.6",
+  "flower==2.0.1",
+  "pytest-asyncio==1.1.0",
 ]
 
 [tool.ruff]
@@ -91,6 +95,14 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["httpx.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "kombu.*", "billiard.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["django_celery_beat.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]

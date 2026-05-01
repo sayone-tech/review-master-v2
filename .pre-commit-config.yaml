@@ -44,6 +44,8 @@ repos:
           - django-sequences==3.0
           - httpx==0.28.1
           - tenacity==9.1.4
+          - celery==5.6.3
+          - django-celery-beat==2.9.0
         args: [--config-file=pyproject.toml]
 
   - repo: https://github.com/PyCQA/bandit
