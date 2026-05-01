@@ -118,6 +118,23 @@ CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
+# ---------------------------------------------------------------------------
+# Django Channels (introduced Phase 10) — channel layer DB 5
+# See CLAUDE.md §13 for full architecture notes.
+# WebSocket scope is intentionally narrow: only SyncProgressConsumer.
+# ---------------------------------------------------------------------------
+ASGI_APPLICATION = "config.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [env("REDIS_URL", default="redis://redis:6379") + "/5"],
+            "capacity": 1500,
+            "expiry": 30,
+        },
+    },
+}
+
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/admin/organisations/"

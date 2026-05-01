@@ -109,6 +109,10 @@ module = ["django_celery_beat.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["channels.*", "channels_redis.*", "daphne.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["django_redis.*"]
 ignore_missing_imports = true
 
@@ -119,6 +123,7 @@ django_settings_module = "config.settings.test"
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]
 addopts = "--strict-markers --tb=short -q"
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["apps"]

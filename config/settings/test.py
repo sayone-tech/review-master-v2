@@ -55,3 +55,10 @@ DJANGO_VITE = {
 # See CLAUDE.md §12.8 and §16
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# Channels — in-memory layer for tests (no Redis required)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
