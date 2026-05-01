@@ -42,13 +42,22 @@ Declared values (multiples of 4 only):
 | 2xl | 48px | Empty state vertical centering padding |
 | 3xl | 64px | Page-level — not used in this phase |
 
-Exceptions (inherited from shared components — do not override):
-- Modal header top padding: inherits Modal.tsx — `pt-[22px]`
-- Table cell vertical padding: inherits DataTable.tsx — `py-[14px]`
-- Table header vertical padding: inherits DataTable.tsx — `py-[11px]`
+Additional sizing values that are multiples of 4:
 - Progress bar height: `h-2` (8px) — matches existing progress bar pattern
 - Touch targets for icon-only buttons: minimum 32px (`w-8 h-8`) matching Phase 8/9 pattern
 - Topbar badge: 20px × 20px (`w-5 h-5`)
+
+---
+
+## Inherited Component Constraints (pre-existing — not Phase 11 spacing decisions)
+
+These are read-only values inherited from already-built shared components (Modal.tsx, DataTable.tsx). They are not new design decisions introduced by Phase 11 and must not be overridden.
+
+| Value | Source component | Context |
+|-------|-----------------|---------|
+| `pt-[22px]` | Modal.tsx | Modal header top padding |
+| `py-[14px]` | DataTable.tsx | Table cell vertical padding |
+| `py-[11px]` | DataTable.tsx | Table header vertical padding |
 
 ---
 
@@ -207,7 +216,7 @@ Active filter chips (appear below filter bar when any filter is active):
 | 5 | `sentiment` | SENTIMENT | 80px skeleton | `SentimentBadge` — shown after enrichment; "Analyzing..." pill during PENDING; red AlertCircle on FAILED |
 | 6 | `reply_status` | REPLY | 80px skeleton | `ReplyStatusBadge` — "Replied" (green) or "Not Replied" (amber) |
 | 7 | `reply_cta` | (empty label) | 100px | "Reply" button (yellow, `bg-yellow text-black text-[12px] font-semibold px-3 py-1 rounded-md hover:bg-yellow-hover`) — visible only on unreplied rows; empty cell otherwise |
-| 8 | row actions | (empty label) | 48px | `•••` menu — "View reply" (if replied), "Copy review text" |
+| 8 | row actions | (empty label) | 48px | `•••` menu — `aria-label="More actions for this review"` — "View reply" (if replied), "Copy review text" |
 
 **Row expand — Reply Composer (ReplyComposer):**
 
@@ -406,51 +415,51 @@ Events dispatched from `TopbarSyncIndicator`:
 
 ## Copywriting Contract
 
-| Element | Copy |
-|---------|------|
-| Primary CTA (page sort) | "Newest first" (default sort label) |
-| Primary CTA (reply row) | "Reply" |
-| Primary CTA (composer submit) | "Submit Reply" (loading: "Submitting…") |
-| Primary CTA (empty state A) | "Go to Shops" |
-| Empty state A heading | "No connected shops yet" |
-| Empty state A body (Org Admin) | "Connect a shop to Google to start syncing reviews." |
-| Empty state A body (Staff) | "Ask your administrator to connect a shop." |
-| Empty state B heading | "No reviews yet" |
-| Empty state B body | "Reviews will appear here once your sync completes." |
-| Empty state C heading | "No reviews match your filters" |
-| Empty state C body | "Try adjusting your filters or search terms." |
-| Empty state C CTA | "Clear Filters" |
-| Reply composer cancel | "Discard Reply" |
-| Reply success toast | "Reply posted." |
-| Reply error banner | "Failed to post reply. Please try again." |
-| Reply throttle error | "You're replying too quickly. Please wait a moment." |
-| Reply success row label | "Replied on {date}" |
-| Progress modal title | "Syncing {shop_name} Reviews" |
-| Progress modal subtitle | "We're fetching your reviews from Google. This may take a few minutes." |
-| Progress fetch label | "Fetched from Google" |
-| Progress AI label | "Processed with AI" |
-| Progress ETA | "About N minutes left" |
-| Progress AI placeholder | "Will be processed after sync completes" |
-| Progress last-update | "Last updated N seconds ago" |
-| Progress "run in background" | "Run in background" |
-| Progress "view shop details" | "View Shop Details" |
-| Progress complete heading | "Sync complete" |
-| Progress complete body | "Fetched {total_fetched} reviews in {duration}." |
-| Progress error heading | "Sync paused" |
-| Progress error body (generic) | "We'll retry automatically. Click Reconnect Google if you've revoked access." |
-| Progress error body (invalid_grant) | "Your Google connection has expired." |
-| Progress reconnect button | "Reconnect Google" |
-| Topbar badge tooltip (singular) | "1 shop syncing reviews" |
-| Topbar badge tooltip (plural) | "N shops syncing reviews" |
-| Topbar dropdown "view progress" | "View progress" |
-| Topbar dropdown "view error" | "View error" |
-| Enrichment analyzing pill | "Analyzing..." |
-| Enrichment failed tooltip | "AI analysis failed. Will retry automatically." |
-| Anonymous reviewer | "Anonymous" |
-| "Show more" toggle | "Show more" |
-| "Show less" toggle | "Show less" |
-| Filter chip clear all | "Clear all" |
-| Char counter approaching limit | "{n} / 4000" (turns red at 3900+) |
+| Element | Copy | Notes |
+|---------|------|-------|
+| Primary CTA (page sort) | "Newest first" (default sort label) | |
+| Primary CTA (reply row) | "Reply" | Single word is context-sufficient: the review row already shows reviewer name, star rating, and review content. "Reply to Review" would be redundant in this dense table layout where every row is a review. |
+| Primary CTA (composer submit) | "Submit Reply" (loading: "Submitting…") | |
+| Primary CTA (empty state A) | "Go to Shops" | |
+| Empty state A heading | "No connected shops yet" | |
+| Empty state A body (Org Admin) | "Connect a shop to Google to start syncing reviews." | |
+| Empty state A body (Staff) | "Ask your administrator to connect a shop." | |
+| Empty state B heading | "No reviews yet" | |
+| Empty state B body | "Reviews will appear here once your sync completes." | |
+| Empty state C heading | "No reviews match your filters" | |
+| Empty state C body | "Try adjusting your filters or search terms." | |
+| Empty state C CTA | "Clear Filters" | |
+| Reply composer cancel | "Discard Reply" | |
+| Reply success toast | "Reply posted." | |
+| Reply error banner | "Failed to post reply. Please try again." | |
+| Reply throttle error | "You're replying too quickly. Please wait a moment." | |
+| Reply success row label | "Replied on {date}" | |
+| Progress modal title | "Syncing {shop_name} Reviews" | |
+| Progress modal subtitle | "We're fetching your reviews from Google. This may take a few minutes." | |
+| Progress fetch label | "Fetched from Google" | |
+| Progress AI label | "Processed with AI" | |
+| Progress ETA | "About N minutes left" | |
+| Progress AI placeholder | "Will be processed after sync completes" | |
+| Progress last-update | "Last updated N seconds ago" | |
+| Progress "run in background" | "Run in background" | |
+| Progress "view shop details" | "View Shop Details" | |
+| Progress complete heading | "Sync complete" | |
+| Progress complete body | "Fetched {total_fetched} reviews in {duration}." | |
+| Progress error heading | "Sync paused" | |
+| Progress error body (generic) | "We'll retry automatically. Click Reconnect Google if you've revoked access." | |
+| Progress error body (invalid_grant) | "Your Google connection has expired." | |
+| Progress reconnect button | "Reconnect Google" | |
+| Topbar badge tooltip (singular) | "1 shop syncing reviews" | |
+| Topbar badge tooltip (plural) | "N shops syncing reviews" | |
+| Topbar dropdown "view progress" | "View progress" | |
+| Topbar dropdown "view error" | "View error" | |
+| Enrichment analyzing pill | "Analyzing..." | |
+| Enrichment failed tooltip | "AI analysis failed. Will retry automatically." | |
+| Anonymous reviewer | "Anonymous" | |
+| "Show more" toggle | "Show more" | |
+| "Show less" toggle | "Show less" | |
+| Filter chip clear all | "Clear all" | |
+| Char counter approaching limit | "{n} / 4000" (turns red at 3900+) | |
 
 **Destructive action summary:**
 
@@ -502,6 +511,7 @@ The `review_list` view also reads `request.GET.get("open_progress")` and passes 
 - Anonymous reviewer: screen-reader text "Anonymous reviewer" (not just "Anonymous")
 - Modal (ProgressModal): inherits `role="dialog" aria-modal="true"` from Modal.tsx; `aria-label="Syncing {shop_name} Reviews"`
 - All icon-only buttons: `aria-label` set explicitly
+- Row actions menu (`•••` button): `aria-label="More actions for this review"`
 - Focus trap: inherited from Modal.tsx (focus-trap-react)
 
 ---
