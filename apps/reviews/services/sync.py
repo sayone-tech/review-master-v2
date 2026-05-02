@@ -42,6 +42,7 @@ from apps.reviews.models import Review
 from apps.reviews.services.progress import (
     clear_progress_snapshot,
     increment_google_token_bucket,
+    token_bucket_depleted,
     write_progress_snapshot,
 )
 from apps.shops.models import Shop
@@ -280,6 +281,14 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
 
         try:
             while True:
+                if token_bucket_depleted():
+                    logger.warning(
+                        "google_token_bucket_depleted shop_id=%s page_count=%s — "
+                        "halting pagination; next Beat tick will retry",
+                        shop_id,
+                        page_count,
+                    )
+                    break
                 increment_google_token_bucket()
                 page = list_reviews(
                     access_token=access_token,
@@ -294,6 +303,19 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                 total_persisted += persisted
                 all_fetched_ids.update(ids)
                 page_count += 1
+
+                AuditLog.objects.create(
+                    organisation_id=shop.organisation_id,
+                    actor=None,
+                    entity_type="review",
+                    entity_id=str(shop.pk),
+                    action="review.fetched",
+                    after_data={
+                        "page": page_count,
+                        "count": persisted,
+                        "trigger": trigger,
+                    },
+                )
 
                 snapshot = {
                     "shop_id": shop_id,
