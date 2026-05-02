@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-05-PLAN.md (SyncProgressConsumer staff-scope tightening + snapshot-on-connect)
-last_updated: "2026-05-02T04:55:34.183Z"
+stopped_at: Completed 11-07-PLAN.md (Reply endpoint + service)
+last_updated: "2026-05-02T04:56:31.346Z"
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 59
-  completed_plans: 49
+  completed_plans: 50
 ---
 
 # Project State
@@ -57,6 +57,7 @@ Plan: 5 of 13
 | Phase 11 P06 | 8 | 2 tasks | 8 files |
 | Phase 11 P04 | 12 | 2 tasks | 3 files |
 | Phase 11 P05 | 10 | 2 tasks | 3 files |
+| Phase 11 P07 | 7 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,8 @@ Recent decisions affecting current work:
 - [Phase 11-05]: StaffAccessScope REGION check guards shop.region_id for None to avoid unnecessary queries when shop has no region
 - [Phase 11-05]: get_progress_snapshot catches NotImplementedError (locmem cache in tests) to keep existing Phase 10 tests green without requiring Redis in CI
 - [Phase 11-05]: test_no_snapshot_sent_when_redis_empty avoids disconnect() after timeout to prevent CancelledError — uses boolean flag pattern instead
+- [Phase 11-07]: Lock TTL = 30s for reply submission — fast synchronous call; prevents double-post without holding lock longer than needed
+- [Phase 11-07]: HTTP status: ReplyConflictError -> 409, ReplyFailedError -> 502 — 409 signals concurrent request conflict; 502 signals upstream Google failure
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T04:55:34.180Z
-Stopped at: Completed 11-05-PLAN.md (SyncProgressConsumer staff-scope tightening + snapshot-on-connect)
+Last session: 2026-05-02T04:56:31.343Z
+Stopped at: Completed 11-07-PLAN.md (Reply endpoint + service)
 Resume file: None

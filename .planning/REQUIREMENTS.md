@@ -63,10 +63,10 @@
 - [ ] **REVW-06**: Each review renders as a card: reviewer name + avatar, star rating, source shop badge (Region • Shop), review date (relative + full timestamp on hover), review text with "Show more" toggle if >1000 chars
 - [ ] **REVW-07**: Sentiment badge (Positive/Neutral/Negative) and tag chips shown on enriched reviews; "Analyzing..." pill shown while enrichment is pending; red exclamation with tooltip on enrichment failure
 - [ ] **REVW-08**: Action item chips on review card; clickable to open Action Item modal
-- [ ] **REVW-09**: Reply section: if replied — shows "Replied on {date}" with yellow check icon and reply text; if not replied — shows "Reply" button that expands inline composer with 4000-char counter
-- [ ] **REVW-10**: Inline reply submit posts to Google synchronously; on success, composer replaced with posted reply view; on failure, inline error banner shown; no local row created on failure
+- [x] **REVW-09**: Reply section: if replied — shows "Replied on {date}" with yellow check icon and reply text; if not replied — shows "Reply" button that expands inline composer with 4000-char counter
+- [x] **REVW-10**: Inline reply submit posts to Google synchronously; on success, composer replaced with posted reply view; on failure, inline error banner shown; no local row created on failure
 - [ ] **REVW-11**: Three empty states: no connected shops (with "Go to Shops" CTA for Org Admin), shops connected but no reviews yet, filters match nothing (with "Clear Filters" CTA)
-- [ ] **REVW-12**: Reply throttle: 30 submissions per minute per user (DRF throttle)
+- [x] **REVW-12**: Reply throttle: 30 submissions per minute per user (DRF throttle)
 - [x] **REVW-13**: Audit log entries written for `review.replied` and `review.reply_failed`
 - [x] **REVW-14**: `GET /api/v1/reviews/` resolves in ≤5 SQL queries regardless of page size; verified by `CaptureQueriesContext` test in CI
 
@@ -187,10 +187,10 @@
 | REVW-06 | Phase 11 | Pending |
 | REVW-07 | Phase 11 | Pending |
 | REVW-08 | Phase 11 | Pending |
-| REVW-09 | Phase 11 | Pending |
-| REVW-10 | Phase 11 | Pending |
+| REVW-09 | Phase 11 | Complete |
+| REVW-10 | Phase 11 | Complete |
 | REVW-11 | Phase 11 | Pending |
-| REVW-12 | Phase 11 | Pending |
+| REVW-12 | Phase 11 | Complete |
 | REVW-13 | Phase 11 | Complete |
 | REVW-14 | Phase 11 | Complete |
 | ENRCH-01 | Phase 12 | Pending |
