@@ -1,6 +1,7 @@
 import { MoreHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import { DataTable, type DataTableColumn } from "../data-table/DataTable";
+import { ActionItemChip } from "./ActionItemChip";
 import { ReplyComposer } from "./ReplyComposer";
 import { ReplyStatusBadge } from "./ReplyStatusBadge";
 import { SentimentBadge } from "./SentimentBadge";
@@ -85,11 +86,16 @@ export function ReviewTable({
       label: "SENTIMENT",
       skeletonWidth: "80px",
       accessor: (r) => (
-        <SentimentBadge
-          sentiment={r.sentiment}
-          enrichmentStatus={r.enrichment_status}
-          tags={r.tags}
-        />
+        <div className="flex flex-col gap-2">
+          <SentimentBadge
+            sentiment={r.sentiment}
+            enrichmentStatus={r.enrichment_status}
+            tags={r.tags}
+          />
+          {r.extracted_action_items.length > 0 && (
+            <ActionItemChip count={r.extracted_action_items.length} />
+          )}
+        </div>
       ),
     },
     {
