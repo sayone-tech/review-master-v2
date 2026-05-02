@@ -21,6 +21,8 @@ def create_shop(
     connection_method: str,
     place_id: str = "",
     google_refresh_token: str = "",
+    google_account_name: str = "",
+    google_location_name: str = "",
     phone: str = "",
     street_address: str = "",
     connection_status: str | None = None,
@@ -45,6 +47,8 @@ def create_shop(
         connection_status=connection_status,
         place_id=place_id,
         google_refresh_token=google_refresh_token or None,
+        google_account_name=google_account_name,
+        google_location_name=google_location_name,
         phone=phone,
         street_address=street_address,
     )

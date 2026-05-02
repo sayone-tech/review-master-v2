@@ -52,6 +52,14 @@ class ShopCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     google_refresh_token = serializers.CharField(
         required=False, allow_blank=True, default="", write_only=True
     )
+    # Phase 11-08: GBP resource names populated from OAuth listing payload.
+    # Optional — frontend may not yet pass these; falls back to empty string.
+    google_account_name = serializers.CharField(
+        max_length=200, required=False, allow_blank=True, default=""
+    )
+    google_location_name = serializers.CharField(
+        max_length=200, required=False, allow_blank=True, default=""
+    )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
