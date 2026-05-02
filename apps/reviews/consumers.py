@@ -1,14 +1,14 @@
-"""SyncProgressConsumer — single Phase 10 WebSocket consumer.
+"""SyncProgressConsumer — single Phase 11 WebSocket consumer.
 
 Auth + tenant scoping per CLAUDE.md §13.4:
   - Unauthenticated  -> close(4401)
   - Cross-tenant     -> close(4403)
   - Same tenant      -> accept, join group, send Redis snapshot
 
-Phase 10: tenant check is org-level (user.organisation_id == shop.organisation_id).
-Phase 11 will tighten to staff-scope (StaffAccessScope filter for STAFF_ADMIN role).
+Phase 11: tenant check tightened to staff-scope (StaffAccessScope filter for
+STAFF_ADMIN role). ORG_ADMIN users continue to access all shops in their org.
 
-See CLAUDE.md §13.2 — this is the ONLY consumer in Phase 10. Adding more
+See CLAUDE.md §13.2 — this is the ONLY consumer in Phase 11. Adding more
 requires updating CLAUDE.md §13 first.
 """
 
@@ -46,16 +46,46 @@ class SyncProgressConsumer(AsyncJsonWebsocketConsumer):  # type: ignore[misc]
 
     @database_sync_to_async  # type: ignore[misc]
     def _user_can_access_shop(self, user: Any, shop_id: Any) -> bool:
-        """Phase 10: org-level tenant scoping.
+        """Phase 11: org-level scope for ORG_ADMIN, StaffAccessScope for STAFF_ADMIN.
 
-        Returns True when the user's organisation_id matches the shop's
-        organisation_id. Phase 11 tightens this to staff-scope filtering.
+        Returns True when:
+          - User's organisation_id matches the shop's organisation_id, AND
+          - If role is STAFF_ADMIN: the user has a SHOP scope for this shop OR a
+            REGION scope covering the shop's region.
+
+        Returns False otherwise.
         """
+        from apps.accounts.models import StaffAccessScope, User
         from apps.shops.models import Shop
 
         try:
-            shop = Shop.objects.only("organisation_id").get(pk=shop_id)
+            shop = Shop.objects.only("organisation_id", "region_id").get(pk=shop_id)
         except Shop.DoesNotExist:
             return False
+
         user_org_id = getattr(user, "organisation_id", None)
-        return user_org_id is not None and shop.organisation_id == user_org_id
+        if user_org_id is None or shop.organisation_id != user_org_id:
+            return False
+
+        role = getattr(user, "role", None)
+        if role != User.Role.STAFF_ADMIN:
+            # Org Admins (and any other role with this org_id) can access all shops in their org.
+            return True
+
+        # STAFF_ADMIN: must have an explicit shop or region scope covering this shop.
+        user_pk: int = user.pk
+        has_shop_scope = StaffAccessScope.objects.filter(
+            user_id=user_pk,
+            scope_type=StaffAccessScope.ScopeType.SHOP,
+            shop_id=shop_id,
+        ).exists()
+        if has_shop_scope:
+            return True
+        region_id: int | None = shop.region_id
+        if region_id is None:
+            return False
+        return StaffAccessScope.objects.filter(
+            user_id=user_pk,
+            scope_type=StaffAccessScope.ScopeType.REGION,
+            region_id=region_id,
+        ).exists()
