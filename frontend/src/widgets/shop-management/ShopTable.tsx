@@ -6,6 +6,7 @@ import { ShopsEmptyStateB } from "./ShopsEmptyStateB";
 import { ShopRowActionsMenu, type RowAction } from "./ShopRowActionsMenu";
 import { useShops } from "./useShops";
 import type { AllocationStatus, ShopRow } from "./types";
+import { ProgressModal } from "../review-management/ProgressModal";
 
 function dispatchShopEvent(name: string, row: ShopRow) {
   window.dispatchEvent(new CustomEvent(name, { detail: row }));
@@ -56,9 +57,10 @@ const inputCls =
 
 interface ShopTableWidgetProps {
   initial: { rows: ShopRow[]; allocation: AllocationStatus; hasRegions: boolean };
+  openProgressShopId?: number | null;
 }
 
-export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
+export function ShopTableWidget({ initial, openProgressShopId }: ShopTableWidgetProps) {
   const {
     rows,
     count,
@@ -74,6 +76,26 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
   } = useShops(initial);
 
   const [searchInput, setSearchInput] = useState(filters.search ?? "");
+
+  const [progressShopId, setProgressShopId] = useState<number | null>(
+    openProgressShopId ?? null,
+  );
+  const [progressShopName, setProgressShopName] = useState<string>("");
+
+  useEffect(() => {
+    if (progressShopId !== null) {
+      const found = rows.find((r) => r.id === progressShopId);
+      setProgressShopName(found?.name ?? `Shop ${progressShopId}`);
+      // Clear ?open_progress from URL so refresh doesn't re-open the modal.
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("open_progress");
+        window.history.replaceState({}, "", url.toString());
+      } catch {
+        // no-op
+      }
+    }
+  }, [progressShopId, rows]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced search — 300 ms
@@ -265,6 +287,15 @@ export function ShopTableWidget({ initial }: ShopTableWidgetProps) {
           </button>
         </div>
       </div>
+
+      {progressShopId !== null && (
+        <ProgressModal
+          open
+          shopId={progressShopId}
+          shopName={progressShopName}
+          onClose={() => setProgressShopId(null)}
+        />
+      )}
     </div>
   );
 }
