@@ -31,7 +31,7 @@
 
 - [ ] **SYNC-01**: Initial backfill task is dispatched immediately after a shop completes Google OAuth; fetches all historical reviews paginated, persisting each page before fetching the next
 - [ ] **SYNC-02**: Incremental sync runs every 6 hours per shop via Celery Beat fan-out; each shop's exact next-sync time is jittered by up to 30 minutes to spread load
-- [ ] **SYNC-03**: Per-shop Redis lock (`lock:google_sync:shop:{shop_id}`, 5-min TTL) prevents concurrent duplicate syncs; task exits cleanly if lock is already held
+- [x] **SYNC-03**: Per-shop Redis lock (`lock:google_sync:shop:{shop_id}`, 5-min TTL) prevents concurrent duplicate syncs; task exits cleanly if lock is already held
 - [x] **SYNC-04**: Reviews are unique on `(shop_id, google_review_id)`; re-fetching an existing review updates it rather than creating a duplicate
 - [x] **SYNC-05**: If a review's text or rating has changed since last fetch, the existing row is updated and `enrichment_status` is reset to `PENDING`
 - [x] **SYNC-06**: Reviews no longer returned by Google are soft-deleted (`deleted_at` set); never hard-deleted
@@ -51,7 +51,7 @@
 - [ ] **PROG-07**: Top-bar indicator turns red with warning icon on permanent sync failure; popover includes "View error" link per failed shop
 - [ ] **PROG-08**: WebSocket client connects to `/ws/sync-progress/?shop_id={id}`; receives `sync.fetch.progress`, `sync.enrichment.progress`, `sync.complete`, and `sync.error` events
 - [ ] **PROG-09**: On WebSocket reconnect, consumer immediately sends the current snapshot from Redis so UI is correct without waiting for the next event
-- [ ] **PROG-10**: Sync progress state persisted in Redis under `sync:progress:{shop_id}` with 24-hour TTL; retained 1 hour after success, 7 days after permanent failure
+- [x] **PROG-10**: Sync progress state persisted in Redis under `sync:progress:{shop_id}` with 24-hour TTL; retained 1 hour after success, 7 days after permanent failure
 
 ### Reviews Module
 
@@ -161,7 +161,7 @@
 | INFRA-11 | Phase 10 | Pending |
 | SYNC-01 | Phase 11 | Pending |
 | SYNC-02 | Phase 11 | Pending |
-| SYNC-03 | Phase 11 | Pending |
+| SYNC-03 | Phase 11 | Complete |
 | SYNC-04 | Phase 11 | Complete |
 | SYNC-05 | Phase 11 | Complete |
 | SYNC-06 | Phase 11 | Complete |
@@ -178,7 +178,7 @@
 | PROG-07 | Phase 11 | Pending |
 | PROG-08 | Phase 11 | Pending |
 | PROG-09 | Phase 11 | Pending |
-| PROG-10 | Phase 11 | Pending |
+| PROG-10 | Phase 11 | Complete |
 | REVW-01 | Phase 11 | Pending |
 | REVW-02 | Phase 11 | Pending |
 | REVW-03 | Phase 11 | Pending |
