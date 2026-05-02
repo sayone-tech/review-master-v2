@@ -85,7 +85,11 @@ export function ReviewTable({
       label: "SENTIMENT",
       skeletonWidth: "80px",
       accessor: (r) => (
-        <SentimentBadge sentiment={r.sentiment} enrichmentStatus={r.enrichment_status} />
+        <SentimentBadge
+          sentiment={r.sentiment}
+          enrichmentStatus={r.enrichment_status}
+          tags={r.tags}
+        />
       ),
     },
     {

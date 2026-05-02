@@ -61,7 +61,7 @@
 - [x] **REVW-04**: Sort selector: Newest first (default), Oldest first, Lowest rating first, Highest rating first
 - [x] **REVW-05**: Pagination with 10/25/50/100 selector (default 10); shows "Showing X–Y of Z" with first/prev/next/last controls
 - [x] **REVW-06**: Each review renders as a card: reviewer name + avatar, star rating, source shop badge (Region • Shop), review date (relative + full timestamp on hover), review text with "Show more" toggle if >1000 chars
-- [x] **REVW-07**: Sentiment badge (Positive/Neutral/Negative) and tag chips shown on enriched reviews; "Analyzing..." pill shown while enrichment is pending; red exclamation with tooltip on enrichment failure
+- [x] **REVW-07**: Sentiment badge (Positive/Neutral/Negative) and tag chips shown on enriched reviews; "Analyzing..." pill shown while enrichment is pending; red exclamation with tooltip on enrichment failure (rendering scaffolding delivered in Phase 11 plan 11-15; tag DATA arrives in Phase 12 ENRCH-14)
 - [ ] **REVW-08**: Action item chips on review card; clickable to open Action Item modal
 - [x] **REVW-09**: Reply section: if replied — shows "Replied on {date}" with yellow check icon and reply text; if not replied — shows "Reply" button that expands inline composer with 4000-char counter
 - [x] **REVW-10**: Inline reply submit posts to Google synchronously; on success, composer replaced with posted reply view; on failure, inline error banner shown; no local row created on failure
@@ -185,7 +185,7 @@
 | REVW-04 | Phase 11 | Complete |
 | REVW-05 | Phase 11 | Complete |
 | REVW-06 | Phase 11 | Complete |
-| REVW-07 | Phase 11 | Complete |
+| REVW-07 | Phase 11 + Phase 12 | Complete (rendering); data via ENRCH-14 |
 | REVW-08 | Phase 11 | Pending |
 | REVW-09 | Phase 11 | Complete |
 | REVW-10 | Phase 11 | Complete |

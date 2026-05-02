@@ -1,5 +1,11 @@
 export type EnrichmentStatus = "PENDING" | "IN_PROGRESS" | "SUCCESS" | "FAILED";
 export type Sentiment = "" | "positive" | "neutral" | "negative";
+export type TagPolarity = "positive" | "neutral" | "negative";
+
+export interface ReviewTag {
+  label: string;
+  polarity: TagPolarity;
+}
 
 export interface ReviewRow {
   id: number;
@@ -20,6 +26,7 @@ export interface ReviewRow {
   is_replied: boolean;
   enrichment_status: EnrichmentStatus;
   sentiment: Sentiment;
+  tags: ReviewTag[];
   created_at: string;
   updated_at: string;
 }
