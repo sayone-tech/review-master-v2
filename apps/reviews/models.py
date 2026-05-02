@@ -67,6 +67,7 @@ class Review(TimeStampedModel):
     enrichment_version = models.PositiveSmallIntegerField(default=0)
     enrichment_attempted_at = models.DateTimeField(null=True, blank=True)
     sentiment = models.CharField(max_length=10, blank=True)
+    tags = models.JSONField(default=list, blank=True)
 
     deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
 

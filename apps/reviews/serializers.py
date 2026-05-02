@@ -35,6 +35,7 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
             "is_replied",
             "enrichment_status",
             "sentiment",
+            "tags",
             "created_at",
             "updated_at",
         ]
