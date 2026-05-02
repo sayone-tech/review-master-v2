@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 12-04-PLAN.md
-last_updated: "2026-05-02T16:36:08.576Z"
+stopped_at: Completed 12-05-PLAN.md
+last_updated: "2026-05-02T16:40:40.454Z"
 progress:
   total_phases: 12
   completed_phases: 9
   total_plans: 69
-  completed_plans: 64
+  completed_plans: 65
 ---
 
 # Project State
@@ -71,6 +71,7 @@ Plan: 8 plans approved (12-01 through 12-08)
 | Phase 12 P08 | 2 | 2 tasks | 2 files |
 | Phase 12 P03 | 4 | 2 tasks | 5 files |
 | Phase 12 P04 | 5 | 2 tasks | 4 files |
+| Phase 12 P05 | 2 | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,7 @@ Recent decisions affecting current work:
 - [Phase 12]: enrichment_version incremented on BOTH success and failure — doubles as attempt counter for retry_failed_enrichments_task cap
 - [Phase 12]: OpenAI call OUTSIDE transaction.atomic() — holding row lock during slow HTTP call is anti-pattern per RESEARCH.md
 - [Phase 12]: OpenAIPermanentError NOT in autoretry_for AND not re-raised — Beat retry_failed_enrichments_task is sole re-attempt mechanism for permanent failures
+- [Phase 12]: Patch path in management command tests targets the bound import in the command module namespace (enrich_existing_reviews.enrich_review_task.delay), not the source module (apps.reviews.tasks.*) — per RESEARCH.md Pitfall 5
 
 ### Pending Todos
 
@@ -153,6 +155,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T16:36:08.573Z
-Stopped at: Completed 12-04-PLAN.md
+Last session: 2026-05-02T16:40:40.451Z
+Stopped at: Completed 12-05-PLAN.md
 Resume file: None
