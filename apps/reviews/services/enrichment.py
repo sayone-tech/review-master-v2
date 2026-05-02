@@ -51,7 +51,11 @@ def _persist_success(
     result: Any,
     usage_data: dict[str, Any],
 ) -> None:
-    """Write SUCCESS state + AiUsageLog row. ENRCH-07 + ENRCH-08 + ENRCH-12."""
+    """Write SUCCESS state + AiUsageLog row. ENRCH-07 + ENRCH-08 + ENRCH-12.
+
+    Phase 12-06: also emits sync.enrichment.progress (and gated sync.complete)
+    AFTER the transaction commits (RESEARCH.md anti-pattern: events inside txns).
+    """
     cost = calculate_cost(
         model=settings.OPENAI_MODEL,
         prompt_tokens=int(usage_data.get("prompt_tokens") or 0),
@@ -84,6 +88,9 @@ def _persist_success(
             status=AiUsageLog.Status.SUCCESS,
         )
 
+    # AFTER commit: emit progress event for the live ProgressModal.
+    _emit_enrichment_progress(review=review)
+
 
 def _persist_failure(
     *,
@@ -114,6 +121,66 @@ def _persist_failure(
             status=AiUsageLog.Status.FAILED,
             error_code=type(exc).__name__,
             error_message=str(exc)[:1000],
+        )
+
+
+def _emit_enrichment_progress(*, review: Review) -> None:
+    """Phase 12 progress emission after a successful enrichment.
+
+    Reads sync:progress:{shop_id} from Redis. If absent (incremental sync with
+    no live ProgressModal client), returns silently — no WebSocket event.
+
+    On success, increments the snapshot's `enriched` counter, writes it back,
+    and emits sync.enrichment.progress. When enriched >= fetched (and
+    fetched > 0), also emits sync.complete — the SOLE source of sync.complete
+    in Phase 12 (CONTEXT.md decision; the fetch loop in sync.py no longer
+    emits it).
+
+    MUST be called AFTER transaction.atomic() commits in _persist_success
+    (RESEARCH.md anti-pattern: do not emit events from within a transaction).
+    """
+    from apps.reviews.services.progress import (
+        read_progress_snapshot,
+        write_progress_snapshot,
+    )
+    from apps.reviews.services.sync import emit_progress_event
+
+    shop_id = review.shop_id
+    snapshot = read_progress_snapshot(shop_id=shop_id)
+    if snapshot is None:
+        # No live progress modal — no WebSocket event needed (e.g. incremental sync).
+        return
+
+    enriched = int(snapshot.get("enriched", 0)) + 1
+    fetched = int(snapshot.get("fetched", 0))
+
+    new_snapshot = {**snapshot, "enriched": enriched}
+    if fetched > 0 and enriched >= fetched:
+        new_snapshot["status"] = "success"
+    else:
+        new_snapshot["status"] = "enriching"
+    write_progress_snapshot(shop_id=shop_id, data=new_snapshot)
+
+    emit_progress_event(
+        shop_id=shop_id,
+        payload={
+            "type": "sync.enrichment.progress",
+            "shop_id": shop_id,
+            "enriched": enriched,
+            "fetched": fetched,
+        },
+    )
+
+    if fetched > 0 and enriched >= fetched:
+        emit_progress_event(
+            shop_id=shop_id,
+            payload={
+                "type": "sync.complete",
+                "shop_id": shop_id,
+                "total_fetched": fetched,
+                "total_enriched": enriched,
+                "duration_seconds": snapshot.get("duration_seconds"),
+            },
         )
 
 

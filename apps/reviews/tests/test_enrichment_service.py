@@ -10,6 +10,10 @@ Mocking strategy:
     to test error handling
   - Patch apps.reviews.services.enrichment.distributed_lock to yield False to
     test lock-not-acquired exit
+
+Phase 12-06: _persist_success now calls _emit_enrichment_progress which reads
+Redis via read_progress_snapshot. The no_progress_snapshot fixture suppresses
+Redis access in these tests by returning None (no live modal = no WebSocket event).
 """
 
 from __future__ import annotations
@@ -30,6 +34,21 @@ from apps.integrations.openai.parser import EnrichmentResult
 from apps.reviews.models import Review
 from apps.reviews.services.enrichment import enrich_review
 from apps.reviews.tests.factories import ReviewFactory
+
+
+@pytest.fixture(autouse=True)
+def no_progress_snapshot():
+    """Phase 12-06: suppress Redis reads in _emit_enrichment_progress.
+
+    _persist_success now calls _emit_enrichment_progress which reads from Redis.
+    Returning None makes the helper exit silently so these tests focus on DB
+    state and AiUsageLog — not WebSocket progress events.
+    """
+    with patch(
+        "apps.reviews.services.progress.read_progress_snapshot",
+        return_value=None,
+    ):
+        yield
 
 
 def _build_result() -> EnrichmentResult:
