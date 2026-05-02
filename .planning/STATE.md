@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-09-PLAN.md (Review management frontend foundation)
-last_updated: "2026-05-02T05:00:00.000Z"
+stopped_at: Completed 11-08-PLAN.md (OAuth->sync pipeline wiring)
+last_updated: "2026-05-02T05:06:15.407Z"
 progress:
   total_phases: 11
   completed_phases: 8
@@ -59,6 +59,7 @@ Plan: 9 of 13
 | Phase 11 P05 | 10 | 2 tasks | 3 files |
 | Phase 11 P07 | 7 | 2 tasks | 5 files |
 | Phase 11 P09 | 2 | 2 tasks | 7 files |
+| Phase 11 P08 | 6 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,9 @@ Recent decisions affecting current work:
 - [Phase 11-09]: Template uses base_org.html + extra_js block pattern (matching shop_list.html) — not base.html with shell includes
 - [Phase 11-09]: ReviewManagementWidget stub added so Plan 09 builds independently; Plan 10 replaces it
 - [Phase 11-09]: useReviews always fetches on mount with DEFAULT_PARAMS (no SSR seeding) — reviews table too dynamic for server-side pre-population
+- [Phase 11-08]: syncing endpoint uses IsOrgScoped — Staff Admins need sync progress visibility for their shops
+- [Phase 11-08]: Task dispatch wrapped in try/except in perform_create — failure logs warning but does not block shop creation
+- [Phase 11-08]: Frontend redirect uses window.location.href — Plan 12 mounts fresh and reads ?open_progress= from URL on init
 
 ### Pending Todos
 
@@ -111,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T05:00:00.000Z
-Stopped at: Completed 11-07-PLAN.md (Reply endpoint + service)
+Last session: 2026-05-02T05:06:15.404Z
+Stopped at: Completed 11-08-PLAN.md (OAuth->sync pipeline wiring)
 Resume file: None

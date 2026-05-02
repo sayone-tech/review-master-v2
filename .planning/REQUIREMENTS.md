@@ -42,12 +42,12 @@
 
 ### Progress UI
 
-- [ ] **PROG-01**: Progress Modal opens automatically after Google OAuth completes; shows two stacked progress bars (Fetched from Google / Processed with AI) with live counters and a "Last update: N seconds ago" line
+- [x] **PROG-01**: Progress Modal opens automatically after Google OAuth completes; shows two stacked progress bars (Fetched from Google / Processed with AI) with live counters and a "Last update: N seconds ago" line
 - [ ] **PROG-02**: Estimated time remaining is computed once at least 2 pages have been fetched; displayed as "About N minutes left"
 - [ ] **PROG-03**: "Run in background" button closes the modal while sync continues; persistent top-bar indicator appears (spinner + count badge)
 - [ ] **PROG-04**: "View shop details" button is enabled only after sync completes (or on error to allow investigation); navigates to Shop Details page
 - [ ] **PROG-05**: Progress Modal error state shows: "Sync paused — {error}. We'll retry automatically. Click Reconnect Google if you've revoked access."
-- [ ] **PROG-06**: Top-bar indicator shows count badge when multiple shops are syncing; tooltip says "N shops syncing reviews"; click opens popover with per-shop progress bars
+- [x] **PROG-06**: Top-bar indicator shows count badge when multiple shops are syncing; tooltip says "N shops syncing reviews"; click opens popover with per-shop progress bars
 - [ ] **PROG-07**: Top-bar indicator turns red with warning icon on permanent sync failure; popover includes "View error" link per failed shop
 - [x] **PROG-08**: WebSocket client connects to `/ws/sync-progress/?shop_id={id}`; receives `sync.fetch.progress`, `sync.enrichment.progress`, `sync.complete`, and `sync.error` events
 - [x] **PROG-09**: On WebSocket reconnect, consumer immediately sends the current snapshot from Redis so UI is correct without waiting for the next event
@@ -169,12 +169,12 @@
 | SYNC-08 | Phase 11 | Complete |
 | SYNC-09 | Phase 11 | Complete |
 | SYNC-10 | Phase 11 | Complete |
-| PROG-01 | Phase 11 | Pending |
+| PROG-01 | Phase 11 | Complete |
 | PROG-02 | Phase 11 | Pending |
 | PROG-03 | Phase 11 | Pending |
 | PROG-04 | Phase 11 | Pending |
 | PROG-05 | Phase 11 | Pending |
-| PROG-06 | Phase 11 | Pending |
+| PROG-06 | Phase 11 | Complete |
 | PROG-07 | Phase 11 | Pending |
 | PROG-08 | Phase 11 | Complete |
 | PROG-09 | Phase 11 | Complete |
