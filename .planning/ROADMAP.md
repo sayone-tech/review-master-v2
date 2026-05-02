@@ -27,7 +27,7 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 
 - [x] **Phase 10: Infrastructure Foundation** — Celery, Beat, Channels, Redis lock helper, retry/backoff utilities — completed 2026-05-01
 - [x] **Phase 11: Reviews Fetching, Display, Reply** — Google review sync, real-time progress UI, Reviews list with filters and reply (completed 2026-05-02)
-- [ ] **Phase 12: AI Enrichment Pipeline** — OpenAI GPT-4o-mini enrichment, AiUsageLog, AiPricing, LangSmith tracing
+- [x] **Phase 12: AI Enrichment Pipeline** — OpenAI GPT-4o-mini enrichment, AiUsageLog, AiPricing, LangSmith tracing (completed 2026-05-02)
 - [ ] **Phase 13: Action Items and Notifications** — Action Items module, manual creation, status workflow, notification bell
 
 ## Phase Details
@@ -117,5 +117,5 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 | 9. Team | v0.2-org-admin | 5/5 | Complete | 2026-04-30 |
 | 10. Infrastructure Foundation | v0.3 | 5/5 | Complete | 2026-05-01 |
 | 11. Reviews Fetching, Display, Reply | 15/15 | Complete    | 2026-05-02 | 2026-05-02 |
-| 12. AI Enrichment Pipeline | 7/8 | In Progress|  | - |
+| 12. AI Enrichment Pipeline | 8/8 | Complete   | 2026-05-02 | - |
 | 13. Action Items and Notifications | v0.3 | 0/TBD | Not started | - |

@@ -88,7 +88,7 @@
 - [ ] **ENRCH-10**: `AiPricing` seed data loaded for GPT-4o-mini at published rates; cost calculation matches hand-computed reference within $0.01 on a verification dataset
 - [x] **ENRCH-11**: LangSmith tracing wraps every OpenAI call; trace metadata includes `organisation_id`, `review_id`, `shop_id`, `model`, `request_type`; if LangSmith is unreachable, the OpenAI call still proceeds
 - [x] **ENRCH-12**: `langsmith_trace_id` captured from SDK response and persisted on `AiUsageLog`
-- [ ] **ENRCH-13**: Existing reviews from Phase 11 are enriched via a one-time post-deployment job
+- [x] **ENRCH-13**: Existing reviews from Phase 11 are enriched via a one-time post-deployment job
 - [x] **ENRCH-14**: Reviews list shows sentiment badges and tag chips for enriched reviews (updates Phase 11 cards)
 
 ---
@@ -205,7 +205,7 @@
 | ENRCH-10 | Phase 12 | Pending |
 | ENRCH-11 | Phase 12 | Complete |
 | ENRCH-12 | Phase 12 | Complete |
-| ENRCH-13 | Phase 12 | Pending |
+| ENRCH-13 | Phase 12 | Complete |
 | ENRCH-14 | Phase 12 | Complete |
 | ACTN-01 | Phase 13 | Pending |
 | ACTN-02 | Phase 13 | Pending |
