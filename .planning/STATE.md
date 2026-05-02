@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-07-PLAN.md (Reply endpoint + service)
-last_updated: "2026-05-02T04:56:31.346Z"
+stopped_at: Completed 11-09-PLAN.md (Review management frontend foundation)
+last_updated: "2026-05-02T05:00:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 59
-  completed_plans: 50
+  completed_plans: 52
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-01)
 ## Current Position
 
 Phase: 11 (reviews) — EXECUTING
-Plan: 5 of 13
+Plan: 9 of 13
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: 5 of 13
 | Phase 11 P04 | 12 | 2 tasks | 3 files |
 | Phase 11 P05 | 10 | 2 tasks | 3 files |
 | Phase 11 P07 | 7 | 2 tasks | 5 files |
+| Phase 11 P09 | 2 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,9 @@ Recent decisions affecting current work:
 - [Phase 11-05]: test_no_snapshot_sent_when_redis_empty avoids disconnect() after timeout to prevent CancelledError — uses boolean flag pattern instead
 - [Phase 11-07]: Lock TTL = 30s for reply submission — fast synchronous call; prevents double-post without holding lock longer than needed
 - [Phase 11-07]: HTTP status: ReplyConflictError -> 409, ReplyFailedError -> 502 — 409 signals concurrent request conflict; 502 signals upstream Google failure
+- [Phase 11-09]: Template uses base_org.html + extra_js block pattern (matching shop_list.html) — not base.html with shell includes
+- [Phase 11-09]: ReviewManagementWidget stub added so Plan 09 builds independently; Plan 10 replaces it
+- [Phase 11-09]: useReviews always fetches on mount with DEFAULT_PARAMS (no SSR seeding) — reviews table too dynamic for server-side pre-population
 
 ### Pending Todos
 
@@ -107,6 +111,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T04:56:31.343Z
+Last session: 2026-05-02T05:00:00.000Z
 Stopped at: Completed 11-07-PLAN.md (Reply endpoint + service)
 Resume file: None
