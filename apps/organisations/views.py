@@ -187,8 +187,25 @@ def team_list(request: HttpRequest) -> HttpResponse:
     org = user.organisation  # IsOrgAdmin ensures organisation is set
     if org is None:
         return HttpResponseForbidden("Organisation required.")
-    members_qs = list_team_members(organisation_id=org.pk)[:10]
-    members_data = list(TeamMemberReadSerializer(members_qs, many=True).data)
+    per_page_options = (10, 25, 50, 100)
+    default_per_page = 10
+    try:
+        per_page = int(request.GET.get("per_page", default_per_page))
+        if per_page not in per_page_options:
+            per_page = default_per_page
+    except (TypeError, ValueError):
+        per_page = default_per_page
+
+    members_qs = list_team_members(organisation_id=org.pk)
+    paginator = Paginator(members_qs, per_page)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    members_data = list(TeamMemberReadSerializer(list(page_obj.object_list), many=True).data)
+
+    params = request.GET.copy()
+    params["per_page"] = str(per_page)
+    params.pop("page", None)
+    page_url_params = params.urlencode()
+
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
     # XMOD-03 — active shops only for scope selectors
@@ -205,6 +222,10 @@ def team_list(request: HttpRequest) -> HttpResponse:
             "stats": stats,
             "manager_count": stats["managers"],
             "current_user_id": user.pk,
+            "page_obj": page_obj,
+            "per_page": per_page,
+            "per_page_options": list(per_page_options),
+            "page_url_params": page_url_params,
             "page_title": "Team",
         },
     )
