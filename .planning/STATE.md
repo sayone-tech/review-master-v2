@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-11-PLAN.md (ReplyComposer inline accordion)
-last_updated: "2026-05-02T05:44:02.885Z"
+stopped_at: "Completed 11-14-PLAN.md (sync gap closures: token_bucket_depleted + review.fetched audit)"
+last_updated: "2026-05-02T06:12:17.843Z"
 progress:
   total_phases: 11
   completed_phases: 9
-  total_plans: 59
-  completed_plans: 56
+  total_plans: 61
+  completed_plans: 58
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-01)
 ## Current Position
 
 Phase: 11 (reviews) — EXECUTING
-Plan: 9 of 13
+Plan: 1 of 15
 
 ## Performance Metrics
 
@@ -64,6 +64,8 @@ Plan: 9 of 13
 | Phase 11 P12 | 2 | 2 tasks | 3 files |
 | Phase 11 P10 | 30 | 2 tasks | 9 files |
 | Phase 11 P11 | 2 | 2 tasks | 4 files |
+| Phase 11-reviews P14 | 3 | 2 tasks | 2 files |
+| Phase 11 P15 | 149 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -118,6 +120,12 @@ Recent decisions affecting current work:
 - [Phase 11-10]: review:open-composer CustomEvent dispatched from ReviewManagementWidget — Plan 11 reply composer listens via window event
 - [Phase 11-11]: DataTable extended with optional renderExpanded prop (backward-compatible) — ShopTable and TeamTable unaffected
 - [Phase 11-11]: ReplyComposer uses emitToast {kind, title} API matching lib/toast.ts — plan snippet had wrong {type, message} shape (auto-fixed)
+- [Phase 11-reviews]: [Phase 11-14]: token_bucket_depleted() checked BEFORE increment_google_token_bucket() in pagination loop — prevents silent over-counting when halting on depletion
+- [Phase 11-reviews]: [Phase 11-14]: Depletion does NOT raise exception — loop breaks cleanly so Celery marks task SUCCESS; next Beat tick is natural retry mechanism
+- [Phase 11-reviews]: [Phase 11-14]: review.fetched uses entity_type='review' to distinguish per-page fetch events from entity_type='shop_sync' lifecycle events
+- [Phase 11-15]: JSONField chosen over ArrayField(JSONField()) — cross-DB safe for SQLite test runner; stores list-of-dicts natively in jsonb on Postgres
+- [Phase 11-15]: MAX_TAGS=5 enforced at render time in SentimentBadge (UI cap); Phase 12 prompt enforces <=5 at write time independently
+- [Phase 11-15]: REVW-07 now jointly owned: Phase 11 owns rendering scaffolding, Phase 12 ENRCH-14 owns tag data population
 
 ### Pending Todos
 
@@ -129,6 +137,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T05:44:02.882Z
-Stopped at: Completed 11-11-PLAN.md (ReplyComposer inline accordion)
+Last session: 2026-05-02T06:12:11.836Z
+Stopped at: Completed 11-14-PLAN.md (sync gap closures: token_bucket_depleted + review.fetched audit)
 Resume file: None

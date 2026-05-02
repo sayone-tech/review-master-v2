@@ -58,7 +58,7 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
   3. An Org Admin or Staff member can submit a reply via the inline composer; the reply is posted to Google synchronously and the composer is replaced with the posted reply view on success
   4. Re-running sync for a shop updates changed reviews and resets `enrichment_status` to PENDING rather than creating duplicates; soft-deleted reviews are never hard-deleted
   5. `GET /api/v1/reviews/` resolves in 5 or fewer SQL queries regardless of page size, verified in CI
-**Plans**: 13 plans
+**Plans**: 15 plans (13 original + 2 gap closure)
   - [ ] 11-01-PLAN.md — Review/AuditLog models + Shop GBP fields + factories + django-filter (SYNC-04..06, SYNC-10, REVW-13, REVW-14)
   - [ ] 11-02-PLAN.md — Google Reviews API client (list_reviews + post_reply) (SYNC-07..09)
   - [ ] 11-03-PLAN.md — Sync service: fetch_and_persist + run_initial_backfill + Redis progress + token bucket (SYNC-03..07, SYNC-09..10, PROG-10)
@@ -72,6 +72,8 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
   - [ ] 11-11-PLAN.md — Inline ReplyComposer accordion (REVW-09, REVW-10, REVW-12)
   - [ ] 11-12-PLAN.md — ProgressModal + OAuth->modal trigger on Shops page (PROG-01..05, PROG-08, PROG-09)
   - [ ] 11-13-PLAN.md — TopbarSyncIndicator widget + topbar partial + Vite entry (PROG-03, PROG-06, PROG-07, PROG-08)
+  - [ ] 11-14-PLAN.md — Gap closure: token_bucket_depleted gate + review.fetched AuditLog (SYNC-09, SYNC-10)
+  - [ ] 11-15-PLAN.md — Gap closure: Review.tags field + tag chip rendering scaffolding (REVW-07)
 
 ### Phase 12: AI Enrichment Pipeline
 **Goal**: Every fetched review is automatically enriched with sentiment, tags, and action item suggestions by GPT-4o-mini; costs are tracked at log time with immutable pricing, and all calls are traced in LangSmith
@@ -106,6 +108,6 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 | 8. Shops | v0.2-org-admin | 7/7 | Complete | 2026-04-29 |
 | 9. Team | v0.2-org-admin | 5/5 | Complete | 2026-04-30 |
 | 10. Infrastructure Foundation | v0.3 | 5/5 | Complete | 2026-05-01 |
-| 11. Reviews Fetching, Display, Reply | 13/13 | Complete   | 2026-05-02 | - |
+| 11. Reviews Fetching, Display, Reply | 15/15 | Complete   | 2026-05-02 | 2026-05-02 |
 | 12. AI Enrichment Pipeline | v0.3 | 0/TBD | Not started | - |
 | 13. Action Items and Notifications | v0.3 | 0/TBD | Not started | - |
