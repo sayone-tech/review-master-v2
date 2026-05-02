@@ -37,6 +37,7 @@ def patched_dependencies():
         patch.object(sync_mod, "write_progress_snapshot") as wps,
         patch.object(sync_mod, "clear_progress_snapshot"),
         patch.object(sync_mod, "increment_google_token_bucket") as bump,
+        patch.object(sync_mod, "token_bucket_depleted", return_value=False),
         patch.object(sync_mod, "emit_progress_event"),
     ):
         yield {"write_progress_snapshot": wps, "increment_google_token_bucket": bump}
@@ -212,3 +213,60 @@ def test_search_vector_populated_after_persist_page(patched_dependencies) -> Non
         "keyword search works for newly fetched reviews (RESEARCH.md Pitfall 3)"
     )
     assert "search_vector" in search_vector_update_calls[0]
+
+
+def test_review_fetched_audit_logged(patched_dependencies) -> None:
+    """SYNC-10 gap closure: review.fetched AuditLog row is written per persisted page."""
+    shop = _make_shop()
+    page1 = {
+        "reviews": [_api_review("g-1"), _api_review("g-2")],
+        "totalReviewCount": 3,
+        "nextPageToken": "next",
+    }
+    page2 = {
+        "reviews": [_api_review("g-3")],
+        "totalReviewCount": 3,
+    }
+    with patch.object(sync_mod, "list_reviews", side_effect=[page1, page2]):
+        sync_mod.run_initial_backfill(shop_id=shop.pk)
+
+    rows = list(
+        AuditLog.objects.filter(
+            entity_type="review",
+            action="review.fetched",
+            entity_id=str(shop.pk),
+        ).order_by("created_at")
+    )
+    assert len(rows) == 2
+    pages = [r.after_data["page"] for r in rows]
+    counts = [r.after_data["count"] for r in rows]
+    assert pages == [1, 2]
+    assert counts == [2, 1]
+    assert all(r.after_data["trigger"] == "initial" for r in rows)
+
+
+def test_pagination_halts_when_bucket_depleted(patched_dependencies) -> None:
+    """SYNC-09 gap closure: depleted bucket short-circuits the pagination loop."""
+    shop = _make_shop()
+    page = {"reviews": [_api_review("g-1")], "totalReviewCount": 1}
+    with (
+        patch.object(sync_mod, "token_bucket_depleted", return_value=True),
+        patch.object(sync_mod, "list_reviews", return_value=page) as list_mock,
+    ):
+        sync_mod.run_initial_backfill(shop_id=shop.pk)
+
+    assert list_mock.call_count == 0
+    assert (
+        AuditLog.objects.filter(
+            entity_type="review",
+            action="review.fetched",
+            entity_id=str(shop.pk),
+        ).count()
+        == 0
+    )
+    # sync.started is still recorded so the audit trail shows the attempt
+    assert AuditLog.objects.filter(
+        entity_type="shop_sync",
+        action="sync.started",
+        entity_id=str(shop.pk),
+    ).exists()
