@@ -616,3 +616,80 @@ class TestShopsListPagination:
         assert resp.status_code == 200
         # All 15 fit in a single page of 25
         assert len(resp.data["results"]) == 15
+
+
+# ---------------------------------------------------------------------------
+# Phase 11 — initial_backfill_task dispatch + /shops/syncing/ endpoint
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestPhase11BackfillDispatchAndSyncing:
+    def test_create_shop_dispatches_initial_backfill_task(self, org_and_admin):
+        """SYNC-01 + PROG-01: shop create -> task dispatched + open_progress_shop_id in response."""
+        from unittest.mock import patch
+
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+
+        # Seed OAuth state in session
+        state = "test-state-11"
+        _seed_session(client, f"oauth_token:{state}", "fake-refresh-token")
+
+        payload = {
+            "name": "Phase 11 shop",
+            "street_address": "123 Test St",
+            "place_id": "ChIJ_TEST11",
+            "connection_method": "GOOGLE_OAUTH",
+            "google_refresh_token": state,
+            "region": region.pk,
+            "google_account_name": "accounts/123",
+            "google_location_name": "accounts/123/locations/456",
+        }
+        with patch("apps.shops.views.initial_backfill_task") as mock_task:
+            mock_task.delay = MagicMock()
+            resp = client.post("/api/v1/shops/", payload, format="json")
+        assert resp.status_code == 201, resp.data
+        assert "open_progress_shop_id" in resp.data
+        mock_task.delay.assert_called_once()
+        assert mock_task.delay.call_args.kwargs["shop_id"] == resp.data["id"]
+
+    def test_shops_syncing_endpoint_returns_shops_with_redis_key(self, org_and_admin):
+        from unittest.mock import MagicMock, patch
+
+        org, _, client = org_and_admin
+        s1 = ShopFactory(organisation=org)
+        _s2 = ShopFactory(organisation=org)  # second shop — should NOT appear in results
+        fake_redis = MagicMock()
+        fake_redis.exists.side_effect = lambda key: 1 if key == f"sync:progress:{s1.pk}" else 0
+        with patch("apps.shops.views.get_redis_connection", return_value=fake_redis):
+            resp = client.get("/api/v1/shops/syncing/")
+        assert resp.status_code == 200
+        assert resp.data["count"] == 1
+        assert resp.data["shops"][0]["shop_id"] == s1.pk
+
+    def test_shops_syncing_staff_filters_to_accessible_shops(self, db):
+        from unittest.mock import MagicMock, patch
+
+        from apps.accounts.models import StaffAccessScope
+        from apps.accounts.tests.factories import StaffAdminFactory
+
+        org = OrganisationFactory(number_of_stores=5)
+        s1 = ShopFactory(organisation=org)
+        s2 = ShopFactory(organisation=org)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff,
+            scope_type=StaffAccessScope.ScopeType.SHOP,
+            shop=s1,
+        )
+        api_client = APIClient()
+        api_client.force_authenticate(user=staff)
+        fake_redis = MagicMock()
+        fake_redis.exists.return_value = 1
+        with patch("apps.shops.views.get_redis_connection", return_value=fake_redis):
+            resp = api_client.get("/api/v1/shops/syncing/")
+        assert resp.status_code == 200
+        shop_ids = [s["shop_id"] for s in resp.data["shops"]]
+        assert s1.pk in shop_ids
+        assert s2.pk not in shop_ids

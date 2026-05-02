@@ -149,6 +149,16 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
       onCreated(shop);
       reset();
       onClose();
+      // Phase 11 — wire OAuth -> ProgressModal: when backend returns
+      // open_progress_shop_id, redirect with ?open_progress=<id> so Plan 12's
+      // page bootstrap reads the query param and auto-opens the ProgressModal.
+      const openProgressShopId = shop.open_progress_shop_id;
+      if (openProgressShopId) {
+        window.location.href = `/admin/org/shops/?open_progress=${openProgressShopId}`;
+      } else {
+        // Non-OAuth shops (e.g. NOT_CONNECTED) — no sync to track, just refresh.
+        window.location.reload();
+      }
     } catch (err) {
       if (
         err instanceof ApiError &&

@@ -20,6 +20,8 @@ export interface ShopRow {
   region_region_id: string;
   created_at: string;
   updated_at: string;
+  /** Phase 11-08: present on create/reconnect responses when a backfill was dispatched */
+  open_progress_shop_id?: number | null;
 }
 
 export interface AllocationStatus {
