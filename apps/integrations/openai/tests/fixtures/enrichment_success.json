@@ -1,0 +1,20 @@
+{
+  "sentiment": "positive",
+  "tags": [
+    {"label": "fast service", "polarity": "positive"},
+    {"label": "friendly staff", "polarity": "positive"},
+    {"label": "limited menu", "polarity": "neutral"}
+  ],
+  "action_items": [
+    {
+      "title": "Add more vegetarian options to the menu",
+      "scope": "shop",
+      "priority": "medium"
+    },
+    {
+      "title": "Train staff on upselling techniques",
+      "scope": "brand",
+      "priority": "low"
+    }
+  ]
+}
