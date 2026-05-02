@@ -101,3 +101,116 @@ async def test_progress_event_relays_payload() -> None:
     msg = await communicator.receive_json_from(timeout=2)
     assert msg == {"type": "sync.fetch.progress", "fetched": 10}
     await communicator.disconnect()
+
+
+# -------------------------------------------------------------------------
+# Phase 11 — staff-scope rejection + snapshot-on-connect
+# -------------------------------------------------------------------------
+
+
+async def test_staff_user_without_scope_rejected_4403() -> None:
+    from apps.accounts.models import User
+    from apps.regions.tests.factories import RegionFactory
+
+    org = await sync_to_async(OrganisationFactory)()
+    region = await sync_to_async(RegionFactory)(organisation=org)
+    shop = await sync_to_async(ShopFactory)(organisation=org, region=region)
+    staff_user = await sync_to_async(UserFactory)(organisation=org, role=User.Role.STAFF_ADMIN)
+
+    communicator = await _make_communicator(shop.pk, staff_user)
+    connected, code = await communicator.connect()
+    assert connected is False
+    assert code == 4403
+
+
+async def test_staff_user_with_shop_scope_accepted() -> None:
+    from apps.accounts.models import StaffAccessScope, User
+    from apps.regions.tests.factories import RegionFactory
+
+    org = await sync_to_async(OrganisationFactory)()
+    region = await sync_to_async(RegionFactory)(organisation=org)
+    shop = await sync_to_async(ShopFactory)(organisation=org, region=region)
+    staff_user = await sync_to_async(UserFactory)(organisation=org, role=User.Role.STAFF_ADMIN)
+    await sync_to_async(StaffAccessScope.objects.create)(
+        user=staff_user,
+        scope_type=StaffAccessScope.ScopeType.SHOP,
+        shop=shop,
+    )
+
+    communicator = await _make_communicator(shop.pk, staff_user)
+    connected, _ = await communicator.connect()
+    assert connected is True
+    await communicator.disconnect()
+
+
+async def test_staff_user_with_region_scope_accepted() -> None:
+    from apps.accounts.models import StaffAccessScope, User
+    from apps.regions.tests.factories import RegionFactory
+
+    org = await sync_to_async(OrganisationFactory)()
+    region = await sync_to_async(RegionFactory)(organisation=org)
+    shop = await sync_to_async(ShopFactory)(organisation=org, region=region)
+    staff_user = await sync_to_async(UserFactory)(organisation=org, role=User.Role.STAFF_ADMIN)
+    await sync_to_async(StaffAccessScope.objects.create)(
+        user=staff_user,
+        scope_type=StaffAccessScope.ScopeType.REGION,
+        region=region,
+    )
+
+    communicator = await _make_communicator(shop.pk, staff_user)
+    connected, _ = await communicator.connect()
+    assert connected is True
+    await communicator.disconnect()
+
+
+async def test_snapshot_sent_on_connect_when_progress_exists() -> None:
+    from unittest.mock import patch
+
+    org = await sync_to_async(OrganisationFactory)()
+    shop = await sync_to_async(ShopFactory)(organisation=org)
+    user = await sync_to_async(UserFactory)(organisation=org)
+
+    fake_snapshot = {
+        "shop_id": shop.pk,
+        "status": "fetching",
+        "fetched": 12,
+        "total_estimate": 100,
+    }
+
+    # Patch the underlying Redis-backed reader so we don't need a live Redis.
+    with patch(
+        "apps.reviews.services.progress.read_progress_snapshot",
+        return_value=fake_snapshot,
+    ):
+        communicator = await _make_communicator(shop.pk, user)
+        connected, _ = await communicator.connect()
+        assert connected is True
+        msg = await communicator.receive_json_from(timeout=2)
+        assert msg == fake_snapshot
+        await communicator.disconnect()
+
+
+async def test_no_snapshot_sent_when_redis_empty() -> None:
+    from unittest.mock import patch
+
+    org = await sync_to_async(OrganisationFactory)()
+    shop = await sync_to_async(ShopFactory)(organisation=org)
+    user = await sync_to_async(UserFactory)(organisation=org)
+
+    with patch(
+        "apps.reviews.services.progress.read_progress_snapshot",
+        return_value=None,
+    ):
+        communicator = await _make_communicator(shop.pk, user)
+        connected, _ = await communicator.connect()
+        assert connected is True
+        # No snapshot should arrive — assert nothing in 0.2s timeout.
+        received_snapshot = False
+        try:
+            await communicator.receive_json_from(timeout=0.2)
+            received_snapshot = True
+        except Exception:  # noqa: S110
+            pass  # timeout expected — no snapshot was sent
+        assert received_snapshot is False
+        # Note: after a timeout, the communicator may be in a cancelled state.
+        # We simply assert that no message was received without disconnecting.
