@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-12-PLAN.md (ProgressModal WebSocket component)
-last_updated: "2026-05-02T05:10:38.069Z"
+stopped_at: Completed 11-10-PLAN.md (Reviews list UI)
+last_updated: "2026-05-02T05:39:27.575Z"
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 59
-  completed_plans: 54
+  completed_plans: 55
 ---
 
 # Project State
@@ -62,6 +62,7 @@ Plan: 9 of 13
 | Phase 11 P08 | 6 | 2 tasks | 10 files |
 | Phase 11 P13 | 95 | 2 tasks | 4 files |
 | Phase 11 P12 | 2 | 2 tasks | 3 files |
+| Phase 11 P10 | 30 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,10 @@ Recent decisions affecting current work:
 - [Phase 11-12]: ProgressModal mounts inside ShopTableWidget — consistent with how ShopModals manages other modals in the same widget tree
 - [Phase 11-12]: URL param ?open_progress= cleared via history.replaceState immediately after modal opens — prevents re-open on refresh
 - [Phase 11-12]: ETA calculation guards page_count >= 2 — first page has no elapsed time ratio to extrapolate from
+- [Phase 11-10]: ReviewEmptyStates exports individual named functions + namespace object — supports both import { EmptyStateA } and ReviewEmptyStates.EmptyStateA usage patterns
+- [Phase 11-10]: shops_data typed as list[Any] in view to avoid strict mypy conflict with QuerySet.values() TypedDict return type
+- [Phase 11-10]: user.pk None guard replaces type: ignore[assignment] — pre-commit mypy strict mode rejects unused ignore comments
+- [Phase 11-10]: review:open-composer CustomEvent dispatched from ReviewManagementWidget — Plan 11 reply composer listens via window event
 
 ### Pending Todos
 
@@ -121,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T05:10:33.790Z
-Stopped at: Completed 11-12-PLAN.md (ProgressModal WebSocket component)
+Last session: 2026-05-02T05:39:27.573Z
+Stopped at: Completed 11-10-PLAN.md (Reviews list UI)
 Resume file: None
