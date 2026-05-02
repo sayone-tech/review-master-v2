@@ -32,13 +32,13 @@
 - [ ] **SYNC-01**: Initial backfill task is dispatched immediately after a shop completes Google OAuth; fetches all historical reviews paginated, persisting each page before fetching the next
 - [ ] **SYNC-02**: Incremental sync runs every 6 hours per shop via Celery Beat fan-out; each shop's exact next-sync time is jittered by up to 30 minutes to spread load
 - [ ] **SYNC-03**: Per-shop Redis lock (`lock:google_sync:shop:{shop_id}`, 5-min TTL) prevents concurrent duplicate syncs; task exits cleanly if lock is already held
-- [ ] **SYNC-04**: Reviews are unique on `(shop_id, google_review_id)`; re-fetching an existing review updates it rather than creating a duplicate
-- [ ] **SYNC-05**: If a review's text or rating has changed since last fetch, the existing row is updated and `enrichment_status` is reset to `PENDING`
-- [ ] **SYNC-06**: Reviews no longer returned by Google are soft-deleted (`deleted_at` set); never hard-deleted
-- [ ] **SYNC-07**: On `401 invalid_grant`, shop `connection_status` is set to `EXPIRED` and excluded from future syncs until Org Admin reconnects
-- [ ] **SYNC-08**: On `403 quota_exceeded` or 5xx, task retries with exponential backoff (3 retries); on persistent failure, error is written to AuditLog and Sentry
-- [ ] **SYNC-09**: Redis token bucket tracks Google API calls per project; new sync tasks are held when bucket is near depletion
-- [ ] **SYNC-10**: Audit log entries written for `sync.started`, `sync.completed`, `sync.failed`, `review.fetched`
+- [x] **SYNC-04**: Reviews are unique on `(shop_id, google_review_id)`; re-fetching an existing review updates it rather than creating a duplicate
+- [x] **SYNC-05**: If a review's text or rating has changed since last fetch, the existing row is updated and `enrichment_status` is reset to `PENDING`
+- [x] **SYNC-06**: Reviews no longer returned by Google are soft-deleted (`deleted_at` set); never hard-deleted
+- [x] **SYNC-07**: On `401 invalid_grant`, shop `connection_status` is set to `EXPIRED` and excluded from future syncs until Org Admin reconnects
+- [x] **SYNC-08**: On `403 quota_exceeded` or 5xx, task retries with exponential backoff (3 retries); on persistent failure, error is written to AuditLog and Sentry
+- [x] **SYNC-09**: Redis token bucket tracks Google API calls per project; new sync tasks are held when bucket is near depletion
+- [x] **SYNC-10**: Audit log entries written for `sync.started`, `sync.completed`, `sync.failed`, `review.fetched`
 
 ### Progress UI
 
@@ -67,8 +67,8 @@
 - [ ] **REVW-10**: Inline reply submit posts to Google synchronously; on success, composer replaced with posted reply view; on failure, inline error banner shown; no local row created on failure
 - [ ] **REVW-11**: Three empty states: no connected shops (with "Go to Shops" CTA for Org Admin), shops connected but no reviews yet, filters match nothing (with "Clear Filters" CTA)
 - [ ] **REVW-12**: Reply throttle: 30 submissions per minute per user (DRF throttle)
-- [ ] **REVW-13**: Audit log entries written for `review.replied` and `review.reply_failed`
-- [ ] **REVW-14**: `GET /api/v1/reviews/` resolves in ≤5 SQL queries regardless of page size; verified by `CaptureQueriesContext` test in CI
+- [x] **REVW-13**: Audit log entries written for `review.replied` and `review.reply_failed`
+- [x] **REVW-14**: `GET /api/v1/reviews/` resolves in ≤5 SQL queries regardless of page size; verified by `CaptureQueriesContext` test in CI
 
 ---
 
@@ -162,13 +162,13 @@
 | SYNC-01 | Phase 11 | Pending |
 | SYNC-02 | Phase 11 | Pending |
 | SYNC-03 | Phase 11 | Pending |
-| SYNC-04 | Phase 11 | Pending |
-| SYNC-05 | Phase 11 | Pending |
-| SYNC-06 | Phase 11 | Pending |
-| SYNC-07 | Phase 11 | Pending |
-| SYNC-08 | Phase 11 | Pending |
-| SYNC-09 | Phase 11 | Pending |
-| SYNC-10 | Phase 11 | Pending |
+| SYNC-04 | Phase 11 | Complete |
+| SYNC-05 | Phase 11 | Complete |
+| SYNC-06 | Phase 11 | Complete |
+| SYNC-07 | Phase 11 | Complete |
+| SYNC-08 | Phase 11 | Complete |
+| SYNC-09 | Phase 11 | Complete |
+| SYNC-10 | Phase 11 | Complete |
 | PROG-01 | Phase 11 | Pending |
 | PROG-02 | Phase 11 | Pending |
 | PROG-03 | Phase 11 | Pending |
@@ -191,8 +191,8 @@
 | REVW-10 | Phase 11 | Pending |
 | REVW-11 | Phase 11 | Pending |
 | REVW-12 | Phase 11 | Pending |
-| REVW-13 | Phase 11 | Pending |
-| REVW-14 | Phase 11 | Pending |
+| REVW-13 | Phase 11 | Complete |
+| REVW-14 | Phase 11 | Complete |
 | ENRCH-01 | Phase 12 | Pending |
 | ENRCH-02 | Phase 12 | Pending |
 | ENRCH-03 | Phase 12 | Pending |

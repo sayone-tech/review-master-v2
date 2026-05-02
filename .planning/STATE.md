@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-02-PLAN.md (GBP reviews_client)
-last_updated: "2026-05-02T04:31:02.289Z"
+stopped_at: Completed 11-01-PLAN.md (Review model foundation)
+last_updated: "2026-05-02T04:34:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 8
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-01)
 ## Current Position
 
 Phase: 11 (reviews) — EXECUTING
-Plan: 1 of 13
+Plan: 2 of 13
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Plan: 1 of 13
 *Updated after each plan completion*
 | Phase 10 P01 | 7 | 3 tasks | 11 files |
 | Phase 10 P03 | 35 | 3 tasks | 20 files |
+| Phase 11 P01 | 15 | 2 tasks | 14 files |
 | Phase 11 P02 | 10 | 2 tasks | 3 files |
 
 ## Accumulated Context
@@ -72,6 +73,11 @@ Recent decisions affecting current work:
 - [Phase 10]: celery + django-celery-beat added to pre-commit mypy additional_dependencies so isolated hook env can load Django settings
 - [Phase 10]: Shop uses integer PK — WebSocket routing uses <int:shop_id>, not <uuid:shop_id> as plan specified
 - [Phase 10]: channels stubs typed as Any — AsyncJsonWebsocketConsumer subclass and database_sync_to_async get type: ignore[misc] consistent with celery decorator pattern
+- [Phase 11-01]: Integer PK kept on Review — consistent with Shop/Organisation models (no UUID needed)
+- [Phase 11-01]: AuditLog uses string entity_type/entity_id (not GenericForeignKey) — avoids content-type overhead, works for external IDs
+- [Phase 11-01]: SearchVectorField added in migration but populated in Plan 11-07 — GIN index exists, data is null until sync runs
+- [Phase 11-01]: django.contrib.postgres + psycopg[binary] added to pre-commit mypy additional_dependencies for SearchVectorField import
+- [Phase 11-01]: pyproject.toml dependencies sorted alphabetically to prevent duplicate entries
 - [Phase 11-02]: httpx.MockTransport used for reviews_client tests — avoids respx dependency, MockTransport built into httpx
 - [Phase 11-02]: list_reviews maps other 4xx (not 401/403) to GoogleUnreachableError so Celery autoretry_for covers transient failures
 
@@ -85,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T04:31:02.287Z
-Stopped at: Completed 11-02-PLAN.md (GBP reviews_client)
+Last session: 2026-05-02T04:34:00Z
+Stopped at: Completed 11-01-PLAN.md (Review model foundation)
 Resume file: None
