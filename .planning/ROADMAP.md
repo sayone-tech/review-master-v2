@@ -85,7 +85,15 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
   3. Every successful OpenAI call writes one `AiUsageLog` row with token counts, latency, computed cost, and `langsmith_trace_id`; the cost formula matches the hand-computed reference within $0.01
   4. When the active `AiPricing` row is updated, costs on historical `AiUsageLog` rows are unchanged
   5. All reviews from Phase 11 are enriched by the one-time post-deployment job; the `retry_failed_enrichments` Beat task re-attempts FAILED reviews every 6 hours
-**Plans**: TBD
+**Plans**: 8 plans
+  - [ ] 12-01-PLAN.md — Dependencies + Review.extracted_action_items + serializer + frontend type (ENRCH-14 scaffolding)
+  - [ ] 12-02-PLAN.md — openai app: AiPricing + AiUsageLog models + parser + prompts + pricing + admin + seed migration (ENRCH-08, ENRCH-09, ENRCH-10)
+  - [ ] 12-03-PLAN.md — OpenAI client wrapper with @traceable + LangSmith best-effort + trace_id capture (ENRCH-01, ENRCH-11, ENRCH-12)
+  - [ ] 12-04-PLAN.md — enrich_review service (3-layer idempotency) + enrich_review_task + retry_failed_enrichments_task (ENRCH-02, ENRCH-03, ENRCH-04, ENRCH-05, ENRCH-06, ENRCH-07)
+  - [ ] 12-05-PLAN.md — One-time backfill management command enrich_existing_reviews (ENRCH-13)
+  - [ ] 12-06-PLAN.md — Sync wiring (inline enrich_review_task.delay) + sync.complete moved to enrichment + Beat seed for retry_failed_enrichments (ENRCH-02 wiring, ENRCH-06, ENRCH-14 progress events)
+  - [ ] 12-07-PLAN.md — Frontend ActionItemChip + ReviewTable integration (ENRCH-14 UI: action item chips)
+  - [ ] 12-08-PLAN.md — Frontend ProgressModal sync.enrichment.progress handler + TopbarBell stage-aware popover (ENRCH-14 UI: live AI bar + bell)
 
 ### Phase 13: Action Items and Notifications
 **Goal**: Org Admins and Staff can manage AI-extracted and manually created action items through a scoped table with status workflow, modal detail view, and a notification bell that surfaces new reviews and assigned items
@@ -109,5 +117,5 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 | 9. Team | v0.2-org-admin | 5/5 | Complete | 2026-04-30 |
 | 10. Infrastructure Foundation | v0.3 | 5/5 | Complete | 2026-05-01 |
 | 11. Reviews Fetching, Display, Reply | 15/15 | Complete    | 2026-05-02 | 2026-05-02 |
-| 12. AI Enrichment Pipeline | v0.3 | 0/TBD | Not started | - |
+| 12. AI Enrichment Pipeline | v0.3 | 0/8 | Not started | - |
 | 13. Action Items and Notifications | v0.3 | 0/TBD | Not started | - |
