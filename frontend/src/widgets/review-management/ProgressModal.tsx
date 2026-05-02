@@ -79,6 +79,17 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                   page_count: 1,
                 },
           );
+        } else if (data.type === "sync.enrichment.progress") {
+          setSnapshot((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  enriched: data.enriched,
+                  status: prev.fetched > 0 && data.enriched >= prev.fetched ? "success" : "enriching",
+                  last_update_at: new Date().toISOString(),
+                }
+              : null,
+          );
         } else if (data.type === "sync.complete") {
           setSnapshot((prev) =>
             prev
@@ -278,9 +289,11 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                   style={{ width: `${enrichPct}%` }}
                 />
               </div>
-              <div className="text-[12px] text-muted mt-1">
-                Will be processed after sync completes
-              </div>
+              {(snapshot?.enriched ?? 0) === 0 && (
+                <div className="text-[12px] text-muted mt-1">
+                  Starting AI analysis…
+                </div>
+              )}
             </div>
             <div className="text-[12px] text-muted">
               Last updated {secondsAgo} second{secondsAgo === 1 ? "" : "s"} ago
