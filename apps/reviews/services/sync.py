@@ -317,6 +317,24 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                     },
                 )
 
+                # ENRCH-02: enqueue enrichment for every upserted PENDING review.
+                # Local import avoids circular dependency:
+                #   sync.py <- tasks.py (run_incremental_sync, run_initial_backfill)
+                #   tasks.py -> enrich_review_task (defined in same file)
+                if ids:
+                    from apps.reviews.tasks import enrich_review_task
+
+                    pending_ids = list(
+                        Review.objects.filter(
+                            shop=shop,
+                            google_review_id__in=ids,
+                            enrichment_status=Review.EnrichmentStatus.PENDING,
+                            deleted_at__isnull=True,
+                        ).values_list("id", flat=True)
+                    )
+                    for review_id in pending_ids:
+                        enrich_review_task.delay(review_id)
+
                 snapshot = {
                     "shop_id": shop_id,
                     "status": "fetching",
@@ -356,16 +374,6 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                 "page_count": page_count,
             }
             write_progress_snapshot(shop_id=shop_id, data=success_payload)
-            emit_progress_event(
-                shop_id=shop_id,
-                payload={
-                    "type": "sync.complete",
-                    "shop_id": shop_id,
-                    "total_fetched": total_persisted,
-                    "total_enriched": 0,
-                    "duration_seconds": duration,
-                },
-            )
             _audit(
                 shop=shop,
                 action="sync.completed",

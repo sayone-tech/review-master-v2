@@ -25,7 +25,13 @@ pytestmark = pytest.mark.django_db
 def patched_dependencies():
     """Patch list_reviews, _refresh_access_token, distributed_lock (acquired),
     Redis writes (write_progress_snapshot, increment_google_token_bucket),
-    and emit_progress_event."""
+    emit_progress_event, and enrich_review_task.delay.
+
+    Phase 12-06: enrich_review_task.delay is now called by fetch_and_persist_reviews.
+    With CELERY_TASK_ALWAYS_EAGER=True, .delay() runs the task synchronously which
+    requires Redis. Patching .delay() prevents unwanted Redis calls in sync tests
+    that do not need to verify enrichment dispatch.
+    """
 
     @contextlib.contextmanager
     def _lock(_key: str, timeout: int = 300):
@@ -39,6 +45,7 @@ def patched_dependencies():
         patch.object(sync_mod, "increment_google_token_bucket") as bump,
         patch.object(sync_mod, "token_bucket_depleted", return_value=False),
         patch.object(sync_mod, "emit_progress_event"),
+        patch("apps.reviews.tasks.enrich_review_task.delay"),
     ):
         yield {"write_progress_snapshot": wps, "increment_google_token_bucket": bump}
 
@@ -270,3 +277,86 @@ def test_pagination_halts_when_bucket_depleted(patched_dependencies) -> None:
         action="sync.started",
         entity_id=str(shop.pk),
     ).exists()
+
+
+# ---------------------------------------------------------------------------
+# Phase 12-06: inline enrichment dispatch + sync.complete removal
+# ---------------------------------------------------------------------------
+
+
+def _build_api_review(*, review_id: str, comment: str, rating: str = "FIVE") -> dict:
+    return {
+        "reviewId": review_id,
+        "starRating": rating,
+        "comment": comment,
+        "createTime": "2026-04-01T10:00:00Z",
+        "updateTime": "2026-04-01T10:00:00Z",
+        "reviewer": {"displayName": "Test Reviewer", "isAnonymous": False, "profilePhotoUrl": ""},
+    }
+
+
+@pytest.mark.django_db
+def test_fetch_and_persist_enqueues_enrichment_for_pending_reviews(
+    patched_dependencies,
+) -> None:
+    """ENRCH-02 sync wiring: every upserted PENDING review receives an enrich_review_task dispatch."""
+    shop = _make_shop()
+    page = {
+        "reviews": [
+            _build_api_review(review_id="g-rev-1", comment="Great service"),
+            _build_api_review(review_id="g-rev-2", comment="Loved the staff"),
+            _build_api_review(review_id="g-rev-3", comment="Quick response"),
+        ],
+        "totalReviewCount": 3,
+    }
+    with (
+        patch.object(sync_mod, "list_reviews", return_value=page),
+        # enrich_review_task is imported locally inside fetch_and_persist_reviews
+        # to avoid a circular import. Patch at the tasks module level.
+        patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay,
+    ):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+
+    assert mock_delay.call_count == 3
+    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    persisted = list(
+        Review.objects.filter(shop=shop, google_review_id__startswith="g-rev-").values_list(
+            "id", flat=True
+        )
+    )
+    assert enqueued_ids == set(persisted)
+
+
+@pytest.mark.django_db
+def test_fetch_and_persist_does_not_emit_sync_complete(patched_dependencies) -> None:
+    """Phase 12 CONTEXT.md: sync.complete is NO LONGER emitted by fetch_and_persist_reviews.
+
+    The enrichment service is the sole source of sync.complete in Phase 12 once
+    enriched >= fetched. fetch_and_persist_reviews still writes the success
+    snapshot and the sync.completed AuditLog entry but emits no sync.complete event.
+    """
+    shop = _make_shop()
+    page = {
+        "reviews": [_build_api_review(review_id="g-only-1", comment="Test")],
+        "totalReviewCount": 1,
+    }
+    captured_emit: list[dict] = []
+
+    def _capture_emit(*, shop_id: int, payload: dict) -> None:
+        captured_emit.append(payload)
+
+    with (
+        patch.object(sync_mod, "list_reviews", return_value=page),
+        # enrich_review_task is imported locally; patch at tasks module level
+        patch("apps.reviews.tasks.enrich_review_task.delay"),
+        patch.object(sync_mod, "emit_progress_event", side_effect=_capture_emit),
+    ):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+
+    emitted_types = [p["type"] for p in captured_emit]
+    assert "sync.complete" not in emitted_types, (
+        f"sync.complete must not be emitted by fetch_and_persist_reviews; "
+        f"got types: {emitted_types}"
+    )
+    # sync.fetch.progress is still emitted at least once
+    assert "sync.fetch.progress" in emitted_types
