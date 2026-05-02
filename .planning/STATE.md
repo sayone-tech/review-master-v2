@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3
-milestone_name: Reviews and Action Items
-status: in_progress
-stopped_at: Completed Phase 10 — all 5 plans done
-last_updated: "2026-05-01T00:00:00.000Z"
+milestone: v1.0
+milestone_name: — Superadmin Module
+status: unknown
+stopped_at: Completed 11-02-PLAN.md (GBP reviews_client)
+last_updated: "2026-05-02T04:31:02.289Z"
 progress:
-  total_phases: 13
-  completed_phases: 10
-  total_plans: 51
-  completed_plans: 45
+  total_phases: 11
+  completed_phases: 8
+  total_plans: 59
+  completed_plans: 44
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-01)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 11 — Reviews Fetching, Display, Reply
+**Current focus:** Phase 11 — reviews
 
 ## Current Position
 
-Phase: 10 (Infrastructure Foundation) — COMPLETE
-Next: Phase 11 (Reviews Fetching, Display, Reply)
+Phase: 11 (reviews) — EXECUTING
+Plan: 1 of 13
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Next: Phase 11 (Reviews Fetching, Display, Reply)
 *Updated after each plan completion*
 | Phase 10 P01 | 7 | 3 tasks | 11 files |
 | Phase 10 P03 | 35 | 3 tasks | 20 files |
+| Phase 11 P02 | 10 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Recent decisions affecting current work:
 - [Phase 10]: celery + django-celery-beat added to pre-commit mypy additional_dependencies so isolated hook env can load Django settings
 - [Phase 10]: Shop uses integer PK — WebSocket routing uses <int:shop_id>, not <uuid:shop_id> as plan specified
 - [Phase 10]: channels stubs typed as Any — AsyncJsonWebsocketConsumer subclass and database_sync_to_async get type: ignore[misc] consistent with celery decorator pattern
+- [Phase 11-02]: httpx.MockTransport used for reviews_client tests — avoids respx dependency, MockTransport built into httpx
+- [Phase 11-02]: list_reviews maps other 4xx (not 401/403) to GoogleUnreachableError so Celery autoretry_for covers transient failures
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-01
-Stopped at: Completed Phase 10 — all 5 plans complete (10-01 through 10-05)
+Last session: 2026-05-02T04:31:02.287Z
+Stopped at: Completed 11-02-PLAN.md (GBP reviews_client)
 Resume file: None
