@@ -29,8 +29,8 @@
 
 ### Review Sync
 
-- [ ] **SYNC-01**: Initial backfill task is dispatched immediately after a shop completes Google OAuth; fetches all historical reviews paginated, persisting each page before fetching the next
-- [ ] **SYNC-02**: Incremental sync runs every 6 hours per shop via Celery Beat fan-out; each shop's exact next-sync time is jittered by up to 30 minutes to spread load
+- [x] **SYNC-01**: Initial backfill task is dispatched immediately after a shop completes Google OAuth; fetches all historical reviews paginated, persisting each page before fetching the next
+- [x] **SYNC-02**: Incremental sync runs every 6 hours per shop via Celery Beat fan-out; each shop's exact next-sync time is jittered by up to 30 minutes to spread load
 - [x] **SYNC-03**: Per-shop Redis lock (`lock:google_sync:shop:{shop_id}`, 5-min TTL) prevents concurrent duplicate syncs; task exits cleanly if lock is already held
 - [x] **SYNC-04**: Reviews are unique on `(shop_id, google_review_id)`; re-fetching an existing review updates it rather than creating a duplicate
 - [x] **SYNC-05**: If a review's text or rating has changed since last fetch, the existing row is updated and `enrichment_status` is reset to `PENDING`
@@ -159,8 +159,8 @@
 | INFRA-09 | Phase 10 | Complete |
 | INFRA-10 | Phase 10 | Pending |
 | INFRA-11 | Phase 10 | Pending |
-| SYNC-01 | Phase 11 | Pending |
-| SYNC-02 | Phase 11 | Pending |
+| SYNC-01 | Phase 11 | Complete |
+| SYNC-02 | Phase 11 | Complete |
 | SYNC-03 | Phase 11 | Complete |
 | SYNC-04 | Phase 11 | Complete |
 | SYNC-05 | Phase 11 | Complete |
