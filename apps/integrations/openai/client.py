@@ -112,20 +112,21 @@ def _do_responses_parse(*, messages: list[dict[str, str]], model: str) -> Any:
         raise _map_openai_error(exc) from exc
 
 
-@traceable(
-    run_type="llm",
-    name="enrich_review",
-    metadata={"request_type": "enrichment"},
-)
+@traceable(run_type="llm", name="enrich_review")
 def _call_openai_with_tracing(
     *,
     messages: list[dict[str, str]],
     model: str,
+    review_id: int | None = None,
+    organisation_id: int | None = None,
+    shop_id: int | None = None,
 ) -> tuple[Any, str | None]:
-    """LangSmith-traced path. Captures trace_id via get_current_run_tree().
+    """LangSmith-traced path. Captures trace_id and attaches entity metadata.
 
-    @traceable auto-injects run_tree when the function signature includes it,
-    but a portable fallback is to call get_current_run_tree() at runtime.
+    Entity IDs (review_id, organisation_id, shop_id, model, request_type) are
+    attached to run_tree.metadata per CLAUDE.md §14.5 so LangSmith traces can
+    be cross-referenced from AiUsageLog rows. Best-effort: metadata update
+    failure does not block the OpenAI call.
     """
     response = _do_responses_parse(messages=messages, model=model)
     trace_id: str | None = None
@@ -133,6 +134,15 @@ def _call_openai_with_tracing(
         run_tree = get_current_run_tree()
         if run_tree is not None:
             trace_id = str(run_tree.trace_id)
+            run_tree.metadata.update(
+                {
+                    "request_type": "enrichment",
+                    "review_id": review_id,
+                    "organisation_id": organisation_id,
+                    "shop_id": shop_id,
+                    "model": model,
+                }
+            )
     except Exception:  # pragma: no cover — defensive
         trace_id = None
     return response, trace_id
@@ -155,7 +165,13 @@ def call_openai_enrichment(
     response: Any
     trace_id: str | None = None
     try:
-        response, trace_id = _call_openai_with_tracing(messages=messages, model=use_model)
+        response, trace_id = _call_openai_with_tracing(
+            messages=messages,
+            model=use_model,
+            review_id=getattr(review, "pk", None),
+            organisation_id=getattr(review, "organisation_id", None),
+            shop_id=getattr(review, "shop_id", None),
+        )
     except (OpenAITransientError, OpenAIPermanentError):
         raise
     except (openai.RateLimitError, openai.APIStatusError) as exc:

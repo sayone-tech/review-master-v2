@@ -83,9 +83,9 @@
 - [x] **ENRCH-05**: Failed enrichments do not block the review from appearing in the Reviews list; card shows "AI analysis failed" indicator
 - [x] **ENRCH-06**: `retry_failed_enrichments` Beat task runs every 6 hours; re-attempts `FAILED` reviews up to 3 times total before giving up permanently
 - [x] **ENRCH-07**: Every successful OpenAI call writes one `AiUsageLog` row with all token counts (prompt, completion, cached, total), latency, status, computed cost, and `langsmith_trace_id`
-- [ ] **ENRCH-08**: Cost computed at log time using active `AiPricing` row (`effective_from <= now AND (effective_to IS NULL OR effective_to > now)`); formula: `(prompt - cached)/1M * input_price + cached/1M * cached_price + completion/1M * output_price`
-- [ ] **ENRCH-09**: Historical costs are never retroactively changed when pricing rows are updated
-- [ ] **ENRCH-10**: `AiPricing` seed data loaded for GPT-4o-mini at published rates; cost calculation matches hand-computed reference within $0.01 on a verification dataset
+- [x] **ENRCH-08**: Cost computed at log time using active `AiPricing` row (`effective_from <= now AND (effective_to IS NULL OR effective_to > now)`); formula: `(prompt - cached)/1M * input_price + cached/1M * cached_price + completion/1M * output_price`
+- [x] **ENRCH-09**: Historical costs are never retroactively changed when pricing rows are updated
+- [x] **ENRCH-10**: `AiPricing` seed data loaded for GPT-4o-mini at published rates; cost calculation matches hand-computed reference within $0.01 on a verification dataset
 - [x] **ENRCH-11**: LangSmith tracing wraps every OpenAI call; trace metadata includes `organisation_id`, `review_id`, `shop_id`, `model`, `request_type`; if LangSmith is unreachable, the OpenAI call still proceeds
 - [x] **ENRCH-12**: `langsmith_trace_id` captured from SDK response and persisted on `AiUsageLog`
 - [x] **ENRCH-13**: Existing reviews from Phase 11 are enriched via a one-time post-deployment job
@@ -200,9 +200,9 @@
 | ENRCH-05 | Phase 12 | Complete |
 | ENRCH-06 | Phase 12 | Complete |
 | ENRCH-07 | Phase 12 | Complete |
-| ENRCH-08 | Phase 12 | Pending |
-| ENRCH-09 | Phase 12 | Pending |
-| ENRCH-10 | Phase 12 | Pending |
+| ENRCH-08 | Phase 12 | Complete |
+| ENRCH-09 | Phase 12 | Complete |
+| ENRCH-10 | Phase 12 | Complete |
 | ENRCH-11 | Phase 12 | Complete |
 | ENRCH-12 | Phase 12 | Complete |
 | ENRCH-13 | Phase 12 | Complete |
