@@ -8,6 +8,7 @@ retry/backoff rules. accountName and locationName are full resource paths
 (e.g. "accounts/123" and "accounts/123/locations/456") stored on
 shop.google_account_name and shop.google_location_name.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -79,7 +80,6 @@ def list_reviews(
     if resp.status_code >= 500:
         raise GoogleUnreachableError()
     if resp.status_code >= 400:
-        # 4xx not 401/403 — treat as transient; raise unreachable so caller retries.
         raise GoogleUnreachableError()
     return resp.json()  # type: ignore[no-any-return]
 

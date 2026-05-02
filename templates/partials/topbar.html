@@ -29,19 +29,7 @@
   </div>
 
   <div class="flex items-center gap-2">
-    <div id="sync-indicator-root"></div>
-
-    <button
-      type="button"
-      class="relative w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
-      aria-label="Notifications"
-      data-testid="topbar-bell"
-    >
-      <span class="w-[18px] h-[18px]" aria-hidden="true" data-lucide="bell"></span>
-      {% if notification_count %}
-        <span class="absolute top-1 right-1 w-[7px] h-[7px] rounded-full bg-red border-2 border-white" aria-hidden="true"></span>
-      {% endif %}
-    </button>
+    <div id="topbar-bell-root" data-notification-count="{{ notification_count|default:0 }}"></div>
 
     {% if user.is_authenticated %}
       <div

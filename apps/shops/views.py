@@ -6,7 +6,8 @@ import logging
 import secrets
 from typing import Any
 
-from django.http import HttpResponseRedirect
+from django.core.paginator import Paginator
+from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import render
 from django.views import View
 from django_redis import get_redis_connection
@@ -56,23 +57,48 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+_SHOP_PER_PAGE_OPTIONS: tuple[int, ...] = (10, 25, 50, 100)
+_SHOP_DEFAULT_PER_PAGE: int = 10
+
+
+def _shop_resolve_per_page(raw: str | None) -> int:
+    try:
+        value = int(raw) if raw is not None else _SHOP_DEFAULT_PER_PAGE
+    except (TypeError, ValueError):
+        return _SHOP_DEFAULT_PER_PAGE
+    return value if value in _SHOP_PER_PAGE_OPTIONS else _SHOP_DEFAULT_PER_PAGE
+
+
+def _shop_page_url_params(request: HttpRequest, per_page: int) -> str:
+    params = request.GET.copy()
+    params["per_page"] = str(per_page)
+    params.pop("page", None)
+    return params.urlencode()
+
+
 @org_admin_required
 def shop_list(request):  # type: ignore[no-untyped-def]
     org = request.user.organisation
-    qs = list_shops(organisation_id=org.pk)[:10]  # SHOP-06: default page size 10
-    shops_data = list(ShopReadSerializer(qs, many=True).data)
+    per_page = _shop_resolve_per_page(request.GET.get("per_page"))
+    qs = list_shops(organisation_id=org.pk)
+    paginator = Paginator(qs, per_page)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    shops_data = list(ShopReadSerializer(list(page_obj.object_list), many=True).data)
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
-    shops_count = len(shops_data)
     return render(
         request,
         "shops/shop_list.html",
         {
             "shops_json": shops_data,
-            "shops_count": shops_count,
+            "shops_count": len(shops_data),
             "allocation": get_allocation_status(organisation=org),
             "has_regions": get_has_regions(organisation_id=org.pk),
             "regions_json": regions_data,
+            "page_obj": page_obj,
+            "per_page": per_page,
+            "per_page_options": list(_SHOP_PER_PAGE_OPTIONS),
+            "page_url_params": _shop_page_url_params(request, per_page),
             "page_title": "Shops",
         },
     )
@@ -181,6 +207,20 @@ class ShopViewSet(
                     {"non_field_errors": ["OAuth session expired. Please reconnect."]}
                 )
             data["google_refresh_token"] = token
+            # Resolve google_account_name / google_location_name from the
+            # session-stored listings (set during OAuth callback). The frontend
+            # only sends place_id; these GBP resource names come from the server.
+            listings: list[dict[str, str]] = self.request.session.get(
+                f"oauth_listings:{state_value}", []
+            )
+            place_id = data.get("place_id", "")
+            matched = next((lst for lst in listings if lst.get("place_id") == place_id), None)
+            if not matched:
+                raise drf_serializers.ValidationError(
+                    {"non_field_errors": ["Location not found in OAuth session. Please reconnect."]}
+                )
+            data["google_account_name"] = matched["account_name"]
+            data["google_location_name"] = matched["location_name"]
             # Single-use: consume the session-stored token after successful lookup.
             with contextlib.suppress(KeyError):
                 del self.request.session[f"oauth_token:{state_value}"]
@@ -255,7 +295,17 @@ class ShopViewSet(
                 {"detail": "OAuth token not found in session."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Resolve google_account_name / google_location_name from session listings.
+        # Match by the shop's existing place_id (reconnect keeps the same location).
+        listings: list[dict[str, str]] = request.session.get(f"oauth_listings:{state_value}", [])
+        matched = next((lst for lst in listings if lst.get("place_id") == shop.place_id), None)
         reconnect_oauth(shop=shop, new_refresh_token=token)
+        if matched:
+            update_shop(
+                shop=shop,
+                google_account_name=matched["account_name"],
+                google_location_name=matched["location_name"],
+            )
         # Clean up session key after use (single-use).
         with contextlib.suppress(KeyError):
             del request.session[f"oauth_token:{state_value}"]
@@ -296,8 +346,11 @@ class ShopViewSet(
         syncing_shops = []
         for shop in qs:
             try:
-                if r.exists(f"sync:progress:{shop.pk}"):
-                    syncing_shops.append({"shop_id": shop.pk, "shop_name": shop.name})
+                raw = r.get(f"sync:progress:{shop.pk}")
+                if raw:
+                    snapshot = json.loads(raw)
+                    if snapshot.get("status") in ("fetching", "enriching"):
+                        syncing_shops.append({"shop_id": shop.pk, "shop_name": shop.name})
             except Exception:  # noqa: S112  # nosec B112
                 continue
         return Response({"count": len(syncing_shops), "shops": syncing_shops})

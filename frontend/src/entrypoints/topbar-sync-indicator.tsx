@@ -1,12 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { TopbarSyncIndicator } from "../widgets/review-management/TopbarSyncIndicator";
+import { TopbarBell } from "../widgets/review-management/TopbarSyncIndicator";
 
-const root = document.getElementById("sync-indicator-root");
+const root = document.getElementById("topbar-bell-root");
 if (root) {
+  const notificationCount = parseInt(root.dataset.notificationCount ?? "0", 10);
   createRoot(root).render(
     <StrictMode>
-      <TopbarSyncIndicator />
+      <TopbarBell notificationCount={notificationCount} />
     </StrictMode>,
   );
 }

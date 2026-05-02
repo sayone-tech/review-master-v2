@@ -207,8 +207,21 @@ class TestShopsApiCreateOAuthStateResolution:
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
 
-        # Seed the session: state -> actual refresh token
+        # Seed the session: state -> actual refresh token + listings
         _seed_session(client, "oauth_token:STATE-XYZ", "1//actual-refresh-token")
+        _seed_session(
+            client,
+            "oauth_listings:STATE-XYZ",
+            [
+                {
+                    "name": "OAuth Shop",
+                    "address": "1 Test St",
+                    "place_id": "ChIJOAUTH",
+                    "account_name": "accounts/111",
+                    "location_name": "accounts/111/locations/222",
+                },
+            ],
+        )
 
         # Mock create_shop to return a Shop-like object
         fake_shop = ShopFactory.build(
@@ -235,6 +248,8 @@ class TestShopsApiCreateOAuthStateResolution:
         call_kwargs = mock_create_shop.call_args[1]
         assert call_kwargs["google_refresh_token"] == "1//actual-refresh-token"
         assert call_kwargs["google_refresh_token"] != "STATE-XYZ"
+        assert call_kwargs["google_account_name"] == "accounts/111"
+        assert call_kwargs["google_location_name"] == "accounts/111/locations/222"
 
     @patch("apps.shops.views.create_shop")
     def test_oauth_create_consumes_session_token_after_use(self, mock_create_shop, org_and_admin):
@@ -242,6 +257,19 @@ class TestShopsApiCreateOAuthStateResolution:
         region = RegionFactory(organisation=org)
 
         _seed_session(client, "oauth_token:STATE-XYZ", "1//actual-refresh-token")
+        _seed_session(
+            client,
+            "oauth_listings:STATE-XYZ",
+            [
+                {
+                    "name": "OAuth Shop",
+                    "address": "1 Test St",
+                    "place_id": "ChIJOAUTH",
+                    "account_name": "accounts/111",
+                    "location_name": "accounts/111/locations/222",
+                },
+            ],
+        )
 
         fake_shop = ShopFactory.build(
             organisation=org,
@@ -632,9 +660,22 @@ class TestPhase11BackfillDispatchAndSyncing:
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
 
-        # Seed OAuth state in session
+        # Seed OAuth state + listings in session
         state = "test-state-11"
         _seed_session(client, f"oauth_token:{state}", "fake-refresh-token")
+        _seed_session(
+            client,
+            f"oauth_listings:{state}",
+            [
+                {
+                    "name": "Phase 11 shop",
+                    "address": "123 Test St",
+                    "place_id": "ChIJ_TEST11",
+                    "account_name": "accounts/123",
+                    "location_name": "accounts/123/locations/456",
+                },
+            ],
+        )
 
         payload = {
             "name": "Phase 11 shop",
@@ -643,8 +684,6 @@ class TestPhase11BackfillDispatchAndSyncing:
             "connection_method": "GOOGLE_OAUTH",
             "google_refresh_token": state,
             "region": region.pk,
-            "google_account_name": "accounts/123",
-            "google_location_name": "accounts/123/locations/456",
         }
         with patch("apps.shops.views.initial_backfill_task") as mock_task:
             mock_task.delay = MagicMock()
@@ -655,13 +694,17 @@ class TestPhase11BackfillDispatchAndSyncing:
         assert mock_task.delay.call_args.kwargs["shop_id"] == resp.data["id"]
 
     def test_shops_syncing_endpoint_returns_shops_with_redis_key(self, org_and_admin):
+        import json
         from unittest.mock import MagicMock, patch
 
         org, _, client = org_and_admin
         s1 = ShopFactory(organisation=org)
         _s2 = ShopFactory(organisation=org)  # second shop — should NOT appear in results
         fake_redis = MagicMock()
-        fake_redis.exists.side_effect = lambda key: 1 if key == f"sync:progress:{s1.pk}" else 0
+        active_snapshot = json.dumps({"status": "fetching", "fetched": 10})
+        fake_redis.get.side_effect = lambda key: (
+            active_snapshot.encode() if key == f"sync:progress:{s1.pk}" else None
+        )
         with patch("apps.shops.views.get_redis_connection", return_value=fake_redis):
             resp = client.get("/api/v1/shops/syncing/")
         assert resp.status_code == 200
@@ -685,8 +728,11 @@ class TestPhase11BackfillDispatchAndSyncing:
         )
         api_client = APIClient()
         api_client.force_authenticate(user=staff)
+        import json
+
         fake_redis = MagicMock()
-        fake_redis.exists.return_value = 1
+        active_snapshot = json.dumps({"status": "fetching", "fetched": 5}).encode()
+        fake_redis.get.return_value = active_snapshot
         with patch("apps.shops.views.get_redis_connection", return_value=fake_redis):
             resp = api_client.get("/api/v1/shops/syncing/")
         assert resp.status_code == 200

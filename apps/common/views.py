@@ -62,6 +62,12 @@ def showcase(request: HttpRequest) -> HttpResponse:
         count = 47
         page_range = range(1, 6)
         num_pages = 5
+        ELLIPSIS = "…"
+
+        def get_elided_page_range(
+            self, number: int, *, on_each_side: int = 3, on_ends: int = 2
+        ) -> list[int | str]:
+            return list(self.page_range)
 
     class _FakePage:
         number = 1

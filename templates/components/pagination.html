@@ -2,6 +2,7 @@
 Usage: {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
 page_url_params MUST be urlencoded GET params minus `page` (caller builds it).
 {% endcomment %}
+{% load ui %}
 {% if page_obj.paginator.count > 0 or per_page_options %}
   <nav
     class="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
@@ -37,7 +38,7 @@ page_url_params MUST be urlencoded GET params minus `page` (caller builds it).
       {% endif %}
     </div>
     {% if page_obj.paginator.count > 0 %}
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1">
         <a
           href="?{{ page_url_params }}&page={% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}"
           class="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center {% if not page_obj.has_previous %}opacity-40 cursor-not-allowed pointer-events-none{% else %}hover:bg-line-soft{% endif %}"
@@ -46,8 +47,10 @@ page_url_params MUST be urlencoded GET params minus `page` (caller builds it).
         >
           <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="chevron-left"></span>
         </a>
-        {% for n in page_obj.paginator.page_range %}
-          {% if n == page_obj.number %}
+        {% for n in page_obj|elided_page_range %}
+          {% if n|is_page_ellipsis %}
+            <span class="w-[30px] h-[30px] flex items-center justify-center text-[13px] text-muted select-none">…</span>
+          {% elif n == page_obj.number %}
             <span
               class="w-[30px] h-[30px] rounded-sm bg-black text-yellow border border-black text-[13px] font-medium flex items-center justify-center"
               aria-current="page"
