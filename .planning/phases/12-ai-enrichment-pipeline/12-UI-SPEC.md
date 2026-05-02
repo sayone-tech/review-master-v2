@@ -58,7 +58,7 @@ All sizes match existing Phase 11 patterns. Phase 12 introduces no new type role
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 (regular) | 1.5 |
-| Label / badge text | 12px | 600 (semibold) — badges; 500 (medium) — tag chips | 1 |
+| Label / badge text | 12px | 600 (semibold) | 1 |
 | Section micro-label | 12px | 600 (semibold), uppercase, letter-spacing 0.05em | 1 |
 | Modal heading | 14px | 600 (semibold) | 1.2 |
 
@@ -230,7 +230,7 @@ The chip renders from `extracted_action_items` on `ReviewRow`.
 
 #### Chip specification
 
-- Appearance: `inline-flex items-center gap-1 px-2 py-0.5 text-[12px] font-medium rounded-full`
+- Appearance: `inline-flex items-center gap-1 px-2 py-0.5 text-[12px] font-semibold rounded-full`
 - Background: #FEF3C7 (`amber-tint`)
 - Text colour: #D97706 (`amber`)
 - Icon: `Sparkles` (lucide-react), size 12, aria-hidden
@@ -255,12 +255,11 @@ Default: `[]` (serializer will always return an array).
 
 Action item chips appear **below the sentiment badge and tag chips** within the `"sentiment"` column.
 The `SentimentBadge` component renders its own chip row. The action item chip is rendered
-immediately after `SentimentBadge` in the column cell, separated by `mt-1.5` (6px — closest
-available Tailwind unit to the 4px grid; use `gap-1.5` if wrapping in a flex column).
+immediately after `SentimentBadge` in the column cell, separated by `mt-2` (8px — `sm` spacing token).
 
 Exact cell structure for the `"sentiment"` column:
 ```tsx
-<div className="flex flex-col gap-1.5">
+<div className="flex flex-col gap-2">
   <SentimentBadge ... />
   {row.extracted_action_items.length > 0 && (
     <ActionItemChip count={row.extracted_action_items.length} />
