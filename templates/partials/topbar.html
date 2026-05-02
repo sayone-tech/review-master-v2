@@ -1,3 +1,4 @@
+{% load django_vite %}
 <header
   class="
          sticky top-0 z-20
@@ -28,6 +29,8 @@
   </div>
 
   <div class="flex items-center gap-2">
+    <div id="sync-indicator-root"></div>
+
     <button
       type="button"
       class="relative w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
@@ -82,3 +85,5 @@
     {% endif %}
   </div>
 </header>
+
+{% vite_asset 'src/entrypoints/topbar-sync-indicator.tsx' %}

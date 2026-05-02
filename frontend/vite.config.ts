@@ -19,6 +19,7 @@ export default defineConfig({
         "shop-management": resolve(__dirname, "src/entrypoints/shop-management.tsx"),
         "team-management": resolve(__dirname, "src/entrypoints/team-management.tsx"),
         "review-management": resolve(__dirname, "src/entrypoints/review-management.tsx"),
+        "topbar-sync-indicator": resolve(__dirname, "src/entrypoints/topbar-sync-indicator.tsx"),
       },
     },
   },
