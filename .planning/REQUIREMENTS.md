@@ -77,12 +77,12 @@
 ### AI Enrichment
 
 - [x] **ENRCH-01**: OpenAI client wrapper calls GPT-4o-mini with a single combined prompt per review; returns structured JSON with `sentiment`, `tags` (max 5, each with `label` + `polarity`), and `action_items` (each with `title`, `scope`, `priority`)
-- [ ] **ENRCH-02**: `enrich_review(review_id)` acquires Redis lock (`lock:enrich:review:{review_id}`, 5-min TTL); exits immediately if `enrichment_status` is already `SUCCESS` or `IN_PROGRESS`
-- [ ] **ENRCH-03**: `enrichment_status` transitions `PENDING → IN_PROGRESS → SUCCESS | FAILED` under `transaction.atomic()` with `select_for_update` on the Review row
-- [ ] **ENRCH-04**: On OpenAI 429 or 5xx: retry 3 times (30s, 2 min, 10 min); on other 4xx: no retry, mark `FAILED`; on JSON parse failure: retry once, then mark `FAILED`
-- [ ] **ENRCH-05**: Failed enrichments do not block the review from appearing in the Reviews list; card shows "AI analysis failed" indicator
-- [ ] **ENRCH-06**: `retry_failed_enrichments` Beat task runs every 6 hours; re-attempts `FAILED` reviews up to 3 times total before giving up permanently
-- [ ] **ENRCH-07**: Every successful OpenAI call writes one `AiUsageLog` row with all token counts (prompt, completion, cached, total), latency, status, computed cost, and `langsmith_trace_id`
+- [x] **ENRCH-02**: `enrich_review(review_id)` acquires Redis lock (`lock:enrich:review:{review_id}`, 5-min TTL); exits immediately if `enrichment_status` is already `SUCCESS` or `IN_PROGRESS`
+- [x] **ENRCH-03**: `enrichment_status` transitions `PENDING → IN_PROGRESS → SUCCESS | FAILED` under `transaction.atomic()` with `select_for_update` on the Review row
+- [x] **ENRCH-04**: On OpenAI 429 or 5xx: retry 3 times (30s, 2 min, 10 min); on other 4xx: no retry, mark `FAILED`; on JSON parse failure: retry once, then mark `FAILED`
+- [x] **ENRCH-05**: Failed enrichments do not block the review from appearing in the Reviews list; card shows "AI analysis failed" indicator
+- [x] **ENRCH-06**: `retry_failed_enrichments` Beat task runs every 6 hours; re-attempts `FAILED` reviews up to 3 times total before giving up permanently
+- [x] **ENRCH-07**: Every successful OpenAI call writes one `AiUsageLog` row with all token counts (prompt, completion, cached, total), latency, status, computed cost, and `langsmith_trace_id`
 - [ ] **ENRCH-08**: Cost computed at log time using active `AiPricing` row (`effective_from <= now AND (effective_to IS NULL OR effective_to > now)`); formula: `(prompt - cached)/1M * input_price + cached/1M * cached_price + completion/1M * output_price`
 - [ ] **ENRCH-09**: Historical costs are never retroactively changed when pricing rows are updated
 - [ ] **ENRCH-10**: `AiPricing` seed data loaded for GPT-4o-mini at published rates; cost calculation matches hand-computed reference within $0.01 on a verification dataset
@@ -194,12 +194,12 @@
 | REVW-13 | Phase 11 | Complete |
 | REVW-14 | Phase 11 | Complete |
 | ENRCH-01 | Phase 12 | Complete |
-| ENRCH-02 | Phase 12 | Pending |
-| ENRCH-03 | Phase 12 | Pending |
-| ENRCH-04 | Phase 12 | Pending |
-| ENRCH-05 | Phase 12 | Pending |
-| ENRCH-06 | Phase 12 | Pending |
-| ENRCH-07 | Phase 12 | Pending |
+| ENRCH-02 | Phase 12 | Complete |
+| ENRCH-03 | Phase 12 | Complete |
+| ENRCH-04 | Phase 12 | Complete |
+| ENRCH-05 | Phase 12 | Complete |
+| ENRCH-06 | Phase 12 | Complete |
+| ENRCH-07 | Phase 12 | Complete |
 | ENRCH-08 | Phase 12 | Pending |
 | ENRCH-09 | Phase 12 | Pending |
 | ENRCH-10 | Phase 12 | Pending |

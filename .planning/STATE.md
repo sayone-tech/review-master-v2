@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 12-03-PLAN.md
-last_updated: "2026-05-02T16:27:03.747Z"
+stopped_at: Completed 12-04-PLAN.md
+last_updated: "2026-05-02T16:36:08.576Z"
 progress:
   total_phases: 12
   completed_phases: 9
   total_plans: 69
-  completed_plans: 63
+  completed_plans: 64
 ---
 
 # Project State
@@ -70,6 +70,7 @@ Plan: 8 plans approved (12-01 through 12-08)
 | Phase 12 P07 | 2 | 2 tasks | 2 files |
 | Phase 12 P08 | 2 | 2 tasks | 2 files |
 | Phase 12 P03 | 4 | 2 tasks | 5 files |
+| Phase 12 P04 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,9 @@ Recent decisions affecting current work:
 - [Phase 12]: get_current_run_tree() used for trace_id capture instead of run_tree parameter injection — portable across langsmith versions
 - [Phase 12]: usage_data uses Chat-Completions key names (prompt_tokens/completion_tokens) not Responses API names — keeps pricing.calculate_cost and Plan 04 stable across SDK API changes
 - [Phase 12]: Lazy _get_client() singleton in client.py — defers OpenAI() construction to first call so module import succeeds when OPENAI_API_KEY is empty in tests
+- [Phase 12]: enrichment_version incremented on BOTH success and failure — doubles as attempt counter for retry_failed_enrichments_task cap
+- [Phase 12]: OpenAI call OUTSIDE transaction.atomic() — holding row lock during slow HTTP call is anti-pattern per RESEARCH.md
+- [Phase 12]: OpenAIPermanentError NOT in autoretry_for AND not re-raised — Beat retry_failed_enrichments_task is sole re-attempt mechanism for permanent failures
 
 ### Pending Todos
 
@@ -149,6 +153,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T16:27:03.745Z
-Stopped at: Completed 12-03-PLAN.md
+Last session: 2026-05-02T16:36:08.573Z
+Stopped at: Completed 12-04-PLAN.md
 Resume file: None
