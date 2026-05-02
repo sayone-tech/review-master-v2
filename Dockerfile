@@ -44,7 +44,7 @@ COPY --chown=app:app . /app
 
 USER app
 EXPOSE 8000
-HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=120s --retries=6 \
   CMD curl -fsS http://localhost:8000/readyz/ || exit 1
 
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

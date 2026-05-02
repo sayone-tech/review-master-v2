@@ -39,7 +39,11 @@ services:
   vite:
     image: node:22-alpine
     working_dir: /app/frontend
-    command: sh -c "npm install && mkdir -p ../static/css && npm run css:build && npm run css:watch & npm run dev -- --host 0.0.0.0"
+    command: >-
+      sh -c "npm install &&
+             mkdir -p ../static/css &&
+             npm run css:build &&
+             (npm run css:watch & npm run dev -- --host 0.0.0.0)"
     volumes:
       - .:/app
       - vite_node_modules:/app/frontend/node_modules
@@ -49,8 +53,8 @@ services:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5173/static/dist/@vite/client"]
       interval: 5s
       timeout: 3s
-      retries: 10
-      start_period: 30s
+      retries: 20
+      start_period: 60s
 
   web:
     build:
@@ -62,6 +66,7 @@ services:
       DJANGO_SECRET_KEY: dev-insecure-secret
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,web
       DJANGO_VITE_DEV_MODE: "True"
+      DJANGO_VITE_DEV_SERVER_HOST: vite
       DATABASE_URL: postgres://app:app@db:5432/reviewmaster
       REDIS_URL: redis://redis:6379
       DEFAULT_FROM_EMAIL: noreply@example.com
@@ -90,10 +95,15 @@ services:
       REDIS_URL: redis://redis:6379
       CELERY_WORKER_CONCURRENCY: "2"
     depends_on:
-      db:
+      web:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    healthcheck:
+      # Ping all registered workers via the broker. Exits 0 if at least one responds.
+      test: ["CMD-SHELL", "celery -A config inspect ping --timeout 5 2>&1 | grep -q OK"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
     volumes:
       - .:/app
 
@@ -108,10 +118,15 @@ services:
       DATABASE_URL: postgres://app:app@db:5432/reviewmaster
       REDIS_URL: redis://redis:6379
     depends_on:
-      db:
+      web:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    healthcheck:
+      # Beat has no RPC interface; verify the celery beat process is still running.
+      test: ["CMD-SHELL", "cat /proc/*/cmdline 2>/dev/null | tr '\\0' ' ' | grep -q 'celery.*beat'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
       - .:/app
 
@@ -125,7 +140,14 @@ services:
       DATABASE_URL: postgres://app:app@db:5432/reviewmaster
       REDIS_URL: redis://redis:6379
     depends_on:
-      - worker
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5555/healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     ports:
       - "5555:5555"
     volumes:

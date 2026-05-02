@@ -209,7 +209,7 @@ REST_FRAMEWORK = {
 DJANGO_VITE = {
     "default": {
         "dev_mode": env.bool("DJANGO_VITE_DEV_MODE", default=False),
-        "dev_server_host": "localhost",
+        "dev_server_host": env("DJANGO_VITE_DEV_SERVER_HOST", default="localhost"),
         "dev_server_port": 5173,
         "static_url_prefix": "dist",
         "manifest_path": BASE_DIR / "static" / "dist" / "manifest.json",
