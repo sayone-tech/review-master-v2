@@ -60,7 +60,10 @@ class ReviewViewSet(
             return Review.objects.none()
         qs = base_reviews_queryset(organisation_id=org_id)
         if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
-            user_id: int = user.pk  # type: ignore[assignment]
+            raw_pk = user.pk
+            if raw_pk is None:
+                return Review.objects.none()
+            user_id: int = raw_pk
             qs = qs.filter(shop_id__in=get_accessible_shop_ids(user_id=user_id))
         return qs
 
@@ -113,7 +116,7 @@ def review_list(request):  # type: ignore[no-untyped-def]
     open_progress = request.GET.get("open_progress") or ""
     org_id = getattr(user, "organisation_id", None)
 
-    shops_data: list[dict[str, Any]] = []
+    shops_data: list[Any] = []
     has_connected = False
     if org_id is not None:
         from apps.shops.models import Shop
@@ -121,7 +124,7 @@ def review_list(request):  # type: ignore[no-untyped-def]
         qs = Shop.objects.filter(organisation_id=org_id, is_active=True)
         if getattr(user, "role", "") == "STAFF_ADMIN":
             qs = qs.filter(id__in=get_accessible_shop_ids(user_id=user.pk))
-        shops_data = list(qs.values("id", "name").order_by("name"))  # type: ignore[arg-type]
+        shops_data = list(qs.values("id", "name").order_by("name"))
         has_connected = qs.filter(connection_status=Shop.ConnectionStatus.CONNECTED).exists()
 
     return render(
