@@ -76,7 +76,7 @@
 
 ### AI Enrichment
 
-- [ ] **ENRCH-01**: OpenAI client wrapper calls GPT-4o-mini with a single combined prompt per review; returns structured JSON with `sentiment`, `tags` (max 5, each with `label` + `polarity`), and `action_items` (each with `title`, `scope`, `priority`)
+- [x] **ENRCH-01**: OpenAI client wrapper calls GPT-4o-mini with a single combined prompt per review; returns structured JSON with `sentiment`, `tags` (max 5, each with `label` + `polarity`), and `action_items` (each with `title`, `scope`, `priority`)
 - [ ] **ENRCH-02**: `enrich_review(review_id)` acquires Redis lock (`lock:enrich:review:{review_id}`, 5-min TTL); exits immediately if `enrichment_status` is already `SUCCESS` or `IN_PROGRESS`
 - [ ] **ENRCH-03**: `enrichment_status` transitions `PENDING → IN_PROGRESS → SUCCESS | FAILED` under `transaction.atomic()` with `select_for_update` on the Review row
 - [ ] **ENRCH-04**: On OpenAI 429 or 5xx: retry 3 times (30s, 2 min, 10 min); on other 4xx: no retry, mark `FAILED`; on JSON parse failure: retry once, then mark `FAILED`
@@ -86,8 +86,8 @@
 - [ ] **ENRCH-08**: Cost computed at log time using active `AiPricing` row (`effective_from <= now AND (effective_to IS NULL OR effective_to > now)`); formula: `(prompt - cached)/1M * input_price + cached/1M * cached_price + completion/1M * output_price`
 - [ ] **ENRCH-09**: Historical costs are never retroactively changed when pricing rows are updated
 - [ ] **ENRCH-10**: `AiPricing` seed data loaded for GPT-4o-mini at published rates; cost calculation matches hand-computed reference within $0.01 on a verification dataset
-- [ ] **ENRCH-11**: LangSmith tracing wraps every OpenAI call; trace metadata includes `organisation_id`, `review_id`, `shop_id`, `model`, `request_type`; if LangSmith is unreachable, the OpenAI call still proceeds
-- [ ] **ENRCH-12**: `langsmith_trace_id` captured from SDK response and persisted on `AiUsageLog`
+- [x] **ENRCH-11**: LangSmith tracing wraps every OpenAI call; trace metadata includes `organisation_id`, `review_id`, `shop_id`, `model`, `request_type`; if LangSmith is unreachable, the OpenAI call still proceeds
+- [x] **ENRCH-12**: `langsmith_trace_id` captured from SDK response and persisted on `AiUsageLog`
 - [ ] **ENRCH-13**: Existing reviews from Phase 11 are enriched via a one-time post-deployment job
 - [x] **ENRCH-14**: Reviews list shows sentiment badges and tag chips for enriched reviews (updates Phase 11 cards)
 
@@ -193,7 +193,7 @@
 | REVW-12 | Phase 11 | Complete |
 | REVW-13 | Phase 11 | Complete |
 | REVW-14 | Phase 11 | Complete |
-| ENRCH-01 | Phase 12 | Pending |
+| ENRCH-01 | Phase 12 | Complete |
 | ENRCH-02 | Phase 12 | Pending |
 | ENRCH-03 | Phase 12 | Pending |
 | ENRCH-04 | Phase 12 | Pending |
@@ -203,8 +203,8 @@
 | ENRCH-08 | Phase 12 | Pending |
 | ENRCH-09 | Phase 12 | Pending |
 | ENRCH-10 | Phase 12 | Pending |
-| ENRCH-11 | Phase 12 | Pending |
-| ENRCH-12 | Phase 12 | Pending |
+| ENRCH-11 | Phase 12 | Complete |
+| ENRCH-12 | Phase 12 | Complete |
 | ENRCH-13 | Phase 12 | Pending |
 | ENRCH-14 | Phase 12 | Complete |
 | ACTN-01 | Phase 13 | Pending |
