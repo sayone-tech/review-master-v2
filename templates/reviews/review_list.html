@@ -1,0 +1,14 @@
+{% extends "base_org.html" %}
+{% load static django_vite %}
+
+{% block content %}
+  <div class="px-4 md:px-8 py-6">
+    <div id="review-management-root"
+         data-current-user-role="{{ current_user_role }}"
+         data-open-progress-shop-id="{{ open_progress_shop_id }}"></div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/review-management.tsx' %}
+{% endblock %}

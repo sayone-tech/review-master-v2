@@ -18,6 +18,7 @@ export default defineConfig({
         "region-management": resolve(__dirname, "src/entrypoints/region-management.tsx"),
         "shop-management": resolve(__dirname, "src/entrypoints/shop-management.tsx"),
         "team-management": resolve(__dirname, "src/entrypoints/team-management.tsx"),
+        "review-management": resolve(__dirname, "src/entrypoints/review-management.tsx"),
       },
     },
   },
