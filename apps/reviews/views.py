@@ -8,22 +8,26 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import QuerySet
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
-from rest_framework import mixins
+from rest_framework import mixins, status
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.pagination import CursorPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.models import User
 from apps.common.permissions import IsOrgScoped
 from apps.common.viewsets import TenantScopedViewSet
+from apps.reviews.exceptions import ReplyConflictError, ReplyFailedError
 from apps.reviews.filters import ReviewFilterSet
 from apps.reviews.models import Review
 from apps.reviews.selectors.reviews import (
     base_reviews_queryset,
     get_accessible_shop_ids,
 )
-from apps.reviews.serializers import ReviewReadSerializer
+from apps.reviews.serializers import ReviewReadSerializer, ReviewReplySerializer
+from apps.reviews.services.replies import submit_reply
 
 
 class ReviewCursorPagination(CursorPagination):
@@ -46,6 +50,7 @@ class ReviewViewSet(
     filterset_class = ReviewFilterSet
     ordering_fields = ["review_create_time", "star_rating"]  # noqa: RUF012
     ordering = ["-review_create_time"]  # noqa: RUF012
+    throttle_scope = "review_reply"  # used only when ScopedRateThrottle is selected
     queryset = Review.objects.none()
 
     def get_queryset(self) -> QuerySet[Review]:
@@ -70,6 +75,36 @@ class ReviewViewSet(
             response = Response({"results": serializer.data})
         response.data["total_count"] = total_count
         return response
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reply",
+        throttle_classes=[ScopedRateThrottle],
+    )
+    def reply(self, request: Request, pk: int | None = None) -> Response:
+        """Submit a reply that is posted to Google synchronously."""
+        self.throttle_scope = "review_reply"
+        review = self.get_object()
+        serializer = ReviewReplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            updated = submit_reply(
+                review=review,
+                comment=serializer.validated_data["comment"],
+                actor=request.user,
+            )
+        except ReplyConflictError as exc:
+            return Response(
+                {"detail": str(exc), "code": "conflict"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except ReplyFailedError as exc:
+            return Response(
+                {"detail": exc.message, "code": exc.code},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(ReviewReadSerializer(updated).data, status=status.HTTP_200_OK)
 
 
 @login_required(login_url="/login/")
