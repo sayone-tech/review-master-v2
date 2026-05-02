@@ -3,7 +3,9 @@ FROM python:3.12-slim AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    VIRTUAL_ENV=/venv \
+    PATH="/venv/bin:$PATH"
 
 # System deps for psycopg, build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,13 +19,14 @@ RUN pip install --no-cache-dir uv==0.4.29
 
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev
+RUN uv venv /venv && uv sync --frozen --no-install-project
 
 # ---------- runtime stage ----------
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH" \
+    VIRTUAL_ENV=/venv \
+    PATH="/venv/bin:$PATH" \
     DJANGO_SETTINGS_MODULE=config.settings.local
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -35,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --system --gid app --uid 1000 --home /app --create-home app
 
 WORKDIR /app
-COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --from=builder --chown=app:app /venv /venv
 COPY --chown=app:app . /app
 
 USER app
