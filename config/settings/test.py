@@ -1,4 +1,16 @@
+# Phase 12: disable LangSmith tracing in tests so @traceable is a pass-through
+# and no network calls are attempted to LangSmith. Must be set BEFORE any
+# langsmith module is imported (per RESEARCH.md Pitfall 4).
+import os
+
 from .base import *
+
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ.setdefault("LANGSMITH_API_KEY", "")
+
+# Force LangSmith disabled for test runs regardless of .env contents.
+LANGSMITH_ENABLED = False
+LANGSMITH_API_KEY = None
 
 DEBUG = False
 SECRET_KEY = "test-insecure-secret"  # nosec B105  # noqa: S105

@@ -137,6 +137,28 @@ CHANNEL_LAYERS = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# OpenAI + LangSmith (introduced Phase 12) — single combined GPT-4o-mini call
+# per review with structured-output parsing, time-versioned cost tracking,
+# and best-effort LangSmith tracing.
+# See CLAUDE.md §14 for full architecture notes.
+# ---------------------------------------------------------------------------
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini-2024-07-18")
+OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
+
+LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
+LANGSMITH_PROJECT = env(
+    "LANGSMITH_PROJECT",
+    default=f"review-platform-{env('ENVIRONMENT', default='local')}",
+)
+LANGSMITH_ENABLED = bool(LANGSMITH_API_KEY)
+
+INITIAL_SYNC_PAGE_SIZE = env.int("INITIAL_SYNC_PAGE_SIZE", default=50)
+ENRICHMENT_BATCH_SIZE = env.int("ENRICHMENT_BATCH_SIZE", default=10)
+INCREMENTAL_SYNC_INTERVAL_HOURS = env.int("INCREMENTAL_SYNC_INTERVAL_HOURS", default=6)
+INCREMENTAL_SYNC_JITTER_MINUTES = env.int("INCREMENTAL_SYNC_JITTER_MINUTES", default=30)
+
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/admin/organisations/"
