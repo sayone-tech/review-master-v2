@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 export interface DataTableColumn<T> {
@@ -21,6 +21,13 @@ export interface DataTableProps<T> {
   renderRowActions?: (row: T) => ReactNode;
   /** Unique row key accessor. */
   rowKey: (row: T) => string;
+  /**
+   * Optional: render an extra `<tr>` immediately below the row (accordion pattern).
+   * Returning `null` for a row means "no expansion for this row".
+   * The callback MUST return a `<tr>` element with a `<td colSpan={colSpan}>` so it
+   * spans all columns. The DataTable computes `colSpan = columns.length + (renderRowActions ? 1 : 0)`.
+   */
+  renderExpanded?: (row: T) => ReactNode;
 }
 
 export function DataTable<T>({
@@ -30,6 +37,7 @@ export function DataTable<T>({
   emptyState,
   renderRowActions,
   rowKey,
+  renderExpanded,
 }: DataTableProps<T>) {
   const colSpan = columns.length + (renderRowActions ? 1 : 0);
 
@@ -90,29 +98,34 @@ export function DataTable<T>({
                 <td colSpan={colSpan}>{emptyState}</td>
               </tr>
             ) : (
-              rows.map((row) => (
-                <tr
-                  key={rowKey(row)}
-                  className="group hover:bg-[#FBFBFB] [&:last-child>td]:border-b-0"
-                  data-testid="data-table-row"
-                >
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
-                      className={`px-4 py-[14px] border-b border-line-soft align-middle ${col.align === "right" ? "text-right" : ""}`}
+              rows.map((row) => {
+                const expanded = renderExpanded ? renderExpanded(row) : null;
+                return (
+                  <Fragment key={rowKey(row)}>
+                    <tr
+                      className="group hover:bg-[#FBFBFB] [&:last-child>td]:border-b-0"
+                      data-testid="data-table-row"
                     >
-                      {col.accessor(row)}
-                    </td>
-                  ))}
-                  {renderRowActions && (
-                    <td className="px-4 py-[14px] border-b border-line-soft">
-                      <span className="opacity-35 group-hover:opacity-100 transition-opacity">
-                        {renderRowActions(row)}
-                      </span>
-                    </td>
-                  )}
-                </tr>
-              ))
+                      {columns.map((col) => (
+                        <td
+                          key={col.key}
+                          className={`px-4 py-[14px] border-b border-line-soft align-middle ${col.align === "right" ? "text-right" : ""}`}
+                        >
+                          {col.accessor(row)}
+                        </td>
+                      ))}
+                      {renderRowActions && (
+                        <td className="px-4 py-[14px] border-b border-line-soft">
+                          <span className="opacity-35 group-hover:opacity-100 transition-opacity">
+                            {renderRowActions(row)}
+                          </span>
+                        </td>
+                      )}
+                    </tr>
+                    {expanded}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

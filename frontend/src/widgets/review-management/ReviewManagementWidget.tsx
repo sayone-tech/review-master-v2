@@ -55,6 +55,7 @@ export const ReviewManagementWidget = ({
     goNext,
     goPrev,
     clearFilters,
+    replaceRow,
   } = useReviews();
 
   const [openComposerId, setOpenComposerId] = useState<number | null>(null);
@@ -134,9 +135,14 @@ export const ReviewManagementWidget = ({
         emptyState={emptyState}
         onReply={handleReplyCtaClick}
         expandedRowId={openComposerId}
-        expandedRow={null}
         showFullComment={showFullComment}
         onToggleShowFullComment={toggleShowFullComment}
+        onComposerSuccess={(updated) => {
+          // Replace row in state so badge + reply text update immediately.
+          // Keep composer open showing the success view; user closes manually.
+          replaceRow(updated);
+        }}
+        onComposerClose={() => setOpenComposerId(null)}
       />
       <div className="flex items-center justify-between mt-4">
         <select

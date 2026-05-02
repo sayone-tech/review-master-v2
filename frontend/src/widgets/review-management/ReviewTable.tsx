@@ -1,10 +1,13 @@
 import { MoreHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import { DataTable, type DataTableColumn } from "../data-table/DataTable";
+import { ReplyComposer } from "./ReplyComposer";
 import { ReplyStatusBadge } from "./ReplyStatusBadge";
 import { SentimentBadge } from "./SentimentBadge";
 import { StarRating } from "./StarRating";
 import type { ReviewRow } from "./types";
+
+const TOTAL_COLUMNS = 8; // 7 data columns + 1 actions column (must match column count below)
 
 function formatRelativeDate(iso: string): string {
   const d = new Date(iso);
@@ -24,23 +27,17 @@ interface Props {
   emptyState: ReactNode;
   onReply: (row: ReviewRow) => void;
   expandedRowId: number | null;
-  expandedRow: ReactNode;
-  // REVW-06 — passed from widget; consumed by Plan 11's ComposerAwareRow.
+  onComposerSuccess: (row: ReviewRow) => void;
+  onComposerClose: () => void;
+  // REVW-06 — Show more toggle plumbed from ReviewManagementWidget (Plan 10).
   showFullComment: Map<number, boolean>;
   onToggleShowFullComment: (reviewId: number) => void;
 }
 
 export function ReviewTable({
-  rows,
-  loading,
-  emptyState,
-  onReply,
-  expandedRowId,
-  expandedRow,
-  // showFullComment + onToggleShowFullComment are accepted here for the Plan 11
-  // wiring; in Plan 10 the table only uses DataTable so they pass through unused.
-  showFullComment: _showFullComment,
-  onToggleShowFullComment: _onToggleShowFullComment,
+  rows, loading, emptyState, onReply,
+  expandedRowId, onComposerSuccess, onComposerClose,
+  showFullComment, onToggleShowFullComment,
 }: Props) {
   const columns: DataTableColumn<ReviewRow>[] = [
     {
@@ -114,6 +111,23 @@ export function ReviewTable({
     },
   ];
 
+  // renderExpanded returns null for non-active rows; DataTable skips them.
+  const renderExpanded = (r: ReviewRow): ReactNode => {
+    if (expandedRowId !== r.id) return null;
+    // REVW-06 — truncate comments > 1000 chars in the composer's review-context block.
+    const isFull = showFullComment.get(r.id) ?? false;
+    return (
+      <ReplyComposer
+        row={r}
+        totalColumns={TOTAL_COLUMNS}
+        showFullComment={isFull}
+        onToggleShowFullComment={() => onToggleShowFullComment(r.id)}
+        onSuccess={onComposerSuccess}
+        onClose={onComposerClose}
+      />
+    );
+  };
+
   return (
     <div data-testid="review-table-wrap">
       <DataTable
@@ -122,6 +136,7 @@ export function ReviewTable({
         loading={loading}
         emptyState={emptyState}
         rowKey={(r) => String(r.id)}
+        renderExpanded={renderExpanded}
         renderRowActions={(_r) => (
           <button
             type="button"
@@ -132,8 +147,6 @@ export function ReviewTable({
           </button>
         )}
       />
-      {/* Plan 11 will render the inline composer for the row matching expandedRowId */}
-      {expandedRowId !== null && expandedRow}
     </div>
   );
 }
