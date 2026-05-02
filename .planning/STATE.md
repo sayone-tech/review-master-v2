@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-08-PLAN.md (OAuth->sync pipeline wiring)
-last_updated: "2026-05-02T05:06:15.407Z"
+stopped_at: Completed 11-12-PLAN.md (ProgressModal WebSocket component)
+last_updated: "2026-05-02T05:10:38.069Z"
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 59
-  completed_plans: 52
+  completed_plans: 54
 ---
 
 # Project State
@@ -60,6 +60,8 @@ Plan: 9 of 13
 | Phase 11 P07 | 7 | 2 tasks | 5 files |
 | Phase 11 P09 | 2 | 2 tasks | 7 files |
 | Phase 11 P08 | 6 | 2 tasks | 10 files |
+| Phase 11 P13 | 95 | 2 tasks | 4 files |
+| Phase 11 P12 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -104,6 +106,10 @@ Recent decisions affecting current work:
 - [Phase 11-08]: syncing endpoint uses IsOrgScoped — Staff Admins need sync progress visibility for their shops
 - [Phase 11-08]: Task dispatch wrapped in try/except in perform_create — failure logs warning but does not block shop creation
 - [Phase 11-08]: Frontend redirect uses window.location.href — Plan 12 mounts fresh and reads ?open_progress= from URL on init
+- [Phase 11]: Alpine.js dropdown replaced by React open= state in TopbarSyncIndicator — simpler, avoids mixing two reactive systems in one React root
+- [Phase 11-12]: ProgressModal mounts inside ShopTableWidget — consistent with how ShopModals manages other modals in the same widget tree
+- [Phase 11-12]: URL param ?open_progress= cleared via history.replaceState immediately after modal opens — prevents re-open on refresh
+- [Phase 11-12]: ETA calculation guards page_count >= 2 — first page has no elapsed time ratio to extrapolate from
 
 ### Pending Todos
 
@@ -115,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T05:06:15.404Z
-Stopped at: Completed 11-08-PLAN.md (OAuth->sync pipeline wiring)
+Last session: 2026-05-02T05:10:33.790Z
+Stopped at: Completed 11-12-PLAN.md (ProgressModal WebSocket component)
 Resume file: None

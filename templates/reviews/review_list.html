@@ -6,6 +6,8 @@
     <div id="review-management-root"
          data-current-user-role="{{ current_user_role }}"
          data-open-progress-shop-id="{{ open_progress_shop_id }}"></div>
+    {{ shops_json|json_script:"review-shops-data" }}
+    {{ has_connected_shops|json_script:"review-has-connected-shops" }}
   </div>
 {% endblock %}
 

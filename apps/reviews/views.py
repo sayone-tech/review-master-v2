@@ -111,6 +111,19 @@ class ReviewViewSet(
 def review_list(request):  # type: ignore[no-untyped-def]
     user = request.user
     open_progress = request.GET.get("open_progress") or ""
+    org_id = getattr(user, "organisation_id", None)
+
+    shops_data: list[dict[str, Any]] = []
+    has_connected = False
+    if org_id is not None:
+        from apps.shops.models import Shop
+
+        qs = Shop.objects.filter(organisation_id=org_id, is_active=True)
+        if getattr(user, "role", "") == "STAFF_ADMIN":
+            qs = qs.filter(id__in=get_accessible_shop_ids(user_id=user.pk))
+        shops_data = list(qs.values("id", "name").order_by("name"))  # type: ignore[arg-type]
+        has_connected = qs.filter(connection_status=Shop.ConnectionStatus.CONNECTED).exists()
+
     return render(
         request,
         "reviews/review_list.html",
@@ -118,5 +131,7 @@ def review_list(request):  # type: ignore[no-untyped-def]
             "page_title": "Reviews",
             "open_progress_shop_id": open_progress,
             "current_user_role": getattr(user, "role", ""),
+            "shops_json": shops_data,
+            "has_connected_shops": has_connected,
         },
     )
