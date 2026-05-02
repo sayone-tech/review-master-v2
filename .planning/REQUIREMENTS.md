@@ -55,11 +55,11 @@
 
 ### Reviews Module
 
-- [ ] **REVW-01**: Reviews list page at `/admin/org/reviews/`; accessible to all roles; Staff queryset filtered to assigned shops only
-- [ ] **REVW-02**: Filter bar with Store, Rating, Sentiment, Reply Status, From Date, To Date, and Search (full-text on review text + reviewer name); all filters apply additively
-- [ ] **REVW-03**: "Showing X of Y reviews" live count below filter bar; search debounced 300ms
-- [ ] **REVW-04**: Sort selector: Newest first (default), Oldest first, Lowest rating first, Highest rating first
-- [ ] **REVW-05**: Pagination with 10/25/50/100 selector (default 10); shows "Showing X–Y of Z" with first/prev/next/last controls
+- [x] **REVW-01**: Reviews list page at `/admin/org/reviews/`; accessible to all roles; Staff queryset filtered to assigned shops only
+- [x] **REVW-02**: Filter bar with Store, Rating, Sentiment, Reply Status, From Date, To Date, and Search (full-text on review text + reviewer name); all filters apply additively
+- [x] **REVW-03**: "Showing X of Y reviews" live count below filter bar; search debounced 300ms
+- [x] **REVW-04**: Sort selector: Newest first (default), Oldest first, Lowest rating first, Highest rating first
+- [x] **REVW-05**: Pagination with 10/25/50/100 selector (default 10); shows "Showing X–Y of Z" with first/prev/next/last controls
 - [ ] **REVW-06**: Each review renders as a card: reviewer name + avatar, star rating, source shop badge (Region • Shop), review date (relative + full timestamp on hover), review text with "Show more" toggle if >1000 chars
 - [ ] **REVW-07**: Sentiment badge (Positive/Neutral/Negative) and tag chips shown on enriched reviews; "Analyzing..." pill shown while enrichment is pending; red exclamation with tooltip on enrichment failure
 - [ ] **REVW-08**: Action item chips on review card; clickable to open Action Item modal
@@ -179,11 +179,11 @@
 | PROG-08 | Phase 11 | Pending |
 | PROG-09 | Phase 11 | Pending |
 | PROG-10 | Phase 11 | Complete |
-| REVW-01 | Phase 11 | Pending |
-| REVW-02 | Phase 11 | Pending |
-| REVW-03 | Phase 11 | Pending |
-| REVW-04 | Phase 11 | Pending |
-| REVW-05 | Phase 11 | Pending |
+| REVW-01 | Phase 11 | Complete |
+| REVW-02 | Phase 11 | Complete |
+| REVW-03 | Phase 11 | Complete |
+| REVW-04 | Phase 11 | Complete |
+| REVW-05 | Phase 11 | Complete |
 | REVW-06 | Phase 11 | Pending |
 | REVW-07 | Phase 11 | Pending |
 | REVW-08 | Phase 11 | Pending |

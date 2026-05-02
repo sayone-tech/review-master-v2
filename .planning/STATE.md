@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-03-PLAN.md (Sync service core — progress.py + sync.py)
-last_updated: "2026-05-02T04:45:47.989Z"
+stopped_at: Completed 11-06-PLAN.md (Reviews read API — ViewSet, selectors, filters)
+last_updated: "2026-05-02T04:45:11.000Z"
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 59
-  completed_plans: 46
+  completed_plans: 47
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-01)
 ## Current Position
 
 Phase: 11 (reviews) — EXECUTING
-Plan: 2 of 13
+Plan: 7 of 13
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Plan: 2 of 13
 | Phase 11 P01 | 15 | 2 tasks | 14 files |
 | Phase 11 P02 | 10 | 2 tasks | 3 files |
 | Phase 11 P03 | 8 | 2 tasks | 5 files |
+| Phase 11 P06 | 8 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Recent decisions affecting current work:
 - [Phase 11-02]: httpx.MockTransport used for reviews_client tests — avoids respx dependency, MockTransport built into httpx
 - [Phase 11-02]: list_reviews maps other 4xx (not 401/403) to GoogleUnreachableError so Celery autoretry_for covers transient failures
 - [Phase 11-03]: SearchVector update guarded by connection.vendor check to prevent SQLite test failures; test verifies code path via QuerySet.update interception
+- [Phase 11-06]: CursorPagination chosen over PageNumberPagination — reviews table grows large with incremental sync, cursor provides O(1) performance
+- [Phase 11-06]: total_count computed via qs.values("pk").count() before paginate_queryset — includes filter effects in count
+- [Phase 11-06]: get_accessible_shop_ids returns Python list (not subquery) — predictable 1 query, keeps main queryset independent
 
 ### Pending Todos
 
