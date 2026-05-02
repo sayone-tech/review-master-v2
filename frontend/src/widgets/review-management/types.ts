@@ -7,6 +7,15 @@ export interface ReviewTag {
   polarity: TagPolarity;
 }
 
+export type ActionItemScope = "shop" | "brand";
+export type ActionItemPriority = "high" | "medium" | "low";
+
+export interface ExtractedActionItem {
+  title: string;
+  scope: ActionItemScope;
+  priority: ActionItemPriority;
+}
+
 export interface ReviewRow {
   id: number;
   shop_id: number;
@@ -27,6 +36,7 @@ export interface ReviewRow {
   enrichment_status: EnrichmentStatus;
   sentiment: Sentiment;
   tags: ReviewTag[];
+  extracted_action_items: ExtractedActionItem[];
   created_at: string;
   updated_at: string;
 }

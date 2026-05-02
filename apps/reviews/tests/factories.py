@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 import factory
 from django.utils import timezone
 from factory.django import DjangoModelFactory
@@ -30,6 +32,8 @@ class ReviewFactory(DjangoModelFactory):
     is_replied = False
     enrichment_status = Review.EnrichmentStatus.PENDING
     sentiment = ""
+    tags: ClassVar[list] = []
+    extracted_action_items: ClassVar[list] = []
 
 
 class AuditLogFactory(DjangoModelFactory):
