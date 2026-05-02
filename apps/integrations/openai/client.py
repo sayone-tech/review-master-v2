@@ -158,6 +158,10 @@ def call_openai_enrichment(
         response, trace_id = _call_openai_with_tracing(messages=messages, model=use_model)
     except (OpenAITransientError, OpenAIPermanentError):
         raise
+    except (openai.RateLimitError, openai.APIStatusError) as exc:
+        # Raw SDK errors propagated from the traced path (e.g., when patching
+        # _do_responses_parse in tests) must be mapped to our hierarchy.
+        raise _map_openai_error(exc) from exc
     except Exception as exc:  # LangSmith init / shipping failure
         logger.warning(
             "langsmith_best_effort_fallback exc_type=%s exc=%s",
