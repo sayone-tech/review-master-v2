@@ -26,6 +26,7 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     VIRTUAL_ENV=/venv \
+    UV_PROJECT_ENVIRONMENT=/venv \
     PATH="/venv/bin:$PATH" \
     DJANGO_SETTINGS_MODULE=config.settings.local
 
