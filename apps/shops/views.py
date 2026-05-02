@@ -9,7 +9,7 @@ from typing import Any
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.views import View
-from django_redis import get_redis_connection  # type: ignore[import-untyped]
+from django_redis import get_redis_connection
 from rest_framework import mixins, status
 from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action
@@ -306,7 +306,7 @@ class GoogleOAuthCallbackView(View):
                     30,
                     json.dumps({"type": "oauth_error", "state": state, "code": code}),
                 )
-            except Exception:
+            except Exception:  # noqa: S110  # nosec B110
                 pass
         response = render(
             request,

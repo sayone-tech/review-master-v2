@@ -5,6 +5,7 @@ from rest_framework.routers import SimpleRouter
 
 from apps.organisations.views import OrganisationViewSet
 from apps.regions.views import RegionViewSet
+from apps.reviews.views import ReviewViewSet
 from apps.shops.views import ShopViewSet
 
 # SimpleRouter avoids creating a browsable API-root at "/" which would conflict
@@ -13,6 +14,7 @@ router = SimpleRouter()
 router.register(r"api/v1/organisations", OrganisationViewSet, basename="organisation")
 router.register(r"api/v1/regions", RegionViewSet, basename="region")
 router.register(r"api/v1/shops", ShopViewSet, basename="shop")
+router.register(r"api/v1/reviews", ReviewViewSet, basename="review")
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -21,6 +23,7 @@ urlpatterns = [
     path("", include("apps.accounts.urls")),
     path("", include("apps.common.urls")),
     path("", include("apps.shops.urls")),
+    path("", include("apps.reviews.urls")),
     path("admin/", admin.site.urls),
 ]
 
