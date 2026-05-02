@@ -5,6 +5,7 @@ import { fetchSyncingShops } from "./api";
 interface SyncingShop {
   shop_id: number;
   shop_name: string;
+  stage?: "fetching" | "enriching";
 }
 
 interface FailureEntry extends SyncingShop {
@@ -67,7 +68,23 @@ export function TopbarBell({ notificationCount }: Props) {
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
-        if (data.type === "sync.complete") {
+        if (data.type === "sync.enrichment.progress") {
+          setActive((prev) =>
+            prev.map((s) =>
+              s.shop_id === shop.shop_id ? { ...s, stage: "enriching" } : s,
+            ),
+          );
+        } else if (data.type === "sync.fetch.progress") {
+          // Default stage; once a shop has progressed to enriching, do NOT
+          // regress to fetching even if a stale fetch event arrives.
+          setActive((prev) =>
+            prev.map((s) =>
+              s.shop_id === shop.shop_id && s.stage !== "enriching"
+                ? { ...s, stage: "fetching" }
+                : s,
+            ),
+          );
+        } else if (data.type === "sync.complete") {
           setActive((prev) => prev.filter((s) => s.shop_id !== shop.shop_id));
           setFailures((prev) => prev.filter((f) => f.shop_id !== shop.shop_id));
           setCompleted((prev) => [
@@ -163,25 +180,32 @@ export function TopbarBell({ notificationCount }: Props) {
           aria-label="Notifications"
           className="absolute top-full right-0 mt-2 w-[300px] bg-white border border-line rounded-menu shadow-lg z-50 py-2"
         >
-          {active.map((s) => (
-            <div key={s.shop_id} className="flex items-start gap-3 px-4 py-2.5">
-              <Loader2
-                size={15}
-                className="animate-spin text-yellow mt-0.5 shrink-0"
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-ink truncate">{s.shop_name}</div>
-                <div className="text-[12px] text-muted">Syncing reviews…</div>
-                <a
-                  href={`/admin/org/shops/?open_progress=${s.shop_id}`}
-                  className="text-[12px] text-yellow underline hover:opacity-80"
-                >
-                  View progress
-                </a>
+          {active.map((s) => {
+            const isEnriching = s.stage === "enriching";
+            const subLabel = isEnriching
+              ? "Analysing reviews with AI…"
+              : "Fetching reviews from Google…";
+            const iconColorClass = isEnriching ? "text-green" : "text-yellow";
+            return (
+              <div key={s.shop_id} className="flex items-start gap-3 px-4 py-2.5">
+                <Loader2
+                  size={15}
+                  className={`animate-spin ${iconColorClass} mt-0.5 shrink-0`}
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-ink truncate">{s.shop_name}</div>
+                  <div className="text-[12px] text-muted">{subLabel}</div>
+                  <a
+                    href={`/admin/org/shops/?open_progress=${s.shop_id}`}
+                    className="text-[12px] text-yellow underline hover:opacity-80"
+                  >
+                    View progress
+                  </a>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {failures.map((f) => (
             <div key={f.shop_id} className="flex items-start gap-3 px-4 py-2.5">
