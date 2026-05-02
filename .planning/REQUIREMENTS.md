@@ -49,8 +49,8 @@
 - [ ] **PROG-05**: Progress Modal error state shows: "Sync paused — {error}. We'll retry automatically. Click Reconnect Google if you've revoked access."
 - [ ] **PROG-06**: Top-bar indicator shows count badge when multiple shops are syncing; tooltip says "N shops syncing reviews"; click opens popover with per-shop progress bars
 - [ ] **PROG-07**: Top-bar indicator turns red with warning icon on permanent sync failure; popover includes "View error" link per failed shop
-- [ ] **PROG-08**: WebSocket client connects to `/ws/sync-progress/?shop_id={id}`; receives `sync.fetch.progress`, `sync.enrichment.progress`, `sync.complete`, and `sync.error` events
-- [ ] **PROG-09**: On WebSocket reconnect, consumer immediately sends the current snapshot from Redis so UI is correct without waiting for the next event
+- [x] **PROG-08**: WebSocket client connects to `/ws/sync-progress/?shop_id={id}`; receives `sync.fetch.progress`, `sync.enrichment.progress`, `sync.complete`, and `sync.error` events
+- [x] **PROG-09**: On WebSocket reconnect, consumer immediately sends the current snapshot from Redis so UI is correct without waiting for the next event
 - [x] **PROG-10**: Sync progress state persisted in Redis under `sync:progress:{shop_id}` with 24-hour TTL; retained 1 hour after success, 7 days after permanent failure
 
 ### Reviews Module
@@ -176,8 +176,8 @@
 | PROG-05 | Phase 11 | Pending |
 | PROG-06 | Phase 11 | Pending |
 | PROG-07 | Phase 11 | Pending |
-| PROG-08 | Phase 11 | Pending |
-| PROG-09 | Phase 11 | Pending |
+| PROG-08 | Phase 11 | Complete |
+| PROG-09 | Phase 11 | Complete |
 | PROG-10 | Phase 11 | Complete |
 | REVW-01 | Phase 11 | Complete |
 | REVW-02 | Phase 11 | Complete |

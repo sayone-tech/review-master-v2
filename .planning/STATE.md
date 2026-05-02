@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 11-04-PLAN.md (Celery task wrappers + Beat seed migration)
-last_updated: "2026-05-02T04:55:22.118Z"
+stopped_at: Completed 11-05-PLAN.md (SyncProgressConsumer staff-scope tightening + snapshot-on-connect)
+last_updated: "2026-05-02T04:55:34.183Z"
 progress:
   total_phases: 11
   completed_phases: 8
@@ -90,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 11-06]: get_accessible_shop_ids returns Python list (not subquery) — predictable 1 query, keeps main queryset independent
 - [Phase 11-04]: enqueue_incremental_syncs_task uses random.uniform (# noqa: S311) — scheduling jitter, not cryptographic randomness
 - [Phase 11-04]: Beat seed migration depends on django_celery_beat 0019_alter_periodictasks_options as the latest migration at time of writing
+- [Phase 11-05]: StaffAccessScope REGION check guards shop.region_id for None to avoid unnecessary queries when shop has no region
+- [Phase 11-05]: get_progress_snapshot catches NotImplementedError (locmem cache in tests) to keep existing Phase 10 tests green without requiring Redis in CI
+- [Phase 11-05]: test_no_snapshot_sent_when_redis_empty avoids disconnect() after timeout to prevent CancelledError — uses boolean flag pattern instead
 
 ### Pending Todos
 
@@ -101,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T04:53:17.000Z
-Stopped at: Completed 11-04-PLAN.md (Celery task wrappers + Beat seed migration)
+Last session: 2026-05-02T04:55:34.180Z
+Stopped at: Completed 11-05-PLAN.md (SyncProgressConsumer staff-scope tightening + snapshot-on-connect)
 Resume file: None
