@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.reviews",
     "apps.action_items",
     "apps.notifications",
+    "apps.integrations.openai",
 ]
 
 MIDDLEWARE = [

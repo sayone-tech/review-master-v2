@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-05-02T14:23:49.400Z"
+stopped_at: Completed 12-08-PLAN.md
+last_updated: "2026-05-02T14:28:25.950Z"
 progress:
   total_phases: 12
   completed_phases: 9
   total_plans: 69
-  completed_plans: 59
+  completed_plans: 61
 ---
 
 # Project State
@@ -67,6 +67,8 @@ Plan: 8 plans approved (12-01 through 12-08)
 | Phase 11-reviews P14 | 3 | 2 tasks | 2 files |
 | Phase 11 P15 | 149 | 2 tasks | 7 files |
 | Phase 12 P01 | 5 | 2 tasks | 9 files |
+| Phase 12 P07 | 2 | 2 tasks | 2 files |
+| Phase 12 P08 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -130,6 +132,8 @@ Recent decisions affecting current work:
 - [Phase 12]: Exact version pins for openai==2.33.0/langsmith==0.8.0/pydantic==2.13.3 — CLAUDE.md §14.9 was stale; RESEARCH.md verified live PyPI 2026-05-02
 - [Phase 12]: LangSmith disabled in test settings via os.environ before from .base import * — ruff isort moves import to top which is actually safer
 - [Phase 12]: ClassVar[list] annotation on ReviewFactory tags/extracted_action_items — required by ruff RUF012 for mutable class attributes
+- [Phase 12]: Local optimistic flip to status='success' in ProgressModal sync.enrichment.progress handler — UX safety net for slow networks; backend sync.complete re-confirms duration_seconds
+- [Phase 12]: TopbarBell guards stage regression: sync.fetch.progress only sets stage='fetching' if not already enriching — defensive against stale events; stage transitions strictly one-directional
 
 ### Pending Todos
 
@@ -141,6 +145,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-02T14:23:49.397Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-05-02T14:28:25.948Z
+Stopped at: Completed 12-08-PLAN.md
 Resume file: None
