@@ -1,15 +1,19 @@
 ---
 phase: 13
 slug: action-items-and-notifications
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: signed
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-03
+signed_off: 2026-05-03
+signed_off_by: planner
 ---
 
 # Phase 13 — Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
+> Approved by planner on 2026-05-03 after revision-mode pass that addressed
+> blocking issues B1–B4 and recommendations R1–R5.
 
 ---
 
@@ -21,52 +25,68 @@ created: 2026-05-03
 | **Config file** | `pyproject.toml` (`[tool.pytest.ini_options]`) |
 | **Quick run command** | `pytest apps/action_items/ apps/notifications/ -x -q` |
 | **Full suite command** | `pytest apps/ -q --tb=short` |
-| **Estimated runtime** | ~30 seconds |
+| **Frontend type-check** | `cd frontend && npx tsc --noEmit -p .` |
+| **Frontend bundle**     | `cd frontend && npx vite build` |
+| **Estimated runtime**   | ~30 seconds (backend) + ~20 seconds (frontend) |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `pytest apps/action_items/ apps/notifications/ -x -q`
-- **After every plan wave:** Run `pytest apps/ -q --tb=short`
-- **Before `/gsd:verify-work`:** Full suite must be green
-- **Max feedback latency:** 30 seconds
+- **After every task commit:** Run `pytest apps/action_items/ apps/notifications/ -x -q` (backend tasks) or `cd frontend && npx tsc --noEmit -p .` (frontend tasks).
+- **After every plan wave:** Run `pytest apps/ -q --tb=short` and `cd frontend && npx vite build`.
+- **Before `/gsd:verify-work`:** Full suite must be green.
+- **Max feedback latency:** 30 seconds.
 
 ---
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 13-xx-01 | models | 1 | ACTN-01 | unit | `pytest apps/action_items/tests/test_models.py -x -q` | ❌ W0 | ⬜ pending |
-| 13-xx-02 | services | 1 | ACTN-02,ACTN-03 | unit | `pytest apps/action_items/tests/test_services.py -x -q` | ❌ W0 | ⬜ pending |
-| 13-xx-03 | selectors | 1 | ACTN-12 | unit+query | `pytest apps/action_items/tests/test_selectors.py -x -q` | ❌ W0 | ⬜ pending |
-| 13-xx-04 | api views | 2 | ACTN-04,ACTN-05 | integration | `pytest apps/action_items/tests/test_views.py -x -q` | ❌ W0 | ⬜ pending |
-| 13-xx-05 | staff scoping | 2 | ACTN-06,ACTN-07 | integration | `pytest apps/action_items/tests/test_views.py -k staff -x -q` | ❌ W0 | ⬜ pending |
-| 13-xx-06 | notifications | 3 | NOTF-01,NOTF-02 | unit | `pytest apps/notifications/tests/ -x -q` | ❌ W0 | ⬜ pending |
-| 13-xx-07 | bell endpoint | 3 | NOTF-03,NOTF-04 | integration | `pytest apps/notifications/tests/test_views.py -x -q` | ❌ W0 | ⬜ pending |
-| 13-xx-08 | query count | 2 | ACTN-12 | query-count | `pytest apps/action_items/tests/test_selectors.py -k query_count -x -q` | ❌ W0 | ⬜ pending |
+| Task ID | Plan / Task | Wave | Requirement(s) | Test Type | Automated Command | Status |
+|---------|-------------|------|----------------|-----------|-------------------|--------|
+| 13-01-T1 | 13-01 Task 1 — ActionItem + ActionItemNote + AuditLog models | 1 | ACTN-01, ACTN-04 | unit | `pytest apps/action_items/tests/test_models.py -x -q` | ⬜ pending |
+| 13-01-T2 | 13-01 Task 2 — factories + admin | 1 | ACTN-01 | unit | `pytest apps/action_items/tests/test_models.py -x -q` | ⬜ pending |
+| 13-02-T1 | 13-02 Task 1 — Notification model + factories + admin | 1 | NOTF-01, NOTF-02 | unit | `pytest apps/notifications/tests/test_models.py -x -q` | ⬜ pending |
+| 13-03-T1 | 13-03 Task 1 — selectors + BrandScopeGuard permission | 2 | ACTN-02, ACTN-12 | unit + query-count | `pytest apps/action_items/tests/test_selectors.py -x -q` | ⬜ pending |
+| 13-03-T2 | 13-03 Task 2 — lifecycle service (create/transition/assign/note/promote) + AuditLog | 2 | ACTN-02, ACTN-08 | unit | `pytest apps/action_items/tests/test_services.py -x -q` | ⬜ pending |
+| 13-04-T1 | 13-04 Task 1 — Serializers + FilterSet + ViewSet + URLs (consolidated wiring per B2 Option A) | 3 | ACTN-04, ACTN-05, ACTN-09 | smoke | `python manage.py check` | ⬜ pending |
+| 13-04-T2 | 13-04 Task 2 — View tests inc. ACTN-12 ≤5-query gate | 3 | ACTN-02, ACTN-04, ACTN-05, ACTN-07–10, ACTN-12 | integration + query-count | `pytest apps/action_items/tests/test_views.py -x -q` | ⬜ pending |
+| 13-05-T1 | 13-05 Task 1 — dispatch_notification + enrichment on_commit + sync.py new_review (R4/R5) | 3 | ACTN-01, NOTF-01, NOTF-02, NOTF-05 | integration | `pytest apps/notifications/tests/test_dispatch.py apps/action_items/tests/test_services.py -x -q` | ⬜ pending |
+| 13-05-T2 | 13-05 Task 2 — NotificationViewSet + bell endpoint | 3 | NOTF-03, NOTF-04 | integration + query-count | `pytest apps/notifications/tests/test_views.py -x -q` | ⬜ pending |
+| 13-06-T1 | 13-06 Task 1 — types + api + useActionItems + Vite + entrypoint | 3 | ACTN-02, ACTN-04 | type-check | `cd frontend && npx tsc --noEmit -p .` | ⬜ pending |
+| 13-06-T2 | 13-06 Task 2 — Filters + Table + Widget + status submenu | 3 | ACTN-03, ACTN-08 | type-check + bundle | `cd frontend && npx tsc --noEmit -p . && npx vite build` | ⬜ pending |
+| 13-07-T1 | 13-07 Task 1 — ActionItemModal (3 tabs) + DetailsTab inline (R1) | 4 | ACTN-06, ACTN-07, ACTN-10, ACTN-11 | type-check | `cd frontend && npx tsc --noEmit -p .` | ⬜ pending |
+| 13-07-T2 | 13-07 Task 2 — CreateModal + Chip upgrade + has_action_items annotation (B3 REVW-14 gate) | 4 | ACTN-09, ACTN-13, REVW-08 | type-check + bundle + query-count | `cd frontend && npx tsc --noEmit -p . && npx vite build && pytest apps/reviews/tests/ -k "test_query_count" -x -q` | ⬜ pending |
+| 13-08-T1 | 13-08 Task 1 — types + api + useNotifications hook (R3 inlined helper) | 4 | NOTF-01, NOTF-02, NOTF-04 | type-check | `cd frontend && npx tsc --noEmit -p .` | ⬜ pending |
+| 13-08-T2 | 13-08 Task 2 — NotifBell component + topbar mount | 4 | NOTF-01, NOTF-02, NOTF-03, NOTF-05 | type-check + bundle | `cd frontend && npx tsc --noEmit -p . && npx vite build` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+**Wave map (revised after B1):** W1 = {13-01, 13-02} · W2 = {13-03} · W3 = {13-04, 13-05, 13-06} · W4 = {13-07, 13-08}.
+**Same-wave file conflicts (post-B2 Option A):** none — `config/urls.py` is owned by 13-04; `apps/notifications/urls.py` stub is also created by 13-04 and 13-05 only edits its body; `frontend/vite.config.ts` is touched in 13-06 (W3) and 13-08 (W4) which are sequential.
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `apps/action_items/__init__.py` — app package
-- [ ] `apps/action_items/apps.py` — AppConfig
-- [ ] `apps/action_items/tests/__init__.py`
-- [ ] `apps/action_items/tests/factories.py` — ActionItem, AuditLog factories
-- [ ] `apps/action_items/tests/test_models.py` — stubs for ACTN-01
-- [ ] `apps/action_items/tests/test_services.py` — stubs for ACTN-02, ACTN-03
-- [ ] `apps/action_items/tests/test_selectors.py` — stubs for ACTN-12 query count
-- [ ] `apps/action_items/tests/test_views.py` — stubs for ACTN-04–ACTN-11
-- [ ] `apps/notifications/__init__.py` — app package
-- [ ] `apps/notifications/apps.py` — AppConfig
-- [ ] `apps/notifications/tests/__init__.py`
-- [ ] `apps/notifications/tests/factories.py` — Notification factory
-- [ ] `apps/notifications/tests/test_services.py` — stubs for NOTF-01, NOTF-02
-- [ ] `apps/notifications/tests/test_views.py` — stubs for NOTF-03, NOTF-04, NOTF-05
+All Wave 0 scaffolding is delivered as part of Plans 13-01 and 13-02 (the model plans in Wave 1). The MISSING-test pattern does not apply because every test referenced in the verification map has its file created in the same plan that introduces the behaviour.
+
+- [x] `apps/action_items/__init__.py` — created in 13-01
+- [x] `apps/action_items/apps.py` — created in 13-01
+- [x] `apps/action_items/tests/__init__.py` — created in 13-01
+- [x] `apps/action_items/tests/factories.py` — created in 13-01 Task 2
+- [x] `apps/action_items/tests/test_models.py` — created in 13-01 Task 1 (ACTN-01)
+- [x] `apps/action_items/tests/test_services.py` — created in 13-03 Task 2 (ACTN-02, ACTN-08)
+- [x] `apps/action_items/tests/test_selectors.py` — created in 13-03 Task 1 (ACTN-12 query-count)
+- [x] `apps/action_items/tests/test_views.py` — created in 13-04 Task 2 (ACTN-04..ACTN-10, ACTN-12)
+- [x] `apps/notifications/__init__.py` — created in 13-02
+- [x] `apps/notifications/apps.py` — created in 13-02
+- [x] `apps/notifications/tests/__init__.py` — created in 13-02
+- [x] `apps/notifications/tests/factories.py` — created in 13-02
+- [x] `apps/notifications/tests/test_dispatch.py` — created in 13-05 Task 1 (NOTF-05, R4 sync wiring)
+- [x] `apps/notifications/tests/test_views.py` — created in 13-05 Task 2 (NOTF-03, NOTF-04)
+
+No `<verify><automated>MISSING — Wave 0 must create …</automated></verify>` placeholders remain in any plan.
 
 ---
 
@@ -74,20 +94,21 @@ created: 2026-05-03
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Notification bell popover renders and dismisses | NOTF-03 | Browser DOM interaction | Open `/admin/org/action-items/`, verify bell icon shows count, click to open popover with ≤10 items, click item to navigate and mark read |
-| Staff user cannot see brand-scoped items via UI | ACTN-06 | Role-dependent UI rendering | Log in as Staff, navigate to action items, confirm no brand-scope filter UI and no brand items in list |
+| Notification bell popover renders and dismisses | NOTF-03 | Browser DOM interaction (popover, outside-click) | Open `/admin/org/action-items/`, verify bell icon shows count, click to open popover with ≤10 items, click item to navigate and mark read |
+| Staff user cannot see brand-scoped items via UI | ACTN-06 | Role-dependent UI rendering (Layer 3 — UI hide of scope filter and Brand option in CreateModal) | Log in as Staff, navigate to action items, confirm no brand-scope filter UI and no brand items in list; open create modal — Brand option absent |
 | Action item creation modal flow | ACTN-03 | Multi-step form interaction | As Org Admin, click "Create", fill all fields, submit, verify item appears in list with correct data |
 | Status transition audit trail | ACTN-08 | UI + database consistency | Transition item to each status, verify audit log entries in detail modal |
+| New review notification end-to-end | NOTF-02 | Requires running Google sync against a fixture | Trigger `python manage.py runscript run_sync_for_shop --shop-id=…` (or seed via shell) to insert a new review row; within 60 s the bell badge increments by one per eligible recipient |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or are covered by Wave 0 scaffolding (no MISSING placeholders)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags in any verify command
+- [x] Feedback latency < 30 s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved by planner on 2026-05-03 (post-revision pass addressing B1–B4 + R1–R5).
