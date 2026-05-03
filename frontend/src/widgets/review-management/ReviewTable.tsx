@@ -139,24 +139,23 @@ export function ReviewTable({
   };
 
   return (
-    <div data-testid="review-table-wrap">
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        emptyState={emptyState}
-        rowKey={(r) => String(r.id)}
-        renderExpanded={renderExpanded}
-        renderRowActions={(_r) => (
-          <button
-            type="button"
-            aria-label="More actions for this review"
-            className="w-8 h-8 rounded-md text-muted hover:bg-line-soft hover:text-ink flex items-center justify-center"
-          >
-            <MoreHorizontal size={14} aria-hidden="true" />
-          </button>
-        )}
-      />
-    </div>
+    <DataTable
+      columns={columns}
+      rows={rows}
+      loading={loading}
+      emptyState={emptyState}
+      rowKey={(r) => String(r.id)}
+      renderExpanded={renderExpanded}
+      renderRowActions={(_r) => (
+        <button
+          type="button"
+          aria-label="More actions for this review"
+          className="w-8 h-8 rounded-md text-muted hover:bg-line-soft hover:text-ink flex items-center justify-center"
+        >
+          <MoreHorizontal size={14} aria-hidden="true" />
+        </button>
+      )}
+      wrapperClassName="bg-white overflow-hidden"
+    />
   );
 }

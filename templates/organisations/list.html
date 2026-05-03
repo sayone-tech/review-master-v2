@@ -54,9 +54,11 @@
         {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
       </div>
     {% else %}
-      <div id="org-table-root" data-testid="org-table-root"></div>
       {{ orgs_json|json_script:"org-data" }}
-      {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
+      <div class="border border-line rounded-card overflow-hidden">
+        <div id="org-table-root" data-testid="org-table-root"></div>
+        {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
+      </div>
     {% endif %}
 
     {# Always-present mount point so React modals + CreateButtonBridge mount regardless of row count #}

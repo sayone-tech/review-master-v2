@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { ReviewEmptyStates } from "./ReviewEmptyStates";
 import { ReviewFilters } from "./ReviewFilters";
 import { ReviewTable } from "./ReviewTable";
@@ -132,74 +132,79 @@ export const ReviewManagementWidget = ({
         onOrdering={setOrdering}
         onClearAll={clearFilters}
       />
-      <ReviewTable
-        rows={rows}
-        loading={loading}
-        emptyState={emptyState}
-        onReply={handleReplyCtaClick}
-        expandedRowId={openComposerId}
-        showFullComment={showFullComment}
-        onToggleShowFullComment={toggleShowFullComment}
-        onComposerSuccess={(updated) => {
-          // Replace row in state so badge + reply text update immediately.
-          // Keep composer open showing the success view; user closes manually.
-          replaceRow(updated);
-        }}
-        onComposerClose={() => setOpenComposerId(null)}
-      />
-      <nav
-        className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
-        aria-label="Pagination"
-        data-testid="pagination"
-      >
-        <div className="flex items-center gap-3">
-          {count > 0 ? (
-            <span>
-              Showing{" "}
-              <strong className="text-ink font-semibold">
-                {showingFrom}–{showingTo}
-              </strong>{" "}
-              of <strong className="text-ink font-semibold">{count}</strong>
-            </span>
-          ) : (
-            <span className="text-muted">No results</span>
-          )}
-          <div className="flex items-center gap-1.5">
-            <label className="text-[12px] text-muted">Rows:</label>
-            <select
-              className="appearance-none pl-2 pr-6 py-1 text-[12.5px] bg-white border border-line rounded-sm focus:outline-none focus:border-ink"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value) as 10 | 25 | 50 | 100)}
-              aria-label="Rows per page"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
+      <div className="border border-line rounded-card overflow-hidden">
+        <ReviewTable
+          rows={rows}
+          loading={loading}
+          emptyState={emptyState}
+          onReply={handleReplyCtaClick}
+          expandedRowId={openComposerId}
+          showFullComment={showFullComment}
+          onToggleShowFullComment={toggleShowFullComment}
+          onComposerSuccess={(updated) => {
+            // Replace row in state so badge + reply text update immediately.
+            // Keep composer open showing the success view; user closes manually.
+            replaceRow(updated);
+          }}
+          onComposerClose={() => setOpenComposerId(null)}
+        />
+        <nav
+          className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
+          aria-label="Pagination"
+          data-testid="pagination"
+        >
+          <div className="flex items-center gap-3">
+            {count > 0 ? (
+              <span>
+                Showing{" "}
+                <strong className="text-ink font-semibold">
+                  {showingFrom}–{showingTo}
+                </strong>{" "}
+                of <strong className="text-ink font-semibold">{count}</strong>
+              </span>
+            ) : (
+              <span className="text-muted">No results</span>
+            )}
+            <div className="flex items-center gap-1.5">
+              <label className="text-[12px] text-muted">Rows:</label>
+              <div className="inline-flex items-center bg-white border border-line rounded-sm focus-within:border-ink">
+                <select
+                  className="appearance-none pl-2 pr-1 py-1 text-[12.5px] bg-transparent focus:outline-none cursor-pointer"
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value) as 10 | 25 | 50 | 100)}
+                  aria-label="Rows per page"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <ChevronDown className="pointer-events-none shrink-0 w-3 h-3 text-muted mr-1.5" aria-hidden="true" />
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
-            onClick={goPrev}
-            disabled={!previous}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
-            onClick={goNext}
-            disabled={!next}
-            aria-label="Next page"
-          >
-            <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-        </div>
-      </nav>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
+              onClick={goPrev}
+              disabled={!previous}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
+              onClick={goNext}
+              disabled={!next}
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        </nav>
+      </div>
     </div>
   );
 };

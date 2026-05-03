@@ -37,6 +37,7 @@ export function RegionTable({ rows, loading, onEdit, onDelete }: RegionTableProp
       loading={loading}
       rowKey={(r) => String(r.id)}
       emptyState={<RegionEmptyState />}
+      wrapperClassName="bg-white overflow-hidden"
       renderRowActions={(row) => (
         <div className="flex items-center gap-2">
           <button

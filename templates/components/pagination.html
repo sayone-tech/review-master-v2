@@ -24,16 +24,19 @@ page_url_params MUST be urlencoded GET params minus `page` (caller builds it).
           {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
           {% if request.GET.type %}<input type="hidden" name="type" value="{{ request.GET.type }}">{% endif %}
           <label class="text-[12px] text-muted">Rows:</label>
-          <select
-            name="per_page"
-            class="appearance-none pl-2 pr-6 py-1 text-[12.5px] bg-white border border-line rounded-sm focus:outline-none focus:border-ink"
-            onchange="this.form.submit()"
-            data-testid="per-page-select"
-          >
-            {% for opt in per_page_options %}
-              <option value="{{ opt }}" {% if opt == per_page %}selected{% endif %}>{{ opt }}</option>
-            {% endfor %}
-          </select>
+          <div class="inline-flex items-center bg-white border border-line rounded-sm focus-within:border-ink">
+            <select
+              name="per_page"
+              class="appearance-none pl-2 pr-1 py-1 text-[12.5px] bg-transparent focus:outline-none cursor-pointer"
+              onchange="this.form.submit()"
+              data-testid="per-page-select"
+            >
+              {% for opt in per_page_options %}
+                <option value="{{ opt }}" {% if opt == per_page %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+            <span class="pointer-events-none shrink-0 w-3 h-3 text-muted mr-1.5 flex items-center justify-center" aria-hidden="true" data-lucide="chevron-down"></span>
+          </div>
         </form>
       {% endif %}
     </div>

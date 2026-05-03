@@ -28,6 +28,8 @@ export interface DataTableProps<T> {
    * spans all columns. The DataTable computes `colSpan = columns.length + (renderRowActions ? 1 : 0)`.
    */
   renderExpanded?: (row: T) => ReactNode;
+  /** Override the outer wrapper className. Defaults to the standard card style. */
+  wrapperClassName?: string;
 }
 
 export function DataTable<T>({
@@ -38,12 +40,13 @@ export function DataTable<T>({
   renderRowActions,
   rowKey,
   renderExpanded,
+  wrapperClassName = "bg-white border border-line rounded-card overflow-hidden",
 }: DataTableProps<T>) {
   const colSpan = columns.length + (renderRowActions ? 1 : 0);
 
   return (
     <div
-      className="bg-white border border-line rounded-card overflow-hidden"
+      className={wrapperClassName}
       data-testid="data-table-wrap"
     >
       <div className="overflow-x-auto">
