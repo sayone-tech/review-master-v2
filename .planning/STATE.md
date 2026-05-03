@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3
-milestone_name: Reviews and Action Items
-status: active
-stopped_at: Phase 13 UI-SPEC approved
-last_updated: "2026-05-03T05:28:53.485Z"
+milestone: v1.0
+milestone_name: — Superadmin Module
+status: unknown
+stopped_at: "Completed 12-09-PLAN.md (gap closure: skip OpenAI for comment-less reviews)"
+last_updated: "2026-05-03T08:19:49.880Z"
 progress:
   total_phases: 13
-  completed_phases: 12
-  total_plans: 69
-  completed_plans: 69
+  completed_phases: 10
+  total_plans: 70
+  completed_plans: 67
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 12 — AI Enrichment Pipeline
+**Current focus:** Phase 12 — ai-enrichment-pipeline
 
 ## Current Position
 
-Phase: 12 (ai-enrichment) — READY FOR EXECUTION
-Plan: 8 plans approved (12-01 through 12-08)
+Phase: 12 (ai-enrichment-pipeline) — EXECUTING
+Plan: 1 of 9
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Plan: 8 plans approved (12-01 through 12-08)
 | Phase 12 P04 | 5 | 2 tasks | 4 files |
 | Phase 12 P05 | 2 | 1 tasks | 4 files |
 | Phase 12 P06 | 7 | 3 tasks | 6 files |
+| Phase 12-ai-enrichment-pipeline P09 | 2 | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,9 @@ Recent decisions affecting current work:
 - [Phase 12]: Function-local import of enrich_review_task in sync.py avoids circular dependency with tasks.py
 - [Phase 12]: sync.complete moved from sync.py to enrichment.py per CONTEXT.md; enrichment service is sole emitter, gated by enriched >= fetched
 - [Phase 12]: Test patching for lazy imports targets source modules (progress.py, sync.py) not the enrichment namespace
+- [Phase 12-ai-enrichment-pipeline]: [Phase 12-09]: Skip OpenAI for comment-less reviews — branch placed AFTER PENDING->IN_PROGRESS so Layer 3 status guard protects skip path identically to OpenAI path
+- [Phase 12-ai-enrichment-pipeline]: [Phase 12-09]: Skip path writes NO AiUsageLog row — zero billable cost; skip path is invisible to billing aggregations
+- [Phase 12-ai-enrichment-pipeline]: [Phase 12-09]: Forward-only — historical comment-less reviews already SUCCESS are not re-processed (out of scope per gap brief)
 
 ### Pending Todos
 
@@ -159,6 +163,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-03T05:28:53.473Z
-Stopped at: Phase 13 UI-SPEC approved
-Resume file: .planning/phases/13-action-items-and-notifications/13-UI-SPEC.md
+Last session: 2026-05-03T08:19:40.596Z
+Stopped at: Completed 12-09-PLAN.md (gap closure: skip OpenAI for comment-less reviews)
+Resume file: None
