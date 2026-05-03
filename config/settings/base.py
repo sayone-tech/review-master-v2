@@ -149,6 +149,7 @@ OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini-2024-07-18")
 OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
 
 LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
+LANGSMITH_ENDPOINT = env("LANGSMITH_ENDPOINT", default="https://api.smith.langchain.com")
 LANGSMITH_PROJECT = env(
     "LANGSMITH_PROJECT",
     default=f"review-platform-{env('ENVIRONMENT', default='local')}",

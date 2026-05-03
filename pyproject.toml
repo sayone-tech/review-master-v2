@@ -82,6 +82,10 @@ module = ["environ.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["debug_toolbar", "debug_toolbar.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["factory.*"]
 ignore_missing_imports = true
 

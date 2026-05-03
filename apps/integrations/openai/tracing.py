@@ -26,10 +26,12 @@ def configure_langsmith() -> None:
     if enabled:
         api_key = getattr(settings, "LANGSMITH_API_KEY", "") or ""
         project = getattr(settings, "LANGSMITH_PROJECT", "review-platform")
+        endpoint = getattr(settings, "LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
         os.environ["LANGSMITH_TRACING"] = "true"
         os.environ["LANGSMITH_API_KEY"] = api_key
         os.environ["LANGSMITH_PROJECT"] = project
-        logger.info("langsmith_configured project=%s", project)
+        os.environ["LANGSMITH_ENDPOINT"] = endpoint
+        logger.info("langsmith_configured project=%s endpoint=%s", project, endpoint)
     else:
         os.environ["LANGSMITH_TRACING"] = "false"
         logger.debug("langsmith_disabled")
