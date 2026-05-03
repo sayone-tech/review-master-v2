@@ -52,6 +52,13 @@ const SHOP_ACTIONS: RowAction[] = [
   },
 ];
 
+function buildPageRange(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
+}
+
 const inputCls =
   "px-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
 
@@ -194,6 +201,7 @@ export function ShopTableWidget({ initial, openProgressShopId }: ShopTableWidget
   const page = filters.page ?? 1;
   const start = count === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, count);
+  const totalPages = count > 0 ? Math.ceil(count / pageSize) : 1;
 
   return (
     <div className="space-y-3">
@@ -290,6 +298,21 @@ export function ShopTableWidget({ initial, openProgressShopId }: ShopTableWidget
           >
             <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
+          {buildPageRange(page, totalPages).map((p, i) =>
+            p === "…" ? (
+              <span key={`ellipsis-${i}`} className="w-[30px] h-[30px] flex items-center justify-center text-[13px] text-muted select-none">…</span>
+            ) : (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPage(p)}
+                aria-current={p === page ? "page" : undefined}
+                className={`w-[30px] h-[30px] rounded-sm text-[13px] font-medium flex items-center justify-center border ${p === page ? "bg-black text-yellow border-black" : "bg-white border-line hover:bg-line-soft"}`}
+              >
+                {p}
+              </button>
+            )
+          )}
           <button
             type="button"
             onClick={() => setPage(page + 1)}

@@ -11,7 +11,7 @@ from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[im
 from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
-from rest_framework.pagination import CursorPagination
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -30,12 +30,11 @@ from apps.reviews.serializers import ReviewReadSerializer, ReviewReplySerializer
 from apps.reviews.services.replies import submit_reply
 
 
-class ReviewCursorPagination(CursorPagination):
+class ReviewPageNumberPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 100
-    ordering = "-review_create_time"
-    cursor_query_param = "cursor"
+    page_query_param = "page"
 
 
 class ReviewViewSet(
@@ -45,7 +44,7 @@ class ReviewViewSet(
 ):
     permission_classes = [IsOrgScoped]  # noqa: RUF012
     serializer_class = ReviewReadSerializer
-    pagination_class = ReviewCursorPagination
+    pagination_class = ReviewPageNumberPagination
     filter_backends = [DjangoFilterBackend, OrderingFilter]  # noqa: RUF012
     filterset_class = ReviewFilterSet
     ordering_fields = ["review_create_time", "star_rating"]  # noqa: RUF012

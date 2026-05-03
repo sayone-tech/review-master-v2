@@ -52,6 +52,18 @@ export function TopbarBell({ notificationCount }: Props) {
   }, []);
 
   useEffect(() => {
+    const handler = (e: Event) => {
+      const { shop_id, shop_name } = (e as CustomEvent<{ shop_id: number; shop_name: string }>).detail;
+      const shop = { shop_id, shop_name };
+      setActive((prev) => prev.some((s) => s.shop_id === shop_id) ? prev : [...prev, shop]);
+      connectToShop(shop);
+    };
+    window.addEventListener("sync:shop-moved-to-background", handler);
+    return () => window.removeEventListener("sync:shop-moved-to-background", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {

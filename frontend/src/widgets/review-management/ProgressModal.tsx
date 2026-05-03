@@ -162,7 +162,14 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
       {!isComplete && !isError ? (
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent("sync:shop-moved-to-background", {
+                detail: { shop_id: shopId, shop_name: shopName },
+              }),
+            );
+            onClose();
+          }}
           aria-label="Run sync in background and close this dialog"
           className="text-[14px] text-muted underline hover:text-ink"
         >
@@ -271,7 +278,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             {/* AI section */}
             <div>
               <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                Processed with AI
+                Analysing with Review Bee AI Engine
               </label>
               <div className="text-[14px] font-semibold text-ink mt-1">
                 {snapshot?.enriched ?? 0} of {fetched}
@@ -282,7 +289,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                 aria-valuenow={enrichPct}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label={`Processed with AI: ${enrichPct}%`}
+                aria-label={`Review Bee AI Engine: ${enrichPct}%`}
               >
                 <div
                   className="h-full bg-green rounded-full transition-all"

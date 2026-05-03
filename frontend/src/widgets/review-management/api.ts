@@ -47,7 +47,7 @@ function buildQs(params: ReviewFilterParams): string {
   if (params.to_date) u.set("to_date", params.to_date);
   if (params.ordering) u.set("ordering", params.ordering);
   if (params.page_size) u.set("page_size", String(params.page_size));
-  if (params.cursor) u.set("cursor", params.cursor);
+  if (params.page && params.page > 1) u.set("page", String(params.page));
   const qs = u.toString();
   return qs ? `?${qs}` : "";
 }

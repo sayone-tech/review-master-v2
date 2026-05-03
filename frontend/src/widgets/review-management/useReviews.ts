@@ -13,6 +13,7 @@ interface UseReviewsState {
 const DEFAULT_PARAMS: ReviewFilterParams = {
   ordering: "-review_create_time",
   page_size: 10,
+  page: 1,
 };
 
 export function useReviews(initial?: Partial<UseReviewsState>) {
@@ -34,8 +35,7 @@ export function useReviews(initial?: Partial<UseReviewsState>) {
         setCount(data.total_count);
         setNext(data.next ?? null);
         setPrevious(data.previous ?? null);
-      } catch (e) {
-        // Surface errors silently to keep state consistent; UI shows empty + count=0.
+      } catch {
         setRows([]);
         setCount(0);
         setNext(null);
@@ -61,31 +61,33 @@ export function useReviews(initial?: Partial<UseReviewsState>) {
   const setSearch = (search: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      const next = { ...filters, search, cursor: undefined };
-      updateFilter(next);
+      updateFilter({ ...filters, search, page: 1 });
     }, 300);
   };
 
-  const setShop = (shop?: number) => updateFilter({ ...filters, shop, cursor: undefined });
+  const setShop = (shop?: number) => updateFilter({ ...filters, shop, page: 1 });
   const setRating = (rating?: 1 | 2 | 3 | 4 | 5) =>
-    updateFilter({ ...filters, rating, cursor: undefined });
+    updateFilter({ ...filters, rating, page: 1 });
   const setSentiment = (sentiment?: "positive" | "neutral" | "negative") =>
-    updateFilter({ ...filters, sentiment, cursor: undefined });
+    updateFilter({ ...filters, sentiment, page: 1 });
   const setIsReplied = (is_replied?: boolean) =>
-    updateFilter({ ...filters, is_replied, cursor: undefined });
+    updateFilter({ ...filters, is_replied, page: 1 });
   const setFromDate = (from_date?: string) =>
-    updateFilter({ ...filters, from_date, cursor: undefined });
+    updateFilter({ ...filters, from_date, page: 1 });
   const setToDate = (to_date?: string) =>
-    updateFilter({ ...filters, to_date, cursor: undefined });
+    updateFilter({ ...filters, to_date, page: 1 });
   const setOrdering = (ordering: SortKey) =>
-    updateFilter({ ...filters, ordering, cursor: undefined });
+    updateFilter({ ...filters, ordering, page: 1 });
   const setPageSize = (page_size: 10 | 25 | 50 | 100) =>
-    updateFilter({ ...filters, page_size, cursor: undefined });
+    updateFilter({ ...filters, page_size, page: 1 });
+  const goToPage = (page: number) =>
+    updateFilter({ ...filters, page });
   const goNext = () => {
-    if (next) updateFilter({ ...filters, cursor: extractCursor(next) });
+    if (next) goToPage((filters.page ?? 1) + 1);
   };
   const goPrev = () => {
-    if (previous) updateFilter({ ...filters, cursor: extractCursor(previous) });
+    const cur = filters.page ?? 1;
+    if (cur > 1) goToPage(cur - 1);
   };
 
   const clearFilters = () => {
@@ -98,6 +100,10 @@ export function useReviews(initial?: Partial<UseReviewsState>) {
     setRows((prev) => prev.map((r) => (r.id === row.id ? row : r)));
   };
 
+  const currentPage = filters.page ?? 1;
+  const pageSize = filters.page_size ?? 10;
+  const totalPages = count > 0 ? Math.ceil(count / pageSize) : 1;
+
   return {
     rows,
     count,
@@ -105,6 +111,8 @@ export function useReviews(initial?: Partial<UseReviewsState>) {
     previous,
     loading,
     filters,
+    currentPage,
+    totalPages,
     refresh,
     setSearch,
     setShop,
@@ -115,18 +123,10 @@ export function useReviews(initial?: Partial<UseReviewsState>) {
     setToDate,
     setOrdering,
     setPageSize,
+    goToPage,
     goNext,
     goPrev,
     clearFilters,
     replaceRow,
   };
-}
-
-function extractCursor(url: string | null): string | undefined {
-  if (!url) return undefined;
-  try {
-    return new URL(url, window.location.origin).searchParams.get("cursor") ?? undefined;
-  } catch {
-    return undefined;
-  }
 }

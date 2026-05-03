@@ -57,7 +57,7 @@ export interface ReviewFilterParams {
   search?: string;
   ordering?: SortKey;
   page_size?: 10 | 25 | 50 | 100;
-  cursor?: string;
+  page?: number;
 }
 
 export interface ReviewListResponse {

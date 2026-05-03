@@ -6,6 +6,13 @@ import { ReviewTable } from "./ReviewTable";
 import { useReviews } from "./useReviews";
 import type { ReviewRow, ShopOption } from "./types";
 
+function buildPageRange(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
+}
+
 interface Props {
   userRole: string;
   openProgressShopId: number | null;
@@ -44,6 +51,8 @@ export const ReviewManagementWidget = ({
     previous,
     loading,
     filters,
+    currentPage,
+    totalPages,
     setSearch,
     setShop,
     setRating,
@@ -53,6 +62,7 @@ export const ReviewManagementWidget = ({
     setToDate,
     setOrdering,
     setPageSize,
+    goToPage,
     goNext,
     goPrev,
     clearFilters,
@@ -75,10 +85,8 @@ export const ReviewManagementWidget = ({
 
   const isOrgAdmin = userRole === "ORG_ADMIN";
   const pageSize = filters.page_size ?? 10;
-  const pageStart = rows.length === 0 ? 0 : 1;
-  const pageEnd = rows.length;
-  const showingFrom = rows.length === 0 ? 0 : pageStart;
-  const showingTo = pageEnd;
+  const showingFrom = count === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingTo = count === 0 ? 0 : Math.min(currentPage * pageSize, count);
 
   const hasAnyFilter = Boolean(
     filters.search ||
@@ -120,8 +128,8 @@ export const ReviewManagementWidget = ({
         shops={shops}
         filters={filters}
         totalCount={count}
-        pageStart={pageStart}
-        pageEnd={pageEnd}
+        pageStart={showingFrom}
+        pageEnd={showingTo}
         onSearch={setSearch}
         onShop={setShop}
         onRating={setRating}
@@ -186,18 +194,42 @@ export const ReviewManagementWidget = ({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
               onClick={goPrev}
               disabled={!previous}
+              className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
               aria-label="Previous page"
             >
               <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
+            {buildPageRange(currentPage, totalPages).map((p, i) =>
+              p === "…" ? (
+                <span
+                  key={`ellipsis-${i}`}
+                  className="w-[30px] h-[30px] flex items-center justify-center text-[13px] text-muted select-none"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => goToPage(p)}
+                  aria-current={p === currentPage ? "page" : undefined}
+                  className={`w-[30px] h-[30px] rounded-sm text-[13px] font-medium flex items-center justify-center border ${
+                    p === currentPage
+                      ? "bg-black text-yellow border-black"
+                      : "bg-white border-line hover:bg-line-soft"
+                  }`}
+                >
+                  {p}
+                </button>
+              ),
+            )}
             <button
               type="button"
-              className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
               onClick={goNext}
               disabled={!next}
+              className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
               aria-label="Next page"
             >
               <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
