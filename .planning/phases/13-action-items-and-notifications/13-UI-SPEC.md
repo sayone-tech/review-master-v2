@@ -50,6 +50,10 @@ Exceptions:
 - Notification bell button: 36×36px (w-9 h-9) — matches TopbarBell.
 - Modal max-height: 80vh — inherited from Modal component.
 - Tab border-bottom: 2px — standard tab underline weight.
+- Unread notification row indicator: `pl-[14px]` (14px) — optical correction for the
+  `border-l-2` (2px) left border; net visual indent = 16px (`pl-4` baseline − 2px border).
+- Notification badge size: 18×18px (`min-w-[18px] h-[18px]`) — minimum touch-visible
+  badge size matching TopbarBell numeric badge pattern.
 
 ---
 
