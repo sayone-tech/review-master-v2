@@ -47,7 +47,7 @@ Standard 8-point scale. All Phase 13 components follow the same scale as prior p
 Exceptions:
 - Three-dot button touch target: 32×32px (w-8 h-8) — matches existing ReviewTable
   row action button size.
-- Notification bell button: 34×34px (w-[34px] h-[34px]) — matches TopbarBell.
+- Notification bell button: 36×36px (w-9 h-9) — matches TopbarBell.
 - Modal max-height: 80vh — inherited from Modal component.
 - Tab border-bottom: 2px — standard tab underline weight.
 
@@ -83,8 +83,11 @@ Declared weights: 400 (regular) and 600 (semibold) only. Weight 500 (medium) is 
 in Phase 13. Table headings use `font-normal` (400) differentiated by uppercase +
 letter-spacing, not by weight.
 
-Inherited system value (not a Phase 13 type role):
+Inherited system values (not Phase 13 type roles):
 - `text-[13.5px]` — DataTable cell body text, owned by the DataTable component
+- `text-[10px]` — NotificationBell unread badge counter (`text-[10px] font-semibold`),
+  inherited from the TopbarBell numeric badge pattern. Not a Phase 13 type role.
+  The Phase 13 declared 4-size scale (12 / 14 / 18 / 20px) is unaffected.
 
 ---
 
@@ -384,7 +387,7 @@ TopbarBell is not modified.
 
 #### Bell button
 
-`relative w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center`
+`relative w-9 h-9 rounded-md text-muted hover:bg-line-soft flex items-center justify-center`
 Icon: `Bell` (lucide-react) size 18, aria-hidden
 
 #### Unread count badge
