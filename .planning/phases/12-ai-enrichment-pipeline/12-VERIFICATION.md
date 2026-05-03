@@ -1,14 +1,17 @@
 ---
 phase: 12-ai-enrichment-pipeline
-verified: 2026-05-02T00:00:00Z
+verified: 2026-05-03T00:00:00Z
 status: passed
-score: 14/14 requirements verified
+score: 14/14 requirements verified (delta: 12-09 gap-closure verified)
 re_verification:
-  previous_status: gaps_found
-  previous_score: 12/14
+  previous_status: passed
+  previous_score: 14/14
+  delta_plan: 12-09
+  delta_truths_verified: 7/7
   gaps_closed:
     - "LangSmith trace metadata now includes organisation_id, review_id, shop_id, model, request_type (ENRCH-11)"
     - "REQUIREMENTS.md ENRCH-08/09/10 checked off and marked Complete in status table"
+    - "Plan 12-09: comment-less reviews skip OpenAI; sentiment derived from star_rating; zero AiUsageLog cost"
   gaps_remaining: []
   regressions: []
 ---
@@ -16,11 +19,121 @@ re_verification:
 # Phase 12: AI Enrichment Pipeline Verification Report
 
 **Phase Goal:** Build the AI enrichment pipeline — every synced review gets enriched with GPT-4o-mini (sentiment, tags, action items), tracked with cost logging (AiUsageLog + AiPricing), and the frontend shows real-time enrichment progress with a two-stage sync indicator.
-**Verified:** 2026-05-02
+**Verified:** 2026-05-02 (initial), 2026-05-03 (delta — plan 12-09 gap closure)
 **Status:** PASS
-**Re-verification:** Yes — after gap closure (commit a64d131)
+**Re-verification:** Yes — delta verification of plan 12-09 (commits include `49f41d9`)
 
 ---
+
+## Summary Verdict: PASS — 14/14 requirements verified + plan 12-09 delta verified
+
+Plans 12-01..12-08 were fully verified on 2026-05-02 (see report below). This update appends the **delta verification** of plan 12-09, which tightens ENRCH-02/ENRCH-03 by adding a skip path for comment-less reviews:
+
+- **Old behavior:** Every fetched review (including rating-only reviews with empty `comment`) was sent to OpenAI, billed, and produced meaningless `neutral` sentiment + empty tags/action items.
+- **New behavior:** Reviews with empty/whitespace-only `comment` short-circuit before the OpenAI call. Sentiment is derived locally from `star_rating` via `RATING_TO_SENTIMENT`. No `AiUsageLog` row is written → zero cost.
+- This is a strict *improvement* — the original goal ("every fetched review is automatically enriched") is preserved; the contract narrows to "every fetched review **with a comment** is enriched by GPT-4o-mini; comment-less reviews are enriched locally with rating-derived sentiment and zero cost."
+
+All 22 tests in `test_enrichment_service.py` pass. Guardrails confirmed unchanged: `tasks.py`, `client.py`, `sync.py`, OpenAI models, prompts.
+
+---
+
+## Plan 12-09 Delta — Observable Truths
+
+| #   | Truth                                                                                       | Status     | Evidence                                                                                                                                              |
+| --- | ------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Empty-comment review skips OpenAI call entirely                                             | VERIFIED   | `enrichment.py:271-281` — guard `if not (review.comment or "").strip():` calls `_persist_success_no_comment` and returns BEFORE `call_openai_enrichment` block at `:284` |
+| D2  | Whitespace-only comment treated identically to empty                                        | VERIFIED   | `(review.comment or "").strip()` evaluates falsy for `"   \n\t  "`; test `test_skip_openai_when_whitespace_comment` passes                            |
+| D3  | Sentiment derived locally from star_rating per `RATING_TO_SENTIMENT` (1-2→neg, 3→neu, 4-5→pos) | VERIFIED   | `enrichment.py:50-56` defines literal mapping; `:59-66` exposes `rating_to_sentiment()` helper; parametrized test covers all 5 ratings              |
+| D4  | Skip path writes SUCCESS, sentiment, tags=[], extracted_action_items=[], bumps enrichment_version | VERIFIED   | `enrichment.py:127-134` — `Review.objects.filter(pk=...).update(enrichment_status=SUCCESS, sentiment=..., tags=[], extracted_action_items=[], enrichment_version=F("enrichment_version") + 1)` |
+| D5  | Skip path writes ZERO AiUsageLog rows                                                       | VERIFIED   | `_persist_success_no_comment` body (`:116-138`) contains no `AiUsageLog` reference; test `test_skip_path_does_not_write_ai_usage_log` asserts `count() == 0` |
+| D6  | Idempotency preserved (Layer 3 status guard) — second call on SUCCESS row is a no-op       | VERIFIED   | Skip branch placed AFTER PENDING→IN_PROGRESS transition (`:267-269`); idempotent guard at `:257-266` re-handles SUCCESS; test asserts `enrichment_version == 1` after twice-called |
+| D7  | Reviews WITH comments still hit OpenAI normally (regression guard)                          | VERIFIED   | `test_normal_path_still_calls_openai_for_reviews_with_comments` passes; `mock_call.assert_called_once()` holds                                       |
+
+**Delta score:** 7/7 truths verified
+
+---
+
+## Plan 12-09 Delta — Required Artifacts
+
+| Artifact                                            | Expected                                                                                            | Status   | Details                                                                                                                  |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `apps/reviews/services/enrichment.py`               | Module-level `RATING_TO_SENTIMENT` dict, `rating_to_sentiment()` helper, `_persist_success_no_comment()`, skip-branch in `enrich_review` | VERIFIED | `:50-56` constant; `:59-66` helper; `:116-138` helper fn; `:271-281` skip branch                                          |
+| `apps/reviews/tests/test_enrichment_service.py`     | Tests for skip path, rating mapping, idempotency, no-AiUsageLog, normal path regression           | VERIFIED | Lines 362-495 — six new tests + parametrized rating mapping; all pass (22 total tests in file)                          |
+
+---
+
+## Plan 12-09 Delta — Key Link Verification
+
+| From                                                      | To                                       | Via                                          | Status   | Details                                                                       |
+| --------------------------------------------------------- | ---------------------------------------- | -------------------------------------------- | -------- | ----------------------------------------------------------------------------- |
+| `enrich_review` (after IN_PROGRESS save)                  | `_persist_success_no_comment`            | empty-comment guard branch                   | WIRED    | `enrichment.py:274-281` — branch invokes helper and `return`s                |
+| `enrich_review` skip branch                               | NOT `call_openai_enrichment`             | `return` BEFORE OpenAI try block             | WIRED    | OpenAI call block starts at `:284`, skip `return` at `:281`                  |
+| `_persist_success_no_comment`                             | `Review.objects.filter(...).update(...)` | inside `transaction.atomic()`                | WIRED    | `:127-134` with `F("enrichment_version") + 1`                                |
+| `_persist_success_no_comment`                             | `_emit_enrichment_progress`              | AFTER atomic block                           | WIRED    | `:138` — same post-commit pattern as `_persist_success`                      |
+| `_persist_success_no_comment`                             | NOT `AiUsageLog.objects.create`          | absence verified by grep + test             | WIRED    | grep on function body returns no match; test asserts `count() == 0`          |
+
+---
+
+## Plan 12-09 Delta — Guardrails (Out-of-Scope Discipline)
+
+`git diff` for plan 12-09 commit shows ONLY two source files modified (plus SUMMARY/STATE/ROADMAP docs):
+
+| File                                            | Status     | Verification                                                                                  |
+| ----------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| `apps/reviews/tasks.py`                         | UNCHANGED  | Confirmed by `git diff` — last touch was 12-06                                                |
+| `apps/integrations/openai/client.py`            | UNCHANGED  | Confirmed by `git diff` — last touch was 12-11 LangSmith metadata gap (commit a64d131)        |
+| `apps/reviews/services/sync.py`                 | UNCHANGED  | Confirmed by `git diff` — last touch was 11-14                                                |
+| `apps/integrations/openai/models.py` (AiUsageLog/AiPricing) | UNCHANGED  | No new migrations in this plan                                                       |
+| `apps/integrations/openai/prompts.py`           | UNCHANGED  | Not in changed files list                                                                     |
+
+No business logic moved into Celery wrapper. Three-layer idempotency (lock + atomic/select_for_update + status guard) preserved verbatim — skip path inserts AFTER the existing PENDING→IN_PROGRESS transition.
+
+---
+
+## Plan 12-09 Delta — Test Execution
+
+```
+docker compose -p review-master exec -T web python -m pytest apps/reviews/tests/test_enrichment_service.py -v
+22 passed in 1.89s
+```
+
+Targeted gap-closure tests confirmed passing:
+- `test_rating_to_sentiment_mapping[1-negative]` PASSED
+- `test_rating_to_sentiment_mapping[2-negative]` PASSED
+- `test_rating_to_sentiment_mapping[3-neutral]` PASSED
+- `test_rating_to_sentiment_mapping[4-positive]` PASSED
+- `test_rating_to_sentiment_mapping[5-positive]` PASSED
+- `test_skip_openai_when_no_comment` PASSED
+- `test_skip_openai_when_whitespace_comment` PASSED
+- `test_skip_path_does_not_write_ai_usage_log` PASSED
+- `test_skip_path_idempotent` PASSED
+- `test_normal_path_still_calls_openai_for_reviews_with_comments` PASSED
+
+Pre-existing flakiness in `test_consumers.py::test_disconnect_cleans_up_group` and `test_asgi.py::test_in_memory_channel_layer_in_tests` is documented as unrelated to 12-09 (failing before this plan; confirmed via revert + re-run during execution).
+
+---
+
+## Plan 12-09 Delta — Requirements Coverage
+
+No new REQ-IDs claimed. 12-09 tightens behavior already covered by:
+- **ENRCH-02** (idempotent enrichment with lock + status guard) — still complete; status guard now also covers the skip path's terminal SUCCESS row, so a re-fetched comment-less review is a no-op.
+- **ENRCH-03** (sentiment/tags/action_items written to Review under atomic) — still complete; skip path writes the same fields under `transaction.atomic()`.
+
+REQUIREMENTS.md still shows `[x] ENRCH-02`, `[x] ENRCH-03` and "Complete" in the status table (lines 80-81, 197-198). No traceability change required.
+
+---
+
+## Plan 12-09 Delta — Anti-Patterns Found
+
+None. The skip helper:
+- Uses `Review.objects.filter(pk=...).update(...)` (not `.save()`) for atomic single-row update — consistent with `_persist_success` pattern.
+- Uses `F("enrichment_version") + 1` — race-free increment.
+- Calls `_emit_enrichment_progress` AFTER the atomic block — same anti-pattern-avoidance pattern as `_persist_success`.
+- Does NOT touch `AiUsageLog` — explicit and verified by grep.
+
+---
+
+# Original Verification Report (2026-05-02) — Plans 12-01..12-08
 
 ## Summary Verdict: PASS — 14/14 requirements verified
 
@@ -102,8 +215,8 @@ All 120 tests pass.
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
 | ENRCH-01 | VERIFIED | `client.py:141-187` — `call_openai_enrichment`; `@traceable` at line 115 |
-| ENRCH-02 | VERIFIED | `enrichment.py:194-196` (lock); `sync.py:324-336` (inline enqueue) |
-| ENRCH-03 | VERIFIED | `enrichment.py:201-223` (PENDING→IN_PROGRESS); `:65-75` (→SUCCESS); `:103-124` (→FAILED) |
+| ENRCH-02 | VERIFIED | `enrichment.py:194-196` (lock); `sync.py:324-336` (inline enqueue); 12-09 skip path inherits same idempotency |
+| ENRCH-03 | VERIFIED | `enrichment.py:201-223` (PENDING→IN_PROGRESS); `:65-75` (→SUCCESS); `:103-124` (→FAILED); 12-09 skip path also writes SUCCESS under atomic |
 | ENRCH-04 | VERIFIED | `tasks.py:91` (`autoretry_for=(OpenAITransientError, EnrichmentParseError)`); `enrichment.py:231-233` (OpenAIPermanentError silent) |
 | ENRCH-05 | VERIFIED | `serializers.py:36,39` — `enrichment_status` + `extracted_action_items` in fields; no queryset filter on status |
 | ENRCH-06 | VERIFIED | `tasks.py:111-137`; `migrations/0005_...py` seeds Beat task |
@@ -122,10 +235,13 @@ All 120 tests pass.
 
 ```
 uv run pytest apps/integrations/openai/ apps/reviews/tests/ -q
-120 passed, 33 warnings in 2.38s
+120 passed, 33 warnings in 2.38s   (initial 2026-05-02)
+
+docker compose -p review-master exec -T web python -m pytest apps/reviews/tests/test_enrichment_service.py -v
+22 passed in 1.89s                  (delta 2026-05-03 — includes 6 new 12-09 tests)
 ```
 
-All 120 tests pass.
+All tests pass.
 
 ---
 
@@ -165,7 +281,14 @@ The following items cannot be verified programmatically:
 **Expected:** Trace appears with `request_type="enrichment"`, `organisation_id`, `review_id`, `shop_id`, and `model` all present in trace metadata.
 **Why human:** Requires live LangSmith API key and visual inspection of trace metadata. Code fix is verified; end-to-end LangSmith rendering requires live credentials.
 
+### 5. (12-09) Live skip-path validation against a comment-less review
+
+**Test:** Sync a shop that has at least one rating-only review (no comment). Inspect AiUsageLog after sync completes.
+**Expected:** Comment-less review row in DB has `enrichment_status=SUCCESS`, sentiment derived from rating, tags=[], extracted_action_items=[]. NO AiUsageLog row exists for that review_id.
+**Why human:** Requires real Google Business Profile data including a rating-only review.
+
 ---
 
-_Verified: 2026-05-02 (re-verification after gap closure commit a64d131)_
+_Verified: 2026-05-02 (initial + first re-verification, commit a64d131)_
+_Re-verified: 2026-05-03 (delta verification of plan 12-09 gap closure, commit 49f41d9)_
 _Verifier: Claude (gsd-verifier)_
