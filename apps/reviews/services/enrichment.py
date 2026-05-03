@@ -44,6 +44,27 @@ logger = logging.getLogger(__name__)
 LOCK_KEY_TMPL = "lock:enrich:review:{review_id}"
 LOCK_TIMEOUT_SECONDS = 300
 
+# Phase 12-09 (gap closure): mapping for comment-less reviews that skip OpenAI.
+# Rating-only Google Business Profile reviews have no text for the LLM to
+# analyse, so sentiment is derived locally from the star rating instead.
+RATING_TO_SENTIMENT: dict[int, str] = {
+    1: "negative",
+    2: "negative",
+    3: "neutral",
+    4: "positive",
+    5: "positive",
+}
+
+
+def rating_to_sentiment(star_rating: int) -> str:
+    """Map a 1-5 star rating to sentiment for comment-less reviews.
+
+    Used when the review has no comment text and we cannot call OpenAI.
+    Returns 'negative' (1-2), 'neutral' (3), or 'positive' (4-5).
+    Falls back to 'neutral' for unexpected values (defensive).
+    """
+    return RATING_TO_SENTIMENT.get(int(star_rating), "neutral")
+
 
 def _persist_success(
     *,
@@ -89,6 +110,31 @@ def _persist_success(
         )
 
     # AFTER commit: emit progress event for the live ProgressModal.
+    _emit_enrichment_progress(review=review)
+
+
+def _persist_success_no_comment(*, review: Review) -> None:
+    """Skip-OpenAI success path for comment-less reviews (Phase 12-09).
+
+    Writes sentiment derived from star_rating, empty tags, empty
+    extracted_action_items, status=SUCCESS, bumps enrichment_version. NO
+    AiUsageLog row is written — this path incurs ZERO OpenAI cost.
+
+    Emits the same post-commit progress event as a normal success so the live
+    ProgressModal counter advances correctly.
+    """
+    sentiment_value = rating_to_sentiment(review.star_rating)
+    with transaction.atomic():
+        Review.objects.filter(pk=review.pk).update(
+            enrichment_status=Review.EnrichmentStatus.SUCCESS,
+            sentiment=sentiment_value,
+            tags=[],
+            extracted_action_items=[],
+            enrichment_version=models.F("enrichment_version") + 1,
+        )
+
+    # AFTER commit: emit progress so the modal counter increments
+    # identically to a normal enrichment.
     _emit_enrichment_progress(review=review)
 
 
@@ -221,6 +267,18 @@ def enrich_review(*, review_id: int) -> None:
             review.enrichment_status = Review.EnrichmentStatus.IN_PROGRESS
             review.enrichment_attempted_at = dj_timezone.now()
             review.save(update_fields=["enrichment_status", "enrichment_attempted_at"])
+
+        # Phase 12-09 (gap closure): skip OpenAI for comment-less reviews.
+        # Rating-only Google reviews have no text for the LLM to analyse, so
+        # we derive sentiment locally and persist SUCCESS without billing.
+        if not (review.comment or "").strip():
+            logger.info(
+                "enrich_review_skip_no_comment review_id=%s star_rating=%s",
+                review_id,
+                review.star_rating,
+            )
+            _persist_success_no_comment(review=review)
+            return
 
         # OpenAI call OUTSIDE the transaction (RESEARCH.md anti-pattern).
         try:
