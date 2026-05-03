@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ReviewEmptyStates } from "./ReviewEmptyStates";
 import { ReviewFilters } from "./ReviewFilters";
 import { ReviewTable } from "./ReviewTable";
@@ -76,6 +77,8 @@ export const ReviewManagementWidget = ({
   const pageSize = filters.page_size ?? 10;
   const pageStart = rows.length === 0 ? 0 : 1;
   const pageEnd = rows.length;
+  const showingFrom = rows.length === 0 ? 0 : pageStart;
+  const showingTo = pageEnd;
 
   const hasAnyFilter = Boolean(
     filters.search ||
@@ -144,37 +147,59 @@ export const ReviewManagementWidget = ({
         }}
         onComposerClose={() => setOpenComposerId(null)}
       />
-      <div className="flex items-center justify-between mt-4">
-        <select
-          className="px-3 py-2 text-[14px] bg-white border border-line rounded-md"
-          value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value) as 10 | 25 | 50 | 100)}
-          aria-label="Rows per page"
-        >
-          <option value={10}>10 / page</option>
-          <option value={25}>25 / page</option>
-          <option value={50}>50 / page</option>
-          <option value={100}>100 / page</option>
-        </select>
-        <div className="flex items-center gap-2">
+      <nav
+        className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
+        aria-label="Pagination"
+        data-testid="pagination"
+      >
+        <div className="flex items-center gap-3">
+          {count > 0 ? (
+            <span>
+              Showing{" "}
+              <strong className="text-ink font-semibold">
+                {showingFrom}–{showingTo}
+              </strong>{" "}
+              of <strong className="text-ink font-semibold">{count}</strong>
+            </span>
+          ) : (
+            <span className="text-muted">No results</span>
+          )}
+          <div className="flex items-center gap-1.5">
+            <label className="text-[12px] text-muted">Rows:</label>
+            <select
+              className="appearance-none pl-2 pr-6 py-1 text-[12.5px] bg-white border border-line rounded-sm focus:outline-none focus:border-ink"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value) as 10 | 25 | 50 | 100)}
+              aria-label="Rows per page"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
           <button
             type="button"
-            className="px-3 py-2 text-[14px] border border-line rounded-md disabled:opacity-40"
+            className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
             onClick={goPrev}
             disabled={!previous}
+            aria-label="Previous page"
           >
-            Previous
+            <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
           <button
             type="button"
-            className="px-3 py-2 text-[14px] border border-line rounded-md disabled:opacity-40"
+            className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
             onClick={goNext}
             disabled={!next}
+            aria-label="Next page"
           >
-            Next
+            <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </div>
-      </div>
+      </nav>
     </div>
   );
 };

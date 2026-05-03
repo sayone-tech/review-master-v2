@@ -8,8 +8,18 @@ class Page:
         self._next = number + 1
         self._has_prev = has_prev
         self._has_next = has_next
+        _page_range = range(1, pages + 1)
         self.paginator = type(
-            "P", (), {"count": count, "page_range": range(1, pages + 1), "num_pages": pages}
+            "P",
+            (),
+            {
+                "count": count,
+                "num_pages": pages,
+                "page_range": _page_range,
+                "get_elided_page_range": lambda self, number, on_each_side=3, on_ends=2: (
+                    _page_range
+                ),
+            },
         )()
         self._start = start
         self._end = end
