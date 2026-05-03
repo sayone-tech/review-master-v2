@@ -104,7 +104,15 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
   2. An Org Admin or Manager can manually create an action item with title, scope, shop, priority, assignee, due date, and initial note; every status transition (To Do → In Progress → Complete → Won't Do, any direction) writes to the audit log
   3. The notification bell shows an unread count and opens a popover with the last 10 unread notifications; clicking any notification navigates to the relevant page and marks it read; Staff users do not receive brand-scoped action item notifications
   4. `GET /api/v1/action-items/` resolves in 5 or fewer SQL queries, verified in CI
-**Plans**: TBD
+**Plans**: 8 plans
+  - [ ] 13-01-PLAN.md — ActionItem + ActionItemNote models, partial unique constraint, factories (ACTN-01, ACTN-04, ACTN-08, ACTN-13)
+  - [ ] 13-02-PLAN.md — Notification model + composite unread index + factories (NOTF-01, NOTF-02)
+  - [ ] 13-03-PLAN.md — ActionItem services (lifecycle + promotion) + selectors with 3-layer scope + BrandScopeGuard (ACTN-01, ACTN-02, ACTN-08, ACTN-09, ACTN-10, ACTN-13)
+  - [ ] 13-04-PLAN.md — ActionItem REST API + filters + template page + ACTN-12 query-count gate (ACTN-02..12)
+  - [ ] 13-05-PLAN.md — Notification dispatch + bell/mark-read API + enrichment hook for promotion (NOTF-01..05, ACTN-01)
+  - [ ] 13-06-PLAN.md — Frontend foundation: types, hook, filters, table with three-dot status submenu (ACTN-02..05, ACTN-08)
+  - [ ] 13-07-PLAN.md — ActionItemModal (3 tabs) + create modal + ActionItemChip clickable upgrade (ACTN-06, ACTN-07, ACTN-09..11, ACTN-13, REVW-08)
+  - [ ] 13-08-PLAN.md — Notification bell widget with 60s HTTP polling (NOTF-01..05)
 
 ## Progress
 
@@ -118,4 +126,4 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 | 10. Infrastructure Foundation | v0.3 | 5/5 | Complete | 2026-05-01 |
 | 11. Reviews Fetching, Display, Reply | 15/15 | Complete    | 2026-05-02 | 2026-05-02 |
 | 12. AI Enrichment Pipeline | 9/9 | Complete   | 2026-05-03 | - |
-| 13. Action Items and Notifications | v0.3 | 0/TBD | Not started | - |
+| 13. Action Items and Notifications | v0.3 | 0/8 | Planned | - |
