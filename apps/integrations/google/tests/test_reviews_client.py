@@ -1,4 +1,5 @@
 """Phase 11 — GBP Reviews API client tests using httpx.MockTransport."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -20,6 +21,7 @@ def _mock_get(status_code: int, body: dict | str = "") -> object:
         if isinstance(body, dict):
             return httpx.Response(status_code, json=body)
         return httpx.Response(status_code, text=str(body))
+
     return httpx.MockTransport(transport)
 
 
@@ -47,32 +49,29 @@ class TestListReviews:
         assert data["totalReviewCount"] == 1
 
     def test_401_raises_invalid_grant(self) -> None:
-        with _patch_httpx_get(_mock_get(401, {})):
-            with pytest.raises(GoogleAuthError) as exc:
-                list_reviews(
-                    access_token="t",
-                    account_name="accounts/123",
-                    location_name="accounts/123/locations/456",
-                )
+        with _patch_httpx_get(_mock_get(401, {})), pytest.raises(GoogleAuthError) as exc:
+            list_reviews(
+                access_token="t",
+                account_name="accounts/123",
+                location_name="accounts/123/locations/456",
+            )
         assert exc.value.reason == "invalid_grant"
 
     def test_403_raises_quota_error(self) -> None:
-        with _patch_httpx_get(_mock_get(403, {})):
-            with pytest.raises(GoogleQuotaError):
-                list_reviews(
-                    access_token="t",
-                    account_name="accounts/123",
-                    location_name="accounts/123/locations/456",
-                )
+        with _patch_httpx_get(_mock_get(403, {})), pytest.raises(GoogleQuotaError):
+            list_reviews(
+                access_token="t",
+                account_name="accounts/123",
+                location_name="accounts/123/locations/456",
+            )
 
     def test_500_raises_unreachable(self) -> None:
-        with _patch_httpx_get(_mock_get(500, {})):
-            with pytest.raises(GoogleUnreachableError):
-                list_reviews(
-                    access_token="t",
-                    account_name="accounts/123",
-                    location_name="accounts/123/locations/456",
-                )
+        with _patch_httpx_get(_mock_get(500, {})), pytest.raises(GoogleUnreachableError):
+            list_reviews(
+                access_token="t",
+                account_name="accounts/123",
+                location_name="accounts/123/locations/456",
+            )
 
     def test_pagetoken_passed_through(self) -> None:
         captured = {}
@@ -106,20 +105,20 @@ class TestPostReply:
         assert data["comment"] == "Thanks!"
 
     def test_401_raises_invalid_grant(self) -> None:
-        with _patch_httpx_put(_mock_get(401, {})):
-            with pytest.raises(GoogleAuthError):
-                post_reply(
-                    access_token="t",
-                    account_name="accounts/123",
-                    location_name="accounts/123/locations/456",
-                    review_id="rev-1",
-                    comment="Thanks!",
-                )
+        with _patch_httpx_put(_mock_get(401, {})), pytest.raises(GoogleAuthError):
+            post_reply(
+                access_token="t",
+                account_name="accounts/123",
+                location_name="accounts/123/locations/456",
+                review_id="rev-1",
+                comment="Thanks!",
+            )
 
     def test_400_raises_reply_error(self) -> None:
-        with _patch_httpx_put(_mock_get(400, "invalid comment")), pytest.raises(
-            GoogleReplyError
-        ) as exc:
+        with (
+            _patch_httpx_put(_mock_get(400, "invalid comment")),
+            pytest.raises(GoogleReplyError) as exc,
+        ):
             post_reply(
                 access_token="t",
                 account_name="accounts/123",

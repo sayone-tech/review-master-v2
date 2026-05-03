@@ -20,7 +20,7 @@ class CustomAuthenticationForm(AuthenticationForm):
     }
 
     def clean_username(self) -> str:
-        return self.cleaned_data.get("username", "").lower()
+        return str(self.cleaned_data.get("username", "")).lower()
 
 
 class ActivationForm(forms.Form):
