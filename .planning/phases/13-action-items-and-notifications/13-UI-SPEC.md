@@ -55,7 +55,10 @@ Exceptions:
 
 ## Typography
 
-All sizes match established Phase 11/12 patterns. Phase 13 introduces no new type roles.
+All sizes match established Phase 11/12 patterns. Phase 13 declares exactly 4 type
+sizes. `text-[13.5px]` (DataTable cell body text) is an inherited system value used
+by the DataTable component itself — it is NOT a Phase 13 type role and is not listed
+here.
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
@@ -63,20 +66,25 @@ All sizes match established Phase 11/12 patterns. Phase 13 introduces no new typ
 | Label / badge / chip text | 12px | 600 (semibold) | 1 |
 | Section micro-label | 12px | 600 (semibold), uppercase, letter-spacing 0.05em | 1 |
 | Modal heading | 18px | 600 (semibold), tracking-[-0.01em] | 1.2 |
-| Table heading | 12px | 500 (medium), uppercase, letter-spacing 0.05em | 1 |
-| Bell popover row title | 13px | 600 (semibold) | 1.2 |
+| Table heading | 12px | 400 (regular), uppercase, letter-spacing 0.05em | 1 |
+| Bell popover row title | 14px | 600 (semibold) | 1.2 |
 | Bell popover detail | 12px | 400 (regular) | 1.4 |
 | Overdue date | 12px | 600 (semibold), text-red | 1 |
 
 Font: Geist sans-serif stack.
 
-Established size precedents (do not deviate):
-- `text-[12px]` — chips, badges, muted detail lines, micro-labels
-- `text-[13px]` — bell popover row titles, small copy
-- `text-[13.5px]` — DataTable cell body text (inherited from DataTable)
-- `text-[14px]` — modal body, button labels, select boxes, row body copy
+Declared Phase 13 type scale (4 sizes, 2 weights — no deviations):
+- `text-[12px]` — chips, badges, muted detail lines, micro-labels, table headings
+- `text-[14px]` — modal body, button labels, select boxes, row body copy, bell popover row titles
 - `text-[18px]` — modal heading (Modal component h2)
 - `text-[20px]` — page heading (consistent with ReviewManagementWidget)
+
+Declared weights: 400 (regular) and 600 (semibold) only. Weight 500 (medium) is not used
+in Phase 13. Table headings use `font-normal` (400) differentiated by uppercase +
+letter-spacing, not by weight.
+
+Inherited system value (not a Phase 13 type role):
+- `text-[13.5px]` — DataTable cell body text, owned by the DataTable component
 
 ---
 
@@ -88,11 +96,11 @@ All values sourced from `frontend/tailwind.config.js`. Phase 13 uses no new colo
 |------|-------|-------|-------|
 | Dominant (60%) | #FAFAFA | `bg` | Page background, modal interior |
 | Secondary (30%) | #F4F4F5 | `line-soft` | Table header bg (#FBFBFB), hover surfaces, empty state bg |
-| Accent (10%) | #FACC15 | `yellow` | Primary CTA button ("+ New Action Item"), active tab underline, Save button |
+| Accent (10%) | #FACC15 | `yellow` | Primary CTA button ("+ New Action Item"), active tab underline, Save Changes button |
 | Destructive | #DC2626 | `red` | "Won't Do" status badge, overdue due date, delete confirmation |
 
 Accent (`yellow`) is reserved for: the primary "+ New Action Item" CTA button,
-Save/Submit buttons in create and edit flows, and the active tab underline in the
+Save Changes/Submit buttons in create and edit flows, and the active tab underline in the
 Action Item modal. It is NOT used for status badges, notification badges, or body text.
 
 ### Status badge colour map
@@ -180,7 +188,7 @@ Menu (absolute-positioned dropdown, `z-50`):
 - `w-[200px] bg-white border border-line rounded-menu shadow-lg py-1`
 - Each item: `px-4 py-2 text-[14px] text-ink hover:bg-line-soft cursor-pointer`
 - **Status submenu** — rendered as a nested block within the dropdown, not a flyout.
-  Label: `text-[12px] uppercase font-medium text-subtle tracking-[0.05em]` separator
+  Label: `text-[12px] uppercase font-normal text-subtle tracking-[0.05em]` separator
   above 4 status options.
 - Each status option: same item style as above, with a `Check` icon (size 14,
   text-green) rendered on the left when that status is the current status.
@@ -204,14 +212,15 @@ Uses `Modal` at `size="lg"` (max-w-[640px]).
 
 - Title: action item's `title` field, `text-[18px] font-semibold text-ink tracking-[-0.01em]`
   (Modal `title` prop — inherits existing Modal h2 styling)
-- Subtitle: `{scope} · {shop_name}` or `{scope}` for brand items, `text-[13.5px] text-muted mt-1`
+- Subtitle: `{scope} · {shop_name}` or `{scope}` for brand items, `text-[14px] text-muted mt-1`
+  (inherited DataTable system value; rendered by Modal component, not Phase 13 typography)
 
 #### Tab bar
 
 - Tabs: Details | Notes | Source Review
 - Source Review tab hidden when `source = "manual"` (ACTN-06: visible only for AI-extracted items)
 - Tab bar: `flex border-b border-line gap-0 px-0` rendered inside modal scroll area at top
-- Each tab button: `px-4 py-2.5 text-[14px] font-medium text-muted hover:text-ink transition-colors`
+- Each tab button: `px-4 py-2.5 text-[14px] font-semibold text-muted hover:text-ink transition-colors`
 - Active tab: `text-ink border-b-2 border-yellow -mb-px` (underline with yellow accent)
 - Tab container margin-bottom: 16px (gap before tab content)
 
@@ -238,11 +247,11 @@ Fields in read mode (two-column grid, `gap-x-8 gap-y-4`):
 | Source | SOURCE | `AI extracted` (Sparkles icon) or `Manual` (User icon) |
 
 Edit button: `text-[14px] text-muted underline hover:text-ink` below the fields grid,
-right-aligned. Label: `Edit`.
+right-aligned. Label: `Edit Details`.
 
 #### Details tab — edit mode
 
-Clicking Edit transforms the title, priority, due date, and assignee fields in-place
+Clicking Edit Details transforms the title, priority, due date, and assignee fields in-place
 into inputs. Scope and Shop remain as read-only text for AI-extracted items (ACTN-07).
 For manually-created items, Scope and Shop are NOT editable after creation (matches AI rule).
 
@@ -256,12 +265,12 @@ Editable fields:
 - **Due Date**: `<input type="date">` — only today or future allowed (HTML `min` attr)
 - **Assignee**: `<select>` populated from team members list
 
-Save / Cancel footer (rendered at bottom of modal scroll area in edit mode, NOT in Modal `footer` prop):
+Discard Changes / Save Changes footer (rendered at bottom of modal scroll area in edit mode, NOT in Modal `footer` prop):
 - `flex justify-end gap-2 pt-4 mt-4 border-t border-line-soft`
-- Cancel: `px-4 py-2 text-[14px] bg-white border border-line rounded-md hover:bg-line-soft` — reverts inputs, exits edit mode
-- Save: `px-4 py-2 text-[14px] bg-yellow text-black font-semibold rounded-md hover:bg-yellow-hover` — submits PATCH, exits edit mode on success
+- Discard Changes: `px-4 py-2 text-[14px] bg-white border border-line rounded-md hover:bg-line-soft` — reverts inputs, exits edit mode
+- Save Changes: `px-4 py-2 text-[14px] bg-yellow text-black font-semibold rounded-md hover:bg-yellow-hover` — submits PATCH, exits edit mode on success
 
-Error inline: `text-[13px] text-red mt-2` below the save/cancel row.
+Error inline: `text-[12px] text-red mt-2` below the save/cancel row.
 
 #### Notes tab
 
@@ -282,7 +291,7 @@ Layout: scrollable note timeline above a permanently-visible compose area.
 - Empty textarea disabled state: button `opacity-40 cursor-not-allowed`
 
 Empty timeline state (no notes yet):
-- `text-[13.5px] text-muted py-4 text-center` — copy: "No notes yet."
+- `text-[14px] text-muted py-4 text-center` — copy: "No notes yet."
 
 #### Source Review tab
 
@@ -326,11 +335,11 @@ Scope toggle interaction: switching Scope from Shop to Brand hides the Shop fiel
 CSS (`hidden` / `block`). Shop field value is cleared when Scope = Brand.
 
 Footer (Modal `footer` prop):
-- Cancel: `px-4 py-2 text-[14px] bg-white border border-line rounded-md hover:bg-line-soft`
+- Discard: `px-4 py-2 text-[14px] bg-white border border-line rounded-md hover:bg-line-soft`
 - Create: `px-4 py-2 text-[14px] bg-yellow text-black font-semibold rounded-md hover:bg-yellow-hover`
   disabled + `opacity-40 cursor-not-allowed` while submitting
 
-Inline error: `text-[13px] text-red` rendered above the footer (inside scroll area).
+Inline error: `text-[12px] text-red` rendered above the footer (inside scroll area).
 
 ---
 
@@ -393,7 +402,7 @@ Container: `absolute top-full right-0 mt-2 w-[320px] bg-white border border-line
 
 **Header row** (inside popover):
 `flex items-center justify-between px-4 py-3 border-b border-line-soft`
-Left: `"Notifications"` at `text-[13.5px] font-semibold text-ink`
+Left: `"Notifications"` at `text-[14px] font-semibold text-ink`
 Right: `"Mark all as read"` button — `text-[12px] text-muted underline hover:text-ink` — hidden when count = 0
 
 **Notification list**:
@@ -414,7 +423,7 @@ Notification type → icon map:
 | `action_item_assigned` | `UserCheck` size 14 | text-blue |
 
 Row content:
-- Title: `text-[13px] font-semibold text-ink` — truncated to one line (`truncate`)
+- Title: `text-[14px] font-semibold text-ink` — truncated to one line (`truncate`)
 - Sub-line: `text-[12px] text-muted mt-0.5` — format: `{shop_name} · {relative_time}`
   For `action_item_assigned` with no shop: `{relative_time}` only.
 - Unread indicator: thin left border `border-l-2 border-yellow -ml-4 pl-[14px]` on
@@ -479,6 +488,11 @@ above is binding regardless of implementation mechanism.
 | AI source icon tooltip | `AI extracted` |
 | Manual source icon tooltip | `Manually created` |
 | Three-dot menu status section label | `CHANGE STATUS` (12px uppercase muted micro-label) |
+| ActionItemModal read mode edit button | `Edit Details` |
+| ActionItemModal edit mode discard button | `Discard Changes` |
+| ActionItemModal edit mode save button | `Save Changes` |
+| ActionItemCreateModal discard button | `Discard` |
+| ActionItemCreateModal submit button | `Create` |
 
 ### Notification bell
 
@@ -523,9 +537,9 @@ via the three-dot menu or modal dropdown. Emits a success toast after each trans
 
 | Mode | Details tab | Notes tab | Source tab |
 |------|-------------|-----------|------------|
-| Read | Fields as text, Edit link, Status dropdown | Timeline + compose area | Review card (AI items only) |
-| Edit | Fields as inputs, Save/Cancel at bottom | Unchanged | Unchanged |
-| Edit (saving) | Inputs disabled, Save button shows spinner (`Loader2`) | Unchanged | Unchanged |
+| Read | Fields as text, Edit Details link, Status dropdown | Timeline + compose area | Review card (AI items only) |
+| Edit | Fields as inputs, Save Changes/Discard Changes at bottom | Unchanged | Unchanged |
+| Edit (saving) | Inputs disabled, Save Changes button shows spinner (`Loader2`) | Unchanged | Unchanged |
 | Edit (error) | Inputs re-enabled, error text shown | Unchanged | Unchanged |
 
 ### Three-dot status submenu
