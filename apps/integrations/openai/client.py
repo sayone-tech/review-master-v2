@@ -127,6 +127,14 @@ def _call_openai_with_tracing(
     attached to run_tree.metadata per CLAUDE.md §14.5 so LangSmith traces can
     be cross-referenced from AiUsageLog rows. Best-effort: metadata update
     failure does not block the OpenAI call.
+
+    Also attaches `usage_metadata` and `ls_model_name` to the run so LangSmith's
+    pricing engine can compute the Cost column. The Responses API exposes usage
+    as `response.usage.input_tokens / output_tokens / total_tokens`, which
+    matches LangSmith's UsageMetadata schema 1:1 (no remapping needed). Without
+    these, LangSmith renders Cost as $0.00 even though tokens are present in
+    the underlying response — see debug session
+    .planning/debug/resolved/langsmith-cost-not-shown.md.
     """
     response = _do_responses_parse(messages=messages, model=model)
     trace_id: str | None = None
@@ -134,15 +142,41 @@ def _call_openai_with_tracing(
         run_tree = get_current_run_tree()
         if run_tree is not None:
             trace_id = str(run_tree.trace_id)
-            run_tree.metadata.update(
-                {
-                    "request_type": "enrichment",
-                    "review_id": review_id,
-                    "organisation_id": organisation_id,
-                    "shop_id": shop_id,
-                    "model": model,
+            metadata_update: dict[str, Any] = {
+                "request_type": "enrichment",
+                "review_id": review_id,
+                "organisation_id": organisation_id,
+                "shop_id": shop_id,
+                "model": model,
+                # ls_model_name is the key LangSmith's pricing lookup uses
+                # (see langsmith.wrappers._openai). Setting it explicitly
+                # ensures cost rendering for snapshot model IDs like
+                # gpt-4o-mini-2024-07-18.
+                "ls_model_name": model,
+            }
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+                output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+                total_tokens = int(
+                    getattr(usage, "total_tokens", input_tokens + output_tokens) or 0
+                )
+                usage_metadata: dict[str, Any] = {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens,
                 }
-            )
+                details = getattr(usage, "input_tokens_details", None)
+                cached_tokens = int(getattr(details, "cached_tokens", 0) or 0) if details else 0
+                if cached_tokens:
+                    # LangSmith's InputTokenDetails uses `cache_read` for
+                    # cached/cache-hit tokens (matches Anthropic/OpenAI cache
+                    # conventions). Optional — only include when non-zero.
+                    usage_metadata["input_token_details"] = {
+                        "cache_read": cached_tokens,
+                    }
+                metadata_update["usage_metadata"] = usage_metadata
+            run_tree.metadata.update(metadata_update)
     except Exception:  # pragma: no cover — defensive
         trace_id = None
     return response, trace_id
