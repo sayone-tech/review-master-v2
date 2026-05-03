@@ -32,7 +32,11 @@ from apps.integrations.openai.exceptions import (
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.parser import EnrichmentResult
 from apps.reviews.models import Review
-from apps.reviews.services.enrichment import enrich_review
+from apps.reviews.services.enrichment import (
+    RATING_TO_SENTIMENT,
+    enrich_review,
+    rating_to_sentiment,
+)
 from apps.reviews.tests.factories import ReviewFactory
 
 
@@ -348,3 +352,143 @@ def test_failed_review_appears_in_serializer() -> None:
     assert data["sentiment"] == ""
     assert data["tags"] == []
     assert data["extracted_action_items"] == []
+
+
+# ---------------------------------------------------------------------------
+# Phase 12-09 (gap closure): empty-comment skip path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("rating", "expected"),
+    [
+        (1, "negative"),
+        (2, "negative"),
+        (3, "neutral"),
+        (4, "positive"),
+        (5, "positive"),
+    ],
+)
+def test_rating_to_sentiment_mapping(rating: int, expected: str) -> None:
+    """All five star ratings map to the expected sentiment bucket."""
+    assert rating_to_sentiment(rating) == expected
+    assert RATING_TO_SENTIMENT[rating] == expected
+
+
+@pytest.mark.django_db
+def test_skip_openai_when_no_comment() -> None:
+    """Review with empty comment must NOT call OpenAI; sentiment from rating."""
+    review = ReviewFactory(
+        comment="",
+        star_rating=1,
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+    )
+    usage_before = AiUsageLog.objects.count()
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_call,
+    ):
+        enrich_review(review_id=review.pk)
+    mock_call.assert_not_called()
+    review.refresh_from_db()
+    assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
+    assert review.sentiment == "negative"
+    assert review.tags == []
+    assert review.extracted_action_items == []
+    assert review.enrichment_version == 1
+    assert AiUsageLog.objects.count() == usage_before
+
+
+@pytest.mark.django_db
+def test_skip_openai_when_whitespace_comment() -> None:
+    """Whitespace-only comment is treated identically to empty."""
+    review = ReviewFactory(
+        comment="   \n\t  ",
+        star_rating=3,
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+    )
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_call,
+    ):
+        enrich_review(review_id=review.pk)
+    mock_call.assert_not_called()
+    review.refresh_from_db()
+    assert review.sentiment == "neutral"
+    assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
+    assert review.tags == []
+    assert review.extracted_action_items == []
+
+
+@pytest.mark.django_db
+def test_skip_path_does_not_write_ai_usage_log() -> None:
+    """Skip path must incur ZERO AiUsageLog rows for the review."""
+    review = ReviewFactory(
+        comment="",
+        star_rating=5,
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+    )
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch("apps.reviews.services.enrichment.call_openai_enrichment"),
+    ):
+        enrich_review(review_id=review.pk)
+    assert AiUsageLog.objects.filter(review_id=review.pk).count() == 0
+
+
+@pytest.mark.django_db
+def test_skip_path_idempotent() -> None:
+    """Second call on a comment-less SUCCESS review is a no-op (Layer 3 guard)."""
+    review = ReviewFactory(
+        comment="",
+        star_rating=5,
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+    )
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_call,
+    ):
+        enrich_review(review_id=review.pk)
+        enrich_review(review_id=review.pk)  # second call -> idempotent skip
+    mock_call.assert_not_called()
+    review.refresh_from_db()
+    assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
+    assert review.enrichment_version == 1  # bumped exactly once
+    assert AiUsageLog.objects.filter(review_id=review.pk).count() == 0
+
+
+@pytest.mark.django_db
+def test_normal_path_still_calls_openai_for_reviews_with_comments() -> None:
+    """Regression guard: reviews WITH comments still hit OpenAI."""
+    review = ReviewFactory(
+        comment="Great service!",
+        star_rating=5,
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+    )
+    result = _build_result()
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(result, _usage()),
+        ) as mock_call,
+    ):
+        enrich_review(review_id=review.pk)
+    mock_call.assert_called_once()
+    review.refresh_from_db()
+    assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
