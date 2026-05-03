@@ -135,7 +135,7 @@ django_settings_module = "config.settings.test"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]
-addopts = "--strict-markers --tb=short -q"
+addopts = "--strict-markers --tb=short -q --ds=config.settings.test"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
