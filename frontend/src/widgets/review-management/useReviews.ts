@@ -90,6 +90,10 @@ export function useReviews(initial?: Partial<UseReviewsState>) {
     if (cur > 1) goToPage(cur - 1);
   };
 
+  const applyFilters = (draft: Partial<ReviewFilterParams>) => {
+    updateFilter({ ...DEFAULT_PARAMS, ...draft, page: 1 });
+  };
+
   const clearFilters = () => {
     const reset = { ...DEFAULT_PARAMS };
     setFilters(reset);
@@ -126,6 +130,7 @@ export function useReviews(initial?: Partial<UseReviewsState>) {
     goToPage,
     goNext,
     goPrev,
+    applyFilters,
     clearFilters,
     replaceRow,
   };

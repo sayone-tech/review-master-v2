@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import QuerySet
+from django.db.models import Avg, Count, Q, QuerySet
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
 from rest_framework import mixins, status
@@ -77,6 +77,36 @@ class ReviewViewSet(
             response = Response({"results": serializer.data})
         response.data["total_count"] = total_count
         return response
+
+    @action(detail=False, methods=["get"], url_path="stats")
+    def stats(self, request: Request) -> Response:
+        """Aggregate stats for the reviews list header cards."""
+        qs = self.get_queryset()
+        agg = qs.aggregate(
+            total=Count("pk"),
+            avg_rating=Avg("star_rating"),
+            awaiting_reply=Count("pk", filter=Q(is_replied=False)),
+            positive_count=Count(
+                "pk",
+                filter=Q(sentiment="positive", enrichment_status=Review.EnrichmentStatus.SUCCESS),
+            ),
+            enriched_count=Count("pk", filter=Q(enrichment_status=Review.EnrichmentStatus.SUCCESS)),
+        )
+        total: int = agg["total"] or 0
+        avg_rating: float = round(float(agg["avg_rating"] or 0.0), 1)
+        awaiting_reply: int = agg["awaiting_reply"] or 0
+        enriched: int = agg["enriched_count"] or 0
+        positive_pct: int = (
+            round((agg["positive_count"] or 0) / enriched * 100) if enriched > 0 else 0
+        )
+        return Response(
+            {
+                "total_count": total,
+                "avg_rating": avg_rating,
+                "awaiting_reply_count": awaiting_reply,
+                "positive_sentiment_pct": positive_pct,
+            }
+        )
 
     @action(
         detail=True,

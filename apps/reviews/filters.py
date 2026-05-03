@@ -16,6 +16,7 @@ class ReviewFilterSet(django_filters.FilterSet):  # type: ignore[misc]
     rating = django_filters.NumberFilter(field_name="star_rating")
     sentiment = django_filters.CharFilter(field_name="sentiment")
     is_replied = django_filters.BooleanFilter(field_name="is_replied")
+    has_comment = django_filters.BooleanFilter(method="filter_has_comment")
     from_date = django_filters.DateFilter(field_name="review_create_time", lookup_expr="gte")
     to_date = django_filters.DateFilter(field_name="review_create_time", lookup_expr="lte")
     search = django_filters.CharFilter(method="filter_search")
@@ -23,6 +24,11 @@ class ReviewFilterSet(django_filters.FilterSet):  # type: ignore[misc]
     class Meta:
         model = Review
         fields: ClassVar[list[str]] = []
+
+    def filter_has_comment(self, queryset, name, value):  # type: ignore[no-untyped-def]
+        if value:
+            return queryset.exclude(comment="")
+        return queryset.filter(comment="")
 
     def filter_search(self, queryset, name, value):  # type: ignore[no-untyped-def]
         if not value:

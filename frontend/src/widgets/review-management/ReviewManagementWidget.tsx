@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { ReviewEmptyStates } from "./ReviewEmptyStates";
 import { ReviewFilters } from "./ReviewFilters";
+import { ReviewStatsCards } from "./ReviewStatsCards";
 import { ReviewTable } from "./ReviewTable";
+import { fetchReviewStats } from "./api";
 import { useReviews } from "./useReviews";
-import type { ReviewRow, ShopOption } from "./types";
+import type { ReviewRow, ReviewStats, ShopOption, SortKey } from "./types";
 
 function buildPageRange(current: number, total: number): (number | "…")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -53,28 +55,18 @@ export const ReviewManagementWidget = ({
     filters,
     currentPage,
     totalPages,
-    setSearch,
-    setShop,
-    setRating,
-    setSentiment,
-    setIsReplied,
-    setFromDate,
-    setToDate,
+    applyFilters,
+    clearFilters,
     setOrdering,
     setPageSize,
     goToPage,
     goNext,
     goPrev,
-    clearFilters,
     replaceRow,
   } = useReviews();
 
   const [openComposerId, setOpenComposerId] = useState<number | null>(null);
-  // REVW-06 — track per-review "Show more" toggle for comments > 1000 chars.
-  // Map<review.id, boolean> where true = show full text. Defaults to truncated.
-  const [showFullComment, setShowFullComment] = useState<Map<number, boolean>>(
-    () => new Map(),
-  );
+  const [showFullComment, setShowFullComment] = useState<Map<number, boolean>>(() => new Map());
   const toggleShowFullComment = (reviewId: number) => {
     setShowFullComment((prev) => {
       const next = new Map(prev);
@@ -82,6 +74,17 @@ export const ReviewManagementWidget = ({
       return next;
     });
   };
+
+  // Stats cards
+  const [stats, setStats] = useState<ReviewStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  useEffect(() => {
+    setStatsLoading(true);
+    fetchReviewStats()
+      .then(setStats)
+      .catch(() => {})
+      .finally(() => setStatsLoading(false));
+  }, []);
 
   const isOrgAdmin = userRole === "ORG_ADMIN";
   const pageSize = filters.page_size ?? 10;
@@ -94,6 +97,7 @@ export const ReviewManagementWidget = ({
       filters.rating !== undefined ||
       filters.sentiment ||
       filters.is_replied !== undefined ||
+      filters.has_comment !== undefined ||
       filters.from_date ||
       filters.to_date,
   );
@@ -110,36 +114,41 @@ export const ReviewManagementWidget = ({
   }
 
   const handleReplyCtaClick = (row: ReviewRow) => {
-    // Plan 10: dispatch event for Plan 11's ReplyComposer to listen to.
-    // Plan 11 sets openComposerId via window event.
     window.dispatchEvent(new CustomEvent("review:open-composer", { detail: row }));
     setOpenComposerId(row.id);
   };
 
   return (
     <div className="space-y-4">
+      {/* Stats cards */}
+      <ReviewStatsCards stats={stats} loading={statsLoading} />
+
       <div className="flex items-center justify-between">
         <h1 className="text-[20px] font-semibold text-ink">
           Reviews{" "}
           <span className="text-[14px] text-muted font-normal">({count})</span>
         </h1>
       </div>
+
+      {/* Filter bar */}
       <ReviewFilters
         shops={shops}
         filters={filters}
-        totalCount={count}
-        pageStart={showingFrom}
-        pageEnd={showingTo}
-        onSearch={setSearch}
-        onShop={setShop}
-        onRating={setRating}
-        onSentiment={setSentiment}
-        onIsReplied={setIsReplied}
-        onFromDate={setFromDate}
-        onToDate={setToDate}
-        onOrdering={setOrdering}
-        onClearAll={clearFilters}
+        onApply={(draft) =>
+          applyFilters({
+            search: draft.search || undefined,
+            shop: draft.shop,
+            rating: draft.rating,
+            sentiment: draft.sentiment,
+            is_replied: draft.is_replied,
+            has_comment: draft.has_comment,
+            from_date: draft.from_date,
+            to_date: draft.to_date,
+          })
+        }
+        onReset={clearFilters}
       />
+
       <div className="border border-line rounded-card overflow-hidden">
         <ReviewTable
           rows={rows}
@@ -150,8 +159,6 @@ export const ReviewManagementWidget = ({
           showFullComment={showFullComment}
           onToggleShowFullComment={toggleShowFullComment}
           onComposerSuccess={(updated) => {
-            // Replace row in state so badge + reply text update immediately.
-            // Keep composer open showing the success view; user closes manually.
             replaceRow(updated);
           }}
           onComposerClose={() => setOpenComposerId(null)}
@@ -187,7 +194,31 @@ export const ReviewManagementWidget = ({
                   <option value={50}>50</option>
                   <option value={100}>100</option>
                 </select>
-                <ChevronDown className="pointer-events-none shrink-0 w-3 h-3 text-muted mr-1.5" aria-hidden="true" />
+                <ChevronDown
+                  className="pointer-events-none shrink-0 w-3 h-3 text-muted mr-1.5"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
+            {/* Sort — lives in pagination footer */}
+            <div className="flex items-center gap-1.5">
+              <label className="text-[12px] text-muted">Sort:</label>
+              <div className="inline-flex items-center bg-white border border-line rounded-sm focus-within:border-ink">
+                <select
+                  className="appearance-none pl-2 pr-1 py-1 text-[12.5px] bg-transparent focus:outline-none cursor-pointer"
+                  value={filters.ordering ?? "-review_create_time"}
+                  onChange={(e) => setOrdering(e.target.value as SortKey)}
+                  aria-label="Sort order"
+                >
+                  <option value="-review_create_time">Newest first</option>
+                  <option value="review_create_time">Oldest first</option>
+                  <option value="-star_rating">Highest rating</option>
+                  <option value="star_rating">Lowest rating</option>
+                </select>
+                <ChevronDown
+                  className="pointer-events-none shrink-0 w-3 h-3 text-muted mr-1.5"
+                  aria-hidden="true"
+                />
               </div>
             </div>
           </div>

@@ -1,90 +1,89 @@
 import { useState } from "react";
-import type { ReviewFilterParams, ShopOption, SortKey } from "./types";
+import { Calendar, Search, SlidersHorizontal, X } from "lucide-react";
+import type { ReviewFilterParams, ShopOption } from "./types";
 
-const inputCls =
-  "px-3 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
+const selectCls =
+  "px-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
+
+interface DraftFilters {
+  search: string;
+  shop?: number;
+  rating?: 1 | 2 | 3 | 4 | 5;
+  sentiment?: "positive" | "neutral" | "negative";
+  is_replied?: boolean;
+  has_comment?: boolean;
+  from_date?: string;
+  to_date?: string;
+}
 
 interface Props {
   shops: ShopOption[];
   filters: ReviewFilterParams;
-  totalCount: number;
-  pageStart: number;
-  pageEnd: number;
-  onSearch: (s: string) => void;
-  onShop: (s?: number) => void;
-  onRating: (r?: 1 | 2 | 3 | 4 | 5) => void;
-  onSentiment: (s?: "positive" | "neutral" | "negative") => void;
-  onIsReplied: (r?: boolean) => void;
-  onFromDate: (d?: string) => void;
-  onToDate: (d?: string) => void;
-  onOrdering: (o: SortKey) => void;
-  onClearAll: () => void;
+  onApply: (draft: DraftFilters) => void;
+  onReset: () => void;
 }
 
-export function ReviewFilters(props: Props) {
-  const {
-    shops,
-    filters,
-    totalCount,
-    pageStart,
-    pageEnd,
-    onSearch,
-    onShop,
-    onRating,
-    onSentiment,
-    onIsReplied,
-    onFromDate,
-    onToDate,
-    onOrdering,
-    onClearAll,
-  } = props;
-  const [searchInput, setSearchInput] = useState(filters.search ?? "");
+export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
+  const [draft, setDraft] = useState<DraftFilters>({
+    search: filters.search ?? "",
+    shop: filters.shop,
+    rating: filters.rating,
+    sentiment: filters.sentiment,
+    is_replied: filters.is_replied,
+    has_comment: filters.has_comment,
+    from_date: filters.from_date,
+    to_date: filters.to_date,
+  });
 
-  const activeChips: { label: string; onRemove: () => void }[] = [];
-  if (filters.shop !== undefined) {
-    const name = shops.find((s) => s.id === filters.shop)?.name ?? `Shop ${filters.shop}`;
-    activeChips.push({ label: `Shop: ${name}`, onRemove: () => onShop(undefined) });
-  }
-  if (filters.rating !== undefined) {
-    activeChips.push({ label: `${filters.rating} stars`, onRemove: () => onRating(undefined) });
-  }
-  if (filters.sentiment) {
-    activeChips.push({
-      label: `Sentiment: ${filters.sentiment}`,
-      onRemove: () => onSentiment(undefined),
+  const hasActiveFilters = Boolean(
+    filters.search ||
+      filters.shop !== undefined ||
+      filters.rating !== undefined ||
+      filters.sentiment ||
+      filters.is_replied !== undefined ||
+      filters.has_comment !== undefined ||
+      filters.from_date ||
+      filters.to_date,
+  );
+
+  const handleReset = () => {
+    setDraft({
+      search: "",
+      shop: undefined,
+      rating: undefined,
+      sentiment: undefined,
+      is_replied: undefined,
+      has_comment: undefined,
+      from_date: undefined,
+      to_date: undefined,
     });
-  }
-  if (filters.is_replied !== undefined) {
-    activeChips.push({
-      label: filters.is_replied ? "Replied" : "Not Replied",
-      onRemove: () => onIsReplied(undefined),
-    });
-  }
-  if (filters.from_date) {
-    activeChips.push({ label: `From: ${filters.from_date}`, onRemove: () => onFromDate(undefined) });
-  }
-  if (filters.to_date) {
-    activeChips.push({ label: `To: ${filters.to_date}`, onRemove: () => onToDate(undefined) });
-  }
+    onReset();
+  };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="text"
-          className={`${inputCls} flex-1 min-w-[200px]`}
-          placeholder="Search reviews…"
-          value={searchInput}
-          onChange={(e) => {
-            setSearchInput(e.target.value);
-            onSearch(e.target.value);
-          }}
-          aria-label="Search reviews"
-        />
+    <div className="space-y-2">
+      {/* Row 1 — search + the three "any …" selects (each flex-1 fills the row) */}
+      <div className="flex flex-wrap items-stretch gap-2">
+        {/* Search — wider weight */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border border-line rounded-md flex-[2] min-w-[220px] focus-within:border-ink focus-within:ring focus-within:ring-black/[0.06]">
+          <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
+          <input
+            type="text"
+            className="flex-1 min-w-0 bg-transparent focus:outline-none text-[13.5px]"
+            placeholder="Search reviews…"
+            value={draft.search}
+            onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
+            aria-label="Search reviews"
+          />
+        </div>
+
+        {/* Store */}
         <select
-          className={inputCls}
-          value={filters.shop ?? ""}
-          onChange={(e) => onShop(e.target.value ? Number(e.target.value) : undefined)}
+          className={`${selectCls} flex-1 min-w-[140px]`}
+          value={draft.shop ?? ""}
+          onChange={(e) =>
+            setDraft((d) => ({ ...d, shop: e.target.value ? Number(e.target.value) : undefined }))
+          }
           aria-label="Filter by store"
         >
           <option value="">All Stores</option>
@@ -94,30 +93,38 @@ export function ReviewFilters(props: Props) {
             </option>
           ))}
         </select>
+
+        {/* Rating */}
         <select
-          className={inputCls}
-          value={filters.rating ?? ""}
+          className={`${selectCls} flex-1 min-w-[140px]`}
+          value={draft.rating ?? ""}
           onChange={(e) =>
-            onRating(e.target.value ? (Number(e.target.value) as 1 | 2 | 3 | 4 | 5) : undefined)
+            setDraft((d) => ({
+              ...d,
+              rating: e.target.value ? (Number(e.target.value) as 1 | 2 | 3 | 4 | 5) : undefined,
+            }))
           }
           aria-label="Filter by rating"
         >
           <option value="">Any Rating</option>
-          <option value="5">5 stars</option>
-          <option value="4">4 stars</option>
-          <option value="3">3 stars</option>
-          <option value="2">2 stars</option>
-          <option value="1">1 star</option>
+          <option value="5">★★★★★ 5 stars</option>
+          <option value="4">★★★★☆ 4 stars</option>
+          <option value="3">★★★☆☆ 3 stars</option>
+          <option value="2">★★☆☆☆ 2 stars</option>
+          <option value="1">★☆☆☆☆ 1 star</option>
         </select>
+
+        {/* Sentiment */}
         <select
-          className={inputCls}
-          value={filters.sentiment ?? ""}
+          className={`${selectCls} flex-1 min-w-[140px]`}
+          value={draft.sentiment ?? ""}
           onChange={(e) =>
-            onSentiment(
-              e.target.value
+            setDraft((d) => ({
+              ...d,
+              sentiment: e.target.value
                 ? (e.target.value as "positive" | "neutral" | "negative")
                 : undefined,
-            )
+            }))
           }
           aria-label="Filter by sentiment"
         >
@@ -126,81 +133,85 @@ export function ReviewFilters(props: Props) {
           <option value="neutral">Neutral</option>
           <option value="negative">Negative</option>
         </select>
+      </div>
+
+      {/* Row 2 — date range + replies + comments + action buttons */}
+      <div className="flex flex-wrap items-stretch gap-2">
+        {/* Date range */}
+        <div className="flex items-center gap-1 px-3 bg-white border border-line rounded-md text-[13.5px] flex-[2] min-w-[260px]">
+          <Calendar size={13} className="text-muted shrink-0" aria-hidden="true" />
+          <input
+            type="date"
+            className="flex-1 bg-transparent focus:outline-none text-[13px] min-w-0 py-2"
+            value={draft.from_date ?? ""}
+            onChange={(e) => setDraft((d) => ({ ...d, from_date: e.target.value || undefined }))}
+            aria-label="From date"
+          />
+          <span className="text-muted px-0.5">–</span>
+          <input
+            type="date"
+            className="flex-1 bg-transparent focus:outline-none text-[13px] min-w-0 py-2"
+            value={draft.to_date ?? ""}
+            onChange={(e) => setDraft((d) => ({ ...d, to_date: e.target.value || undefined }))}
+            aria-label="To date"
+          />
+        </div>
+
+        {/* Reply status */}
         <select
-          className={inputCls}
-          value={filters.is_replied === undefined ? "" : filters.is_replied ? "true" : "false"}
+          className={`${selectCls} flex-1 min-w-[140px]`}
+          value={draft.is_replied === undefined ? "" : draft.is_replied ? "true" : "false"}
           onChange={(e) =>
-            onIsReplied(e.target.value === "" ? undefined : e.target.value === "true")
+            setDraft((d) => ({
+              ...d,
+              is_replied: e.target.value === "" ? undefined : e.target.value === "true",
+            }))
           }
           aria-label="Filter by reply status"
         >
-          <option value="">All</option>
+          <option value="">All Replies</option>
           <option value="true">Replied</option>
           <option value="false">Not Replied</option>
         </select>
-        <label className="flex items-center gap-1 text-[12px] text-muted">
-          From
-          <input
-            type="date"
-            className={inputCls}
-            value={filters.from_date ?? ""}
-            onChange={(e) => onFromDate(e.target.value || undefined)}
-            aria-label="From date"
-          />
-        </label>
-        <label className="flex items-center gap-1 text-[12px] text-muted">
-          To
-          <input
-            type="date"
-            className={inputCls}
-            value={filters.to_date ?? ""}
-            onChange={(e) => onToDate(e.target.value || undefined)}
-            aria-label="To date"
-          />
-        </label>
-      </div>
-      {activeChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          {activeChips.map((c) => (
-            <span
-              key={c.label}
-              className="inline-flex items-center gap-1 px-2 py-1 bg-line-soft text-ink text-[12px] rounded-full"
-            >
-              {c.label}
-              <button
-                type="button"
-                className="text-muted hover:text-red"
-                onClick={c.onRemove}
-                aria-label={`Remove ${c.label} filter`}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+
+        {/* Comment presence */}
+        <select
+          className={`${selectCls} flex-1 min-w-[140px]`}
+          value={draft.has_comment === undefined ? "" : draft.has_comment ? "true" : "false"}
+          onChange={(e) =>
+            setDraft((d) => ({
+              ...d,
+              has_comment: e.target.value === "" ? undefined : e.target.value === "true",
+            }))
+          }
+          aria-label="Filter by comment presence"
+        >
+          <option value="">All Comments</option>
+          <option value="true">With Comment</option>
+          <option value="false">No Comment</option>
+        </select>
+
+        {/* Filter button */}
+        <button
+          type="button"
+          onClick={() => onApply(draft)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-black text-yellow text-[13.5px] font-semibold rounded-md hover:bg-ink/90 shrink-0"
+        >
+          <SlidersHorizontal size={13} aria-hidden="true" />
+          Filter
+        </button>
+
+        {/* Reset — only when active filters */}
+        {hasActiveFilters && (
           <button
             type="button"
-            className="text-[12px] text-muted underline hover:text-ink"
-            onClick={onClearAll}
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-[13.5px] text-muted hover:text-ink border border-line rounded-md bg-white shrink-0"
           >
-            Clear all
+            <X size={13} aria-hidden="true" />
+            Reset
           </button>
-        </div>
-      )}
-      <div className="flex items-center justify-between">
-        <span className="text-[14px] text-muted">
-          Showing {totalCount === 0 ? 0 : pageStart}-{pageEnd} of {totalCount} reviews
-        </span>
-        <select
-          className={inputCls}
-          value={filters.ordering ?? "-review_create_time"}
-          onChange={(e) => onOrdering(e.target.value as SortKey)}
-          aria-label="Sort order"
-        >
-          <option value="-review_create_time">Newest first</option>
-          <option value="review_create_time">Oldest first</option>
-          <option value="-star_rating">Highest rating</option>
-          <option value="star_rating">Lowest rating</option>
-        </select>
+        )}
       </div>
     </div>
   );

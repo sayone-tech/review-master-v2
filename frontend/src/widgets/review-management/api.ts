@@ -2,6 +2,7 @@ import type {
   ReviewFilterParams,
   ReviewListResponse,
   ReviewRow,
+  ReviewStats,
   SyncingResponse,
 } from "./types";
 
@@ -43,6 +44,7 @@ function buildQs(params: ReviewFilterParams): string {
   if (params.rating !== undefined) u.set("rating", String(params.rating));
   if (params.sentiment) u.set("sentiment", params.sentiment);
   if (params.is_replied !== undefined) u.set("is_replied", params.is_replied ? "true" : "false");
+  if (params.has_comment !== undefined) u.set("has_comment", params.has_comment ? "true" : "false");
   if (params.from_date) u.set("from_date", params.from_date);
   if (params.to_date) u.set("to_date", params.to_date);
   if (params.ordering) u.set("ordering", params.ordering);
@@ -69,6 +71,15 @@ export async function submitReply(reviewId: number, comment: string): Promise<Re
     body: JSON.stringify({ comment }),
   });
   return (await handle(resp)) as ReviewRow;
+}
+
+export async function fetchReviewStats(): Promise<ReviewStats> {
+  const resp = await fetch("/api/v1/reviews/stats/", {
+    method: "GET",
+    headers: headers("GET"),
+    credentials: "same-origin",
+  });
+  return (await handle(resp)) as ReviewStats;
 }
 
 export async function fetchSyncingShops(): Promise<SyncingResponse> {

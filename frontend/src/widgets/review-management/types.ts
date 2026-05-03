@@ -52,6 +52,7 @@ export interface ReviewFilterParams {
   rating?: 1 | 2 | 3 | 4 | 5;
   sentiment?: "positive" | "neutral" | "negative";
   is_replied?: boolean;
+  has_comment?: boolean;
   from_date?: string; // YYYY-MM-DD
   to_date?: string; // YYYY-MM-DD
   search?: string;
@@ -65,6 +66,13 @@ export interface ReviewListResponse {
   next: string | null;
   previous: string | null;
   total_count: number;
+}
+
+export interface ReviewStats {
+  total_count: number;
+  avg_rating: number;
+  awaiting_reply_count: number;
+  positive_sentiment_pct: number;
 }
 
 export interface SyncingShop {
