@@ -36,7 +36,7 @@ Standard 8-point scale. All Phase 13 components follow the same scale as prior p
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| xs | 4px | Icon gaps (gap-1), inline chip padding (py-0.5) |
+| xs | 4px | Icon gaps (gap-1), inline chip padding (py-1) |
 | sm | 8px | Badge/chip group gaps (gap-2), tight row spacing |
 | md | 16px | Cell horizontal padding (px-4), default element gaps |
 | lg | 24px | Modal content padding (px-6), section breaks |
@@ -223,7 +223,7 @@ Uses `Modal` at `size="lg"` (max-w-[640px]).
 - Tabs: Details | Notes | Source Review
 - Source Review tab hidden when `source = "manual"` (ACTN-06: visible only for AI-extracted items)
 - Tab bar: `flex border-b border-line gap-0 px-0` rendered inside modal scroll area at top
-- Each tab button: `px-4 py-2.5 text-[14px] font-semibold text-muted hover:text-ink transition-colors`
+- Each tab button: `px-4 py-2 text-[14px] font-semibold text-muted hover:text-ink transition-colors`
 - Active tab: `text-ink border-b-2 border-yellow -mb-px` (underline with yellow accent)
 - Tab container margin-bottom: 16px (gap before tab content)
 
@@ -231,7 +231,7 @@ Uses `Modal` at `size="lg"` (max-w-[640px]).
 
 Status dropdown at top of tab (CONTEXT.md decision):
 - Label: `STATUS` micro-label (12px semibold uppercase muted, mb-1)
-- Control: `<select>` styled inline: `px-3 py-1.5 text-[14px] bg-white border border-line rounded-md`
+- Control: `<select>` styled inline: `px-3 py-2 text-[14px] bg-white border border-line rounded-md`
   with the StatusBadge colour visually suggested via the selected option text colour (CSS only,
   no custom option backgrounds — browser select styling limitations apply)
 - Selecting a new status immediately triggers the status transition API call; no separate Save needed for status alone
@@ -284,7 +284,7 @@ Layout: scrollable note timeline above a permanently-visible compose area.
 - Avatar or user initial: `w-7 h-7 rounded-full bg-line flex items-center justify-center text-[12px] font-semibold text-muted shrink-0`
 - Content block: `flex-1 min-w-0`
   - Author + timestamp: `text-[12px] text-muted` (`{name} · {relative time}`)
-  - Note text: `text-[14px] text-ink mt-0.5 whitespace-pre-wrap`
+  - Note text: `text-[14px] text-ink mt-1 whitespace-pre-wrap`
 
 **Compose area** (always visible, no toggle):
 - `mt-4 pt-4 border-t border-line-soft`
@@ -414,7 +414,7 @@ Each row: `flex items-start gap-3 px-4 py-3 border-b border-line-soft last:borde
 Clicking any row: navigates to the relevant page AND marks that notification read.
 
 Row layout:
-- Left: icon column (16px wide, shrink-0, mt-0.5)
+- Left: icon column (16px wide, shrink-0, mt-1)
 - Right: content column `flex-1 min-w-0`
 
 Notification type → icon map:
@@ -427,7 +427,7 @@ Notification type → icon map:
 
 Row content:
 - Title: `text-[14px] font-semibold text-ink` — truncated to one line (`truncate`)
-- Sub-line: `text-[12px] text-muted mt-0.5` — format: `{shop_name} · {relative_time}`
+- Sub-line: `text-[12px] text-muted mt-1` — format: `{shop_name} · {relative_time}`
   For `action_item_assigned` with no shop: `{relative_time}` only.
 - Unread indicator: thin left border `border-l-2 border-yellow -ml-4 pl-[14px]` on
   unread rows (net left padding unchanged).
