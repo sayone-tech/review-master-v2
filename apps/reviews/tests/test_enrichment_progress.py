@@ -71,6 +71,12 @@ def test_emit_enrichment_progress_increments_and_emits() -> None:
             "apps.reviews.services.sync.emit_progress_event",
             side_effect=_capture_emit,
         ),
+        # increment_enriched_counter uses Redis INCR; mock it to return
+        # the next counter value (previous enriched + 1 = 3).
+        patch(
+            "apps.reviews.services.progress.increment_enriched_counter",
+            return_value=3,
+        ),
     ):
         _emit_enrichment_progress(review=review)
 
@@ -124,6 +130,11 @@ def test_emit_enrichment_progress_fires_sync_complete_when_caught_up() -> None:
             "apps.reviews.services.sync.emit_progress_event",
             side_effect=_capture_emit,
         ),
+        # enriched was 2; after atomic INCR -> 3 (== fetched -> sync.complete)
+        patch(
+            "apps.reviews.services.progress.increment_enriched_counter",
+            return_value=3,
+        ),
     ):
         _emit_enrichment_progress(review=review)
 
@@ -171,6 +182,11 @@ def test_emit_enrichment_progress_no_sync_complete_when_fetched_zero() -> None:
         patch(
             "apps.reviews.services.sync.emit_progress_event",
             side_effect=_capture_emit,
+        ),
+        # fetched=0 so even after increment sync.complete must NOT fire
+        patch(
+            "apps.reviews.services.progress.increment_enriched_counter",
+            return_value=1,
         ),
     ):
         _emit_enrichment_progress(review=review)

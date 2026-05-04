@@ -33,17 +33,24 @@ class _FakeRedis:
     def get(self, key: str) -> bytes | None:
         return self.store.get(key)
 
-    def delete(self, key: str) -> int:
-        existed = key in self.store
-        self.store.pop(key, None)
-        self.ttls.pop(key, None)
-        return 1 if existed else 0
+    def delete(self, *keys: str) -> int:
+        count = 0
+        for key in keys:
+            if key in self.store:
+                self.store.pop(key, None)
+                self.ttls.pop(key, None)
+                count += 1
+        return count
 
     def pipeline(self):  # type: ignore[no-untyped-def]
         commands: list = []
         outer = self
 
         class _Pipe:
+            def incr(self, key: str):  # type: ignore[no-untyped-def]
+                commands.append(("incrby", key, 1))
+                return self
+
             def incrby(self, key: str, n: int):  # type: ignore[no-untyped-def]
                 commands.append(("incrby", key, n))
                 return self

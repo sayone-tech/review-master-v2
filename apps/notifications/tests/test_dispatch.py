@@ -303,18 +303,14 @@ def test_promote_then_dispatch_via_enrichment_flow():
     # 2 ActionItems promoted
     items = ActionItem.objects.filter(source_review=review)
     assert items.count() == 2
-    # Notifications: shop item -> 2 (OrgAdmin + Staff); brand item -> 1 (OrgAdmin)
-    assert (
-        Notification.objects.filter(notification_type="new_action_item", review=review).count() == 3
-    )
-    # Staff received exactly 1 (shop) — NOTF-05 enforced
-    staff_notifs = Notification.objects.filter(
-        notification_type="new_action_item",
-        review=review,
-        recipient__role=User.Role.STAFF_ADMIN,
-    )
-    assert staff_notifs.count() == 1
-    assert staff_notifs.first().action_item.scope == ActionItem.Scope.SHOP
+    # Summary dispatch: 1 notification row per review (org_admins_only=True because
+    # the batch contains a brand-scoped item — NOTF-05 enforced at summary level).
+    notifs = Notification.objects.filter(notification_type="new_action_item", review=review)
+    assert notifs.count() == 1
+    # Staff excluded from summary that contains brand items
+    assert not notifs.filter(recipient__role=User.Role.STAFF_ADMIN).exists()
+    # Summary notification has no single action_item FK
+    assert notifs.first().action_item is None
 
 
 # ---------------------------------------------------------------------------
@@ -375,14 +371,15 @@ def test_sync_dispatches_new_review_notification_per_new_row():
         patch.object(sync_mod, "emit_progress_event"),
         patch("apps.reviews.tasks.enrich_review_task.delay"),
     ):
-        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+        # incremental trigger so notification dispatch is NOT suppressed
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
 
     new_review_notifs = Notification.objects.filter(notification_type="new_review")
-    # 2 new google_review_ids x 2 eligible recipients = 4 notifications
-    assert new_review_notifs.count() == 4
+    # One summary notification dispatched to 2 eligible recipients (OrgAdmin + Staff).
+    # The summary covers all new reviews in the batch — no per-review FK.
+    assert new_review_notifs.count() == 2
     # The existing review must NOT have produced a notification.
     assert not new_review_notifs.filter(review=existing).exists()
-    # Each of the 2 new reviews has 1 OrgAdmin + 1 Staff notif.
-    for r in Review.objects.filter(shop=shop, google_review_id__in=["gid-new-1", "gid-new-2"]):
-        recipients = set(new_review_notifs.filter(review=r).values_list("recipient_id", flat=True))
-        assert recipients == {org_admin.pk, staff.pk}
+    # Both recipients received the summary.
+    recipient_ids = set(new_review_notifs.values_list("recipient_id", flat=True))
+    assert recipient_ids == {org_admin.pk, staff.pk}
