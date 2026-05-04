@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-05-04T04:37:00.299Z"
+stopped_at: Completed 13-03-PLAN.md
+last_updated: "2026-05-04T04:44:29.934Z"
 progress:
   total_phases: 13
   completed_phases: 10
   total_plans: 78
-  completed_plans: 69
+  completed_plans: 70
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-02)
 ## Current Position
 
 Phase: 13 (action-items-and-notifications) — EXECUTING
-Plan: 2 of 8
+Plan: 4 of 8
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Plan: 2 of 8
 | Phase 12-ai-enrichment-pipeline P09 | 2 | 3 tasks | 2 files |
 | Phase 13 P01 | 8 | 2 tasks | 8 files |
 | Phase 13 P02 | 8 | 1 tasks | 7 files |
+| Phase 13 P03 | 4 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -159,6 +160,9 @@ Recent decisions affecting current work:
 - [Phase 13]: [Phase 13-01]: Pre-commit hooks ran admin.py imports during stash — committed pre-existing notifications model+admin+migration to unblock (Rule 3)
 - [Phase 13]: [Phase 13-02]: Notification.target_url stored at dispatch time (not derived) — popover navigates without resolving FKs inline
 - [Phase 13]: [Phase 13-02]: Composite index (recipient,is_read,created_at) covers both unread-count poll and popover list with single index scan
+- [Phase 13]: [Phase 13-03]: promote_action_items_from_review NOT @transaction.atomic — caller controls txn boundary so it runs AFTER enrichment _persist_success commits (RESEARCH.md Pitfall 3)
+- [Phase 13]: [Phase 13-03]: BrandScopeGuard uses 'return not (...)' form to satisfy ruff SIM102+SIM103; semantics unchanged from plan-suggested nested-if
+- [Phase 13]: [Phase 13-03]: Lowercase scope/priority from GPT JSON mapped to uppercase TextChoices via _SCOPE_MAP/_PRIORITY_MAP module constants
 
 ### Pending Todos
 
@@ -170,6 +174,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T04:36:52.926Z
-Stopped at: Completed 13-02-PLAN.md
+Last session: 2026-05-04T04:44:04.639Z
+Stopped at: Completed 13-03-PLAN.md
 Resume file: None

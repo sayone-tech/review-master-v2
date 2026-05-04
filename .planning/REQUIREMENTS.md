@@ -98,15 +98,15 @@
 ### Action Items
 
 - [x] **ACTN-01**: `ActionItem` rows are created from GPT's `action_items` JSON output; scope = `SHOP` items have `shop_id` set to the source review's shop; scope = `BRAND` items have `shop_id = NULL`
-- [ ] **ACTN-02**: Action Items list page at `/admin/org/action-items/`; Staff queryset filtered to `scope = SHOP AND shop_id IN (staff's accessible shops)`; brand-scoped items hidden from Staff at API layer (403 on direct access)
+- [x] **ACTN-02**: Action Items list page at `/admin/org/action-items/`; Staff queryset filtered to `scope = SHOP AND shop_id IN (staff's accessible shops)`; brand-scoped items hidden from Staff at API layer (403 on direct access)
 - [ ] **ACTN-03**: Filter bar: Store, Status (To Do / In Progress / Complete / Won't Do), Scope toggle (Shop / Brand / All — Org Admin / Manager only; hidden from Staff), Assignee (All / Assigned to me / Unassigned / by name), From Date, To Date, Search (title + notes)
 - [x] **ACTN-04**: Table columns: Title (clickable), Status badge, Scope pill, Shop, Assignee, Due Date (red if overdue), Created, Source (Robot/User icon), three-dot action menu
 - [ ] **ACTN-05**: Pagination with 10/25/50/100 selector (default 25); sort: Newest first (default), Oldest first, Due Date ascending, Status (To Do first), Priority (high first)
 - [ ] **ACTN-06**: Action Item modal with three tabs: Details (read-only + Edit button), Notes (append-only timeline), Source Review (visible only for AI-extracted items); modal title shows action item title
 - [ ] **ACTN-07**: Edit mode: Title, Priority, Due Date, Assignee are editable; Scope and Shop are NOT editable for AI-extracted items; Status changes only via dedicated status buttons or row actions menu
 - [x] **ACTN-08**: Status workflow: any-to-any transitions (To Do, In Progress, Complete, Won't Do); every transition writes to audit log with old and new status
-- [ ] **ACTN-09**: Manual action item creation via "+ New Action Item": fields Title (5–200 chars), Scope (Shop/Brand), Shop (required when Scope=Shop), Priority, Assignee, Due date (today or future), Initial note; Brand scope option hidden from Staff
-- [ ] **ACTN-10**: Notes are append-only (1–2000 chars each); existing notes cannot be edited or deleted
+- [x] **ACTN-09**: Manual action item creation via "+ New Action Item": fields Title (5–200 chars), Scope (Shop/Brand), Shop (required when Scope=Shop), Priority, Assignee, Due date (today or future), Initial note; Brand scope option hidden from Staff
+- [x] **ACTN-10**: Notes are append-only (1–2000 chars each); existing notes cannot be edited or deleted
 - [ ] **ACTN-11**: Source Review tab renders read-only review card; "Open in Reviews" link navigates to `/admin/org/reviews/?id={review_id}`
 - [ ] **ACTN-12**: `GET /api/v1/action-items/` resolves in ≤5 SQL queries; verified by `CaptureQueriesContext` test in CI
 - [x] **ACTN-13**: Audit log entries written for `action_item.created`, `action_item.status_changed`, `action_item.assigned`, `action_item.note_added`
@@ -208,15 +208,15 @@
 | ENRCH-13 | Phase 12 | Complete |
 | ENRCH-14 | Phase 12 | Complete |
 | ACTN-01 | Phase 13 | Complete |
-| ACTN-02 | Phase 13 | Pending |
+| ACTN-02 | Phase 13 | Complete |
 | ACTN-03 | Phase 13 | Pending |
 | ACTN-04 | Phase 13 | Complete |
 | ACTN-05 | Phase 13 | Pending |
 | ACTN-06 | Phase 13 | Pending |
 | ACTN-07 | Phase 13 | Pending |
 | ACTN-08 | Phase 13 | Complete |
-| ACTN-09 | Phase 13 | Pending |
-| ACTN-10 | Phase 13 | Pending |
+| ACTN-09 | Phase 13 | Complete |
+| ACTN-10 | Phase 13 | Complete |
 | ACTN-11 | Phase 13 | Pending |
 | ACTN-12 | Phase 13 | Pending |
 | ACTN-13 | Phase 13 | Complete |
