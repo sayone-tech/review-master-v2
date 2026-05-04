@@ -109,13 +109,16 @@ def _persist_page(
     *,
     shop: Shop,
     api_reviews: list[dict[str, Any]],
-) -> tuple[int, set[str]]:
+) -> tuple[int, set[str], set[str]]:
     """Upsert a page of reviews. Reset enrichment_status when text/rating changed.
 
-    Returns (count_persisted, set_of_google_review_ids).
+    Returns (count_persisted, set_of_google_review_ids, set_of_new_google_review_ids).
+    The third element identifies google_review_ids that did NOT already exist for
+    this shop — used by Phase 13-05 to dispatch one new_review Notification per
+    genuinely new row (NOTF-02 / R4).
     """
     if not api_reviews:
-        return 0, set()
+        return 0, set(), set()
     rows: list[Review] = []
     rev_ids: set[str] = set()
     for api_rev in api_reviews:
@@ -132,6 +135,10 @@ def _persist_page(
             "id", "google_review_id", "comment", "star_rating", "enrichment_status"
         )
     }
+    # Phase 13-05 (R4): IDs in this page that don't exist in the DB are NEW
+    # reviews. They drive one new_review Notification per eligible recipient
+    # at the end of fetch_and_persist_reviews. Captured BEFORE the upsert.
+    new_google_review_ids: set[str] = rev_ids - set(existing.keys())
     changed_ids: list[int] = []
     for row in rows:
         prev = existing.get(row.google_review_id)
@@ -176,7 +183,48 @@ def _persist_page(
             sentiment="",
         )
 
-    return len(rows), rev_ids
+    return len(rows), rev_ids, new_google_review_ids
+
+
+def _schedule_new_review_dispatch(*, shop: Shop, new_google_review_ids: set[str]) -> None:
+    """Phase 13-05 (R4) — dispatch new_review Notification per genuinely new row.
+
+    Resolves Google review IDs to local Review PKs once (single query), then
+    queues per-recipient dispatch via transaction.on_commit so a rolled-back
+    sync never produces phantom notifications. NOTF-05 does NOT apply to
+    new_review (not action-item-scoped).
+    """
+    # Function-local imports avoid notifications<->reviews app cycle and
+    # preserve the established Phase 12 pattern for cross-app calls.
+    from apps.notifications.services.dispatch import dispatch_notification
+
+    new_reviews = list(
+        Review.objects.filter(shop=shop, google_review_id__in=list(new_google_review_ids)).only(
+            "id", "shop_id", "organisation_id"
+        )
+    )
+    if not new_reviews:
+        return
+    shop_name = shop.name
+    shop_pk = shop.pk
+
+    def _dispatch_new_reviews() -> None:
+        for r in new_reviews:
+            dispatch_notification(
+                organisation_id=r.organisation_id,
+                notification_type="new_review",
+                title=f"New review at {shop_name}",
+                target_url=f"/admin/org/reviews/?id={r.pk}",
+                shop=shop,
+                review=r,
+            )
+        logger.info(
+            "new_review_notifications_dispatched shop_id=%s count=%s",
+            shop_pk,
+            len(new_reviews),
+        )
+
+    transaction.on_commit(_dispatch_new_reviews)
 
 
 def _soft_delete_absent(*, shop: Shop, fetched_ids: set[str]) -> int:
@@ -274,6 +322,10 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
             raise
 
         all_fetched_ids: set[str] = set()
+        # Phase 13-05 (R4 / NOTF-02): accumulate genuinely-new google_review_ids
+        # across pages so we can dispatch one new_review Notification per new
+        # row at the end (batched per shop sync, post-commit).
+        all_new_google_ids: set[str] = set()
         total_persisted = 0
         page_count = 0
         next_token = ""  # nosec B105 — not a password, it's a page cursor
@@ -299,9 +351,10 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                 page_reviews = list(page.get("reviews") or [])
                 total_estimate = int(page.get("totalReviewCount", total_estimate or 0))
                 with transaction.atomic():
-                    persisted, ids = _persist_page(shop=shop, api_reviews=page_reviews)
+                    persisted, ids, new_ids = _persist_page(shop=shop, api_reviews=page_reviews)
                 total_persisted += persisted
                 all_fetched_ids.update(ids)
+                all_new_google_ids.update(new_ids)
                 page_count += 1
 
                 AuditLog.objects.create(
@@ -361,6 +414,15 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                     break
 
             soft_deleted = _soft_delete_absent(shop=shop, fetched_ids=all_fetched_ids)
+
+            # Phase 13-05 (R4 / NOTF-02): dispatch new_review Notification for
+            # each genuinely-new google_review_id captured during the page loop.
+            # Wrapped in transaction.on_commit so a rollback never produces
+            # phantom notifications. When called outside an active transaction,
+            # on_commit runs synchronously — same semantics.
+            if all_new_google_ids:
+                _schedule_new_review_dispatch(shop=shop, new_google_review_ids=all_new_google_ids)
+
             duration = (dj_timezone.now() - started_at).total_seconds()
             success_payload = {
                 "shop_id": shop_id,

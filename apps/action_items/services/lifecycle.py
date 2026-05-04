@@ -88,6 +88,31 @@ def create_action_item(
     )
     if initial_note:
         add_note(action_item=item, author=actor, body=initial_note)
+
+    # Phase 13-05: notify the assignee (if any, and if not the actor) AFTER commit.
+    # transaction.on_commit defers the call until the @transaction.atomic block
+    # commits, so a rollback never produces a phantom notification.
+    actor_pk = getattr(actor, "pk", None)
+    item_assignee_id: int | None = item.assignee_id
+    if item_assignee_id is not None and item_assignee_id != actor_pk:
+        # Local import avoids the notifications<->action_items app cycle.
+        from apps.notifications.services.dispatch import dispatch_notification
+
+        assignee_pk: int = item_assignee_id
+        item_pk = item.pk
+        item_title = item.title
+
+        def _notify_assignee() -> None:
+            dispatch_notification(
+                organisation_id=organisation_id,
+                notification_type="action_item_assigned",
+                title=f"You've been assigned: {item_title}",
+                target_url=f"/admin/org/action-items/?id={item_pk}",
+                action_item=item,
+                recipient_ids=[assignee_pk],
+            )
+
+        transaction.on_commit(_notify_assignee)
     return item
 
 
@@ -133,6 +158,30 @@ def assign_action_item(
         before_data={"assignee_id": old},
         after_data={"assignee_id": assignee_id},
     )
+
+    # Phase 13-05: notify the new assignee (if any, and if not the actor)
+    # AFTER the transaction commits — never on rollback.
+    actor_pk = getattr(actor, "pk", None)
+    if assignee_id is not None and assignee_id != actor_pk:
+        # Local import avoids the notifications<->action_items app cycle.
+        from apps.notifications.services.dispatch import dispatch_notification
+
+        assignee_pk: int = assignee_id
+        item_pk = locked.pk
+        item_title = locked.title
+        item_org_id = locked.organisation_id
+
+        def _notify_new_assignee() -> None:
+            dispatch_notification(
+                organisation_id=item_org_id,
+                notification_type="action_item_assigned",
+                title=f"You've been assigned: {item_title}",
+                target_url=f"/admin/org/action-items/?id={item_pk}",
+                action_item=locked,
+                recipient_ids=[assignee_pk],
+            )
+
+        transaction.on_commit(_notify_new_assignee)
     return locked
 
 
