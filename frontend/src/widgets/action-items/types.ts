@@ -88,3 +88,31 @@ export interface TeamMember {
   id: number;
   full_name: string;
 }
+
+// Phase 13 Plan 07 — additive constants for the modals.
+export const STATUS_LABEL: Record<ActionItemStatus, string> = {
+  TODO: "To Do",
+  IN_PROGRESS: "In Progress",
+  COMPLETE: "Complete",
+  WONT_DO: "Won't Do",
+};
+
+// Phase 13 Plan 07 — backend-facing payload shapes used by the modals.
+// The shop/assignee keys map to PrimaryKeyRelatedField names declared in
+// apps/action_items/serializers.py (ActionItemCreateSerializer/UpdateSerializer).
+export interface UpdateActionItemBackendPayload {
+  title?: string;
+  priority?: ActionItemPriority;
+  due_date?: string | null;
+  assignee?: number | null;
+}
+
+export interface CreateActionItemBackendPayload {
+  title: string;
+  scope: ActionItemScope;
+  priority: ActionItemPriority;
+  shop?: number | null;
+  assignee?: number | null;
+  due_date?: string | null;
+  initial_note?: string;
+}

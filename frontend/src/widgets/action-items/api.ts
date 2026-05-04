@@ -2,9 +2,11 @@ import type {
   ActionItemDetail,
   ActionItemNote,
   ActionItemStatus,
+  CreateActionItemBackendPayload,
   CreateActionItemPayload,
   ListParams,
   PaginatedActionItems,
+  UpdateActionItemBackendPayload,
   UpdatePayload,
 } from "./types";
 
@@ -107,6 +109,36 @@ export async function transitionStatus(
     headers: headers("POST"),
     credentials: "same-origin",
     body: JSON.stringify({ status }),
+  });
+  return (await handle(resp)) as ActionItemDetail;
+}
+
+// Phase 13 Plan 07 — backend-shaped variants used by the modals.
+// The legacy createActionItem/updateActionItem above use *_id keys that don't
+// match the DRF serializer field names (`shop`, `assignee`). These variants
+// send the correct field names so PATCH/POST actually mutates the row.
+
+export async function createActionItemBackend(
+  payload: CreateActionItemBackendPayload,
+): Promise<ActionItemDetail> {
+  const resp = await fetch(`/api/v1/action-items/`, {
+    method: "POST",
+    headers: headers("POST"),
+    credentials: "same-origin",
+    body: JSON.stringify(payload),
+  });
+  return (await handle(resp)) as ActionItemDetail;
+}
+
+export async function updateActionItemBackend(
+  id: number,
+  payload: UpdateActionItemBackendPayload,
+): Promise<ActionItemDetail> {
+  const resp = await fetch(`/api/v1/action-items/${id}/`, {
+    method: "PATCH",
+    headers: headers("PATCH"),
+    credentials: "same-origin",
+    body: JSON.stringify(payload),
   });
   return (await handle(resp)) as ActionItemDetail;
 }
