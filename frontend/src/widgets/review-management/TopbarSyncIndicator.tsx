@@ -17,16 +17,12 @@ interface CompletedEntry extends SyncingShop {
   total_fetched: number;
 }
 
-interface Props {
-  notificationCount: number;
-}
-
 function buildWsUrl(shopId: number): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/ws/sync-progress/${shopId}/`;
 }
 
-export function TopbarBell({ notificationCount }: Props) {
+export function TopbarBell() {
   const [active, setActive] = useState<SyncingShop[]>([]);
   const [failures, setFailures] = useState<FailureEntry[]>([]);
   const [completed, setCompleted] = useState<CompletedEntry[]>([]);
@@ -134,6 +130,8 @@ export function TopbarBell({ notificationCount }: Props) {
   const hasFailures = failures.length > 0;
   const totalCount = active.length + failures.length + completed.length;
 
+  if (!hasSyncActivity) return null;
+
   let badge: React.ReactNode = null;
   if (active.length > 0) {
     // Pulsing yellow dot — sync in progress
@@ -158,27 +156,16 @@ export function TopbarBell({ notificationCount }: Props) {
         aria-hidden="true"
       />
     );
-  } else if (notificationCount > 0) {
-    badge = (
-      <span
-        className="absolute top-1 right-1 w-[7px] h-[7px] rounded-full bg-red border-2 border-white"
-        aria-hidden="true"
-      />
-    );
   }
 
   return (
     <div ref={containerRef} className="relative" aria-live="polite">
       <button
         type="button"
-        onClick={() => (hasSyncActivity || notificationCount > 0) && setOpen((v) => !v)}
+        onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={
-          totalCount > 0
-            ? `${totalCount} notification${totalCount !== 1 ? "s" : ""}`
-            : "Notifications"
-        }
+        aria-label={`${totalCount} sync notification${totalCount !== 1 ? "s" : ""}`}
         data-testid="topbar-bell"
         className="relative w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
       >
@@ -186,7 +173,7 @@ export function TopbarBell({ notificationCount }: Props) {
         {badge}
       </button>
 
-      {open && (hasSyncActivity || notificationCount > 0) && (
+      {open && (
         <div
           role="menu"
           aria-label="Notifications"
