@@ -162,11 +162,20 @@ def list_business_locations(*, refresh_token: str) -> list[dict[str, str]]:
             region = addr_obj.get("administrativeArea", "")
             postal = addr_obj.get("postalCode", "")
             address = ", ".join(p for p in [*address_lines, locality, region, postal] if p)
+            location_name = str(loc.get("name", ""))  # e.g. "locations/456" or full path
+            # Build the full resource name for the GBP Reviews API (required by Phase 11).
+            full_location_name = (
+                location_name
+                if location_name.startswith("accounts/")
+                else f"{account_name}/{location_name}"
+            )
             listings.append(
                 {
                     "name": str(loc.get("title", "")),
                     "address": address,
                     "place_id": str((loc.get("metadata") or {}).get("placeId", "")),
+                    "account_name": account_name,
+                    "location_name": full_location_name,
                 }
             )
     return listings

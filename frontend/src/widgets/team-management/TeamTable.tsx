@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Edit2, Mail, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Edit2, Mail, Trash2 } from "lucide-react";
 import { DataTable } from "../data-table/DataTable";
 import { useTeam } from "./useTeam";
 import { RoleBadge } from "./RoleBadge";
@@ -19,6 +19,13 @@ interface TeamTableWidgetProps {
   regions: RegionOption[];
   activeShops: ShopOption[];
   currentUserId: number;
+}
+
+function buildPageRange(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
 }
 
 const inputCls =
@@ -203,6 +210,7 @@ export function TeamTableWidget({
   const page = filters.page ?? 1;
   const start = count === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, count);
+  const totalPages = count > 0 ? Math.ceil(count / pageSize) : 1;
 
   return (
     <div className="space-y-4">
@@ -250,51 +258,83 @@ export function TeamTableWidget({
           ))}
         </select>
       </div>
-      <DataTable<TeamMemberRow>
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        rowKey={(r) => String(r.id)}
-        emptyState={emptyState}
-        renderRowActions={renderRowActions}
-      />
-      <div className="flex items-center justify-between text-[13px] text-muted">
-        <div>
-          Showing {start}–{end} of {count}
+      <div className="border border-line rounded-card overflow-hidden">
+        <DataTable<TeamMemberRow>
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          rowKey={(r) => String(r.id)}
+          emptyState={emptyState}
+          renderRowActions={renderRowActions}
+          wrapperClassName="bg-white overflow-hidden"
+        />
+        <nav
+          className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
+          aria-label="Pagination"
+          data-testid="pagination"
+        >
+        <div className="flex items-center gap-3">
+          {count > 0 ? (
+            <span>
+              Showing <strong className="text-ink font-semibold">{start}–{end}</strong>{" "}
+              of <strong className="text-ink font-semibold">{count}</strong>
+            </span>
+          ) : (
+            <span className="text-muted">No results</span>
+          )}
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="team-page-size" className="text-[12px] text-muted">Rows:</label>
+            <div className="inline-flex items-center bg-white border border-line rounded-sm focus-within:border-ink">
+              <select
+                id="team-page-size"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="appearance-none pl-2 pr-1 py-1 text-[12.5px] bg-transparent focus:outline-none cursor-pointer"
+              >
+                {[10, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none shrink-0 w-3 h-3 text-muted mr-1.5" aria-hidden="true" />
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="team-page-size" className="text-[12px]">
-            Rows per page:
-          </label>
-          <select
-            id="team-page-size"
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            className={inputCls}
-          >
-            {[10, 25, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setPage(Math.max(1, page - 1))}
             disabled={page <= 1}
-            className="px-2 py-1 border border-line rounded-md disabled:opacity-50"
+            className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
+            aria-label="Previous page"
           >
-            Prev
+            <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
+          {buildPageRange(page, totalPages).map((p, i) =>
+            p === "…" ? (
+              <span key={`ellipsis-${i}`} className="w-[30px] h-[30px] flex items-center justify-center text-[13px] text-muted select-none">…</span>
+            ) : (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPage(p)}
+                aria-current={p === page ? "page" : undefined}
+                className={`w-[30px] h-[30px] rounded-sm text-[13px] font-medium flex items-center justify-center border ${p === page ? "bg-black text-yellow border-black" : "bg-white border-line hover:bg-line-soft"}`}
+              >
+                {p}
+              </button>
+            )
+          )}
           <button
             type="button"
             onClick={() => setPage(page + 1)}
             disabled={end >= count}
-            className="px-2 py-1 border border-line rounded-md disabled:opacity-50"
+            className="w-[30px] h-[30px] rounded-sm bg-white border border-line text-[13px] font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft"
+            aria-label="Next page"
           >
-            Next
+            <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </div>
+        </nav>
       </div>
     </div>
   );

@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint-typecheck-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Pre-commit
+        run: uv run pre-commit run --all-files
+
+      - name: Mypy
+        run: uv run mypy .
+
+      - name: Migration check
+        run: uv run python manage.py makemigrations --check --dry-run
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+
+      - name: Deployment check
+        run: uv run python manage.py check --deploy
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+
+      - name: Celery smoke test (INFRA-07)
+        run: timeout 30s uv run pytest apps/common/tests/test_celery_smoke.py -x -q --no-cov
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+
+      - name: Pytest with coverage
+        run: uv run pytest --cov=apps --cov-fail-under=85
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test

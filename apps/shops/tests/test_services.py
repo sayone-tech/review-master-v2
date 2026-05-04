@@ -125,3 +125,41 @@ class TestReconnectOAuth:
         shop.refresh_from_db()
         assert shop.google_refresh_token == "new"
         assert shop.connection_status == Shop.ConnectionStatus.CONNECTED
+
+
+# ---------------------------------------------------------------------------
+# Phase 11-08 Task 1: create_shop persists google_account_name / location_name
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestCreateShopGBPResourceNames:
+    def test_create_shop_stores_google_account_name(self) -> None:
+        org = OrganisationFactory(number_of_stores=5)
+        region = RegionFactory(organisation=org)
+        shop = create_shop(
+            organisation=org,
+            region=region,
+            name="Cafe",
+            connection_method=Shop.ConnectionMethod.GOOGLE_OAUTH,
+            place_id="ChIJcafe",
+            google_refresh_token="1//rt",
+            google_account_name="accounts/123",
+            google_location_name="accounts/123/locations/456",
+        )
+        shop.refresh_from_db()
+        assert shop.google_account_name == "accounts/123"
+        assert shop.google_location_name == "accounts/123/locations/456"
+
+    def test_create_shop_defaults_empty_strings_when_not_provided(self) -> None:
+        org = OrganisationFactory(number_of_stores=5)
+        region = RegionFactory(organisation=org)
+        shop = create_shop(
+            organisation=org,
+            region=region,
+            name="Simple Shop",
+            connection_method=Shop.ConnectionMethod.NOT_CONNECTED,
+        )
+        shop.refresh_from_db()
+        assert shop.google_account_name == ""
+        assert shop.google_location_name == ""

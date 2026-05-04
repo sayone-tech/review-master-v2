@@ -4,6 +4,15 @@ import type { AllocationStatus, ShopRow } from "../widgets/shop-management/types
 import { ShopTableWidget } from "../widgets/shop-management/ShopTable";
 import { ShopModals } from "../widgets/shop-management/ShopModals";
 
+function readOpenProgressShopId(): number | null {
+  try {
+    const v = new URLSearchParams(window.location.search).get("open_progress");
+    return v ? Number(v) : null;
+  } catch {
+    return null;
+  }
+}
+
 function parseJson<T>(id: string, fallback: T): T {
   const el = document.getElementById(id);
   if (!el) return fallback;
@@ -36,6 +45,7 @@ if (tableRoot) {
           allocation: initialAllocation,
           hasRegions: initialHasRegions,
         }}
+        openProgressShopId={readOpenProgressShopId()}
       />
     </StrictMode>,
   );

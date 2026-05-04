@@ -18,6 +18,13 @@ export default defineConfig({
         "region-management": resolve(__dirname, "src/entrypoints/region-management.tsx"),
         "shop-management": resolve(__dirname, "src/entrypoints/shop-management.tsx"),
         "team-management": resolve(__dirname, "src/entrypoints/team-management.tsx"),
+        "review-management": resolve(__dirname, "src/entrypoints/review-management.tsx"),
+        "topbar-sync-indicator": resolve(__dirname, "src/entrypoints/topbar-sync-indicator.tsx"),
+        "action-items-management": resolve(
+          __dirname,
+          "src/entrypoints/action-items-management.tsx",
+        ),
+        "notif-bell": resolve(__dirname, "src/entrypoints/notif-bell.tsx"),
       },
     },
   },

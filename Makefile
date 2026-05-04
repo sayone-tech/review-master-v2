@@ -1,4 +1,4 @@
-.PHONY: up down migrate makemigrations shell test lint typecheck seed fmt
+.PHONY: up down migrate makemigrations shell test lint typecheck seed fmt worker beat flower
 
 up:
 	docker-compose up -d
@@ -30,3 +30,12 @@ fmt:
 
 seed:
 	docker-compose exec web python manage.py loaddata fixtures/demo.json
+
+worker:
+	docker-compose up worker
+
+beat:
+	docker-compose up beat
+
+flower:
+	docker-compose up flower

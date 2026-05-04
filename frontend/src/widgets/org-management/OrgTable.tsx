@@ -205,6 +205,7 @@ export function OrgTable({
       renderRowActions={(row) => (
         <RowActionsMenu row={row} actions={actions} />
       )}
+      wrapperClassName="bg-white overflow-hidden"
     />
   );
 }

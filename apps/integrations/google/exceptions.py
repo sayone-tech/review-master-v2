@@ -19,3 +19,16 @@ class PlaceIDNotFoundError(Exception):
 
 class APIKeyInvalidError(Exception):
     """Raised when the Places API returns REQUEST_DENIED (api_key invalid/unauthorised)."""
+
+
+class GoogleQuotaError(Exception):
+    """Raised when GBP returns 403 quota_exceeded — caller should retry with backoff."""
+
+
+class GoogleReplyError(Exception):
+    """Raised when posting a reply fails with a non-auth 4xx (e.g. 400 invalid comment)."""
+
+    def __init__(self, status: int, body: str = "") -> None:
+        self.status = status
+        self.body = body
+        super().__init__(f"Reply rejected with status {status}: {body[:200]}")

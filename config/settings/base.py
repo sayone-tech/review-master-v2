@@ -17,16 +17,20 @@ GOOGLE_OAUTH_REDIRECT_URI = env(
 )
 
 INSTALLED_APPS = [
+    "daphne",  # MUST be first — overrides runserver for ASGI (RESEARCH.md Pitfall 2)
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.postgres",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # third-party
     "rest_framework",
+    "django_filters",
     "django_vite",
     "drf_spectacular",
+    "django_celery_beat",
     # local
     "apps.common",
     "apps.accounts",
@@ -34,6 +38,10 @@ INSTALLED_APPS = [
     "sequences",
     "apps.regions",
     "apps.shops",
+    "apps.reviews",
+    "apps.action_items",
+    "apps.notifications",
+    "apps.integrations.openai",
 ]
 
 MIDDLEWARE = [
@@ -93,6 +101,66 @@ CACHES = {
 DJANGO_REDIS_IGNORE_EXCEPTIONS = True
 DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
 
+# ---------------------------------------------------------------------------
+# Celery (introduced Phase 10) — broker DB 3, result backend DB 4
+# See CLAUDE.md §12 for full architecture notes.
+# ---------------------------------------------------------------------------
+CELERY_BROKER_URL = env("REDIS_URL", default="redis://redis:6379") + "/3"
+CELERY_RESULT_BACKEND = env("REDIS_URL", default="redis://redis:6379") + "/4"
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_ROUTES = {
+    "apps.reviews.tasks.sync_shop_reviews_task": {"queue": "google-sync"},
+    "apps.reviews.tasks.initial_backfill_task": {"queue": "google-sync"},
+    "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment"},
+    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment"},
+}
+CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
+CELERY_TASK_SOFT_TIME_LIMIT = 300  # 5-minute soft limit
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+
+# ---------------------------------------------------------------------------
+# Django Channels (introduced Phase 10) — channel layer DB 5
+# See CLAUDE.md §13 for full architecture notes.
+# WebSocket scope is intentionally narrow: only SyncProgressConsumer.
+# ---------------------------------------------------------------------------
+ASGI_APPLICATION = "config.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [env("REDIS_URL", default="redis://redis:6379") + "/5"],
+            "capacity": 1500,
+            "expiry": 30,
+        },
+    },
+}
+
+# ---------------------------------------------------------------------------
+# OpenAI + LangSmith (introduced Phase 12) — single combined GPT-4o-mini call
+# per review with structured-output parsing, time-versioned cost tracking,
+# and best-effort LangSmith tracing.
+# See CLAUDE.md §14 for full architecture notes.
+# ---------------------------------------------------------------------------
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini-2024-07-18")
+OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
+
+LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
+LANGSMITH_ENDPOINT = env("LANGSMITH_ENDPOINT", default="https://api.smith.langchain.com")
+LANGSMITH_PROJECT = env(
+    "LANGSMITH_PROJECT",
+    default=f"review-platform-{env('ENVIRONMENT', default='local')}",
+)
+LANGSMITH_ENABLED = bool(LANGSMITH_API_KEY)
+
+INITIAL_SYNC_PAGE_SIZE = env.int("INITIAL_SYNC_PAGE_SIZE", default=50)
+ENRICHMENT_BATCH_SIZE = env.int("ENRICHMENT_BATCH_SIZE", default=10)
+INCREMENTAL_SYNC_INTERVAL_HOURS = env.int("INCREMENTAL_SYNC_INTERVAL_HOURS", default=6)
+INCREMENTAL_SYNC_JITTER_MINUTES = env.int("INCREMENTAL_SYNC_JITTER_MINUTES", default=30)
+
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/admin/organisations/"
@@ -144,14 +212,20 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 25,
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ],
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.UserRateThrottle",
         "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "user": "1000/hour",
         "anon": "100/hour",
         "login": "10/15min",
+        "review_reply": "30/minute",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -159,7 +233,7 @@ REST_FRAMEWORK = {
 DJANGO_VITE = {
     "default": {
         "dev_mode": env.bool("DJANGO_VITE_DEV_MODE", default=False),
-        "dev_server_host": "localhost",
+        "dev_server_host": env("DJANGO_VITE_DEV_SERVER_HOST", default="localhost"),
         "dev_server_port": 5173,
         "static_url_prefix": "dist",
         "manifest_path": BASE_DIR / "static" / "dist" / "manifest.json",
@@ -190,3 +264,62 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": "INFO"},
 }
+
+# ---------------------------------------------------------------------------
+# Sentry (introduced Phase 10) — error capture for web AND Celery worker
+# See CLAUDE.md §21 and CONTEXT.md "Sentry integration" decision.
+# Active ONLY when SENTRY_DSN is set. Local dev and tests have no DSN -> silent.
+# ---------------------------------------------------------------------------
+import sentry_sdk  # noqa: E402
+from sentry_sdk.integrations.celery import CeleryIntegration  # noqa: E402
+from sentry_sdk.integrations.django import DjangoIntegration  # noqa: E402
+from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber  # noqa: E402
+from sentry_sdk.types import Event  # noqa: E402
+
+_SENSITIVE_SUBSTRINGS = frozenset(
+    {"email", "token", "key", "secret", "password", "refresh", "access"}
+)
+
+
+def _before_send(event: Event, hint: dict[str, object]) -> Event | None:
+    """Recursively scrub fields whose key contains any sensitive substring.
+
+    See CONTEXT.md locked decision and CLAUDE.md §22.
+    """
+
+    def _scrub(obj: object) -> object:
+        if isinstance(obj, dict):
+            return {
+                k: (
+                    "[Filtered]"
+                    if any(s in str(k).lower() for s in _SENSITIVE_SUBSTRINGS)
+                    else _scrub(v)
+                )
+                for k, v in obj.items()
+            }
+        if isinstance(obj, list):
+            return [_scrub(item) for item in obj]
+        return obj
+
+    return _scrub(event)  # type: ignore[return-value]
+
+
+SENTRY_DSN = env("SENTRY_DSN", default=None)
+ENVIRONMENT = env("ENVIRONMENT", default="local")
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(propagate_traces=True),
+        ],
+        send_default_pii=False,
+        event_scrubber=EventScrubber(
+            denylist=[*DEFAULT_DENYLIST, "organisation_id"],
+            recursive=True,
+        ),
+        before_send=_before_send,
+        traces_sample_rate=0.1,
+    )

@@ -5,19 +5,29 @@ description = "Multi-tenant review management platform — Superadmin module"
 requires-python = ">=3.12"
 readme = "README.md"
 dependencies = [
+  "boto3==1.35.0",
+  "celery==5.6.3",
+  "channels==4.3.2",
+  "channels-redis==4.3.0",
+  "daphne==4.2.1",
   "django==6.0.2",
-  "djangorestframework==3.17.1",
-  "django-vite==3.1.0",
+  "django-celery-beat==2.9.0",
+  "django-environ==0.11.2",
   "django-fernet-encrypted-fields==0.4.0",
+  "django-filter==24.3",
   "django-redis==5.4.0",
   "django-sequences==3.0",
-  "django-environ==0.11.2",
-  "psycopg[binary]==3.2.3",
-  "python-json-logger==3.2.0",
-  "drf-spectacular==0.28.0",
   "django-ses==4.3.0",
-  "boto3==1.35.0",
+  "django-vite==3.1.0",
+  "djangorestframework==3.17.1",
+  "drf-spectacular==0.28.0",
   "httpx==0.28.1",
+  "langsmith==0.8.0",
+  "openai==2.33.0",
+  "psycopg[binary]==3.2.3",
+  "pydantic==2.13.3",
+  "python-json-logger==3.2.0",
+  "sentry-sdk==2.58.0",
   "tenacity==9.1.4",
 ]
 
@@ -34,6 +44,8 @@ dev = [
   "djangorestframework-stubs==3.15.1",
   "bandit[toml]==1.8.0",
   "django-debug-toolbar==4.4.6",
+  "flower==2.0.1",
+  "pytest-asyncio==1.1.0",
 ]
 
 [tool.ruff]
@@ -70,6 +82,10 @@ module = ["environ.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["debug_toolbar", "debug_toolbar.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["factory.*"]
 ignore_missing_imports = true
 
@@ -93,13 +109,34 @@ ignore_missing_imports = true
 module = ["httpx.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["celery.*", "kombu.*", "billiard.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["django_celery_beat.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["channels.*", "channels_redis.*", "daphne.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["django_redis.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["openai.*", "langsmith.*", "langsmith.run_helpers"]
+ignore_missing_imports = true
+
 [tool.django-stubs]
 django_settings_module = "config.settings.test"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]
-addopts = "--strict-markers --tb=short -q"
+addopts = "--strict-markers --tb=short -q --ds=config.settings.test"
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["apps"]

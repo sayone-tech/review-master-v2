@@ -1,4 +1,7 @@
+from typing import Any
+
 from django import template
+from django.core.paginator import Paginator as DjangoPaginator
 from django.urls import NoReverseMatch, reverse
 
 register = template.Library()
@@ -31,3 +34,18 @@ def is_active_url(context: template.Context, url_name: str) -> bool:
         return False
     path: str = request.path
     return path == target
+
+
+@register.filter
+def elided_page_range(page_obj: Any) -> Any:
+    """Return a windowed page range with '…' markers for large paginations.
+
+    Shows up to 2 pages on each side of the current page and 1 page at each end.
+    """
+    return page_obj.paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+
+
+@register.filter
+def is_page_ellipsis(value: Any) -> bool:
+    """Return True when value is the paginator ellipsis marker (not a page number)."""
+    return bool(value == DjangoPaginator.ELLIPSIS)

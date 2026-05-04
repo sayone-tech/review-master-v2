@@ -156,11 +156,18 @@ export function ShopModals({ allocation, regions, initialPlaceIds = [] }: ShopMo
   async function handleReconnectComplete(state: string) {
     if (!selected) return;
     try {
-      await reconnectShop(selected.id, state);
+      const shop = await reconnectShop(selected.id, state);
       emitToast({ kind: "success", title: `Connection restored for '${selected.name}'.` });
-      refresh();
       setReconnectOpen(false);
       setSelected(null);
+      // Phase 11 — wire reconnect -> ProgressModal: redirect with ?open_progress=<id>
+      // so Plan 12's page bootstrap auto-opens the ProgressModal for this shop.
+      const openProgressShopId = shop.open_progress_shop_id;
+      if (openProgressShopId) {
+        window.location.href = `/admin/org/shops/?open_progress=${openProgressShopId}`;
+      } else {
+        refresh();
+      }
     } catch {
       emitToast({ kind: "error", title: "Could not reconnect. Try again." });
     }

@@ -126,3 +126,58 @@ class TestListBusinessLocations:
         mock_post.side_effect = httpx.TransportError("net")
         with pytest.raises(GoogleUnreachableError):
             list_business_locations(refresh_token="rt")
+
+    @override_settings(**SETTINGS)
+    @patch("apps.integrations.google.oauth.httpx.get")
+    @patch("apps.integrations.google.oauth.httpx.post")
+    def test_listings_include_account_name_and_location_name(self, mock_post, mock_get):
+        """Phase 11-08 Task 1: listings expose account_name and location_name."""
+        mock_post.return_value = _resp(200, {"access_token": "ya29"})
+        accounts_resp = _resp(200, {"accounts": [{"name": "accounts/123"}]})
+        loc_resp = _resp(
+            200,
+            {
+                "locations": [
+                    {
+                        "name": "locations/456",
+                        "title": "ACME Cafe",
+                        "storefrontAddress": {
+                            "addressLines": ["123 Main St"],
+                            "locality": "London",
+                        },
+                        "metadata": {"placeId": "ChIJabc"},
+                    }
+                ]
+            },
+        )
+        mock_get.side_effect = [accounts_resp, loc_resp]
+        result = list_business_locations(refresh_token="rt")
+        assert len(result) == 1
+        listing = result[0]
+        assert listing["account_name"] == "accounts/123"
+        assert listing["location_name"] == "accounts/123/locations/456"
+        assert listing["place_id"] == "ChIJabc"
+
+    @override_settings(**SETTINGS)
+    @patch("apps.integrations.google.oauth.httpx.get")
+    @patch("apps.integrations.google.oauth.httpx.post")
+    def test_listing_location_name_already_full_path_not_duplicated(self, mock_post, mock_get):
+        """If GBP returns full resource path in 'name', don't prepend account_name."""
+        mock_post.return_value = _resp(200, {"access_token": "ya29"})
+        accounts_resp = _resp(200, {"accounts": [{"name": "accounts/123"}]})
+        loc_resp = _resp(
+            200,
+            {
+                "locations": [
+                    {
+                        "name": "accounts/123/locations/789",
+                        "title": "Full Path Cafe",
+                        "storefrontAddress": {},
+                        "metadata": {"placeId": "ChIJfull"},
+                    }
+                ]
+            },
+        )
+        mock_get.side_effect = [accounts_resp, loc_resp]
+        result = list_business_locations(refresh_token="rt")
+        assert result[0]["location_name"] == "accounts/123/locations/789"

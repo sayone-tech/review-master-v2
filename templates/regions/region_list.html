@@ -19,9 +19,10 @@
   {% if regions_count > 0 %}
     {{ regions_json|json_script:"region-data" }}
   {% endif %}
-  <div id="region-table-root"></div>
-
-  {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
+  <div class="border border-line rounded-card overflow-hidden">
+    <div id="region-table-root"></div>
+    {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
+  </div>
 {% endblock %}
 
 {% block extra_js %}

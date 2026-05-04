@@ -6,10 +6,11 @@ import logging
 import secrets
 from typing import Any
 
-from django.http import HttpResponseRedirect
+from django.core.paginator import Paginator
+from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import render
 from django.views import View
-from django_redis import get_redis_connection  # type: ignore[import-untyped]
+from django_redis import get_redis_connection
 from rest_framework import mixins, status
 from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action
@@ -32,6 +33,7 @@ from apps.integrations.google.oauth import (
 )
 from apps.regions.selectors.regions import list_regions
 from apps.regions.serializers import RegionReadSerializer
+from apps.reviews.tasks import initial_backfill_task
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
 from apps.shops.models import Shop
 from apps.shops.selectors.shops import get_allocation_status, get_has_regions, list_shops
@@ -55,23 +57,48 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+_SHOP_PER_PAGE_OPTIONS: tuple[int, ...] = (10, 25, 50, 100)
+_SHOP_DEFAULT_PER_PAGE: int = 10
+
+
+def _shop_resolve_per_page(raw: str | None) -> int:
+    try:
+        value = int(raw) if raw is not None else _SHOP_DEFAULT_PER_PAGE
+    except (TypeError, ValueError):
+        return _SHOP_DEFAULT_PER_PAGE
+    return value if value in _SHOP_PER_PAGE_OPTIONS else _SHOP_DEFAULT_PER_PAGE
+
+
+def _shop_page_url_params(request: HttpRequest, per_page: int) -> str:
+    params = request.GET.copy()
+    params["per_page"] = str(per_page)
+    params.pop("page", None)
+    return params.urlencode()
+
+
 @org_admin_required
 def shop_list(request):  # type: ignore[no-untyped-def]
     org = request.user.organisation
-    qs = list_shops(organisation_id=org.pk)[:10]  # SHOP-06: default page size 10
-    shops_data = list(ShopReadSerializer(qs, many=True).data)
+    per_page = _shop_resolve_per_page(request.GET.get("per_page"))
+    qs = list_shops(organisation_id=org.pk)
+    paginator = Paginator(qs, per_page)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+    shops_data = list(ShopReadSerializer(list(page_obj.object_list), many=True).data)
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
-    shops_count = len(shops_data)
     return render(
         request,
         "shops/shop_list.html",
         {
             "shops_json": shops_data,
-            "shops_count": shops_count,
+            "shops_count": len(shops_data),
             "allocation": get_allocation_status(organisation=org),
             "has_regions": get_has_regions(organisation_id=org.pk),
             "regions_json": regions_data,
+            "page_obj": page_obj,
+            "per_page": per_page,
+            "per_page_options": list(_SHOP_PER_PAGE_OPTIONS),
+            "page_url_params": _shop_page_url_params(request, per_page),
             "page_title": "Shops",
         },
     )
@@ -154,7 +181,10 @@ class ShopViewSet(
         shop = self.perform_create(serializer)
         read_serializer = ShopReadSerializer(shop)
         headers = self.get_success_headers(read_serializer.data)
-        return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        response_data = dict(read_serializer.data)
+        if shop.connection_method == Shop.ConnectionMethod.GOOGLE_OAUTH:
+            response_data["open_progress_shop_id"] = shop.pk
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(  # type: ignore[override]
         self, serializer: drf_serializers.BaseSerializer[Any]
@@ -177,16 +207,40 @@ class ShopViewSet(
                     {"non_field_errors": ["OAuth session expired. Please reconnect."]}
                 )
             data["google_refresh_token"] = token
+            # Resolve google_account_name / google_location_name from the
+            # session-stored listings (set during OAuth callback). The frontend
+            # only sends place_id; these GBP resource names come from the server.
+            listings: list[dict[str, str]] = self.request.session.get(
+                f"oauth_listings:{state_value}", []
+            )
+            place_id = data.get("place_id", "")
+            matched = next((lst for lst in listings if lst.get("place_id") == place_id), None)
+            if not matched:
+                raise drf_serializers.ValidationError(
+                    {"non_field_errors": ["Location not found in OAuth session. Please reconnect."]}
+                )
+            data["google_account_name"] = matched["account_name"]
+            data["google_location_name"] = matched["location_name"]
             # Single-use: consume the session-stored token after successful lookup.
             with contextlib.suppress(KeyError):
                 del self.request.session[f"oauth_token:{state_value}"]
 
         try:
-            return create_shop(organisation=user.organisation, region=region, **data)
+            shop = create_shop(organisation=user.organisation, region=region, **data)
         except ShopAtLimitError:
             raise drf_serializers.ValidationError(
                 {"non_field_errors": ["Shop allocation limit reached."]}
             ) from None
+        # Phase 11 — dispatch initial backfill if Google-connected.
+        if shop.connection_method == Shop.ConnectionMethod.GOOGLE_OAUTH:
+            try:
+                initial_backfill_task.delay(shop_id=shop.pk)
+            except Exception:
+                logger.warning(
+                    "Failed to dispatch initial_backfill_task for shop=%s; will retry on next Beat tick",
+                    shop.pk,
+                )
+        return shop
 
     # ------------------------------------------------------------------
     # Update — returns ShopReadSerializer in 200
@@ -241,11 +295,65 @@ class ShopViewSet(
                 {"detail": "OAuth token not found in session."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Resolve google_account_name / google_location_name from session listings.
+        # Match by the shop's existing place_id (reconnect keeps the same location).
+        listings: list[dict[str, str]] = request.session.get(f"oauth_listings:{state_value}", [])
+        matched = next((lst for lst in listings if lst.get("place_id") == shop.place_id), None)
         reconnect_oauth(shop=shop, new_refresh_token=token)
+        if matched:
+            update_shop(
+                shop=shop,
+                google_account_name=matched["account_name"],
+                google_location_name=matched["location_name"],
+            )
         # Clean up session key after use (single-use).
         with contextlib.suppress(KeyError):
             del request.session[f"oauth_token:{state_value}"]
-        return Response(ShopReadSerializer(shop).data)
+        # Phase 11 — dispatch initial backfill and signal frontend to open ProgressModal.
+        try:
+            initial_backfill_task.delay(shop_id=shop.pk)
+        except Exception:
+            logger.warning(
+                "Failed to dispatch initial_backfill_task on reconnect for shop=%s", shop.pk
+            )
+        data = dict(ShopReadSerializer(shop).data)
+        data["open_progress_shop_id"] = shop.pk
+        return Response(data)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="syncing",
+        permission_classes=[IsOrgScoped],  # Staff Admins may also check sync progress
+    )
+    def syncing(self, request: Request) -> Response:
+        """Return shops with active progress snapshots (for topbar indicator)."""
+        from apps.reviews.selectors.reviews import get_accessible_shop_ids
+
+        user = request.user
+        if not isinstance(user, User) or user.organisation is None:
+            return Response({"count": 0, "shops": []})
+
+        qs = Shop.objects.filter(organisation_id=user.organisation_id).only("id", "name")  # type: ignore[misc]
+        if user.role == User.Role.STAFF_ADMIN:
+            accessible = get_accessible_shop_ids(user_id=user.pk)
+            qs = qs.filter(id__in=accessible)
+        try:
+            r = get_redis_connection("default")
+        except Exception:
+            return Response({"count": 0, "shops": []})
+
+        syncing_shops = []
+        for shop in qs:
+            try:
+                raw = r.get(f"sync:progress:{shop.pk}")
+                if raw:
+                    snapshot = json.loads(raw)
+                    if snapshot.get("status") in ("fetching", "enriching"):
+                        syncing_shops.append({"shop_id": shop.pk, "shop_name": shop.name})
+            except Exception:  # noqa: S112  # nosec B112
+                continue
+        return Response({"count": len(syncing_shops), "shops": syncing_shops})
 
     @action(detail=False, methods=["get"], url_path="oauth_result")
     def oauth_result(self, request: Request) -> Response:
@@ -306,7 +414,7 @@ class GoogleOAuthCallbackView(View):
                     30,
                     json.dumps({"type": "oauth_error", "state": state, "code": code}),
                 )
-            except Exception:
+            except Exception:  # noqa: S110  # nosec B110
                 pass
         response = render(
             request,

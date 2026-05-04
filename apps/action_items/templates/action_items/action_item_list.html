@@ -1,0 +1,14 @@
+{% extends "base_org.html" %}
+{% load static django_vite %}
+
+{% block content %}
+  <div id="action-items-management-root"
+       data-user-role="{{ user_role }}"
+       data-user-id="{{ user_id }}"
+       data-shops="{{ shops_json|escape }}"
+       data-team="{{ team_members_json|escape }}"></div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/action-items-management.tsx' %}
+{% endblock %}

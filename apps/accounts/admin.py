@@ -5,7 +5,7 @@ from apps.accounts.models import InvitationToken, User
 
 
 @admin.register(User)
-class UserAdmin(BaseUserAdmin):
+class UserAdmin(BaseUserAdmin):  # type: ignore[type-arg]
     list_display = (
         "email",
         "full_name",

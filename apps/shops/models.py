@@ -37,6 +37,18 @@ class Shop(TimeStampedModel):
     phone = models.CharField(max_length=20, blank=True)
     street_address = models.CharField(max_length=300, blank=True)
     place_id = models.CharField(max_length=300, blank=True, db_index=True)
+    google_account_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="GBP API resource path, e.g. accounts/123",
+    )
+    google_location_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="GBP API resource path, e.g. accounts/123/locations/456",
+    )
     connection_method = models.CharField(
         max_length=15,
         choices=ConnectionMethod.choices,
