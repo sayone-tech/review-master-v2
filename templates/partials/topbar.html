@@ -30,6 +30,7 @@
 
   <div class="flex items-center gap-2">
     <div id="topbar-bell-root" data-notification-count="{{ notification_count|default:0 }}"></div>
+    <div id="notif-bell-root" class="ml-2"></div>
 
     {% if user.is_authenticated %}
       <div
@@ -75,3 +76,4 @@
 </header>
 
 {% vite_asset 'src/entrypoints/topbar-sync-indicator.tsx' %}
+{% vite_asset 'src/entrypoints/notif-bell.tsx' %}
