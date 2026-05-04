@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 13-03-PLAN.md
-last_updated: "2026-05-04T04:44:29.934Z"
+stopped_at: Completed 13-04-PLAN.md
+last_updated: "2026-05-04T05:00:15.009Z"
 progress:
   total_phases: 13
   completed_phases: 10
   total_plans: 78
-  completed_plans: 70
+  completed_plans: 71
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-02)
 ## Current Position
 
 Phase: 13 (action-items-and-notifications) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 
 ## Performance Metrics
 
@@ -77,6 +77,7 @@ Plan: 4 of 8
 | Phase 13 P01 | 8 | 2 tasks | 8 files |
 | Phase 13 P02 | 8 | 1 tasks | 7 files |
 | Phase 13 P03 | 4 min | 2 tasks | 7 files |
+| Phase 13-action-items-and-notifications P04 | 8min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -163,6 +164,10 @@ Recent decisions affecting current work:
 - [Phase 13]: [Phase 13-03]: promote_action_items_from_review NOT @transaction.atomic — caller controls txn boundary so it runs AFTER enrichment _persist_success commits (RESEARCH.md Pitfall 3)
 - [Phase 13]: [Phase 13-03]: BrandScopeGuard uses 'return not (...)' form to satisfy ruff SIM102+SIM103; semantics unchanged from plan-suggested nested-if
 - [Phase 13]: [Phase 13-03]: Lowercase scope/priority from GPT JSON mapped to uppercase TextChoices via _SCOPE_MAP/_PRIORITY_MAP module constants
+- [Phase 13-action-items-and-notifications]: [Phase 13-04]: ActionItemUpdateSerializer omits scope/shop fields entirely (not declared as read_only) — DRF silently ignores undeclared input, achieving ACTN-07 semantics
+- [Phase 13-action-items-and-notifications]: [Phase 13-04]: List vs Read serializer split — list omits notes/source_review to keep ACTN-12 <=5 query budget; retrieve adds prefetch_related('notes__author')
+- [Phase 13-action-items-and-notifications]: [Phase 13-04]: notifications URL include left to plan 13-05 — Django include('module.path') resolves eagerly so the planned 'lazy include' would have broken manage.py check before 13-05 commits
+- [Phase 13-action-items-and-notifications]: [Phase 13-04]: perform_update intercepts assignee changes and routes them through assign_action_item service so AuditLog row is written; title/priority/due_date go straight via serializer.save (no audit per ACTN-13)
 
 ### Pending Todos
 
@@ -174,6 +179,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T04:44:04.639Z
-Stopped at: Completed 13-03-PLAN.md
+Last session: 2026-05-04T04:55:49.577Z
+Stopped at: Completed 13-04-PLAN.md
 Resume file: None
