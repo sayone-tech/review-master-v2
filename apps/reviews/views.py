@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg, Count, Q, QuerySet
+from django.db.models import Avg, Count, Exists, OuterRef, Q, QuerySet
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
 from rest_framework import mixins, status
@@ -64,7 +64,15 @@ class ReviewViewSet(
                 return Review.objects.none()
             user_id: int = raw_pk
             qs = qs.filter(shop_id__in=get_accessible_shop_ids(user_id=user_id))
-        return qs
+        # Phase 13 Plan 07 (B3): annotate has_action_items via Exists() so the
+        # ReviewReadSerializer's BooleanField is folded into the existing list
+        # JOIN — no extra queries (REVW-14 <=5 query budget preserved).
+        # Local import to avoid app-load cycles between reviews and action_items.
+        from apps.action_items.models import ActionItem
+
+        return qs.annotate(
+            has_action_items=Exists(ActionItem.objects.filter(source_review=OuterRef("pk")))
+        )
 
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         qs = self.filter_queryset(self.get_queryset())

@@ -37,6 +37,9 @@ export interface ReviewRow {
   sentiment: Sentiment;
   tags: ReviewTag[];
   extracted_action_items: ExtractedActionItem[];
+  // Phase 13: true iff one or more ActionItem rows were promoted from this
+  // review's enrichment payload. Backed by Exists() annotation on the queryset.
+  has_action_items: boolean;
   created_at: string;
   updated_at: string;
 }

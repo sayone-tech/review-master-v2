@@ -13,6 +13,11 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
     shop_name = serializers.CharField(source="shop.name", read_only=True)
     shop_region_name = serializers.SerializerMethodField()
     region_id = serializers.IntegerField(source="shop.region_id", read_only=True)
+    # Phase 13 Plan 07 (B3): True iff one or more ActionItem rows exist for this
+    # review. Backed by an Exists() annotation on the queryset (see
+    # ReviewViewSet.get_queryset). Annotation collapses into the existing list
+    # JOINs so the REVW-14 <=5-query budget is preserved.
+    has_action_items = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Review
@@ -37,6 +42,7 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
             "sentiment",
             "tags",
             "extracted_action_items",
+            "has_action_items",
             "created_at",
             "updated_at",
         ]

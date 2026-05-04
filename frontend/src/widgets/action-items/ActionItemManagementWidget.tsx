@@ -1,7 +1,9 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { ActionItemFilters } from "./ActionItemFilters";
 import { ActionItemTable } from "./ActionItemTable";
+import { ActionItemModal } from "./ActionItemModal";
+import { ActionItemCreateModal } from "./ActionItemCreateModal";
 import { transitionStatus } from "./api";
 import { useActionItems } from "./useActionItems";
 import { emitToast } from "../../lib/toast";
@@ -106,9 +108,25 @@ export function ActionItemManagementWidget({
   const { data, loading, params, setParams, searchInput, setSearchInput, refetch } =
     useActionItems({ reviewParam });
 
-  // Modal state — stubbed; plan 13-07 wires the actual modals.
+  // Modal state — wired in plan 13-07.
   const [openModalId, setOpenModalId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+
+  // Deep-link support: ?id={N} opens the detail modal on mount, then strips
+  // the param so refresh doesn't re-open. Mirrors Phase 11 ?open_progress=
+  // pattern.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const idParam = p.get("id");
+    if (idParam && /^\d+$/.test(idParam)) {
+      setOpenModalId(Number(idParam));
+      p.delete("id");
+      const qs = p.toString();
+      const newUrl =
+        window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
 
   const handleClearFilters = () => {
     setSearchInput("");
@@ -139,10 +157,6 @@ export function ActionItemManagementWidget({
   const totalPages = total > 0 ? Math.ceil(total / pageSize) : 1;
   const showingFrom = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const showingTo = total === 0 ? 0 : Math.min(currentPage * pageSize, total);
-
-  // Suppress unused-var warnings for the modal stubs (they're consumed by plan 13-07).
-  void openModalId;
-  void createOpen;
 
   return (
     <div className="px-6 py-4 space-y-4">
@@ -297,7 +311,30 @@ export function ActionItemManagementWidget({
           </div>
         </nav>
       </div>
-      {/* Modals: stubs in this plan; plan 13-07 wires ActionItemModal + ActionItemCreateModal. */}
+      {/* Plan 13-07: Detail + create modals. */}
+      {openModalId !== null && (
+        <ActionItemModal
+          open={openModalId !== null}
+          itemId={openModalId}
+          shops={shops}
+          teamMembers={teamMembers}
+          onClose={() => setOpenModalId(null)}
+          onChanged={() => void refetch()}
+        />
+      )}
+      {createOpen && (
+        <ActionItemCreateModal
+          open={createOpen}
+          userRole={userRole}
+          shops={shops}
+          teamMembers={teamMembers}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => {
+            setCreateOpen(false);
+            void refetch();
+          }}
+        />
+      )}
     </div>
   );
 }
