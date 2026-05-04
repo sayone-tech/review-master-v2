@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 13-04-PLAN.md
-last_updated: "2026-05-04T05:00:15.009Z"
+stopped_at: Completed 13-05-PLAN.md
+last_updated: "2026-05-04T05:18:26.002Z"
 progress:
   total_phases: 13
   completed_phases: 10
   total_plans: 78
-  completed_plans: 71
+  completed_plans: 72
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-02)
 ## Current Position
 
 Phase: 13 (action-items-and-notifications) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ Plan: 5 of 8
 | Phase 13 P02 | 8 | 1 tasks | 7 files |
 | Phase 13 P03 | 4 min | 2 tasks | 7 files |
 | Phase 13-action-items-and-notifications P04 | 8min | 2 tasks | 7 files |
+| Phase 13-action-items-and-notifications P05 | 12min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -168,6 +169,12 @@ Recent decisions affecting current work:
 - [Phase 13-action-items-and-notifications]: [Phase 13-04]: List vs Read serializer split — list omits notes/source_review to keep ACTN-12 <=5 query budget; retrieve adds prefetch_related('notes__author')
 - [Phase 13-action-items-and-notifications]: [Phase 13-04]: notifications URL include left to plan 13-05 — Django include('module.path') resolves eagerly so the planned 'lazy include' would have broken manage.py check before 13-05 commits
 - [Phase 13-action-items-and-notifications]: [Phase 13-04]: perform_update intercepts assignee changes and routes them through assign_action_item service so AuditLog row is written; title/priority/due_date go straight via serializer.save (no audit per ACTN-13)
+- [Phase 13-action-items-and-notifications]: [Phase 13-05]: NOTF-05 enforced inside dispatch_notification (not at call sites) — Staff excluded from User queryset whenever action_item.scope == BRAND
+- [Phase 13-action-items-and-notifications]: [Phase 13-05]: All dispatch hooks use transaction.on_commit (not signals) so notifications never fire on rollback; signals fire pre-commit which would create phantom rows
+- [Phase 13-action-items-and-notifications]: [Phase 13-05]: Closure variable rebinding (assignee_pk: int = assignee_id) used to satisfy mypy narrowing across nested closure boundary in lifecycle.py — cleaner than scattered type: ignore
+- [Phase 13-action-items-and-notifications]: [Phase 13-05]: promote_action_items_from_review returns int count, not list[int] — enrichment._schedule_action_item_promotion bridges by snapshotting pre-promotion ActionItem PKs and diff-ing afterwards
+- [Phase 13-action-items-and-notifications]: [Phase 13-05]: Sync per-shop dispatch batches new_review notifications across pages and dispatches once at end of fetch_and_persist_reviews — per-page dispatch would scale dispatch passes proportional to page count
+- [Phase 13-action-items-and-notifications]: [Phase 13-05]: Bell endpoint queryset filters only by recipient — dispatch_notification only writes for users in the same org so the recipient filter is the tenant boundary
 
 ### Pending Todos
 
@@ -179,6 +186,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T04:55:49.577Z
-Stopped at: Completed 13-04-PLAN.md
+Last session: 2026-05-04T05:18:25.999Z
+Stopped at: Completed 13-05-PLAN.md
 Resume file: None

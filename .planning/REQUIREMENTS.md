@@ -115,9 +115,9 @@
 
 - [x] **NOTF-01**: Notification bell in top bar shows unread count (red dot or numeric badge); click opens popover listing last 10 unread notifications newest-first
 - [x] **NOTF-02**: Three notification types: `new_review` (all team; Staff only for accessible shops), `new_action_item` (all team; Staff only for shop-scoped accessible items), `action_item_assigned` (assignee only)
-- [ ] **NOTF-03**: Clicking a notification navigates to the relevant page and marks it read; "Mark all as read" link in popover
-- [ ] **NOTF-04**: Unread counter polled every 60 seconds via HTTP (no WebSocket); counter refreshes immediately after any notification interaction
-- [ ] **NOTF-05**: Brand-scoped action item notifications are not delivered to Staff users
+- [x] **NOTF-03**: Clicking a notification navigates to the relevant page and marks it read; "Mark all as read" link in popover
+- [x] **NOTF-04**: Unread counter polled every 60 seconds via HTTP (no WebSocket); counter refreshes immediately after any notification interaction
+- [x] **NOTF-05**: Brand-scoped action item notifications are not delivered to Staff users
 
 ---
 
@@ -222,9 +222,9 @@
 | ACTN-13 | Phase 13 | Complete |
 | NOTF-01 | Phase 13 | Complete |
 | NOTF-02 | Phase 13 | Complete |
-| NOTF-03 | Phase 13 | Pending |
-| NOTF-04 | Phase 13 | Pending |
-| NOTF-05 | Phase 13 | Pending |
+| NOTF-03 | Phase 13 | Complete |
+| NOTF-04 | Phase 13 | Complete |
+| NOTF-05 | Phase 13 | Complete |
 
 **Coverage:**
 - v0.3 requirements: 68 total
