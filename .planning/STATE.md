@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 13-08-PLAN.md
-last_updated: "2026-05-04T05:30:22.137Z"
+stopped_at: Completed 13-06-PLAN.md
+last_updated: "2026-05-04T05:40:10.313Z"
 progress:
   total_phases: 13
   completed_phases: 10
   total_plans: 78
-  completed_plans: 73
+  completed_plans: 74
 ---
 
 # Project State
@@ -80,6 +80,7 @@ Plan: 8 of 8 (wave 4 parallel: 06/07/08)
 | Phase 13-action-items-and-notifications P04 | 8min | 2 tasks | 7 files |
 | Phase 13-action-items-and-notifications P05 | 12min | 2 tasks | 11 files |
 | Phase 13-action-items-and-notifications P08 | 3min | 2 tasks | 7 files |
+| Phase 13-action-items-and-notifications P06 | 13min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -179,6 +180,9 @@ Recent decisions affecting current work:
 - [Phase 13-action-items-and-notifications]: [Phase 13-08]: NotifBell uses HTTP polling (setInterval 60s) — no Channels consumer; CLAUDE.md §13.2 mandate enforced and grep-verified
 - [Phase 13-action-items-and-notifications]: [Phase 13-08]: Initial fetchBell() before setInterval (Pitfall 7) — eliminates badge-flash on mount
 - [Phase 13-action-items-and-notifications]: [Phase 13-08]: Bell registered as separate small Vite chunk (5.79 kB / 2.42 kB gzip) since topbar loads on every authenticated page
+- [Phase 13-action-items-and-notifications]: [Phase 13-06]: STATUS_LABEL canonical home is types.ts (parallel 13-07 added it there); STATUS_STYLE stays in StatusBadge.tsx as rendering concern
+- [Phase 13-action-items-and-notifications]: [Phase 13-06]: vite.config.ts registers BOTH action-items-management and notif-bell entrypoints upfront — parallel-W4-safe
+- [Phase 13-action-items-and-notifications]: [Phase 13-06]: search debounced 300ms in useActionItems via local searchInput state; non-search filter changes apply immediately and reset page to 1
 
 ### Pending Todos
 
@@ -190,6 +194,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T05:25:48.539Z
-Stopped at: Completed 13-08-PLAN.md
+Last session: 2026-05-04T05:40:10.311Z
+Stopped at: Completed 13-06-PLAN.md
 Resume file: None
