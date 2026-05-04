@@ -4,6 +4,7 @@ from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 
 from apps.action_items.urls import api_urlpatterns as action_items_api_urls
+from apps.notifications.urls import api_urlpatterns as notifications_api_urls
 from apps.organisations.views import OrganisationViewSet
 from apps.regions.views import RegionViewSet
 from apps.reviews.views import ReviewViewSet
@@ -20,11 +21,7 @@ router.register(r"api/v1/reviews", ReviewViewSet, basename="review")
 urlpatterns = [
     path("", include(router.urls)),
     path("api/v1/", include(action_items_api_urls)),
-    # NOTE: notifications API include is added by plan 13-05 once it creates
-    # apps/notifications/urls.py. Django's `include("string")` resolves
-    # eagerly at import time (the plan's "lazy include" assumption was
-    # incorrect), so wiring the include here would break `manage.py check`
-    # before 13-05 commits. 13-05 owns apps/notifications/urls.py outright.
+    path("api/v1/", include(notifications_api_urls)),
     path("api/v1/", include("apps.accounts.api_urls")),
     path("", include("apps.organisations.urls")),
     path("", include("apps.accounts.urls")),
