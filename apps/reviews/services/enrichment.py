@@ -151,17 +151,32 @@ def _schedule_action_item_promotion(*, review: Review) -> None:
         created_count = promote_action_items_from_review(review=fresh_review)
         if not created_count:
             return
-        new_items = ActionItem.objects.filter(source_review_id=review_pk).exclude(pk__in=pre_pks)
-        for ai in new_items.select_related("shop"):
-            dispatch_notification(
-                organisation_id=review_org_id,
-                notification_type="new_action_item",
-                title=f"New action item: {ai.title}",
-                target_url=f"/admin/org/action-items/?id={ai.pk}",
-                shop=ai.shop,
-                action_item=ai,
-                review=fresh_review,
-            )
+        new_items = list(
+            ActionItem.objects.filter(source_review_id=review_pk)
+            .exclude(pk__in=pre_pks)
+            .select_related("shop")
+        )
+        if not new_items:
+            return
+        # One summary notification for all action items extracted from this
+        # review — mirrors the new_review summary pattern.
+        has_brand = any(getattr(ai, "scope", None) == "BRAND" for ai in new_items)
+        shop = next((ai.shop for ai in new_items if ai.shop is not None), None)
+        count = len(new_items)
+        if count == 1:
+            title = f"New action item: {new_items[0].title}"
+        else:
+            title = f"{count} new action items extracted from a review"
+        dispatch_notification(
+            organisation_id=review_org_id,
+            notification_type="new_action_item",
+            title=title,
+            target_url="/admin/org/action-items/",
+            shop=shop,
+            action_item=None,
+            review=fresh_review,
+            org_admins_only=has_brand,
+        )
 
     transaction.on_commit(_on_enrichment_committed)
 
@@ -239,6 +254,7 @@ def _emit_enrichment_progress(*, review: Review) -> None:
     (RESEARCH.md anti-pattern: do not emit events from within a transaction).
     """
     from apps.reviews.services.progress import (
+        increment_enriched_counter,
         read_progress_snapshot,
         write_progress_snapshot,
     )
@@ -250,7 +266,10 @@ def _emit_enrichment_progress(*, review: Review) -> None:
         # No live progress modal — no WebSocket event needed (e.g. incremental sync).
         return
 
-    enriched = int(snapshot.get("enriched", 0)) + 1
+    # Atomic INCR prevents lost updates when two workers enrich concurrently.
+    # The increment happens outside the snapshot read-modify-write cycle so no
+    # two workers can increment to the same value.
+    enriched = increment_enriched_counter(shop_id=shop_id)
     fetched = int(snapshot.get("fetched", 0))
 
     new_snapshot = {**snapshot, "enriched": enriched}

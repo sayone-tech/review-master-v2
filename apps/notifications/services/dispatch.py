@@ -33,6 +33,7 @@ def dispatch_notification(
     review: Review | None = None,
     recipient_ids: list[int] | None = None,
     exclude_recipient_ids: list[int] | None = None,
+    org_admins_only: bool = False,
 ) -> int:
     """Create Notification rows for all eligible recipients in the org.
 
@@ -43,6 +44,9 @@ def dispatch_notification(
       - If ``action_item`` is provided AND its scope is BRAND, Staff are
         EXCLUDED (NOTF-05). Enforced at the dispatch layer so a future
         miswritten call site cannot leak brand-scope notifications to Staff.
+      - ``org_admins_only=True`` restricts to ORG_ADMIN regardless of the
+        action_item scope — used for summary notifications that may contain
+        brand-scoped items when no single action_item can be passed.
       - ``recipient_ids`` (if provided) restricts to those users.
       - ``exclude_recipient_ids`` (if provided) removes those users.
 
@@ -62,7 +66,9 @@ def dispatch_notification(
         qs = qs.exclude(pk__in=exclude_recipient_ids)
 
     # NOTF-05: Brand-scoped action items must NEVER reach Staff users.
-    if action_item is not None and getattr(action_item, "scope", None) == "BRAND":
+    if org_admins_only or (
+        action_item is not None and getattr(action_item, "scope", None) == "BRAND"
+    ):
         qs = qs.exclude(role=User.Role.STAFF_ADMIN)
 
     rows = [

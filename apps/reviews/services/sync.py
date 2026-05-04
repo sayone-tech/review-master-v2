@@ -187,44 +187,41 @@ def _persist_page(
 
 
 def _schedule_new_review_dispatch(*, shop: Shop, new_google_review_ids: set[str]) -> None:
-    """Phase 13-05 (R4) — dispatch new_review Notification per genuinely new row.
+    """Dispatch ONE summary new_review Notification per incremental sync run.
 
-    Resolves Google review IDs to local Review PKs once (single query), then
-    queues per-recipient dispatch via transaction.on_commit so a rolled-back
-    sync never produces phantom notifications. NOTF-05 does NOT apply to
-    new_review (not action-item-scoped).
+    Sends a single "X new reviews at <Shop>" notification rather than one per
+    review. Initial backfill callers skip this entirely — the sync progress
+    indicator already communicates that work.
     """
-    # Function-local imports avoid notifications<->reviews app cycle and
-    # preserve the established Phase 12 pattern for cross-app calls.
     from apps.notifications.services.dispatch import dispatch_notification
 
-    new_reviews = list(
-        Review.objects.filter(shop=shop, google_review_id__in=list(new_google_review_ids)).only(
-            "id", "shop_id", "organisation_id"
-        )
-    )
-    if not new_reviews:
+    count = len(new_google_review_ids)
+    if count == 0:
         return
+
+    # Fetch organisation_id from the shop itself — avoids a per-review query.
+    org_id = shop.organisation_id
     shop_name = shop.name
     shop_pk = shop.pk
+    title = f"1 new review at {shop_name}" if count == 1 else f"{count} new reviews at {shop_name}"
+    target_url = f"/admin/org/reviews/?shop={shop_pk}"
 
-    def _dispatch_new_reviews() -> None:
-        for r in new_reviews:
-            dispatch_notification(
-                organisation_id=r.organisation_id,
-                notification_type="new_review",
-                title=f"New review at {shop_name}",
-                target_url=f"/admin/org/reviews/?id={r.pk}",
-                shop=shop,
-                review=r,
-            )
+    def _dispatch_summary() -> None:
+        dispatch_notification(
+            organisation_id=org_id,
+            notification_type="new_review",
+            title=title,
+            target_url=target_url,
+            shop=shop,
+            review=None,
+        )
         logger.info(
-            "new_review_notifications_dispatched shop_id=%s count=%s",
+            "new_review_summary_notification_dispatched shop_id=%s count=%s",
             shop_pk,
-            len(new_reviews),
+            count,
         )
 
-    transaction.on_commit(_dispatch_new_reviews)
+    transaction.on_commit(_dispatch_summary)
 
 
 def _soft_delete_absent(*, shop: Shop, fetched_ids: set[str]) -> int:
@@ -415,12 +412,11 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
 
             soft_deleted = _soft_delete_absent(shop=shop, fetched_ids=all_fetched_ids)
 
-            # Phase 13-05 (R4 / NOTF-02): dispatch new_review Notification for
-            # each genuinely-new google_review_id captured during the page loop.
-            # Wrapped in transaction.on_commit so a rollback never produces
-            # phantom notifications. When called outside an active transaction,
-            # on_commit runs synchronously — same semantics.
-            if all_new_google_ids:
+            # Dispatch a single summary new_review notification for incremental
+            # syncs only. Initial backfill is already communicated via the
+            # TopbarBell sync progress indicator — spamming 100+ per-review
+            # notifications on first connect is unwanted.
+            if all_new_google_ids and trigger != "initial":
                 _schedule_new_review_dispatch(shop=shop, new_google_review_ids=all_new_google_ids)
 
             duration = (dj_timezone.now() - started_at).total_seconds()

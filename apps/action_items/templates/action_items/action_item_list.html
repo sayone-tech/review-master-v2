@@ -2,13 +2,11 @@
 {% load static django_vite %}
 
 {% block content %}
-  <div class="px-4 md:px-8 py-6">
-    <div id="action-items-management-root"
-         data-user-role="{{ user_role }}"
-         data-user-id="{{ user_id }}"
-         data-shops="{{ shops_json|escape }}"
-         data-team="{{ team_members_json|escape }}"></div>
-  </div>
+  <div id="action-items-management-root"
+       data-user-role="{{ user_role }}"
+       data-user-id="{{ user_id }}"
+       data-shops="{{ shops_json|escape }}"
+       data-team="{{ team_members_json|escape }}"></div>
 {% endblock %}
 
 {% block extra_js %}

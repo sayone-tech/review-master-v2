@@ -1,4 +1,5 @@
-import { Search } from "lucide-react";
+import { useState } from "react";
+import { Calendar, Search, SlidersHorizontal, X } from "lucide-react";
 import type {
   ActionItemScope,
   ActionItemStatus,
@@ -8,17 +9,26 @@ import type {
   UserRole,
 } from "./types";
 
+const selectCls =
+  "px-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
+
+interface DraftFilters {
+  search: string;
+  shop?: number;
+  status?: ActionItemStatus;
+  scope?: ActionItemScope;
+  assignee?: string;
+  from_date?: string;
+  to_date?: string;
+}
+
 interface Props {
-  params: ListParams;
-  onChange: (next: ListParams) => void;
-  searchInput: string;
-  onSearchChange: (value: string) => void;
   userRole: UserRole;
   shops: ShopOption[];
   teamMembers: TeamMember[];
-  total: number;
-  filtered: number;
-  onClearFilters: () => void;
+  filters: ListParams;
+  onApply: (draft: DraftFilters) => void;
+  onReset: () => void;
 }
 
 const STATUS_OPTIONS: { value: ActionItemStatus; label: string }[] = [
@@ -33,49 +43,72 @@ const SCOPE_OPTIONS: { value: ActionItemScope; label: string }[] = [
   { value: "BRAND", label: "Brand" },
 ];
 
-const SELECT_CLS =
-  "px-3 py-2 text-[14px] bg-white border border-line rounded-md text-ink";
-
 export function ActionItemFilters({
-  params,
-  onChange,
-  searchInput,
-  onSearchChange,
   userRole,
   shops,
   teamMembers,
-  total,
-  filtered,
-  onClearFilters,
+  filters,
+  onApply,
+  onReset,
 }: Props) {
-  const hasAnyFilter = Boolean(
-    params.shop !== undefined ||
-      params.status ||
-      params.scope ||
-      params.assignee ||
-      params.from_date ||
-      params.to_date ||
-      params.search ||
-      params.review !== undefined,
+  const [draft, setDraft] = useState<DraftFilters>({
+    search: filters.search ?? "",
+    shop: filters.shop,
+    status: filters.status as ActionItemStatus | undefined,
+    scope: filters.scope as ActionItemScope | undefined,
+    assignee: filters.assignee,
+    from_date: filters.from_date,
+    to_date: filters.to_date,
+  });
+
+  const hasActiveFilters = Boolean(
+    filters.search ||
+      filters.shop !== undefined ||
+      filters.status ||
+      filters.scope ||
+      filters.assignee ||
+      filters.from_date ||
+      filters.to_date,
   );
+
+  const handleReset = () => {
+    setDraft({
+      search: "",
+      shop: undefined,
+      status: undefined,
+      scope: undefined,
+      assignee: undefined,
+      from_date: undefined,
+      to_date: undefined,
+    });
+    onReset();
+  };
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2 items-center">
+      {/* Row 1 — search first, then select filters */}
+      <div className="flex flex-wrap items-stretch gap-2">
+        <div className="flex items-center gap-2 px-3 py-2 bg-white border border-line rounded-md flex-[2] min-w-[220px] focus-within:border-ink focus-within:ring focus-within:ring-black/[0.06]">
+          <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
+          <input
+            type="text"
+            className="flex-1 min-w-0 bg-transparent focus:outline-none text-[13.5px]"
+            placeholder="Search action items…"
+            value={draft.search}
+            onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
+            aria-label="Search action items"
+          />
+        </div>
+
         <select
-          className={SELECT_CLS}
-          style={{ width: "160px" }}
-          value={params.shop ?? ""}
+          className={`${selectCls} flex-1 min-w-[140px]`}
+          value={draft.shop ?? ""}
           onChange={(e) =>
-            onChange({
-              ...params,
-              shop: e.target.value ? Number(e.target.value) : undefined,
-              page: 1,
-            })
+            setDraft((d) => ({ ...d, shop: e.target.value ? Number(e.target.value) : undefined }))
           }
           aria-label="Filter by store"
         >
-          <option value="">All stores</option>
+          <option value="">All Stores</option>
           {shops.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -84,19 +117,17 @@ export function ActionItemFilters({
         </select>
 
         <select
-          className={SELECT_CLS}
-          style={{ width: "150px" }}
-          value={params.status ?? ""}
+          className={`${selectCls} flex-1 min-w-[140px]`}
+          value={draft.status ?? ""}
           onChange={(e) =>
-            onChange({
-              ...params,
+            setDraft((d) => ({
+              ...d,
               status: (e.target.value || undefined) as ActionItemStatus | undefined,
-              page: 1,
-            })
+            }))
           }
           aria-label="Filter by status"
         >
-          <option value="">All statuses</option>
+          <option value="">Any Status</option>
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -106,19 +137,17 @@ export function ActionItemFilters({
 
         {userRole === "ORG_ADMIN" && (
           <select
-            className={SELECT_CLS}
-            style={{ width: "130px" }}
-            value={params.scope ?? ""}
+            className={`${selectCls} flex-1 min-w-[130px]`}
+            value={draft.scope ?? ""}
             onChange={(e) =>
-              onChange({
-                ...params,
+              setDraft((d) => ({
+                ...d,
                 scope: (e.target.value || undefined) as ActionItemScope | undefined,
-                page: 1,
-              })
+              }))
             }
             aria-label="Filter by scope"
           >
-            <option value="">All scopes</option>
+            <option value="">Any Scope</option>
             {SCOPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -126,21 +155,19 @@ export function ActionItemFilters({
             ))}
           </select>
         )}
+      </div>
 
+      {/* Row 2 — assignee, date range, action buttons */}
+      <div className="flex flex-wrap items-stretch gap-2">
         <select
-          className={SELECT_CLS}
-          style={{ width: "160px" }}
-          value={params.assignee ?? ""}
+          className={`${selectCls} flex-1 min-w-[160px]`}
+          value={draft.assignee ?? ""}
           onChange={(e) =>
-            onChange({
-              ...params,
-              assignee: e.target.value || undefined,
-              page: 1,
-            })
+            setDraft((d) => ({ ...d, assignee: e.target.value || undefined }))
           }
           aria-label="Filter by assignee"
         >
-          <option value="">All assignees</option>
+          <option value="">All Assignees</option>
           <option value="me">Assigned to me</option>
           <option value="unassigned">Unassigned</option>
           {teamMembers.map((m) => (
@@ -150,58 +177,46 @@ export function ActionItemFilters({
           ))}
         </select>
 
-        <input
-          type="date"
-          className={SELECT_CLS}
-          style={{ width: "140px" }}
-          value={params.from_date ?? ""}
-          onChange={(e) =>
-            onChange({ ...params, from_date: e.target.value || undefined, page: 1 })
-          }
-          aria-label="From date"
-        />
-        <input
-          type="date"
-          className={SELECT_CLS}
-          style={{ width: "140px" }}
-          value={params.to_date ?? ""}
-          onChange={(e) =>
-            onChange({ ...params, to_date: e.target.value || undefined, page: 1 })
-          }
-          aria-label="To date"
-        />
-
-        <div className="relative">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
-            aria-hidden="true"
-          />
+        <div className="flex items-center gap-1 px-3 bg-white border border-line rounded-md text-[13.5px] flex-[2] min-w-[260px]">
+          <Calendar size={13} className="text-muted shrink-0" aria-hidden="true" />
           <input
-            type="search"
-            placeholder="Search..."
-            className={`${SELECT_CLS} pl-8`}
-            style={{ width: "200px" }}
-            value={searchInput}
-            onChange={(e) => onSearchChange(e.target.value)}
-            aria-label="Search action items"
+            type="date"
+            className="flex-1 bg-transparent focus:outline-none text-[13px] min-w-0 py-2"
+            value={draft.from_date ?? ""}
+            onChange={(e) => setDraft((d) => ({ ...d, from_date: e.target.value || undefined }))}
+            aria-label="From date"
+          />
+          <span className="text-muted px-0.5">–</span>
+          <input
+            type="date"
+            className="flex-1 bg-transparent focus:outline-none text-[13px] min-w-0 py-2"
+            value={draft.to_date ?? ""}
+            onChange={(e) => setDraft((d) => ({ ...d, to_date: e.target.value || undefined }))}
+            aria-label="To date"
           />
         </div>
 
-        {hasAnyFilter && (
+        <button
+          type="button"
+          onClick={() => onApply(draft)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-black text-yellow text-[13.5px] font-semibold rounded-md hover:bg-ink/90 shrink-0"
+        >
+          <SlidersHorizontal size={13} aria-hidden="true" />
+          Filter
+        </button>
+
+        {hasActiveFilters && (
           <button
             type="button"
-            onClick={onClearFilters}
-            className="text-[14px] text-muted underline hover:text-ink"
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-[13.5px] text-muted hover:text-ink border border-line rounded-md bg-white shrink-0"
           >
-            Clear filters
+            <X size={13} aria-hidden="true" />
+            Reset
           </button>
         )}
       </div>
 
-      <p className="text-[14px] text-muted">
-        Showing {filtered} of {total} action items
-      </p>
     </div>
   );
 }

@@ -3,11 +3,11 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { ActionItemFilters } from "./ActionItemFilters";
 import { ActionItemTable } from "./ActionItemTable";
 import { ActionItemModal } from "./ActionItemModal";
-import { ActionItemCreateModal } from "./ActionItemCreateModal";
 import { transitionStatus } from "./api";
 import { useActionItems } from "./useActionItems";
 import { emitToast } from "../../lib/toast";
 import type {
+  ActionItemScope,
   ActionItemStatus,
   ListParams,
   PaginatedActionItems,
@@ -88,8 +88,7 @@ function pickEmptyState(
     <div className="px-4 py-12 text-center">
       <h3 className="text-[14px] font-semibold text-ink">No action items yet</h3>
       <p className="text-[14px] text-muted mt-1">
-        Action items will appear here once reviews are enriched by AI, or you can create
-        one manually.
+        Action items will appear here once reviews are enriched by AI.
       </p>
     </div>
   );
@@ -105,16 +104,12 @@ export function ActionItemManagementWidget({
     const p = new URLSearchParams(window.location.search);
     return p.get("review") ?? undefined;
   }, []);
-  const { data, loading, params, setParams, searchInput, setSearchInput, refetch } =
-    useActionItems({ reviewParam });
+  const { data, loading, params, setParams, refetch } = useActionItems({ reviewParam });
 
-  // Modal state — wired in plan 13-07.
   const [openModalId, setOpenModalId] = useState<number | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
 
   // Deep-link support: ?id={N} opens the detail modal on mount, then strips
-  // the param so refresh doesn't re-open. Mirrors Phase 11 ?open_progress=
-  // pattern.
+  // the param so refresh doesn't re-open.
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const idParam = p.get("id");
@@ -128,8 +123,29 @@ export function ActionItemManagementWidget({
     }
   }, []);
 
-  const handleClearFilters = () => {
-    setSearchInput("");
+  const handleApplyFilters = (draft: {
+    search: string;
+    shop?: number;
+    status?: ActionItemStatus;
+    scope?: ActionItemScope;
+    assignee?: string;
+    from_date?: string;
+    to_date?: string;
+  }) => {
+    setParams({
+      ...params,
+      page: 1,
+      search: draft.search || undefined,
+      shop: draft.shop,
+      status: draft.status,
+      scope: draft.scope,
+      assignee: draft.assignee,
+      from_date: draft.from_date,
+      to_date: draft.to_date,
+    });
+  };
+
+  const handleReset = () => {
     setParams({
       page: 1,
       page_size: params.page_size,
@@ -151,7 +167,6 @@ export function ActionItemManagementWidget({
   };
 
   const total = data?.count ?? 0;
-  const filtered = data?.results.length ?? 0;
   const currentPage = params.page;
   const pageSize = params.page_size;
   const totalPages = total > 0 ? Math.ceil(total / pageSize) : 1;
@@ -159,41 +174,23 @@ export function ActionItemManagementWidget({
   const showingTo = total === 0 ? 0 : Math.min(currentPage * pageSize, total);
 
   return (
-    <div className="px-6 py-4 space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-[20px] font-semibold text-ink">Action Items</h1>
-        {/* ACTN-09: Both ORG_ADMIN and STAFF_ADMIN see the create button.
-            Brand-scope option inside the create modal (plan 13-07) is the
-            layer that hides Brand from Staff. */}
-        {(userRole === "ORG_ADMIN" || userRole === "STAFF_ADMIN") && (
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="px-4 py-2 text-[14px] bg-yellow text-black font-semibold rounded-md hover:bg-yellow-hover"
-          >
-            + New Action Item
-          </button>
-        )}
-      </div>
+    <div className="space-y-4">
+      <h1 className="text-[20px] font-semibold text-ink">Action Items</h1>
 
       <ActionItemFilters
-        params={params}
-        onChange={setParams}
-        searchInput={searchInput}
-        onSearchChange={setSearchInput}
         userRole={userRole}
         shops={shops}
         teamMembers={teamMembers}
-        total={total}
-        filtered={filtered}
-        onClearFilters={handleClearFilters}
+        filters={params}
+        onApply={handleApplyFilters}
+        onReset={handleReset}
       />
 
       <div className="border border-line rounded-card overflow-hidden">
         <ActionItemTable
           rows={data?.results ?? []}
           loading={loading}
-          emptyState={pickEmptyState(params, data, userRole, handleClearFilters)}
+          emptyState={pickEmptyState(params, data, userRole, handleReset)}
           onOpenModal={setOpenModalId}
           onTransitionStatus={handleTransition}
         />
@@ -311,7 +308,7 @@ export function ActionItemManagementWidget({
           </div>
         </nav>
       </div>
-      {/* Plan 13-07: Detail + create modals. */}
+
       {openModalId !== null && (
         <ActionItemModal
           open={openModalId !== null}
@@ -320,19 +317,6 @@ export function ActionItemManagementWidget({
           teamMembers={teamMembers}
           onClose={() => setOpenModalId(null)}
           onChanged={() => void refetch()}
-        />
-      )}
-      {createOpen && (
-        <ActionItemCreateModal
-          open={createOpen}
-          userRole={userRole}
-          shops={shops}
-          teamMembers={teamMembers}
-          onClose={() => setCreateOpen(false)}
-          onCreated={() => {
-            setCreateOpen(false);
-            void refetch();
-          }}
         />
       )}
     </div>

@@ -28,6 +28,7 @@ from typing import Any
 from django_redis import get_redis_connection
 
 PROGRESS_KEY_TMPL = "sync:progress:{shop_id}"
+ENRICHED_COUNTER_KEY_TMPL = "sync:enriched:{shop_id}"
 TTL_ACTIVE_SECONDS = 86400  # 24h while running
 TTL_SUCCESS_SECONDS = 3600  # 1h after success
 TTL_FAILED_SECONDS = 604800  # 7d after permanent failure
@@ -70,9 +71,28 @@ def read_progress_snapshot(*, shop_id: int) -> dict[str, Any] | None:
 
 
 def clear_progress_snapshot(*, shop_id: int) -> None:
-    """Delete the progress key (used when starting a fresh sync)."""
+    """Delete the progress key and enriched counter (used when starting a fresh sync)."""
     conn = get_redis_connection("default")
-    conn.delete(PROGRESS_KEY_TMPL.format(shop_id=shop_id))
+    conn.delete(
+        PROGRESS_KEY_TMPL.format(shop_id=shop_id),
+        ENRICHED_COUNTER_KEY_TMPL.format(shop_id=shop_id),
+    )
+
+
+def increment_enriched_counter(*, shop_id: int) -> int:
+    """Atomically increment the enriched counter and return the new value.
+
+    Uses Redis INCR so concurrent workers never lose increments (unlike the
+    read-modify-write pattern on the JSON snapshot). TTL mirrors the active
+    snapshot TTL; the key is reset when clear_progress_snapshot is called.
+    """
+    conn = get_redis_connection("default")
+    key = ENRICHED_COUNTER_KEY_TMPL.format(shop_id=shop_id)
+    pipe = conn.pipeline()
+    pipe.incr(key)
+    pipe.expire(key, TTL_ACTIVE_SECONDS)
+    new_value, _ = pipe.execute()
+    return int(new_value)
 
 
 def increment_google_token_bucket(*, count: int = 1) -> int:
