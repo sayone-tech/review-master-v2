@@ -20,6 +20,10 @@ export default defineConfig({
         "team-management": resolve(__dirname, "src/entrypoints/team-management.tsx"),
         "review-management": resolve(__dirname, "src/entrypoints/review-management.tsx"),
         "topbar-sync-indicator": resolve(__dirname, "src/entrypoints/topbar-sync-indicator.tsx"),
+        "action-items-management": resolve(
+          __dirname,
+          "src/entrypoints/action-items-management.tsx",
+        ),
         "notif-bell": resolve(__dirname, "src/entrypoints/notif-bell.tsx"),
       },
     },
