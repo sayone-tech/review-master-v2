@@ -28,10 +28,12 @@
           {% include "partials/_nav_item.html" with href="/admin/organisations/" icon="building-2" label="Organisations" %}
         {% elif user.role == 'ORG_ADMIN' %}
           {% include "partials/_nav_item.html" with href="/" icon="layout-dashboard" label="Dashboard" %}
-          {% include "partials/_nav_item.html" with href="/stores/" icon="store" label="Stores" %}
-          {% include "partials/_nav_item.html" with href="/reviews/" icon="star" label="Reviews" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/shops/" icon="store" label="Shops" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/reviews/" icon="star" label="Reviews" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/action-items/" icon="clipboard-list" label="Action Items" %}
         {% elif user.role == 'STAFF_ADMIN' %}
-          {% include "partials/_nav_item.html" with href="/reviews/" icon="star" label="Reviews" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/reviews/" icon="star" label="Reviews" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/action-items/" icon="clipboard-list" label="Action Items" %}
         {% endif %}
         {% include "partials/_nav_item.html" with href="/admin/profile/" icon="user" label="Profile" %}
       </ul>
