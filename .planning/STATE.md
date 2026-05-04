@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: "Completed 12-09-PLAN.md (gap closure: skip OpenAI for comment-less reviews)"
-last_updated: "2026-05-03T08:19:49.880Z"
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-05-04T04:37:00.299Z"
 progress:
   total_phases: 13
   completed_phases: 10
-  total_plans: 70
-  completed_plans: 67
+  total_plans: 78
+  completed_plans: 69
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-02)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 12 — ai-enrichment-pipeline
+**Current focus:** Phase 13 — action-items-and-notifications
 
 ## Current Position
 
-Phase: 12 (ai-enrichment-pipeline) — EXECUTING
-Plan: 1 of 9
+Phase: 13 (action-items-and-notifications) — EXECUTING
+Plan: 1 of 8
 
 ## Performance Metrics
 
@@ -74,6 +74,8 @@ Plan: 1 of 9
 | Phase 12 P05 | 2 | 1 tasks | 4 files |
 | Phase 12 P06 | 7 | 3 tasks | 6 files |
 | Phase 12-ai-enrichment-pipeline P09 | 2 | 3 tasks | 2 files |
+| Phase 13 P01 | 8 | 2 tasks | 8 files |
+| Phase 13 P02 | 8 | 1 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -152,6 +154,11 @@ Recent decisions affecting current work:
 - [Phase 12-ai-enrichment-pipeline]: [Phase 12-09]: Skip OpenAI for comment-less reviews — branch placed AFTER PENDING->IN_PROGRESS so Layer 3 status guard protects skip path identically to OpenAI path
 - [Phase 12-ai-enrichment-pipeline]: [Phase 12-09]: Skip path writes NO AiUsageLog row — zero billable cost; skip path is invisible to billing aggregations
 - [Phase 12-ai-enrichment-pipeline]: [Phase 12-09]: Forward-only — historical comment-less reviews already SUCCESS are not re-processed (out of scope per gap brief)
+- [Phase 13]: [Phase 13-01]: Partial unique constraint on (source_review,title,scope) WHERE source=AI enables idempotent AI promotion via bulk_create(ignore_conflicts=True)
+- [Phase 13]: [Phase 13-01]: ActionItemNote ordering=['created_at'] enforces oldest-first at ORM level per CONTEXT.md
+- [Phase 13]: [Phase 13-01]: Pre-commit hooks ran admin.py imports during stash — committed pre-existing notifications model+admin+migration to unblock (Rule 3)
+- [Phase 13]: [Phase 13-02]: Notification.target_url stored at dispatch time (not derived) — popover navigates without resolving FKs inline
+- [Phase 13]: [Phase 13-02]: Composite index (recipient,is_read,created_at) covers both unread-count poll and popover list with single index scan
 
 ### Pending Todos
 
@@ -163,6 +170,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-03T08:19:40.596Z
-Stopped at: Completed 12-09-PLAN.md (gap closure: skip OpenAI for comment-less reviews)
+Last session: 2026-05-04T04:36:52.926Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None

@@ -126,4 +126,4 @@ Full archive: `.planning/milestones/v0.2-org-admin-ROADMAP.md`
 | 10. Infrastructure Foundation | v0.3 | 5/5 | Complete | 2026-05-01 |
 | 11. Reviews Fetching, Display, Reply | 15/15 | Complete    | 2026-05-02 | 2026-05-02 |
 | 12. AI Enrichment Pipeline | 9/9 | Complete   | 2026-05-03 | - |
-| 13. Action Items and Notifications | v0.3 | 0/8 | Planned | - |
+| 13. Action Items and Notifications | 2/8 | In Progress|  | - |
