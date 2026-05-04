@@ -21,7 +21,7 @@
       :aria-live="toast.kind === 'error' ? 'assertive' : 'polite'"
     >
       <span
-        class="w-4 h-4 shrink-0 mt-0.5"
+        class="w-4 h-4 shrink-0 mt-0.5 flex items-center justify-center"
         :class="{
                 'text-[#4ADE80]': toast.kind === 'success',
                 'text-[#F87171]': toast.kind === 'error',
@@ -29,8 +29,31 @@
                 'text-[#FBBF24]': toast.kind === 'warning',
                 }"
         aria-hidden="true"
-        data-lucide="check-circle"
-      ></span>
+      >
+        {# success: check-circle #}
+        <svg x-show="toast.kind === 'success'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        {# error: x-circle #}
+        <svg x-show="toast.kind === 'error'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        {# warning: alert-triangle #}
+        <svg x-show="toast.kind === 'warning'" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        {# info (default): info #}
+        <svg x-show="toast.kind === 'info' || !['success','error','warning'].includes(toast.kind)" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </span>
       <div class="flex-1 min-w-0">
         <div class="text-[13px] font-semibold text-white" x-text="toast.title"></div>
         <div class="text-[12.5px] text-[#D4D4D8]" x-text="toast.msg" x-show="toast.msg"></div>
@@ -41,7 +64,10 @@
         class="w-4 h-4 shrink-0 text-[#71717A] hover:text-white"
         aria-label="Dismiss"
       >
-        <span class="w-3.5 h-3.5" aria-hidden="true" data-lucide="x"></span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
       </button>
     </div>
   </template>
