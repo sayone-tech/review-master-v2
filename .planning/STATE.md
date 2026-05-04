@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: — Superadmin Module
 status: unknown
-stopped_at: Completed 13-05-PLAN.md
-last_updated: "2026-05-04T05:18:26.002Z"
+stopped_at: Completed 13-08-PLAN.md
+last_updated: "2026-05-04T05:30:22.137Z"
 progress:
   total_phases: 13
   completed_phases: 10
   total_plans: 78
-  completed_plans: 72
+  completed_plans: 73
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-02)
 ## Current Position
 
 Phase: 13 (action-items-and-notifications) — EXECUTING
-Plan: 6 of 8
+Plan: 8 of 8 (wave 4 parallel: 06/07/08)
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Plan: 6 of 8
 | Phase 13 P03 | 4 min | 2 tasks | 7 files |
 | Phase 13-action-items-and-notifications P04 | 8min | 2 tasks | 7 files |
 | Phase 13-action-items-and-notifications P05 | 12min | 2 tasks | 11 files |
+| Phase 13-action-items-and-notifications P08 | 3min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -175,6 +176,9 @@ Recent decisions affecting current work:
 - [Phase 13-action-items-and-notifications]: [Phase 13-05]: promote_action_items_from_review returns int count, not list[int] — enrichment._schedule_action_item_promotion bridges by snapshotting pre-promotion ActionItem PKs and diff-ing afterwards
 - [Phase 13-action-items-and-notifications]: [Phase 13-05]: Sync per-shop dispatch batches new_review notifications across pages and dispatches once at end of fetch_and_persist_reviews — per-page dispatch would scale dispatch passes proportional to page count
 - [Phase 13-action-items-and-notifications]: [Phase 13-05]: Bell endpoint queryset filters only by recipient — dispatch_notification only writes for users in the same org so the recipient filter is the tenant boundary
+- [Phase 13-action-items-and-notifications]: [Phase 13-08]: NotifBell uses HTTP polling (setInterval 60s) — no Channels consumer; CLAUDE.md §13.2 mandate enforced and grep-verified
+- [Phase 13-action-items-and-notifications]: [Phase 13-08]: Initial fetchBell() before setInterval (Pitfall 7) — eliminates badge-flash on mount
+- [Phase 13-action-items-and-notifications]: [Phase 13-08]: Bell registered as separate small Vite chunk (5.79 kB / 2.42 kB gzip) since topbar loads on every authenticated page
 
 ### Pending Todos
 
@@ -186,6 +190,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-04T05:18:25.999Z
-Stopped at: Completed 13-05-PLAN.md
+Last session: 2026-05-04T05:25:48.539Z
+Stopped at: Completed 13-08-PLAN.md
 Resume file: None
