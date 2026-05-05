@@ -157,6 +157,7 @@ This creates a GPT-4o-mini pricing row at the published rates ($0.15 / $0.60 / $
 ```bash
 make up              # docker-compose up -d
 make down            # docker-compose down
+make rebuild         # clean rebuild — removes stale static volume, rebuilds images, starts stack
 make migrate         # run migrations
 make makemigrations  # create new migrations
 make shell           # Django shell
@@ -170,19 +171,22 @@ make beat            # start Celery Beat (foreground)
 make flower          # start Flower on :5555 (dev only)
 ```
 
-### Rebuilding frontend assets
+### Rebuilding Docker (styles disappear after rebuild)
 
-The `vite` service handles this automatically in dev. If you need to rebuild manually (e.g. after switching environments):
+Tailwind CSS and React bundles are gitignored, so they are built inside Docker:
+
+- The **Dockerfile** bakes CSS and JS into the image via a frontend build stage (Node 22 → `npm run css:build` → `vite build`).
+- In local dev, a **named Docker volume** (`static_css`) is shared between the `vite` and `web` containers so vite's css:watch keeps the CSS live without needing a host filesystem write.
+
+If you rebuild and styles disappear, it means the `static_css` volume has a stale file. Use:
 
 ```bash
-# Inside the frontend/ directory or via docker exec
-cd frontend
-npm install
-npm run css:build    # Compile Tailwind CSS → static/css/tailwind.css
-npm run build        # Build React bundles → static/dist/
+make rebuild
 ```
 
-> **Note:** `static/css/` and `static/dist/` are gitignored build artifacts. After cloning or after switching branches, run these commands if styles or JS are missing.
+This removes the stale volume, rebuilds the images, and starts the stack — Docker re-seeds the volume from the freshly built image. **Do not use `docker-compose up --build` directly** after changing CSS-related files; always use `make rebuild`.
+
+> **Note:** `make rebuild` only removes the `static_css` volume — your database (`postgres_data`) and Redis data are preserved.
 
 ### Email
 
@@ -298,4 +302,4 @@ Each review triggers `enrich_review_task` on the `ai-enrichment` queue. The task
 
 - After `manage.py flush`, both `AiPricing` data and Celery Beat schedules are wiped. Re-seed `AiPricing` with `scripts/seed_pricing.py`. Beat schedules are re-created from the data migration on the next `migrate`.
 - The Google Business Profile API requires production approval from Google before shop connections work in production. In local dev you can test OAuth flow if you register `http://localhost:8000/oauth/google/callback/` as an authorised redirect URI in Google Cloud Console.
-- Tailwind CSS and React bundles are gitignored. If the site loads without styles, run `cd frontend && npm run css:build`.
+- Tailwind CSS and React bundles are gitignored build artifacts. If the site loads without styles after a Docker rebuild, run `make rebuild` — not `docker-compose up --build`. See the "Rebuilding Docker" section above.

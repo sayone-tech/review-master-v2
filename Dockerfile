@@ -1,3 +1,20 @@
+# ---------- frontend builder stage ----------
+FROM node:22-alpine AS frontend-builder
+WORKDIR /app
+
+# Cache npm install layer separately from source
+COPY frontend/package.json frontend/package-lock.json frontend/
+RUN npm ci --prefix frontend
+
+# Copy everything else (templates + app templates needed for Tailwind content scanning)
+COPY . .
+
+# Build Tailwind CSS and Vite JS bundle
+RUN mkdir -p static/css static/dist && \
+    cd frontend && \
+    npm run css:build && \
+    npm run build
+
 # ---------- builder stage ----------
 FROM python:3.12-slim AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -41,6 +58,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY --from=builder --chown=app:app /venv /venv
 COPY --chown=app:app . /app
+
+# Bake frontend build outputs into the image (overrides empty gitignored dirs)
+COPY --from=frontend-builder --chown=app:app /app/static/css /app/static/css
+COPY --from=frontend-builder --chown=app:app /app/static/dist /app/static/dist
 
 USER app
 EXPOSE 8000
