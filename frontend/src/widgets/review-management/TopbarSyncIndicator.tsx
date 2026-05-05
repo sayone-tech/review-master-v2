@@ -103,6 +103,7 @@ export function TopbarBell() {
               total_fetched: data.total_fetched ?? 0,
             },
           ]);
+          window.dispatchEvent(new CustomEvent("notifications:refresh"));
           ws.close();
           sockets.current.delete(shop.shop_id);
         } else if (data.type === "sync.error") {
