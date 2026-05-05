@@ -3,6 +3,7 @@
 node_modules
 frontend/node_modules
 static/dist
+static/css
 staticfiles
 __pycache__
 .env

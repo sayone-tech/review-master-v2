@@ -1,5 +1,15 @@
 # Milestones
 
+## v0.3 Reviews and Action Items (Shipped: 2026-05-05)
+
+**Phases completed:** 13 phases, 78 plans, 42 tasks
+
+**Key accomplishments:**
+
+- (none recorded)
+
+---
+
 ## v0.2-org-admin Org Admin Module (Shipped: 2026-04-30)
 
 **Phases completed:** 4 phases (6–9), 17 plans | 248 files changed, 34,438 insertions

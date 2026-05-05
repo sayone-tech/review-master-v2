@@ -1,10 +1,15 @@
-.PHONY: up down migrate makemigrations shell test lint typecheck seed fmt worker beat flower
+.PHONY: up down rebuild migrate makemigrations shell test lint typecheck seed fmt worker beat flower
 
 up:
 	docker-compose up -d
 
 down:
 	docker-compose down
+
+rebuild:
+	docker-compose down
+	docker volume rm review-master_static_css 2>/dev/null || true
+	docker-compose up -d --build
 
 migrate:
 	docker-compose exec web python manage.py migrate

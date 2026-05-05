@@ -41,12 +41,13 @@ services:
     working_dir: /app/frontend
     command: >-
       sh -c "npm install &&
-             mkdir -p ../static/css &&
              npm run css:build &&
+             test -s /app/static/css/tailwind.css || npm run css:build &&
              (npm run css:watch & npm run dev -- --host 0.0.0.0)"
     volumes:
       - .:/app
       - vite_node_modules:/app/frontend/node_modules
+      - static_css:/app/static/css
     ports:
       - "5173:5173"
     healthcheck:
@@ -82,6 +83,7 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+      - static_css:/app/static/css
 
   worker:
     build:
@@ -156,3 +158,4 @@ services:
 volumes:
   postgres_data:
   vite_node_modules:
+  static_css:
