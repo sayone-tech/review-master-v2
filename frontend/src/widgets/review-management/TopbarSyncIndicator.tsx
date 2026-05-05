@@ -132,31 +132,25 @@ export function TopbarBell() {
 
   if (!hasSyncActivity) return null;
 
+  // State badge — only for non-active states (spinner communicates active state)
   let badge: React.ReactNode = null;
-  if (active.length > 0) {
-    // Pulsing yellow dot — sync in progress
-    badge = (
-      <span className="absolute top-1 right-1 w-[7px] h-[7px]" aria-hidden="true">
-        <span className="absolute inline-flex h-full w-full rounded-full bg-yellow animate-ping opacity-75" />
-        <span className="absolute inline-flex h-full w-full rounded-full bg-yellow border-2 border-white" />
-      </span>
-    );
-  } else if (hasFailures) {
+  if (active.length === 0 && hasFailures) {
     badge = (
       <span
-        className="absolute top-1 right-1 w-[7px] h-[7px] rounded-full bg-red border-2 border-white"
+        className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red border-2 border-white"
         aria-hidden="true"
       />
     );
-  } else if (completed.length > 0) {
-    // Green dot — completed syncs waiting to be dismissed
+  } else if (active.length === 0 && completed.length > 0) {
     badge = (
       <span
-        className="absolute top-1 right-1 w-[7px] h-[7px] rounded-full bg-green-500 border-2 border-white"
+        className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-white"
         aria-hidden="true"
       />
     );
   }
+
+  const isSyncing = active.length > 0;
 
   return (
     <div ref={containerRef} className="relative" aria-live="polite">
@@ -167,14 +161,18 @@ export function TopbarBell() {
         aria-haspopup="menu"
         aria-label={`${totalCount} sync notification${totalCount !== 1 ? "s" : ""}`}
         data-testid="topbar-bell"
-        className="relative w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
+        className={`relative w-[34px] h-[34px] rounded-md flex items-center justify-center transition-colors ${
+          isSyncing
+            ? "bg-amber-50 text-yellow hover:bg-amber-100"
+            : "text-muted hover:bg-line-soft"
+        }`}
       >
-        {active.length > 0 ? (
-          <Loader2 size={18} className="animate-spin text-yellow" aria-hidden="true" />
+        {isSyncing ? (
+          <Loader2 size={17} className="animate-spin" aria-hidden="true" />
         ) : hasFailures ? (
-          <AlertTriangle size={18} className="text-red" aria-hidden="true" />
+          <AlertTriangle size={17} className="text-red" aria-hidden="true" />
         ) : (
-          <CheckCircle size={18} className="text-green-500" aria-hidden="true" />
+          <CheckCircle size={17} className="text-green-500" aria-hidden="true" />
         )}
         {badge}
       </button>
