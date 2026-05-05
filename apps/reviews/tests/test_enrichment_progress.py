@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
+from apps.reviews.services import enrichment as enrichment_mod
 from apps.reviews.services.enrichment import _emit_enrichment_progress
 from apps.reviews.tests.factories import ReviewFactory
 
@@ -135,6 +136,8 @@ def test_emit_enrichment_progress_fires_sync_complete_when_caught_up() -> None:
             "apps.reviews.services.progress.increment_enriched_counter",
             return_value=3,
         ),
+        # Notification dispatch at sync.complete is tested separately
+        patch.object(enrichment_mod, "_dispatch_sync_complete_notifications"),
     ):
         _emit_enrichment_progress(review=review)
 

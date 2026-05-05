@@ -122,14 +122,13 @@ def _persist_success(
 
 
 def _schedule_action_item_promotion(*, review: Review) -> None:
-    """Queue post-commit promotion + new_action_item dispatch.
+    """Queue post-commit promotion and notification routing.
 
-    promote_action_items_from_review (plan 13-03) returns an int count, not
-    PKs. To identify newly-created rows for dispatch we snapshot the existing
-    ActionItem PKs for this review BEFORE promotion and diff afterwards.
+    For initial sync (progress snapshot present): accumulates action item
+    counts in Redis; a single consolidated notification fires at sync.complete.
+    For incremental sync (no snapshot): dispatches one notification per review
+    immediately (small batches, no natural batch-complete event).
     """
-    # Function-local imports avoid circular deps (reviews <-> action_items
-    # <-> notifications). Mirrors the Phase 12 enrich_review_task pattern.
     from apps.action_items.models import ActionItem
     from apps.action_items.services.lifecycle import (
         promote_action_items_from_review,
@@ -140,11 +139,13 @@ def _schedule_action_item_promotion(*, review: Review) -> None:
     review_org_id = review.organisation_id
 
     def _on_enrichment_committed() -> None:
-        # Re-fetch the Review so extracted_action_items reflects the freshly
-        # persisted SUCCESS state. The in-memory `review` object is stale —
-        # _persist_success used Review.objects.filter(...).update(...) which
-        # bypasses Python-level attribute mutation.
+        from apps.reviews.services.progress import (
+            accumulate_action_items,
+            read_progress_snapshot,
+        )
+
         fresh_review = Review.objects.get(pk=review_pk)
+        shop_id = fresh_review.shop_id
         pre_pks = set(
             ActionItem.objects.filter(source_review_id=review_pk).values_list("pk", flat=True)
         )
@@ -158,15 +159,22 @@ def _schedule_action_item_promotion(*, review: Review) -> None:
         )
         if not new_items:
             return
-        # One summary notification for all action items extracted from this
-        # review — mirrors the new_review summary pattern.
+
         has_brand = any(getattr(ai, "scope", None) == "BRAND" for ai in new_items)
-        shop = next((ai.shop for ai in new_items if ai.shop is not None), None)
         count = len(new_items)
+
+        # Initial sync: progress snapshot exists → accumulate; sync.complete dispatches ONE
+        # consolidated notification after all enrichments finish.
+        if read_progress_snapshot(shop_id=shop_id) is not None:
+            accumulate_action_items(shop_id=shop_id, count=count, has_brand=has_brand)
+            return
+
+        # Incremental sync: no snapshot, no sync.complete event — dispatch per review.
+        shop = next((ai.shop for ai in new_items if ai.shop is not None), None)
         if count == 1:
             title = f"New action item: {new_items[0].title}"
         else:
-            title = f"{count} new action items extracted from a review"
+            title = f"{count} new action items found"
         dispatch_notification(
             organisation_id=review_org_id,
             notification_type="new_action_item",
@@ -238,6 +246,58 @@ def _persist_failure(
         )
 
 
+def _dispatch_sync_complete_notifications(*, review: Review, total_fetched: int) -> None:
+    """Dispatch the two consolidated notifications that fire once at sync.complete.
+
+    Called by _emit_enrichment_progress when enriched >= fetched. Dispatches:
+      1. new_action_item — "N action items found" (all items from this sync batch)
+      2. new_review — "N reviews synced at <shop>" (summary of the full initial sync)
+
+    Both use function-local imports to avoid circular dependencies.
+    """
+    from apps.notifications.services.dispatch import dispatch_notification
+    from apps.reviews.services.progress import pop_action_item_summary
+    from apps.shops.models import Shop
+
+    shop_id = review.shop_id
+    org_id = review.organisation_id
+    shop = Shop.objects.filter(pk=shop_id).first()
+
+    # 1. Consolidated action items notification.
+    ai_count, has_brand = pop_action_item_summary(shop_id=shop_id)
+    if ai_count > 0:
+        ai_title = (
+            "1 new action item found" if ai_count == 1 else f"{ai_count} new action items found"
+        )
+        dispatch_notification(
+            organisation_id=org_id,
+            notification_type="new_action_item",
+            title=ai_title,
+            target_url="/admin/org/action-items/",
+            shop=shop,
+            action_item=None,
+            review=None,
+            org_admins_only=has_brand,
+        )
+
+    # 2. Sync summary — "X reviews synced" (initial sync only; incremental syncs
+    # dispatch their own new_review notification in sync._schedule_new_review_dispatch).
+    shop_name = shop.name if shop else "your shop"
+    review_title = (
+        f"1 review synced at {shop_name}"
+        if total_fetched == 1
+        else f"{total_fetched} reviews synced at {shop_name}"
+    )
+    dispatch_notification(
+        organisation_id=org_id,
+        notification_type="new_review",
+        title=review_title,
+        target_url=f"/admin/org/reviews/?shop={shop_id}",
+        shop=shop,
+        review=None,
+    )
+
+
 def _emit_enrichment_progress(*, review: Review) -> None:
     """Phase 12 progress emission after a successful enrichment.
 
@@ -290,6 +350,7 @@ def _emit_enrichment_progress(*, review: Review) -> None:
     )
 
     if fetched > 0 and enriched >= fetched:
+        _dispatch_sync_complete_notifications(review=review, total_fetched=fetched)
         emit_progress_event(
             shop_id=shop_id,
             payload={

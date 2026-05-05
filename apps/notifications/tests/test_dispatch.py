@@ -297,19 +297,20 @@ def test_promote_then_dispatch_via_enrichment_flow():
             enrichment_mod, "call_openai_enrichment", return_value=(fake_result, fake_usage)
         ),
         patch.object(enrichment_mod, "_emit_enrichment_progress"),
+        # No progress snapshot → incremental path → dispatch per review immediately.
+        patch("apps.reviews.services.progress.read_progress_snapshot", return_value=None),
     ):
         enrichment_mod.enrich_review(review_id=review.pk)
 
     # 2 ActionItems promoted
     items = ActionItem.objects.filter(source_review=review)
     assert items.count() == 2
-    # Summary dispatch: 1 notification row per review (org_admins_only=True because
-    # the batch contains a brand-scoped item — NOTF-05 enforced at summary level).
-    notifs = Notification.objects.filter(notification_type="new_action_item", review=review)
+    # Incremental path: 1 notification dispatched immediately (org_admins_only=True
+    # because the batch contains a brand-scoped item — NOTF-05 enforced).
+    notifs = Notification.objects.filter(notification_type="new_action_item")
     assert notifs.count() == 1
-    # Staff excluded from summary that contains brand items
+    # Staff excluded from notification that contains brand items
     assert not notifs.filter(recipient__role=User.Role.STAFF_ADMIN).exists()
-    # Summary notification has no single action_item FK
     assert notifs.first().action_item is None
 
 
