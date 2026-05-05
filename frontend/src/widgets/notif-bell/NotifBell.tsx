@@ -104,13 +104,15 @@ export function NotifBell() {
               <p className="text-[14px] text-muted">No new notifications</p>
             </div>
           ) : (
-            items.map((n) => (
-              <NotificationListRow
-                key={n.id}
-                n={n}
-                onClick={() => void markReadAndNavigate(n)}
-              />
-            ))
+            <div className="divide-y divide-line-soft">
+              {items.map((n) => (
+                <NotificationListRow
+                  key={n.id}
+                  n={n}
+                  onClick={() => void markReadAndNavigate(n)}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -126,29 +128,31 @@ interface RowProps {
 function NotificationListRow({ n, onClick }: RowProps) {
   const Icon = ICON[n.notification_type];
   const colour = ICON_COLOUR[n.notification_type];
-  const subline =
-    n.notification_type === "action_item_assigned" && !n.shop_name
-      ? relativeTime(n.created_at)
-      : `${n.shop_name ?? ""} · ${relativeTime(n.created_at)}`.trim();
-  const unreadIndicator = n.is_read
-    ? ""
-    : "border-l-2 border-yellow -ml-4 pl-[14px]";
+  const subline = n.shop_name
+    ? `${n.shop_name} · ${relativeTime(n.created_at)}`
+    : relativeTime(n.created_at);
 
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onClick}
-      className={`flex items-start gap-3 px-4 py-3 border-b border-line-soft last:border-b-0 cursor-pointer hover:bg-line-soft w-full text-left ${unreadIndicator}`}
+      className={`flex items-start gap-3 px-4 py-3 cursor-pointer w-full text-left transition-colors ${
+        n.is_read ? "hover:bg-line-soft" : "bg-amber-50/50 hover:bg-amber-50"
+      }`}
     >
-      <Icon
-        size={14}
-        className={`${colour} mt-1 shrink-0`}
-        aria-hidden="true"
-      />
+      <div className="relative shrink-0 mt-0.5">
+        <Icon size={15} className={colour} aria-hidden="true" />
+        {!n.is_read && (
+          <span
+            className="absolute -top-0.5 -right-0.5 w-[6px] h-[6px] rounded-full bg-yellow border border-white"
+            aria-hidden="true"
+          />
+        )}
+      </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-semibold text-ink truncate">{n.title}</p>
-        <p className="text-[12px] text-muted mt-1">{subline}</p>
+        <p className="text-[13.5px] font-semibold text-ink truncate leading-snug">{n.title}</p>
+        <p className="text-[12px] text-muted mt-0.5">{subline}</p>
       </div>
     </button>
   );

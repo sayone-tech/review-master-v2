@@ -28,6 +28,14 @@ export function useNotifications() {
     return () => clearInterval(id);
   }, [fetchBell]);
 
+  // Immediately re-fetch when sync completes so the bell updates without
+  // waiting for the next 60s poll tick.
+  useEffect(() => {
+    const handler = () => void fetchBell();
+    window.addEventListener("notifications:refresh", handler);
+    return () => window.removeEventListener("notifications:refresh", handler);
+  }, [fetchBell]);
+
   const markReadAndNavigate = async (n: NotificationRow) => {
     // Optimistic: decrement count and flip is_read locally.
     setCount((c) => Math.max(0, c - (n.is_read ? 0 : 1)));

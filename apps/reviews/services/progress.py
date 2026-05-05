@@ -29,6 +29,8 @@ from django_redis import get_redis_connection
 
 PROGRESS_KEY_TMPL = "sync:progress:{shop_id}"
 ENRICHED_COUNTER_KEY_TMPL = "sync:enriched:{shop_id}"
+ACTION_ITEMS_COUNTER_KEY_TMPL = "sync:action_items:{shop_id}"
+BRAND_FLAG_KEY_TMPL = "sync:brand_flag:{shop_id}"
 TTL_ACTIVE_SECONDS = 86400  # 24h while running
 TTL_SUCCESS_SECONDS = 3600  # 1h after success
 TTL_FAILED_SECONDS = 604800  # 7d after permanent failure
@@ -71,11 +73,13 @@ def read_progress_snapshot(*, shop_id: int) -> dict[str, Any] | None:
 
 
 def clear_progress_snapshot(*, shop_id: int) -> None:
-    """Delete the progress key and enriched counter (used when starting a fresh sync)."""
+    """Delete progress key and all per-sync counters (used when starting a fresh sync)."""
     conn = get_redis_connection("default")
     conn.delete(
         PROGRESS_KEY_TMPL.format(shop_id=shop_id),
         ENRICHED_COUNTER_KEY_TMPL.format(shop_id=shop_id),
+        ACTION_ITEMS_COUNTER_KEY_TMPL.format(shop_id=shop_id),
+        BRAND_FLAG_KEY_TMPL.format(shop_id=shop_id),
     )
 
 
@@ -93,6 +97,38 @@ def increment_enriched_counter(*, shop_id: int) -> int:
     pipe.expire(key, TTL_ACTIVE_SECONDS)
     new_value, _ = pipe.execute()
     return int(new_value)
+
+
+def accumulate_action_items(*, shop_id: int, count: int, has_brand: bool) -> None:
+    """Accumulate action item count for this sync batch.
+
+    Called per enriched review during initial sync. A single consolidated
+    notification is dispatched at sync.complete via pop_action_item_summary.
+    """
+    conn = get_redis_connection("default")
+    pipe = conn.pipeline()
+    pipe.incrby(ACTION_ITEMS_COUNTER_KEY_TMPL.format(shop_id=shop_id), count)
+    pipe.expire(ACTION_ITEMS_COUNTER_KEY_TMPL.format(shop_id=shop_id), TTL_ACTIVE_SECONDS)
+    if has_brand:
+        pipe.set(BRAND_FLAG_KEY_TMPL.format(shop_id=shop_id), "1", ex=TTL_ACTIVE_SECONDS)
+    pipe.execute()
+
+
+def pop_action_item_summary(*, shop_id: int) -> tuple[int, bool]:
+    """Atomically read and clear the action item accumulator.
+
+    Returns (total_count, has_brand_items). Called at sync.complete to
+    dispatch ONE consolidated notification after all enrichments finish.
+    """
+    conn = get_redis_connection("default")
+    action_key = ACTION_ITEMS_COUNTER_KEY_TMPL.format(shop_id=shop_id)
+    brand_key = BRAND_FLAG_KEY_TMPL.format(shop_id=shop_id)
+    pipe = conn.pipeline()
+    pipe.get(action_key)
+    pipe.get(brand_key)
+    pipe.delete(action_key, brand_key)
+    count_raw, brand_raw, _ = pipe.execute()
+    return int(count_raw or 0), bool(brand_raw)
 
 
 def increment_google_token_bucket(*, count: int = 1) -> int:
