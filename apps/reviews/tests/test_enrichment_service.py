@@ -492,3 +492,81 @@ def test_normal_path_still_calls_openai_for_reviews_with_comments() -> None:
     mock_call.assert_called_once()
     review.refresh_from_db()
     assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
+
+
+# ---------------------------------------------------------------------------
+# Regression: idempotent SUCCESS skip must still emit progress (bug fix)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_idempotent_success_skip_still_emits_progress() -> None:
+    """Regression: pre-enriched SUCCESS review must emit _emit_enrichment_progress.
+
+    Before the fix, enrich_review() returned early for SUCCESS reviews without
+    calling _emit_enrichment_progress. This meant the Redis enriched counter
+    never advanced for reviews that were already SUCCESS at sync time, causing
+    a permanent fetched > enriched mismatch and sync.complete never firing
+    (e.g. 101 of 109 enriched stuck forever with 8 pre-existing SUCCESS reviews).
+
+    After the fix: the SUCCESS early-return path calls _emit_enrichment_progress
+    AFTER the transaction exits, so the counter advances correctly.
+    """
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.SUCCESS)
+    emitted_calls: list[dict] = []
+
+    def _capture_emit(*, review: Review) -> None:
+        emitted_calls.append({"review_id": review.pk})
+
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_openai,
+        patch(
+            "apps.reviews.services.enrichment._emit_enrichment_progress",
+            side_effect=_capture_emit,
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+
+    # OpenAI must NOT be called — the review was already SUCCESS.
+    mock_openai.assert_not_called()
+    # Progress MUST be emitted so the Redis counter advances.
+    assert len(emitted_calls) == 1
+    assert emitted_calls[0]["review_id"] == review.pk
+    # DB state must remain SUCCESS and unchanged (no extra enrichment_version bump).
+    review.refresh_from_db()
+    assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
+
+
+@pytest.mark.django_db
+def test_in_progress_skip_does_not_emit_progress() -> None:
+    """IN_PROGRESS skip must NOT emit progress — another worker owns that review.
+
+    If IN_PROGRESS also emitted, two workers would double-count the same review
+    in the Redis enriched counter (once for the skip, once on actual completion).
+    """
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.IN_PROGRESS)
+    emitted_calls: list[dict] = []
+
+    def _capture_emit(*, review: Review) -> None:
+        emitted_calls.append({"review_id": review.pk})
+
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_openai,
+        patch(
+            "apps.reviews.services.enrichment._emit_enrichment_progress",
+            side_effect=_capture_emit,
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+
+    mock_openai.assert_not_called()
+    # No progress emission for IN_PROGRESS — the active worker will emit on completion.
+    assert len(emitted_calls) == 0

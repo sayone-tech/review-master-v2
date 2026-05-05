@@ -316,6 +316,10 @@ def enrich_review(*, review_id: int) -> None:
             return
 
         # Layer 2 + 3: short transaction transitioning PENDING -> IN_PROGRESS.
+        # _already_success is set when the review is already SUCCESS so we can
+        # emit the progress counter increment AFTER the transaction exits
+        # (RESEARCH.md anti-pattern: never emit WebSocket events inside a txn).
+        _already_success = False
         with transaction.atomic():
             try:
                 review = (
@@ -326,19 +330,33 @@ def enrich_review(*, review_id: int) -> None:
             except Review.DoesNotExist:
                 logger.warning("enrich_review_missing review_id=%s", review_id)
                 return
-            if review.enrichment_status in (
-                Review.EnrichmentStatus.SUCCESS,
-                Review.EnrichmentStatus.IN_PROGRESS,
-            ):
+            if review.enrichment_status == Review.EnrichmentStatus.IN_PROGRESS:
                 logger.info(
                     "enrich_review_idempotent_skip review_id=%s status=%s",
                     review_id,
                     review.enrichment_status,
                 )
                 return
-            review.enrichment_status = Review.EnrichmentStatus.IN_PROGRESS
-            review.enrichment_attempted_at = dj_timezone.now()
-            review.save(update_fields=["enrichment_status", "enrichment_attempted_at"])
+            if review.enrichment_status == Review.EnrichmentStatus.SUCCESS:
+                logger.info(
+                    "enrich_review_idempotent_skip review_id=%s status=%s",
+                    review_id,
+                    review.enrichment_status,
+                )
+                _already_success = True
+            else:
+                review.enrichment_status = Review.EnrichmentStatus.IN_PROGRESS
+                review.enrichment_attempted_at = dj_timezone.now()
+                review.save(update_fields=["enrichment_status", "enrichment_attempted_at"])
+
+        if _already_success:
+            # Emit progress AFTER the transaction closes so the WebSocket event
+            # is never sent for rolled-back state (RESEARCH.md anti-pattern).
+            # This advances the Redis enriched counter for reviews that were
+            # already SUCCESS before the sync started — without this, fetched >
+            # enriched permanently and sync.complete never fires.
+            _emit_enrichment_progress(review=review)
+            return
 
         # Phase 12-09 (gap closure): skip OpenAI for comment-less reviews.
         # Rating-only Google reviews have no text for the LLM to analyse, so
