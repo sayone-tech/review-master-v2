@@ -33,13 +33,27 @@ SECURE_CSP = {
 # Placed near the bottom so any middleware that reads csp_nonce can run before it.
 MIDDLEWARE = [*MIDDLEWARE, "django.middleware.csp.ContentSecurityPolicyMiddleware"]
 
-EMAIL_BACKEND = "django_ses.SESBackend"
-AWS_SES_REGION_NAME = env("AWS_SES_REGION_NAME", default="us-east-1")
-AWS_SES_REGION_ENDPOINT = f"email.{AWS_SES_REGION_NAME}.amazonaws.com"
-AWS_SES_FROM_EMAIL = env("AWS_SES_FROM_EMAIL")
-AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default=None)
-AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default=None)
-AWS_SES_CONFIGURATION_SET = env("AWS_SES_CONFIGURATION_SET", default=None)
+# EMAIL_PROVIDER selects the outbound email backend.
+# "resend" — Anymail + Resend API (default; no AWS approval needed)
+# "ses"    — Amazon SES (switch once SES production access is granted)
+_EMAIL_BACKEND_CHOICE = env("EMAIL_PROVIDER", default="resend")
+
+if _EMAIL_BACKEND_CHOICE == "ses":
+    EMAIL_BACKEND = "django_ses.SESBackend"
+    AWS_SES_REGION_NAME = env("AWS_SES_REGION_NAME", default="us-east-1")
+    AWS_SES_REGION_ENDPOINT = f"email.{AWS_SES_REGION_NAME}.amazonaws.com"
+    AWS_SES_FROM_EMAIL = env("AWS_SES_FROM_EMAIL")
+    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default=None)
+    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default=None)
+    AWS_SES_CONFIGURATION_SET = env("AWS_SES_CONFIGURATION_SET", default=None)
+elif _EMAIL_BACKEND_CHOICE == "resend":
+    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+    INSTALLED_APPS = [*list(INSTALLED_APPS), "anymail"]
+    ANYMAIL = {
+        "RESEND_API_KEY": env("RESEND_API_KEY", default=""),
+    }
+else:
+    raise ValueError(f"Unknown EMAIL_PROVIDER '{_EMAIL_BACKEND_CHOICE}'. Choose 'resend' or 'ses'.")
 
 # Fernet salt key — single key (str) or list (rotation: [new, old])
 SALT_KEY = env("FERNET_SALT_KEY")
