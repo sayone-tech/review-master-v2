@@ -80,8 +80,14 @@ AWS_DEFAULT_ACL = None  # inherit bucket policy (public-read set by Terraform)
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 
 STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+
+# base.py does not define STORAGES — define both backends explicitly here.
+# "default" keeps filesystem storage (no media uploads in scope).
+# "staticfiles" routes collectstatic to S3.
 STORAGES = {
-    "default": STORAGES["default"],  # keep default (local filesystem for media)
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
         "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
     },
