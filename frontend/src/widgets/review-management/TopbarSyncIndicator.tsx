@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Bell, CheckCircle, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import { fetchSyncingShops } from "./api";
 
 interface SyncingShop {
@@ -169,7 +169,13 @@ export function TopbarBell() {
         data-testid="topbar-bell"
         className="relative w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
       >
-        <Bell size={18} aria-hidden="true" />
+        {active.length > 0 ? (
+          <Loader2 size={18} className="animate-spin text-yellow" aria-hidden="true" />
+        ) : hasFailures ? (
+          <AlertTriangle size={18} className="text-red" aria-hidden="true" />
+        ) : (
+          <CheckCircle size={18} className="text-green-500" aria-hidden="true" />
+        )}
         {badge}
       </button>
 

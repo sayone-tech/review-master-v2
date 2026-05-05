@@ -126,10 +126,9 @@ interface RowProps {
 function NotificationListRow({ n, onClick }: RowProps) {
   const Icon = ICON[n.notification_type];
   const colour = ICON_COLOUR[n.notification_type];
-  const subline =
-    n.notification_type === "action_item_assigned" && !n.shop_name
-      ? relativeTime(n.created_at)
-      : `${n.shop_name ?? ""} · ${relativeTime(n.created_at)}`.trim();
+  const subline = n.shop_name
+    ? `${n.shop_name} · ${relativeTime(n.created_at)}`
+    : relativeTime(n.created_at);
   const unreadIndicator = n.is_read
     ? ""
     : "border-l-2 border-yellow -ml-4 pl-[14px]";
