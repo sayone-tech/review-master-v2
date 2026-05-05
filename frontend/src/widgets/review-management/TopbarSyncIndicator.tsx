@@ -163,7 +163,7 @@ export function TopbarBell() {
         data-testid="topbar-bell"
         className={`relative w-[34px] h-[34px] rounded-md flex items-center justify-center transition-colors ${
           isSyncing
-            ? "bg-amber-50 text-yellow hover:bg-amber-100"
+            ? "bg-yellow text-black hover:bg-yellow/90"
             : "text-muted hover:bg-line-soft"
         }`}
       >
