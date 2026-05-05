@@ -4,7 +4,7 @@
 
 **Goal:** Deploy review-master to a single EC2 box on AWS Mumbai (ap-south-1) with RDS PostgreSQL, Caddy TLS, SSM secrets, and a GitHub Actions → SSM Run Command deploy pipeline.
 
-**Architecture:** Terraform manages all stateful AWS infra (VPC, RDS, ECR, IAM, SSM, S3, Route 53, CloudWatch). EC2 is launched once via the console and bootstrapped by a user-data script. GitHub Actions builds an arm64 Docker image, pushes to ECR, then triggers a deploy on EC2 via SSM Run Command — no SSH keys in CI. Use `deploy-on-aws` MCP tools (`awsiac`, `awsknowledge`, `awspricing`) when generating or validating IaC.
+**Architecture:** Terraform manages all stateful AWS infra (VPC, RDS, ECR, IAM, SSM, S3, CloudWatch). Route 53 hosted zone already exists (manually created with DNS migrated from GoDaddy) — Terraform uses a `data` source to reference it and only manages A records. EC2 is launched once via the console and bootstrapped by a user-data script. GitHub Actions builds an arm64 Docker image, pushes to ECR, then triggers a deploy on EC2 via SSM Run Command — no SSH keys in CI. Use `deploy-on-aws` MCP tools (`awsiac`, `awsknowledge`, `awspricing`) when generating or validating IaC.
 
 **Tech Stack:** Terraform ~> 5.0 AWS provider, Docker Compose (prod), Caddy 2, Amazon Linux 2023, GitHub Actions OIDC, django-storages[s3], SSM Parameter Store (SecureString).
 
@@ -756,11 +756,6 @@ output "ecr_url" {
   value       = aws_ecr_repository.app.repository_url
 }
 
-output "route53_name_servers" {
-  description = "Update GoDaddy nameservers to these 4 values"
-  value       = aws_route53_zone.main.name_servers
-}
-
 output "static_bucket_name" {
   description = "S3 bucket name — used in SSM AWS_STORAGE_BUCKET_NAME"
   value       = aws_s3_bucket.static.id
@@ -1368,6 +1363,8 @@ git commit -m "feat(deploy): add Terraform IAM roles and SSM parameters"
 
 - [ ] **Step 1: Write route53.tf**
 
+Route 53 hosted zone already exists (DNS migrated from GoDaddy). Terraform uses a `data` source — it will never create or destroy the hosted zone, only manage the A records.
+
 Create `deployment/terraform/route53.tf`:
 
 ```hcl
@@ -1376,12 +1373,14 @@ resource "aws_eip" "ec2" {
   tags   = { Name = "review-master-ec2-eip" }
 }
 
-resource "aws_route53_zone" "main" {
-  name = var.domain_name
+# Reference the existing hosted zone — do NOT recreate it
+data "aws_route53_zone" "main" {
+  name         = var.domain_name
+  private_zone = false
 }
 
 resource "aws_route53_record" "apex" {
-  zone_id = aws_route53_zone.main.zone_id
+  zone_id = data.aws_route53_zone.main.zone_id
   name    = var.domain_name
   type    = "A"
   ttl     = 300
@@ -1389,7 +1388,7 @@ resource "aws_route53_record" "apex" {
 }
 
 resource "aws_route53_record" "www" {
-  zone_id = aws_route53_zone.main.zone_id
+  zone_id = data.aws_route53_zone.main.zone_id
   name    = "www.${var.domain_name}"
   type    = "A"
   ttl     = 300
@@ -1679,17 +1678,14 @@ Note the outputs:
 ecr_url                 = "<account>.dkr.ecr.ap-south-1.amazonaws.com/review-master/app"
 elastic_ip              = "<ip>"
 ec2_eip_allocation_id   = "eipalloc-xxxx"
-route53_name_servers    = ["ns-xxx.awsdns-xx.com", ...]
 rds_endpoint            = "review-master-prod.xxxx.ap-south-1.rds.amazonaws.com"
 github_oidc_role_arn    = "arn:aws:iam::<account>:role/review-master-github-actions"
 static_bucket_name      = "review-master-static-prod"
 ```
 
-- [ ] **Step 3: Update GoDaddy nameservers**
+**Note:** No nameserver step needed — Route 53 hosted zone already exists with DNS migrated. Terraform will only add/update the A records for apex and www.
 
-Go to GoDaddy → DNS → Nameservers → Change to Custom. Enter the 4 Route 53 NS records from the Terraform output. DNS propagation takes up to 48 hours (usually <1 hour).
-
-- [ ] **Step 4: Seed SSM params and update real values**
+- [ ] **Step 3: Seed SSM params and update real values**
 
 ```bash
 # Seed placeholders (if not already done by terraform apply)
@@ -1823,6 +1819,7 @@ aws rds describe-db-snapshots \
 
 ## Self-Review Checklist
 
+- [x] Route 53 hosted zone pre-exists — `data` source used, no create/destroy risk
 - [x] All SSM params from `.env.example` are covered in ssm.tf and seed-params.sh
 - [x] Caddy auto-renews Let's Encrypt — no cron needed
 - [x] Flower bound to 127.0.0.1 only — never exposed publicly
