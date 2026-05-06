@@ -1,8 +1,8 @@
 # Deployment
 
-AWS deployment plan for the review-master platform. **Status: planning. Implementation deferred until after GSD Phase 13.**
+AWS deployment for the review-master platform. Single EC2 (`t4g.medium`, Graviton) + RDS + Redis + ECR, deployed in `ap-south-1`.
 
-This document captures the decisions made so we can resume without re-deciding. Detailed implementation files (Caddyfile, docker-compose.prod.yml, GitHub Actions workflow, IaC, etc.) will land in subfolders below as they're written.
+**SRE runbooks → [`docs/sre/`](../docs/sre/README.md)**
 
 ---
 
