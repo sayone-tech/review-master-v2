@@ -2,6 +2,11 @@
     email {$CADDY_ACME_EMAIL}
 }
 
+# Redirect bare domain and www to the app subdomain
+reviewbee.in, www.reviewbee.in {
+    redir https://app.reviewbee.in{uri} permanent
+}
+
 {$CADDY_DOMAIN} {
     encode gzip zstd
 
