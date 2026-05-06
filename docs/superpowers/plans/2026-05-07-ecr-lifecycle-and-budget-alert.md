@@ -103,7 +103,7 @@ git commit -m "feat(terraform): improve ECR lifecycle — expire untagged in 1d,
 
 ### Task 2: Add AWS Budget Alert
 
-Create a monthly cost budget for the account. The current estimated spend is ~$55–65/month (EC2 t4g.medium ~$28, RDS db.t4g.micro ~$15, data transfer + S3 + misc ~$15). Setting the budget limit at $100 gives comfortable headroom while catching unexpected cost spikes early.
+Create a monthly cost budget for the account. Actual spend is ~$50/month (EC2 t4g.medium ~$28, RDS db.t4g.micro ~$15, S3 + misc ~$7). The budget limit is set at $70 — $20 above actual spend — so alerts only fire when costs spike unexpectedly, not every month as a matter of course.
 
 Two alert thresholds:
 - **80% forecasted** — early warning while there's still time to act
@@ -120,7 +120,7 @@ Both alerts email `alert_email` (already defined in `variables.tf` as `renjith@s
 resource "aws_budgets_budget" "monthly" {
   name         = "review-master-monthly"
   budget_type  = "COST"
-  limit_amount = "100"
+  limit_amount = "70"
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 

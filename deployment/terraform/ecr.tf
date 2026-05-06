@@ -29,7 +29,7 @@ resource "aws_ecr_lifecycle_policy" "app" {
       },
       {
         rulePriority = 2
-        description  = "Keep last 10 images (tagged — untagged already handled by rule 1)"
+        description  = "Keep last 10 images (any tagStatus; untagged already purged by rule 1)"
         selection = {
           tagStatus   = "any"
           countType   = "imageCountMoreThan"
