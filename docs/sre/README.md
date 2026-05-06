@@ -26,6 +26,22 @@ All services run as Docker containers managed by Docker Compose.
 | Monitoring & alerts | [monitoring.md](monitoring.md) |
 | Common incidents | [incidents.md](incidents.md) |
 
+## Standard EC2 Session Setup
+
+All `docker compose` commands must run as **root** with `ECR_IMAGE` exported — Docker Compose needs it to parse the compose file. Run this at the start of every EC2 session before using any command in these runbooks:
+
+```bash
+# 1. Connect
+aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
+
+# 2. Switch to root and export ECR_IMAGE
+sudo -i
+ECR_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+export ECR_IMAGE="${ECR_ACCOUNT}.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
+```
+
+All commands in the runbooks below assume you have done this setup.
+
 ## Architecture at a Glance
 
 ```

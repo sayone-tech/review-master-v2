@@ -42,19 +42,19 @@ aws logs filter-log-events \
 
 ## Docker Logs (on EC2 via Session Manager)
 
-Connect first: `aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1`
+Connect first and run the [standard session setup](README.md), then:
 
 ```bash
 # All containers, last 50 lines
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=50
+docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=50
 
 # Specific service, follow live
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs -f web
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs -f worker
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs -f caddy
+docker compose -f /opt/review-master/docker-compose.prod.yml logs -f web
+docker compose -f /opt/review-master/docker-compose.prod.yml logs -f worker
+docker compose -f /opt/review-master/docker-compose.prod.yml logs -f caddy
 
 # Last 100 lines from web with timestamps
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=100 --timestamps web
+docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=100 --timestamps web
 ```
 
 ## Log Format
