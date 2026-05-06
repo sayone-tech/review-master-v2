@@ -26,14 +26,30 @@ aws secretsmanager get-secret-value \
 
 ### Apply the change to the running app
 
-Connect to the EC2 and reload:
+The simplest way is to trigger a full redeploy — `deploy.sh` reloads secrets and restarts everything:
 
 ```bash
 aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 
 # On the EC2:
-sudo /opt/review-master/scripts/load-secrets.sh      # re-writes /etc/review-master.env
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml up -d   # restarts containers with new env
+sudo /opt/review-master/scripts/deploy.sh
+```
+
+To reload secrets and restart without pulling a new image (faster):
+
+```bash
+aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
+
+# Switch to root so ECR_IMAGE is available for Docker Compose
+sudo -i
+
+# Set the image variable (required by docker-compose.prod.yml)
+ECR_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+export ECR_IMAGE="${ECR_ACCOUNT}.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
+
+# Reload secrets then restart
+/opt/review-master/scripts/load-secrets.sh
+docker compose -f /opt/review-master/docker-compose.prod.yml restart web worker beat
 ```
 
 ### Which services need a restart?
@@ -48,13 +64,7 @@ sudo docker compose -f /opt/review-master/docker-compose.prod.yml up -d   # rest
 | `REDIS_URL` | Yes — all app containers |
 | `SENTRY_DSN` | Yes — all app containers |
 | `OPENAI_MODEL` | Yes — `worker` |
-
-To restart a single service instead of everything:
-
-```bash
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml restart web
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml restart worker
-```
+| `DEFAULT_FROM_EMAIL` | Yes — `web`, `worker` |
 
 ## Secret Variables Reference
 
