@@ -147,13 +147,16 @@ data "aws_iam_policy_document" "github_permissions" {
     resources = [aws_ecr_repository.app.arn]
   }
 
-  # SSM Run Command — send commands to EC2 tagged Project=review-master
+  # SSM Run Command — allow AWS-RunShellScript document (no tag condition on documents)
   statement {
-    actions = ["ssm:SendCommand"]
-    resources = [
-      "arn:aws:ec2:${var.aws_region}:*:instance/*",
-      "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript",
-    ]
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"]
+  }
+
+  # SSM Run Command — restrict EC2 targets to instances tagged Project=review-master
+  statement {
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ec2:${var.aws_region}:*:instance/*"]
     condition {
       test     = "StringEquals"
       variable = "aws:ResourceTag/Project"
