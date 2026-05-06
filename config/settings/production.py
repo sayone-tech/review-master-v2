@@ -57,3 +57,27 @@ else:
 
 # Fernet salt key — single key (str) or list (rotation: [new, old])
 SALT_KEY = env("FERNET_SALT_KEY")
+
+# S3 static files — served from S3 in production (EC2 instance profile provides credentials)
+INSTALLED_APPS = [*list(INSTALLED_APPS), "storages"]
+
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="ap-south-1")
+AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+AWS_LOCATION = "static"
+AWS_DEFAULT_ACL = None  # inherit bucket policy (public-read set by Terraform)
+AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+
+STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+
+# base.py does not define STORAGES — define both backends explicitly here.
+# "default" keeps filesystem storage (no media uploads in scope).
+# "staticfiles" routes collectstatic to S3.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
+    },
+}
