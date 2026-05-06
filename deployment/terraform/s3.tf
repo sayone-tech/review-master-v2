@@ -41,7 +41,7 @@ resource "aws_s3_bucket_cors_configuration" "static" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET"]
-    allowed_origins = ["https://${var.domain_name}", "https://www.${var.domain_name}"]
+    allowed_origins = ["https://app.${var.domain_name}"]
     max_age_seconds = 3600
   }
 }

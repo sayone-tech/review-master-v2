@@ -10,6 +10,10 @@ LOG_FILE="/var/log/review-master-init.log"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 echo "[user-data] Starting at $(date)"
 
+# ---------- SSM Agent ----------
+dnf install -y amazon-ssm-agent
+systemctl enable --now amazon-ssm-agent
+
 # ---------- Docker ----------
 dnf install -y docker
 systemctl enable --now docker

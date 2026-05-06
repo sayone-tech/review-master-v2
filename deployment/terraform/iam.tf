@@ -39,22 +39,10 @@ data "aws_iam_policy_document" "ec2_permissions" {
     resources = [aws_ecr_repository.app.arn]
   }
 
-  # SSM — read secrets under /review-master/prod/
+  # Secrets Manager — read all app env vars
   statement {
-    actions = [
-      "ssm:GetParametersByPath",
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-    ]
-    resources = [
-      "arn:aws:ssm:${var.aws_region}:*:parameter/review-master/prod*",
-    ]
-  }
-
-  # KMS — decrypt SecureString params (default SSM KMS key)
-  statement {
-    actions   = ["kms:Decrypt"]
-    resources = ["arn:aws:kms:${var.aws_region}:*:key/alias/aws/ssm"]
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["arn:aws:secretsmanager:${var.aws_region}:*:secret:review-master/prod*"]
   }
 
   # CloudWatch Logs — write container logs via awslogs Docker driver
@@ -66,18 +54,6 @@ data "aws_iam_policy_document" "ec2_permissions" {
       "logs:DescribeLogStreams",
     ]
     resources = ["arn:aws:logs:${var.aws_region}:*:log-group:/review-master/*:*"]
-  }
-
-  # SSM Agent — required for SSM Run Command to reach the instance
-  statement {
-    actions = [
-      "ssmmessages:CreateControlChannel",
-      "ssmmessages:CreateDataChannel",
-      "ssmmessages:OpenControlChannel",
-      "ssmmessages:OpenDataChannel",
-      "ssm:UpdateInstanceInformation",
-    ]
-    resources = ["*"]
   }
 
   # S3 — collectstatic writes to the static bucket
@@ -94,6 +70,11 @@ resource "aws_iam_role_policy" "ec2" {
   name   = "review-master-ec2-policy"
   role   = aws_iam_role.ec2.id
   policy = data.aws_iam_policy_document.ec2_permissions.json
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_ssm" {
+  role       = aws_iam_role.ec2.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "ec2" {
@@ -147,13 +128,16 @@ data "aws_iam_policy_document" "github_permissions" {
     resources = [aws_ecr_repository.app.arn]
   }
 
-  # SSM Run Command — send commands to EC2 tagged Project=review-master
+  # SSM Run Command — allow AWS-RunShellScript document (no tag condition on documents)
   statement {
-    actions = ["ssm:SendCommand"]
-    resources = [
-      "arn:aws:ec2:${var.aws_region}:*:instance/*",
-      "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript",
-    ]
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"]
+  }
+
+  # SSM Run Command — restrict EC2 targets to instances tagged Project=review-master
+  statement {
+    actions   = ["ssm:SendCommand"]
+    resources = ["arn:aws:ec2:${var.aws_region}:*:instance/*"]
     condition {
       test     = "StringEquals"
       variable = "aws:ResourceTag/Project"
@@ -165,6 +149,12 @@ data "aws_iam_policy_document" "github_permissions" {
   statement {
     actions   = ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"]
     resources = ["*"]
+  }
+
+  # Secrets Manager — read domain for smoke test
+  statement {
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["arn:aws:secretsmanager:${var.aws_region}:*:secret:review-master/prod*"]
   }
 }
 

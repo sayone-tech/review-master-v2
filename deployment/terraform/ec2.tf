@@ -1,8 +1,3 @@
-resource "aws_key_pair" "operator" {
-  key_name   = "review-master-operator"
-  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIW/0mYPrfhjhpDQNJUt2NqWu4hi3MXUfSpf7zcy7anj renjithraj2005@gmail.com"
-}
-
 # Look up the latest Amazon Linux 2023 ARM64 AMI automatically
 data "aws_ami" "al2023_arm64" {
   most_recent = true
@@ -30,7 +25,6 @@ resource "aws_instance" "app" {
   subnet_id              = aws_subnet.public[0].id
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
-  key_name               = aws_key_pair.operator.key_name
 
   root_block_device {
     volume_type           = "gp3"

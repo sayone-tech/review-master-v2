@@ -1691,7 +1691,7 @@ static_bucket_name      = "review-master-static-prod"
 
 **Note:** No nameserver step needed — Route 53 hosted zone already exists with DNS migrated. Terraform will only add/update the A records for apex and www.
 
-- [ ] **Step 3: Seed SSM params and update real values**
+- [x] **Step 3: Seed SSM params and update real values**
 
 ```bash
 # Seed placeholders (if not already done by terraform apply)
@@ -1724,7 +1724,7 @@ aws ssm get-parameter \
 # DEFAULT_REPLY_TO, DJANGO_ALLOWED_HOSTS, SITE_URL, GOOGLE_OAUTH_REDIRECT_URI
 ```
 
-- [ ] **Step 5: Launch EC2 instance**
+- [x] **Step 5: Launch EC2 instance**
 
 Via AWS console (EC2 → Launch Instance):
 - Name: `review-master-prod`
@@ -1738,7 +1738,7 @@ Via AWS console (EC2 → Launch Instance):
 - User data: paste contents of `deployment/scripts/user-data.sh`
 - Tag: `Project = review-master` (required for SSM Run Command targeting)
 
-- [ ] **Step 6: Associate Elastic IP to EC2**
+- [x] **Step 6: Associate Elastic IP to EC2**
 
 ```bash
 aws ec2 associate-address \
@@ -1747,7 +1747,7 @@ aws ec2 associate-address \
   --allocation-id <ec2_eip_allocation_id from terraform output>
 ```
 
-- [ ] **Step 7: Upload scripts to EC2**
+- [x] **Step 7: Upload scripts to EC2**
 
 ```bash
 # Copy the app files to EC2 (one-time setup)
@@ -1763,7 +1763,7 @@ sudo cp /opt/review-master/compose/docker-compose.prod.yml /opt/review-master/
 sudo chmod +x /opt/review-master/scripts/*.sh
 ```
 
-- [ ] **Step 8: Add GitHub secret and trigger first deploy**
+- [x] **Step 8: Add GitHub secret and trigger first deploy**
 
 ```bash
 # Get role ARN
@@ -1781,7 +1781,7 @@ Watch the GitHub Actions run. First deploy will:
 2. Push to ECR
 3. SSM Run Command: load secrets → migrate → collectstatic → compose up
 
-- [ ] **Step 9: Enable CloudWatch EC2 alarms**
+- [x] **Step 9: Enable CloudWatch EC2 alarms**
 
 After EC2 is running, get the instance ID and re-apply Terraform:
 
@@ -1796,7 +1796,7 @@ echo "ec2_instance_id = \"$INSTANCE_ID\"" >> deployment/terraform/terraform.tfva
 cd deployment/terraform && terraform apply -auto-approve
 ```
 
-- [ ] **Step 10: Verify smoke tests**
+- [x] **Step 10: Verify smoke tests**
 
 ```bash
 # Healthcheck
@@ -1811,7 +1811,7 @@ curl -vsSL https://yourdomain.com/healthz/ 2>&1 | grep "SSL certificate verify o
 
 Expected: all return 200, cert verified.
 
-- [ ] **Step 11: Confirm RDS snapshot exists**
+- [x] **Step 11: Confirm RDS snapshot exists**
 
 ```bash
 aws rds describe-db-snapshots \
