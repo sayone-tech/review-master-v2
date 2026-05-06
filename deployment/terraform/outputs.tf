@@ -18,8 +18,13 @@ output "github_oidc_role_arn" {
   value       = aws_iam_role.github_actions.arn
 }
 
+output "ec2_instance_id" {
+  description = "EC2 instance ID — paste into terraform.tfvars ec2_instance_id to enable CloudWatch alarms"
+  value       = aws_instance.app.id
+}
+
 output "ec2_eip_allocation_id" {
-  description = "Elastic IP allocation ID — associate with EC2 after launch"
+  description = "Elastic IP allocation ID - associated automatically by Terraform"
   value       = aws_eip.ec2.allocation_id
 }
 

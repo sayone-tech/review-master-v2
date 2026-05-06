@@ -47,7 +47,7 @@ services:
       options:
         awslogs-region: ap-south-1
         awslogs-group: /review-master/prod
-        awslogs-stream-prefix: caddy
+        awslogs-stream: caddy
         awslogs-create-group: "true"
 
   web:
@@ -66,7 +66,7 @@ services:
       options:
         awslogs-region: ap-south-1
         awslogs-group: /review-master/prod
-        awslogs-stream-prefix: web
+        awslogs-stream: web
         awslogs-create-group: "true"
 
   worker:
@@ -92,7 +92,7 @@ services:
       options:
         awslogs-region: ap-south-1
         awslogs-group: /review-master/prod
-        awslogs-stream-prefix: worker
+        awslogs-stream: worker
         awslogs-create-group: "true"
 
   beat:
@@ -117,7 +117,7 @@ services:
       options:
         awslogs-region: ap-south-1
         awslogs-group: /review-master/prod
-        awslogs-stream-prefix: beat
+        awslogs-stream: beat
         awslogs-create-group: "true"
 
   flower:
@@ -136,7 +136,7 @@ services:
       options:
         awslogs-region: ap-south-1
         awslogs-group: /review-master/prod
-        awslogs-stream-prefix: flower
+        awslogs-stream: flower
         awslogs-create-group: "true"
 
   redis:
@@ -159,7 +159,7 @@ services:
       options:
         awslogs-region: ap-south-1
         awslogs-group: /review-master/prod
-        awslogs-stream-prefix: redis
+        awslogs-stream: redis
         awslogs-create-group: "true"
 
 volumes:

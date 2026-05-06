@@ -469,7 +469,10 @@ APP_DIR="/opt/review-master"
 COMPOSE_FILE="${APP_DIR}/docker-compose.prod.yml"
 ECR_ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
 ECR_REGISTRY="${ECR_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-ECR_IMAGE="${ECR_REGISTRY}/review-master/app:latest"
+# Export so docker compose variable interpolation (${ECR_IMAGE} in image: field)
+# resolves correctly. env_file only injects vars INTO containers — it never
+# reaches compose's own substitution step.
+export ECR_IMAGE="${ECR_REGISTRY}/review-master/app:latest"
 
 echo "[deploy] Starting at $(date)"
 
@@ -480,21 +483,18 @@ aws ecr get-login-password --region "${AWS_REGION}" \
 # 2. Refresh secrets from SSM -> /etc/review-master.env
 "${APP_DIR}/scripts/load-secrets.sh"
 
-# 3. Inject ECR_IMAGE into env file (needed by compose)
-echo "ECR_IMAGE=${ECR_IMAGE}" >> /etc/review-master.env
-
-# 4. Pull latest image
+# 3. Pull latest image
 docker compose -f "${COMPOSE_FILE}" pull
 
-# 5. Run migrations
+# 4. Run migrations
 docker compose -f "${COMPOSE_FILE}" run --rm web \
   python manage.py migrate --noinput
 
-# 6. Collect static files to S3
+# 5. Collect static files to S3
 docker compose -f "${COMPOSE_FILE}" run --rm web \
   python manage.py collectstatic --noinput --clear
 
-# 7. Restart all services
+# 6. Restart all services
 docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
 
 # 8. Wait for web healthcheck
