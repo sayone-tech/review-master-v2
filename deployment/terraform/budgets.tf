@@ -1,7 +1,7 @@
 resource "aws_budgets_budget" "monthly" {
   name         = "review-master-monthly"
   budget_type  = "COST"
-  limit_amount = "100"
+  limit_amount = "50"
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
