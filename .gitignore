@@ -21,3 +21,9 @@ build/
 media/
 *.log
 .playwright-mcp/*
+
+# Terraform
+deployment/terraform/terraform.tfvars
+deployment/terraform/.terraform/
+deployment/terraform/terraform.tfstate*
+deployment/terraform/.terraform.lock.hcl

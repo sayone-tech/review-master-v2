@@ -1,0 +1,120 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+
+# Prevent concurrent deploys — queue rather than cancel
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build → Push ECR → Deploy EC2
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    permissions:
+      id-token: write  # required for OIDC
+      contents: read
+
+    env:
+      AWS_REGION: ap-south-1
+      ECR_REPOSITORY: review-master/app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC — no long-lived keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up QEMU (for arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image (linux/arm64 — Graviton t4g.medium)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy via SSM Run Command
+        id: ssm-deploy
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=tag:Project,Values=review-master" \
+            --parameters 'commands=["/opt/review-master/scripts/deploy.sh"]' \
+            --timeout-seconds 600 \
+            --query "Command.CommandId" \
+            --output text)
+          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+          echo "SSM Command ID: $COMMAND_ID"
+
+      - name: Wait for deploy to complete
+        env:
+          COMMAND_ID: ${{ steps.ssm-deploy.outputs.command_id }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          echo "Polling command $COMMAND_ID..."
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm list-command-invocations \
+              --region "$AWS_REGION" \
+              --command-id "$COMMAND_ID" \
+              --details \
+              --query "CommandInvocations[0].Status" \
+              --output text 2>/dev/null || echo "Pending")
+            echo "[$i/60] Status: $STATUS"
+            if [[ "$STATUS" == "Success" ]]; then
+              echo "Deploy succeeded."
+              exit 0
+            elif [[ "$STATUS" == "Failed" || "$STATUS" == "TimedOut" || "$STATUS" == "Cancelled" ]]; then
+              echo "Deploy failed with status: $STATUS"
+              aws ssm list-command-invocations \
+                --region "$AWS_REGION" \
+                --command-id "$COMMAND_ID" \
+                --details \
+                --query "CommandInvocations[0].CommandPlugins[0].Output" \
+                --output text
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for deploy (10 min)."
+          exit 1
+
+      - name: Smoke test
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          DOMAIN=$(aws ssm get-parameter \
+            --name "/review-master/prod/CADDY_DOMAIN" \
+            --with-decryption \
+            --query "Parameter.Value" \
+            --output text)
+          echo "Smoke testing https://$DOMAIN/healthz/"
+          curl -fsSL "https://$DOMAIN/healthz/" | grep -q "ok" && echo "Healthcheck passed."

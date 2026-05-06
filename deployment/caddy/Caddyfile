@@ -1,11 +1,8 @@
-# Caddy reverse proxy for the production EC2 box.
-# Auto-fetches and renews Let's Encrypt certs.
-#
-# Replace {$DOMAIN} via env when running, e.g.:
-#   docker compose run -e DOMAIN=app.example.com caddy ...
-# Or hardcode the domain below.
+{
+    email {$CADDY_ACME_EMAIL}
+}
 
-{$DOMAIN} {
+{$CADDY_DOMAIN} {
     encode gzip zstd
 
     # WebSockets (Channels) and HTTP both go to web:8000 (Daphne).
