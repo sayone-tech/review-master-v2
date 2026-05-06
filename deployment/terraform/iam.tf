@@ -169,6 +169,12 @@ data "aws_iam_policy_document" "github_permissions" {
     actions   = ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"]
     resources = ["*"]
   }
+
+  # SSM — read parameters for smoke test (CADDY_DOMAIN)
+  statement {
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:aws:ssm:${var.aws_region}:*:parameter/review-master/prod/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_actions" {
