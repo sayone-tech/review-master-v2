@@ -1,6 +1,6 @@
 resource "aws_security_group" "ec2" {
   name        = "review-master-ec2"
-  description = "Review Master EC2 - HTTP/HTTPS public only"
+  description = "Review Master EC2 - HTTP/HTTPS public, SSH operator-only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
