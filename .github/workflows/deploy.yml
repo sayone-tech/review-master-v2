@@ -1,8 +1,10 @@
 name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
     branches: [main]
+    types: [completed]
 
 # Prevent concurrent deploys — queue rather than cancel
 concurrency:
@@ -13,6 +15,7 @@ jobs:
   deploy:
     name: Build → Push ECR → Deploy EC2
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     permissions:
       id-token: write  # required for OIDC
