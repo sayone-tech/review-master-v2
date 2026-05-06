@@ -49,19 +49,19 @@ aws ssm start-session \
 
 Then open `http://localhost:5555`.
 
-Or check from the CLI on the EC2:
+Or check from the CLI on the EC2 (run [standard session setup](README.md) first):
 
 ```bash
 # List active tasks
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   exec worker celery -A config inspect active
 
 # List scheduled tasks
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   exec worker celery -A config inspect scheduled
 
 # Check worker is alive
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   exec worker celery -A config inspect ping
 ```
 

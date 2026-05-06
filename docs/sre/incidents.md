@@ -1,5 +1,7 @@
 # Common Incidents
 
+> All `docker compose` commands require the [standard session setup](README.md) — connect via Session Manager, then `sudo -i` and export `ECR_IMAGE`.
+
 ## App returning 502 / site is down
 
 **Symptoms:** `https://app.reviewbee.in` returns 502 or times out.
@@ -7,27 +9,25 @@
 **Diagnosis:**
 
 ```bash
-# 1. Check all containers
-aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml ps
+# After standard session setup:
+docker compose -f /opt/review-master/docker-compose.prod.yml ps
 
-# 2. Check web logs
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=50 web
+docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=50 web
 
-# 3. Check Caddy logs (Caddy forwards to web — if web is down, Caddy 502s)
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=50 caddy
+# Caddy forwards to web — if web is down, Caddy 502s
+docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=50 caddy
 ```
 
 **Fix:** If `web` is stopped/unhealthy, restart it:
 
 ```bash
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml restart web
+docker compose -f /opt/review-master/docker-compose.prod.yml restart web
 ```
 
 If the image is corrupted or the container won't start, redeploy:
 
 ```bash
-sudo /opt/review-master/scripts/deploy.sh
+/opt/review-master/scripts/deploy.sh
 ```
 
 ---
@@ -39,23 +39,19 @@ sudo /opt/review-master/scripts/deploy.sh
 **Diagnosis:**
 
 ```bash
-aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
-
-# Check worker is alive
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+# After standard session setup:
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   exec worker celery -A config inspect ping
 
-# Check beat is running
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml ps beat
+docker compose -f /opt/review-master/docker-compose.prod.yml ps beat
 
-# Check worker logs for errors
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=100 worker
+docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=100 worker
 ```
 
 **Fix:**
 
 ```bash
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml restart worker beat
+docker compose -f /opt/review-master/docker-compose.prod.yml restart worker beat
 ```
 
 ---
@@ -67,11 +63,10 @@ sudo docker compose -f /opt/review-master/docker-compose.prod.yml restart worker
 **Fix:**
 
 1. Update the value in **AWS Console → Secrets Manager → `review-master/prod`**
-2. Reload on the EC2:
+2. Reload on the EC2 (after standard session setup):
    ```bash
-   aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
-   sudo /opt/review-master/scripts/load-secrets.sh
-   sudo docker compose -f /opt/review-master/docker-compose.prod.yml up -d
+   /opt/review-master/scripts/load-secrets.sh
+   /opt/review-master/scripts/deploy.sh
    ```
 
 ---
@@ -83,16 +78,15 @@ sudo docker compose -f /opt/review-master/docker-compose.prod.yml restart worker
 **Diagnosis:**
 
 ```bash
-# Check RDS status
+# Check RDS status (from local machine)
 aws rds describe-db-instances \
   --db-instance-identifier review-master-prod \
   --region ap-south-1 \
   --query "DBInstances[0].{Status:DBInstanceStatus,Class:DBInstanceClass}" \
   --output table
 
-# Test connectivity from EC2
-aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+# Test connectivity from EC2 (after standard session setup):
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   run --rm web python manage.py dbshell -- -c "SELECT 1;"
 ```
 
@@ -107,16 +101,13 @@ sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
 
 **Symptoms:** Browser shows certificate expired, Caddy logs show ACME errors.
 
-Caddy handles TLS automatically via Let's Encrypt. Certificates auto-renew before expiry. If renewal fails:
+Caddy handles TLS automatically via Let's Encrypt. Certificates auto-renew before expiry. If renewal fails (after standard session setup):
 
 ```bash
-aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
-
-# Check Caddy logs
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=100 caddy
+docker compose -f /opt/review-master/docker-compose.prod.yml logs --tail=100 caddy
 
 # Force Caddy to reload its config
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
+docker compose -f /opt/review-master/docker-compose.prod.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
 **Common causes:**
@@ -129,7 +120,7 @@ sudo docker compose -f /opt/review-master/docker-compose.prod.yml exec caddy cad
 
 **Symptoms:** `aws ssm start-session` hangs or errors.
 
-**Diagnosis:** Check if the EC2 is running:
+**Diagnosis:** Check if the EC2 is running (from local machine):
 
 ```bash
 aws ec2 describe-instances \
@@ -151,7 +142,7 @@ aws ec2 describe-instances \
 **Check:**
 
 ```bash
-# CloudWatch metrics
+# From local machine
 aws cloudwatch get-metric-statistics \
   --namespace AWS/EC2 \
   --metric-name CPUUtilization \
@@ -162,9 +153,8 @@ aws cloudwatch get-metric-statistics \
   --statistics Average \
   --region ap-south-1
 
-# Check what's using resources on the EC2
-aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
-sudo docker stats --no-stream
+# From EC2 (after standard session setup):
+docker stats --no-stream
 ```
 
 **Fix:** If worker is spiking due to many tasks, reduce Celery concurrency in `docker-compose.prod.yml` (`--concurrency=1`) and redeploy.

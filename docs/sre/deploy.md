@@ -42,6 +42,7 @@ sudo /opt/review-master/scripts/deploy.sh
 Every deploy pushes a `:<git-sha>` tag to ECR alongside `:latest`. To roll back:
 
 1. Find the SHA you want to roll back to:
+
    ```bash
    # List recent ECR images with push dates
    aws ecr describe-images \
@@ -52,6 +53,7 @@ Every deploy pushes a `:<git-sha>` tag to ECR alongside `:latest`. To roll back:
    ```
 
 2. Connect to the EC2 and redeploy with that specific tag:
+
    ```bash
    aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 
@@ -66,11 +68,11 @@ Every deploy pushes a `:<git-sha>` tag to ECR alongside `:latest`. To roll back:
 ## Check Deploy Status
 
 ```bash
-# Check all containers are healthy
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml ps
+# After standard session setup:
+docker compose -f /opt/review-master/docker-compose.prod.yml ps
 
 # Check which image is currently running
-sudo docker inspect review-master-web-1 | grep Image
+docker inspect review-master-web-1 | grep Image
 
 # Check app is responding
 curl -fsSL https://app.reviewbee.in/healthz/
@@ -78,18 +80,25 @@ curl -fsSL https://app.reviewbee.in/healthz/
 
 ## Run Django Management Commands
 
+`docker compose run` requires `ECR_IMAGE` to be set. Always switch to root and export it first:
+
 ```bash
 aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 
-# On the EC2 — run any management command in the web container:
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+# On the EC2 — switch to root and set ECR_IMAGE
+sudo -i
+ECR_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+export ECR_IMAGE="${ECR_ACCOUNT}.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
+
+# Now run any management command
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   run --rm web python manage.py <command>
 
 # Examples:
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   run --rm web python manage.py shell
 
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   run --rm web python manage.py createsuperuser
 ```
 

@@ -35,16 +35,12 @@ There is **no SSH**. Access is via AWS Systems Manager Session Manager — no ke
 aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 ```
 
-You land as `ssm-user`. Switch to `root` to run Docker commands:
+You land as `ssm-user`. Always switch to root and export `ECR_IMAGE` before running any Docker Compose command (see [README — Standard EC2 Session Setup](README.md)):
 
 ```bash
 sudo -i
-```
-
-Or run a single command as root:
-
-```bash
-sudo docker ps
+ECR_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+export ECR_IMAGE="${ECR_ACCOUNT}.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
 ```
 
 ## End a Session
@@ -54,7 +50,8 @@ Type `exit` (twice if you switched to root) or press `Ctrl+D`.
 ## Check What's Running
 
 ```bash
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml ps
+# After sudo -i and export ECR_IMAGE
+docker compose -f /opt/review-master/docker-compose.prod.yml ps
 ```
 
 Expected output — all services should show `healthy` or `running`:

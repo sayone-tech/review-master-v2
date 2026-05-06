@@ -14,14 +14,11 @@ The RDS instance is in a **private subnet** — it cannot be reached from the in
 
 ## Connect to the Database
 
-Connect via the EC2 using Session Manager, then use the `web` container's `dbshell`:
+Run the [standard session setup](README.md) first, then use the `web` container's `dbshell`:
 
 ```bash
-# 1. Start Session Manager
-aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
-
-# 2. On the EC2 — open Django dbshell (uses DATABASE_URL from /etc/review-master.env)
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+# Django dbshell (uses DATABASE_URL from /etc/review-master.env)
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   run --rm web python manage.py dbshell
 ```
 
@@ -36,7 +33,7 @@ DB_PASS=$(aws secretsmanager get-secret-value \
   --output text | python3 -c "import json,sys; print(json.load(sys.stdin)['DATABASE_URL'])" \
   | sed 's/.*:\(.*\)@.*/\1/')
 
-sudo docker run --rm -it \
+docker run --rm -it \
   --network review-master_default \
   postgres:16 \
   psql "postgresql://reviewbee:${DB_PASS}@review-master-prod.cr6oa6eq8krh.ap-south-1.rds.amazonaws.com:5432/reviewmaster"
@@ -57,19 +54,17 @@ aws rds describe-db-snapshots \
 
 ## Running Migrations
 
-Migrations run automatically on every deploy (step 4 in `deploy.sh`). To run them manually:
+Migrations run automatically on every deploy (step 4 in `deploy.sh`). To run them manually (after [standard session setup](README.md)):
 
 ```bash
-aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
-
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   run --rm web python manage.py migrate --noinput
 ```
 
 ## Checking Database Size
 
 ```bash
-sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+docker compose -f /opt/review-master/docker-compose.prod.yml \
   run --rm web python manage.py dbshell
 
 -- In psql:
