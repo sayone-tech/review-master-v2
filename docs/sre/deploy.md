@@ -93,6 +93,29 @@ sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
   run --rm web python manage.py createsuperuser
 ```
 
+## Create a Superuser
+
+Superusers are created once manually — there is no seed data for them.
+
+```bash
+# 1. Connect to the EC2
+aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
+
+# 2. On the EC2 — run createsuperuser inside the web container
+sudo docker compose -f /opt/review-master/docker-compose.prod.yml \
+  run --rm web python manage.py createsuperuser
+```
+
+You will be prompted for:
+
+- **Username** — use an email address (matches the custom User model)
+- **Email** — same as username
+- **Password** — minimum 10 characters (enforced by Django validators)
+
+The superuser can then log in at `https://app.reviewbee.in/admin/` and at the main app with the Superadmin role.
+
+> **Note:** Never share superuser credentials. Create one account per person who needs superadmin access.
+
 ## Update Deployment Scripts
 
 The deploy scripts (`deploy.sh`, `load-secrets.sh`, `docker-compose.prod.yml`, `Caddyfile`) live in the repo under `deployment/`. Changes to these files are **not** automatically synced to the EC2 — they must be copied manually or via a bootstrap mechanism.

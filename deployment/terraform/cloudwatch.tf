@@ -1,6 +1,6 @@
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/review-master/prod"
-  retention_in_days = 90
+  retention_in_days = 30
 }
 
 resource "aws_sns_topic" "alerts" {
