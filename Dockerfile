@@ -21,7 +21,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     UV_LINK_MODE=copy \
-    VIRTUAL_ENV=/venv \
+    UV_PROJECT_ENVIRONMENT=/venv \
     PATH="/venv/bin:$PATH"
 
 # System deps for psycopg, build tools
@@ -36,13 +36,12 @@ RUN pip install --no-cache-dir uv==0.4.29
 
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
-RUN uv venv /venv && uv sync --frozen --no-install-project
+RUN uv sync --frozen --no-install-project
 
 # ---------- runtime stage ----------
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    VIRTUAL_ENV=/venv \
     UV_PROJECT_ENVIRONMENT=/venv \
     PATH="/venv/bin:$PATH" \
     DJANGO_SETTINGS_MODULE=config.settings.local

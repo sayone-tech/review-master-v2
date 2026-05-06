@@ -16,3 +16,5 @@ media
 .coverage
 htmlcov
 .DS_Store
+.cache
+deployment

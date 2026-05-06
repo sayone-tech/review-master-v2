@@ -24,9 +24,10 @@ X_FRAME_OPTIONS = "DENY"  # Clickjacking protection (XFrameOptionsMiddleware rea
 SECURE_CSP = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "'unsafe-inline'"],
-    "style-src": ["'self'", "'unsafe-inline'"],
+    "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     "img-src": ["'self'", "data:"],
-    "font-src": ["'self'"],
+    "font-src": ["'self'", "https://fonts.gstatic.com"],
+    "connect-src": ["'self'"],
 }
 
 # Append CSP middleware to the base MIDDLEWARE list (Django 6 built-in).
@@ -69,6 +70,12 @@ AWS_DEFAULT_ACL = None  # inherit bucket policy (public-read set by Terraform)
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 
 STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+
+_S3_ORIGIN = f"https://{AWS_S3_CUSTOM_DOMAIN}"
+SECURE_CSP["script-src"].append(_S3_ORIGIN)
+SECURE_CSP["style-src"].append(_S3_ORIGIN)
+SECURE_CSP["img-src"].append(_S3_ORIGIN)
+SECURE_CSP["font-src"].append(_S3_ORIGIN)
 
 # base.py does not define STORAGES — define both backends explicitly here.
 # "default" keeps filesystem storage (no media uploads in scope).
