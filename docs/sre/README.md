@@ -36,8 +36,7 @@ aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 
 # 2. Switch to root and export ECR_IMAGE
 sudo -i
-ECR_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-export ECR_IMAGE="${ECR_ACCOUNT}.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
+export ECR_IMAGE="270587882826.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
 ```
 
 All commands in the runbooks below assume you have done this setup.
@@ -54,5 +53,5 @@ RDS PostgreSQL (private subnet, accessible from EC2 SG only)
 ECR → Docker images pulled on deploy
 S3  → static files (CSS/JS) + collectstatic target
 Secrets Manager → /etc/review-master.env on each deploy
-CloudWatch Logs → all container stdout/stderr (90-day retention)
+CloudWatch Logs → all container stdout/stderr (30-day retention)
 ```

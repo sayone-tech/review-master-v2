@@ -58,9 +58,10 @@ Every deploy pushes a `:<git-sha>` tag to ECR alongside `:latest`. To roll back:
    aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 
    # On the EC2:
-   ECR_IMAGE="270587882826.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:<sha>"
-   sudo -E docker compose -f /opt/review-master/docker-compose.prod.yml pull
-   sudo -E docker compose -f /opt/review-master/docker-compose.prod.yml up -d
+   sudo -i
+   export ECR_IMAGE="270587882826.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:<sha>"
+   docker compose -f /opt/review-master/docker-compose.prod.yml pull
+   docker compose -f /opt/review-master/docker-compose.prod.yml up -d
    ```
 
    Replace `<sha>` with the commit SHA from step 1.
@@ -87,8 +88,7 @@ aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 
 # On the EC2 — switch to root and set ECR_IMAGE
 sudo -i
-ECR_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-export ECR_IMAGE="${ECR_ACCOUNT}.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
+export ECR_IMAGE="270587882826.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
 
 # Now run any management command
 docker compose -f /opt/review-master/docker-compose.prod.yml \
