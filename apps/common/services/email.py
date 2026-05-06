@@ -22,8 +22,9 @@ def send_transactional_email(
     - `reply_to`: defaults to [settings.DEFAULT_REPLY_TO]
     - `tags`: when set and AWS_SES_CONFIGURATION_SET is configured, emits SES headers
     """
-    text_body = render_to_string(f"{template_base}.txt", context)
-    html_body = render_to_string(f"{template_base}.html", context)
+    ctx = {"static_url": settings.STATIC_URL, **context}
+    text_body = render_to_string(f"{template_base}.txt", ctx)
+    html_body = render_to_string(f"{template_base}.html", ctx)
     msg = EmailMultiAlternatives(
         subject=subject,
         body=text_body,

@@ -29,8 +29,10 @@
   </div>
 
   <div class="flex items-center gap-2">
-    <div id="topbar-bell-root"></div>
-    <div id="notif-bell-root" class="ml-2"></div>
+    {% if user.role != 'SUPERADMIN' %}
+      <div id="topbar-bell-root"></div>
+      <div id="notif-bell-root" class="ml-2"></div>
+    {% endif %}
 
     {% if user.is_authenticated %}
       <div
@@ -75,5 +77,7 @@
   </div>
 </header>
 
-{% vite_asset 'src/entrypoints/topbar-sync-indicator.tsx' %}
-{% vite_asset 'src/entrypoints/notif-bell.tsx' %}
+{% if user.role != 'SUPERADMIN' %}
+  {% vite_asset 'src/entrypoints/topbar-sync-indicator.tsx' %}
+  {% vite_asset 'src/entrypoints/notif-bell.tsx' %}
+{% endif %}
