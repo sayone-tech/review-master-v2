@@ -1,6 +1,6 @@
 resource "aws_security_group" "ec2" {
   name        = "review-master-ec2"
-  description = "Review Master EC2 - HTTP/HTTPS public, SSH operator-only"
+  description = "Review Master EC2 - HTTP/HTTPS public only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -17,14 +17,6 @@ resource "aws_security_group" "ec2" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "SSH - operator IP only"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.operator_ip]
   }
 
   egress {

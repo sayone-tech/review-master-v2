@@ -15,11 +15,6 @@ variable "domain_name" {
   type        = string
 }
 
-variable "operator_ip" {
-  description = "Your public IP in CIDR notation for SSH access, e.g. 59.94.147.0/32"
-  type        = string
-}
-
 variable "alert_email" {
   description = "Email address for CloudWatch alarm notifications"
   type        = string
