@@ -39,8 +39,7 @@ You land as `ssm-user`. Always switch to root and export `ECR_IMAGE` before runn
 
 ```bash
 sudo -i
-ECR_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-export ECR_IMAGE="${ECR_ACCOUNT}.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
+export ECR_IMAGE="270587882826.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
 ```
 
 ## End a Session

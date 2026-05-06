@@ -42,10 +42,7 @@ aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 
 # Switch to root so ECR_IMAGE is available for Docker Compose
 sudo -i
-
-# Set the image variable (required by docker-compose.prod.yml)
-ECR_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-export ECR_IMAGE="${ECR_ACCOUNT}.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
+export ECR_IMAGE="270587882826.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
 
 # Reload secrets then restart
 /opt/review-master/scripts/load-secrets.sh
