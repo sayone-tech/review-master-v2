@@ -111,10 +111,11 @@ jobs:
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
-          DOMAIN=$(aws ssm get-parameter \
-            --name "/review-master/prod/CADDY_DOMAIN" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text)
+          DOMAIN=$(aws secretsmanager get-secret-value \
+            --secret-id "review-master/prod" \
+            --region "$AWS_REGION" \
+            --query "SecretString" \
+            --output text \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['CADDY_DOMAIN'])")
           echo "Smoke testing https://$DOMAIN/healthz/"
           curl -fsSL "https://$DOMAIN/healthz/" | grep -q "ok" && echo "Healthcheck passed."
