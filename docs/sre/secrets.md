@@ -44,10 +44,12 @@ aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 sudo -i
 export ECR_IMAGE="270587882826.dkr.ecr.ap-south-1.amazonaws.com/review-master/app:latest"
 
-# Reload secrets then restart
+# Reload secrets then recreate containers
 /opt/review-master/scripts/load-secrets.sh
-docker compose -f /opt/review-master/docker-compose.prod.yml restart web worker beat
+docker compose -f /opt/review-master/docker-compose.prod.yml up -d web worker beat
 ```
+
+> **Important:** use `up -d`, not `restart`. Docker Compose reads `env_file` only when a container is *created*, not when it is restarted. `up -d` recreates the containers so the new secret values are actually loaded into the process environment. `restart` keeps the old values in memory and the change has no effect.
 
 ### Which services need a restart?
 
