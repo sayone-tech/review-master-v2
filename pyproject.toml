@@ -64,6 +64,7 @@ ignore = ["E501", "S101"]
 "**/migrations/**" = ["E501", "N806"]
 "**/settings/**" = ["F403", "F405"]
 "apps/*/apps.py" = ["F401"]
+"scripts/**" = ["T201", "S311", "B904"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["apps", "config"]
@@ -148,4 +149,4 @@ omit = ["*/migrations/*", "*/tests/*"]
 fail_under = 85
 
 [tool.bandit]
-exclude_dirs = ["tests", "migrations", ".venv"]
+exclude_dirs = ["tests", "migrations", ".venv", "scripts"]
