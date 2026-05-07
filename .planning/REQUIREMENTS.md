@@ -42,15 +42,15 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 - [x] **KPI-02**: Average Rating card shows the arithmetic mean to 1 decimal place with a star visual aid; half-star display used when the decimal is .25–.74
 - [x] **KPI-03**: Negative Reviews card counts reviews where AI-derived sentiment = NEGATIVE and enrichment_status = SUCCESS — NOT by star rating
 - [x] **KPI-04**: Negative Reviews percentage uses the count of enriched reviews in the window as the denominator (not total reviews)
-- [ ] **KPI-05**: Each KPI card has an independent loading skeleton, empty state ("No reviews in this period"), and error state ("Could not load. Refresh to try again.")
+- [x] **KPI-05**: Each KPI card has an independent loading skeleton, empty state ("No reviews in this period"), and error state ("Could not load. Refresh to try again.")
 
 ### Sentiment Distribution (SENT)
 
 - [x] **SENT-01**: Donut chart shows Positive / Neutral / Negative segments computed from enriched reviews only (enrichment_status = SUCCESS, active full filters)
-- [ ] **SENT-02**: Sentiment summary list shows count, percentage, and a color-coded horizontal progress bar for each sentiment (Positive green #22C55E, Neutral amber #F59E0B, Negative red #EF4444)
-- [ ] **SENT-03**: Hovering a donut segment shows a tooltip: sentiment label, count, and percentage
+- [x] **SENT-02**: Sentiment summary list shows count, percentage, and a color-coded horizontal progress bar for each sentiment (Positive green #22C55E, Neutral amber #F59E0B, Negative red #EF4444)
+- [x] **SENT-03**: Hovering a donut segment shows a tooltip: sentiment label, count, and percentage
 - [x] **SENT-04**: Coverage footer appears when enrichment coverage is below 100%: "Based on N enriched reviews (X% of total)"
-- [ ] **SENT-05**: Coverage footer adds a spinner and "Analysis is still in progress." message when coverage is below 50%
+- [x] **SENT-05**: Coverage footer adds a spinner and "Analysis is still in progress." message when coverage is below 50%
 - [x] **SENT-06**: Empty states render correctly: "No reviews to analyze in this period." (no reviews in window) and "Sentiment analysis is in progress. Check back shortly." with spinner (reviews exist but none enriched yet)
 
 ### Technical Foundation (TECH)
@@ -129,12 +129,12 @@ Populated during roadmap creation.
 | KPI-02 | Phase 14 | Complete |
 | KPI-03 | Phase 14 | Complete |
 | KPI-04 | Phase 14 | Complete |
-| KPI-05 | Phase 14 | Pending |
+| KPI-05 | Phase 14 | Complete |
 | SENT-01 | Phase 14 | Complete |
-| SENT-02 | Phase 14 | Pending |
-| SENT-03 | Phase 14 | Pending |
+| SENT-02 | Phase 14 | Complete |
+| SENT-03 | Phase 14 | Complete |
 | SENT-04 | Phase 14 | Complete |
-| SENT-05 | Phase 14 | Pending |
+| SENT-05 | Phase 14 | Complete |
 | SENT-06 | Phase 14 | Complete |
 | TECH-01 | Phase 14 | Complete |
 | TECH-02 | Phase 14 | Complete |

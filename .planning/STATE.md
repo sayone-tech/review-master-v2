@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: — Dashboard
 status: unknown
-stopped_at: Completed 14-05-PLAN.md
-last_updated: "2026-05-07T08:52:28.732Z"
+stopped_at: Completed 14-07-PLAN.md
+last_updated: "2026-05-07T08:56:57.038Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 5
+  completed_plans: 7
 ---
 
 # Project State
@@ -51,6 +51,7 @@ Plan: 2 of 8
 | Phase 14 P03 | 8 | 2 tasks | 6 files |
 | Phase 14 P04 | 7 | 2 tasks | 5 files |
 | Phase 14 P05 | 1 | 3 tasks | 5 files |
+| Phase 14 P07 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [Phase 14]: recharts and @tanstack/react-query installed as production deps with ^ semver range; patch versions locked in package-lock.json
 - [Phase 14]: buildDateOnlyQs for top-performing/highlights/your-store — no region/shop params (DASH-C2)
 - [Phase 14]: FilterBar is a pure controlled component — all state in useFilterState hook
+- [Phase 14]: KpiCards shares one useKpis query across all 3 cards — per-card skeletons satisfy KPI-05 layout without triple network calls
+- [Phase 14]: SentimentDonut refetch wrapped in void arrow to satisfy TypeScript MouseEventHandler compatibility
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-07T08:52:28.730Z
-Stopped at: Completed 14-05-PLAN.md
+Last session: 2026-05-07T08:56:50.226Z
+Stopped at: Completed 14-07-PLAN.md
 Resume file: None
