@@ -147,7 +147,6 @@ export function FilterBar({ filters, regions, shops, onApply, onClear }: FilterB
         <FilterControl
           label="Store"
           icon={<StoreIcon size={15} />}
-          hint="excluded from outlet ranking"
         >
           <div className="relative">
             <select

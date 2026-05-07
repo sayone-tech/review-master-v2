@@ -137,6 +137,7 @@ def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
     is_single_shop = len(shops) == 1
 
     context: dict[str, Any] = {
+        "organisation": user.organisation,
         "regions_json": regions,
         "shops_json": shops,
         "is_single_shop": is_single_shop,
