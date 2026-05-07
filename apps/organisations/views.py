@@ -123,20 +123,18 @@ def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
         return HttpResponseForbidden("Organisation Admin role required.")
 
     org_id: int = user.organisation_id
-    accessible_shop_ids = list(get_accessible_shop_ids(user_id=user.pk))
+
+    shops_qs = Shop.objects.filter(organisation_id=org_id)
+    if user.role == User.Role.STAFF_ADMIN:
+        accessible_shop_ids = list(get_accessible_shop_ids(user_id=user.pk))
+        shops_qs = shops_qs.filter(id__in=accessible_shop_ids)
 
     shops = list(
-        Shop.objects.filter(
-            organisation_id=org_id,
-            id__in=accessible_shop_ids,
-        )
-        .select_related("region")
-        .values("id", "name", "region_id")
-        .order_by("name")
+        shops_qs.select_related("region").values("id", "name", "region_id").order_by("name")
     )
     region_ids = {s["region_id"] for s in shops if s["region_id"]}
     regions = list(Region.objects.filter(id__in=region_ids).values("id", "name").order_by("name"))
-    is_single_shop = len(accessible_shop_ids) == 1
+    is_single_shop = len(shops) == 1
 
     context: dict[str, Any] = {
         "regions_json": regions,
