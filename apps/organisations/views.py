@@ -142,6 +142,7 @@ def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
         "regions_json": regions,
         "shops_json": shops,
         "is_single_shop": is_single_shop,
+        "is_org_admin": user.role == User.Role.ORG_ADMIN,
     }
     return render(request, "organisations/org_dashboard.html", context)
 
