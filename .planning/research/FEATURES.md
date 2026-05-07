@@ -1,10 +1,8 @@
-# Feature Landscape
+# Feature Research
 
-**Domain:** Organisation Admin Module — multi-tenant SaaS review management platform (v0.2-org-admin milestone)
-**Researched:** 2026-04-27
-**Confidence:** MEDIUM-HIGH
-
-This document covers the feature landscape for four new capability areas being added on top of the existing Superadmin control plane: Shell, Regions, Shops, and Team. It answers three targeted questions: (a) production-grade Google Business Profile OAuth popup flow, (b) hierarchical access scopes (region → shop) for team members, and (c) resource allocation enforcement UX.
+**Domain:** Analytics dashboard UI — Organisation Admin Dashboard (v0.4 milestone)
+**Researched:** 2026-05-07
+**Confidence:** HIGH (UX patterns well-established; implementation choices verified against existing codebase constraints)
 
 ---
 
@@ -12,251 +10,130 @@ This document covers the feature landscape for four new capability areas being a
 
 ### Table Stakes (Users Expect These)
 
-Features Org Admins expect from day one. Missing these = product feels incomplete.
+Features analytics dashboard users assume exist. Missing these = product feels broken or unfinished.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Org Admin sidebar shell with role-aware navigation | Every SaaS has a role-specific sidebar; Org Admins must not see Superadmin pages | LOW | Reuse existing sidebar component; swap nav items by role. Already scaffolded in v1.0 activation redirect |
-| Dashboard landing page with welcome + setup state | Users need orientation on first login; "what do I do next?" is a universal SaaS problem | LOW | Static Django template; show setup checklist banner until first shop created; no API call required |
-| Profile page (name change + password change) | Basic account hygiene; every dashboard has it | LOW | Reuse existing Superadmin profile views/services; only permission class differs |
-| Regions list — searchable, paginated | Grouping entities are useless without a browsable list | LOW | Server-side pagination; search by name/ID; empty state with CTA |
-| Create region with auto-generated ID | Users expect the system to assign a stable, human-readable code (e.g. REG-001); manual ID entry is error-prone | LOW | Prefix + zero-padded sequential counter scoped per org; see ID generation notes below |
-| Edit region name | Names change; editing is table stakes | LOW | Modal reusing create form; ID is read-only after creation |
-| Delete region (blocked when shops assigned) | Prevents orphaned shops; referential integrity feedback is expected | LOW | Backend enforces block; frontend shows inline explanation: "Remove all shops from this region first" |
-| Shops list — searchable, filterable, paginated with allocation counter | Primary daily surface for Org Admins managing locations | MEDIUM | Show "X of Y shops used" header counter; filter by status (Active/Inactive) and region; server-side |
-| Create shop via Google Business Profile OAuth | Connecting a real location to GBP is the core value proposition | HIGH | Full OAuth popup flow — see OAuth section below |
-| Create shop via manual Place ID entry | Fallback for users who cannot complete OAuth; or for testing | MEDIUM | Validate Place ID format; show preview of resolved business name before save |
-| View / edit shop details | Users need to update shop names, regions, metadata | LOW | Modal or detail page; Google connection status shown prominently |
-| Activate / deactivate shop | Temporarily suspend a location without deleting it | LOW | Confirmation popup; deactivated shops do not count toward Google sync |
-| Google reconnect (re-auth) per shop | Tokens expire or are revoked; reconnect is expected | MEDIUM | Same OAuth popup flow; preserves existing shop data; does not create new shop record |
-| Shop allocation counter enforcement | Org Admin must not create shops beyond their Superadmin-allocated limit | MEDIUM | Hard block at backend; UI disables "Add Shop" button and shows "X of Y used — contact your administrator to increase your limit" banner |
-| Invite team member (Manager or Staff) | Every SaaS with team features has invitations | MEDIUM | Reuse Phase 1 invitation token infrastructure; new invitation purpose enum value |
-| Assign Manager role (full org access) | Managers need to act on behalf of the Org Admin | LOW | No scope selection needed; Manager = full access within the organisation |
-| Assign Staff role with region/shop scope | Staff restricted to specific locations is the operational model for multi-location businesses | MEDIUM | Multi-select of regions and/or individual shops at invite time; stored in StaffAccessScope junction table |
-| Team list — searchable, with status badges | Admins need to see who's active and who's still pending | LOW | Status: Active / Pending / Disabled; search by name/email |
-| Edit team member scope and role | Scope changes as staff responsibilities evolve | MEDIUM | Existing scope rows replaced atomically; cannot change role from Manager to Staff if they are the last Manager |
-| Enable / disable team member | Suspend without removing | LOW | Confirmation popup; disabled users cannot log in |
-| Remove team member | Permanently remove access | LOW | Confirmation; last-manager guard must prevent removing the last active Manager |
-| Resend invitation to pending team member | Invitation tokens expire after 48h; resend is expected | LOW | Invalidates prior token; rate-limited at 5/hour (reuse existing throttle) |
-| Team invitation email and acceptance page | User must receive email and be able to set password | MEDIUM | New email template (team invitation); acceptance page reuses Phase 1 activation view with purpose-aware routing |
-| Self-protection: cannot disable or remove yourself | Universal SaaS rule | LOW | Permission check: `request.user != target_user` |
-| Last-manager guard | Cannot leave organisation with zero active Managers | LOW | Backend check before disable/remove/role-change operations |
-
----
+| Filter bar persists state in URL | Every analytics tool (GA4, Looker, Metabase) does this; users share and bookmark filtered views | MEDIUM | Use `history.replaceState` + `URLSearchParams` — no router needed since page is Django-rendered with a React island. `replaceState` (not `pushState`) avoids cluttering browser history. Read params on mount to hydrate initial state. |
+| Cascading Region → Store dropdown | If a Region is selected, the Store list must narrow to that region instantly — any other behavior confuses users | MEDIUM | On Region change: clear Store selection, re-populate Store options (filter client-side if already loaded, or re-fetch). Disable Store dropdown while Region is loading. Default to "All Stores". |
+| Date range presets (7d / 30d / 90d) | Standard in every analytics product; users expect quick shortcuts | LOW | Render as a pill/tab group, not a dropdown. Active preset highlighted. Custom range reveals date pickers. Default to 30d on first load. |
+| Custom date range with date pickers | Presets cover 80% of use; power users need arbitrary ranges | MEDIUM | Show two calendar inputs (from / to). Validate: `from <= to`, neither in future, max range <= 365d. On mobile use native `<input type="date">`; on desktop show a popover calendar. |
+| Clear Filters button | Users need a fast reset escape hatch; manually resetting each filter is tedious | LOW | Disabled (not hidden) when all filters are at defaults. One click: Region → All, Store → All, Date → 30d default. Clears URL params simultaneously. |
+| KPI skeleton loading | Users expect the page skeleton immediately; a blank white card box feels broken | LOW | Each KPI card renders its own skeleton rectangle matching the card dimensions. Skeleton pulses with a shimmer animation. Cards load independently — do not block the whole page on a single slow endpoint. |
+| Independent per-card error states | If one API call fails, remaining cards must still show data | MEDIUM | Each widget (KPI row, bar chart, donut, highlights card) fetches from its endpoint independently. Error state shows a minimal inline message + Retry button within the card boundary. No full-page error overlay. |
+| Bar chart tooltip on hover | Every charting product shows a tooltip on hover; omitting it feels incomplete | LOW | Show: store name, average rating (1 decimal), review count. Tooltip must not clip at viewport edges — position it inside the chart container. |
+| Donut chart tooltip on hover | Users hover segments to read exact percentages | LOW | Show: sentiment label (Positive / Neutral / Negative), count, percentage (1 decimal). Tooltip positioned near cursor without clipping. |
+| Average Rating half-star display | Users expect a visual star representation for ratings, not just a number | LOW | Use SVG half-star clip approach. `aria-label="4.2 out of 5 stars"` on the container. Display-only (not interactive). |
+| Responsive layout | Dashboard is accessed on laptop and tablet; layout must not break at 768px | MEDIUM | KPI cards: 3-col on desktop → 1-col stack on mobile. Charts: `<ResponsiveContainer width="100%">` — never fixed pixel widths. Filter bar: wraps to two rows on tablet. |
+| Coverage footer on Sentiment donut | AI enrichment is not 100% complete; users need to know what share of reviews the donut represents | LOW | Footer text: "Based on X of Y reviews (Z% enriched)". Grey italic text below the chart. If coverage < 20%, show a yellow warning callout: "Limited data — sentiment may not be representative." |
+| Empty state for no data | Filters may legitimately return zero reviews; charts must not render broken or empty | LOW | Each widget has a distinct empty state message. Bar chart: "No review data for this period." Donut: "Sentiment data will appear once AI processing completes." KPIs: show 0 / — with no error. |
+| Trend indicator vs previous period | Users need directional context — a number without trend is incomplete | LOW | Arrow up (green) / arrow down (red) / dash (neutral, <1% change). Always show: "+12% vs previous period" label. Previous period = same duration ending at the `from` date. Used in "Your Store" variant and on KPI cards. |
+| "Your Store" single-shop variant | Staff Admin (or Org Admin with one store) should see a personalised view — multi-shop rankings reveal no context for a single-store user | MEDIUM | Detect: if exactly 1 store in scope, render "Your Store" card instead of bar chart + highlights. Show: KPIs + mini rating-distribution bars + trend vs previous period. Bar chart and Performance Highlights card are hidden. |
 
 ### Differentiators (Competitive Advantage)
 
-Features that elevate the product above baseline. Not universally expected, but meaningfully improve day-to-day operations.
-
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Google Business Profile name preview during shop creation | Before saving, show resolved business name and address from the Place ID / OAuth account — "Is this the right location?" reduces wrong-shop errors | MEDIUM | Requires a pre-save API call to GBP or Places API to resolve the Place ID; show in modal before final "Create" |
-| OAuth popup with non-blocking parent modal | User can start shop creation in a modal, trigger OAuth in a popup, and return to the same modal state — no page navigation | HIGH | postMessage from callback page to parent window; modal remains open during OAuth; see OAuth UX section for edge cases |
-| Connection status badge per shop | "Connected · Syncing" / "Token expired — Reconnect" / "Manual (no OAuth)" gives instant health visibility | LOW | Derive from stored token state; no extra API call needed |
-| Inline region filter on shop list | Staff users are region-scoped; Org Admins want to view by region quickly | LOW | Region dropdown on list filter bar; pre-filtered when navigated from Region detail |
-| Region detail page showing assigned shops | Navigating from a region to its shops is a natural mental model for multi-location admins | LOW | Simple filtered shop list view; reuse shop list component |
-| Invitation context-aware acceptance page | "You've been invited by [Org Admin Name] to join [Org Name] as a [Manager / Staff]" reduces confusion | LOW | Pass role and inviter name in email template and in activation view context |
-| Shop API key display + regenerate | Some integrations require per-shop API keys for external use | MEDIUM | UUID generated at shop create; regenerate action with confirmation; show once, then mask |
-| Last-seen sync timestamp per shop | Tells admin whether Google reviews are actually being fetched | LOW | `last_synced_at` field on Shop; displayed on shop detail/list |
-
----
+| Threshold-based bar coloring (≥4.0 green, 3.0–3.99 amber, <3.0 red) | Instant visual triage — managers see problem stores without reading numbers | LOW | Recharts `Cell` component maps per-bar fill via a `getBarColor(rating)` function. Color constants from the Tailwind palette: `#16a34a` (green-600), `#d97706` (amber-600), `#dc2626` (red-600). Consistent with existing design system. |
+| Performance Highlights card (top + bottom) | Executives want the answer surfaced, not just a chart to interpret | LOW | Two sub-cards: top performer (green tint, trophy icon) + bottom performer (red tint, warning icon). Each shows: store name, avg rating, review count. Clicking either navigates to the Reviews page filtered to that store. |
+| Bar chart click → Reviews page navigation | Bridges from insight to action — users can immediately investigate a problem store | LOW | `onClick` on the bar: navigate to `/reviews/?store_id={storeId}&range={currentDateRange}`. Cursor changes to pointer on bar hover. |
+| Redis-cached API responses (5-min TTL) | Dashboard data is expensive to compute; caching prevents DB overload under concurrent use | MEDIUM | Cache key: `dashboard:{org_id}:{endpoint}:{params_hash}`. Explicit invalidation on new review sync completion (via Celery task post-hook). 5-min TTL is the fallback — explicit invalidation is the primary path. |
+| Session persistence of filter state | Users return to the same filters they left — reduces repetitive reconfiguration | LOW | On filter change, write params to `sessionStorage` keyed by `org_id`. On mount: URL params → sessionStorage fallback → hardcoded defaults. URL params always win so shared links override session. |
+| Rating distribution mini-bars ("Your Store") | Shows how reviews are distributed across 1–5 stars — more informative than a single average | LOW | 5 horizontal bars, each proportionally width-filled. Star labels on left, count on right. No extra endpoint needed if included in the store KPI response. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Features to deliberately NOT build in this milestone.
-
 | Anti-Feature | Why Requested | Why Problematic | Alternative |
 |--------------|---------------|-----------------|-------------|
-| Attribute-based or custom role creation | Power admins want fine-grained control | Designing a general-purpose permission builder is a separate product; the Manager/Staff split covers 95% of real use cases at this stage | Two hardcoded roles with region/shop scope cover the use case |
-| Real-time review dashboard in this milestone | Org Admins want to see reviews | Reviews require GBP sync jobs (Phase 3+); building the UI before the data pipeline creates a useless empty page | Defer to reviews module; show "reviews coming soon" placeholder on dashboard |
-| Bulk shop import via CSV | Power admins at large chains request this | Parsing, validation, rollback, OAuth-per-row, and partial failure handling add weeks of complexity | Build single-shop create solidly first; batch import is a v2 feature |
-| Staff Admin dashboard in this milestone | Staff members need their own view | Staff Admin dashboard requires understanding what Staff can actually do with reviews; that depends on the reviews module | Block out the role; show "coming soon" after login |
-| Google-side user management (add location admins via API) | Admins want to manage GBP access from the app | GBP API does not expose location admin management to third-party apps | OAuth per-location is the correct model; document this limitation |
-| Automatic token refresh in background during OAuth popup | Simplify the reconnect experience | Background token refresh creates security surface; OAuth popup is explicit consent by design | Explicit reconnect flow on `invalid_grant`; notify Org Admin by email and in-app status badge |
-| Nested region hierarchy (regions within regions) | Large chains have districts, areas, regions | A three-level hierarchy adds query complexity, scope evaluation complexity, and UI complexity with marginal real-world benefit at this stage | Two-level flat model (Region → Shop) is sufficient for the majority of use cases |
-| Inline row editing on team or shop lists | Power users like editing in place | Accidental edits; breaks keyboard navigation; harder to validate | Dedicated edit modal triggered by action menu |
-| Email address change for team members | Admin wants to fix a typo | Email is the identity; changing it without a verification loop creates account takeover risk | Disable the field post-creation; document that the member must be removed and re-invited |
+| WebSocket live-updating dashboard | Feels modern; "real-time data" sounds impressive | Channels scope must stay narrow (CLAUDE.md §13.2); adding a dashboard consumer requires architecture review sign-off and adds significant complexity for marginal value — review sync runs every 6 hours, not continuously | HTTP fetch on mount. Dashboard data is not time-critical. A manual Refresh button is sufficient if users request it. |
+| Global error boundary replacing all widgets | Simplest error handling to implement | Hides which widget failed; users lose all data when one endpoint fails; violates table-stakes independent error state requirement | Per-widget error boundaries with inline Retry. Each widget is independent. |
+| Date range beyond 365 days | Power users will ask for it | Large ranges generate expensive queries even with indexes; Redis TTL cache does not help; P95 < 400ms constraint becomes hard to hold | Cap at 365d with a clear validation message. Offer CSV export (future phase) for longer-range analysis. |
+| Animated chart transitions on every filter change | Looks polished | Animations during data reload create a jarring flash as old data animates out and new data animates in — noticeably worse UX than no animation | Animate only on initial mount (gate `isAnimationActive` on a `hasLoaded` flag). Disable animation on filter-change re-fetches. |
+| Inline "compare to previous period" toggle on bar chart | Useful for trend analysis | Doubles API calls; significantly complicates filter state machine | Trend arrow on "Your Store" KPI cards covers 90% of the use case. Keep bar chart clean. |
+| Filterable / sortable table inside the dashboard | Some users want to drill into outlet data inline | The Reviews page already has a full-featured table with filters. Duplicating it here creates a maintenance burden and confuses the purpose of each page | Bar chart provides visual ranking; clicking a bar navigates to the Reviews page for detailed table interaction. |
+| Custom color theme per org | Brand consistency is a real ask | Adds significant styling complexity with no clear revenue justification at this stage | Fixed brand palette: Yellow #FACC15, Black #0A0A0A, Tailwind semantic colors for status. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Org Admin Shell (sidebar + layout)
-  └──requires──> Existing design system (v1.0 global components) [ALREADY BUILT]
-  └──requires──> IsOrgAdmin permission class [ALREADY BUILT]
-  └──enables──>  All Org Admin views (regions, shops, team, profile)
+Filter Bar (Region + Store + Date Range)
+    └──feeds──> All 5 dashboard API endpoints (passed as query params)
+    └──requires──> Region list API  (existing Regions app — already built)
+    └──requires──> Store list API   (existing Stores app, filtered by region — already built)
+    └──owns──>  Shared filter context (React Context or page-root prop-drill)
 
-Regions Module (list, create, edit, delete)
-  └──requires──> Org Admin Shell
-  └──requires──> Region model + migration
-  └──blocks──>   Shop creation (shops must belong to a region)
+KPI Card Row (Total Reviews, Average Rating, Negative Reviews)
+    └──requires──> Filter Bar (provides date range + store scope)
+    └──requires──> Review model (v0.3, already exists)
+    └──requires──> enrichment_status / sentiment field on Review (v0.3, already exists)
+    └──renders──>  Half-Star Rating Display (sub-component, no dependency)
 
-Shops Module
-  └──requires──> Regions Module (region FK on Shop, region filter on list)
-  └──requires──> Google OAuth infrastructure (apps/integrations/google/oauth.py)
-  └──requires──> Allocation counter enforcement (Organisation.number_of_stores already set by Superadmin)
-  └──enables──>  Google review sync (Phase 3)
-  └──enables──>  Staff scope assignment (StaffAccessScope references shops)
+Sentiment Distribution Donut
+    └──requires──> AI enrichment pipeline (v0.3, already exists)
+    └──requires──> Filter Bar
+    └──requires──> Coverage footer logic (enriched_count / total_count from same endpoint)
+    └──shows-empty-state-when──> enriched_count === 0
 
-Google OAuth Popup Flow
-  └──requires──> GCP OAuth credentials configured (client_id, client_secret, redirect URI)
-  └──requires──> /integrations/google/oauth/callback/ endpoint (receives auth code)
-  └──requires──> Encrypted refresh token storage (django-cryptography or Fernet)
-  └──delivers──> Connected Shop record with valid tokens
+Best Performing Outlets Bar Chart
+    └──requires──> Filter Bar (date range only — Store filter collapses to "Your Store" variant)
+    └──requires──> 2+ stores in scope (single store → "Your Store" variant instead)
+    └──same-endpoint-as──> Performance Highlights Card (top/bottom derived from same response)
 
-Team Module (invite, manage)
-  └──requires──> Org Admin Shell
-  └──requires──> Invitation token infrastructure [ALREADY BUILT — extend with purpose enum]
-  └──requires──> Regions Module (for scope multi-select at invite time)
-  └──requires──> Shops Module (for individual shop scope at invite time)
-  └──requires──> StaffAccessScope model + migration
-  └──soft-requires──> Staff Admin dashboard (invited Staff members need somewhere to land)
+Performance Highlights Card
+    └──requires──> Best Performing Outlets data (same endpoint, derived values)
+    └──enhances──> Bar Chart (surfaces top/bottom without requiring chart interpretation)
+    └──hidden-when──> "Your Store" variant is active
 
-Team Invitation Email + Acceptance
-  └──requires──> send_transactional_email() helper [ALREADY BUILT]
-  └──requires──> New email template: emails/team_invitation.html + .txt
-  └──requires──> UserInvitation model (rename/extend OrganisationInvitation with purpose enum)
-  └──requires──> Activation view extended to route by invitation purpose
+"Your Store" Single-Shop Variant
+    └──requires──> KPI data for the current store
+    └──requires──> Rating distribution (1–5 star counts) for current store
+    └──requires──> Trend calculation (previous period, same endpoint or derived)
+    └──conflicts──> Bar Chart + Performance Highlights (render one OR the other, never both)
+    └──active-when──> exactly 1 store in scope (Staff single-scope or single-shop org)
 
-Profile Page
-  └──requires──> Existing Superadmin profile services [ALREADY BUILT — no changes needed]
-  └──requires──> Org Admin Shell (for correct sidebar)
+Redis TTL Cache
+    └──requires──> apps/dashboard/ endpoints exist
+    └──enhanced-by──> Cache invalidation hook in Celery review sync task (v0.3 infra — already exists)
 ```
 
----
+### Dependency Notes
 
-## MVP Sequencing
-
-### Must-have — build in this order
-
-Phase ordering is dictated by the dependency graph above.
-
-1. **Org Admin Shell** — sidebar, layout, dashboard placeholder. All subsequent pages need this container. LOW complexity. No blockers.
-2. **Regions module** — list, create (auto-ID), edit, delete. Required by shops for the region FK and by team for scope selection. LOW-MEDIUM complexity.
-3. **Shops module (without OAuth first)** — list with allocation counter, create via manual Place ID, activate/deactivate, edit. Unblocks Staff scope assignment. MEDIUM complexity. Build OAuth popup as a separate sub-phase.
-4. **Google Business Profile OAuth popup** — full popup flow, postMessage, token storage, connection status badge, reconnect. HIGH complexity. Treated as its own work unit.
-5. **Team module** — invite (Manager + Staff scope), list, edit scope, enable/disable, remove, resend. Depends on regions and shops being live so scope multi-selects are populated. MEDIUM complexity.
-6. **Team invitation email + acceptance** — new email template, purpose-aware activation view extension. Depends on UserInvitation model changes. MEDIUM complexity.
-7. **Org Admin profile page** — reuses existing services; just a permission class swap and sidebar context change. LOW complexity. Can be built in any phase.
-
-### Low-complexity differentiators worth including in this milestone
-
-- Connection status badge per shop (LOW, high operational value, required for reconnect UX)
-- Last-seen sync timestamp on shop list (LOW, useful as soon as Phase 3 sync exists)
-- Invitation context-aware acceptance page copy (LOW, single template change)
-- Self-protection + last-manager guard (LOW, always paired with invite/enable/disable implementation)
-
-### Defer to future milestones
-
-- Staff Admin dashboard — needs reviews module to be meaningful (Phase 3+)
-- Google Business Profile name preview during shop creation — valuable but requires a secondary API call; can ship after initial OAuth is stable
-- Region detail page showing assigned shops — useful quality-of-life addition; not blocking for launch
-- Bulk shop import via CSV — post-PMF feature
+- **Filter Bar is the shared state owner.** All widgets on the page consume from a single filter context (React Context at the page root or explicit prop-drill). Do not let each widget independently manage its own filter state.
+- **Bar chart requires 2+ stores.** If filters narrow to 1 store, switch to "Your Store" variant client-side. The same API endpoint can serve both paths — the frontend decides which component to render based on `stores.length`.
+- **Sentiment donut requires enrichment data.** If `enriched_count === 0`, render a specific empty state rather than an empty chart. Do not render a donut with zero data points.
+- **"Your Store" variant conflicts with multi-store components.** Never render both the bar chart and the "Your Store" card simultaneously. The single-store detection is the branch condition.
 
 ---
 
-## Detailed UX Pattern Notes
+## MVP Definition
 
-### (a) Google Business Profile OAuth Popup Flow
+### Launch With (v0.4)
 
-**Production-grade pattern (recommended):**
+All items below are required for the milestone — none are optional.
 
-1. Org Admin clicks "Connect via Google" inside the Create Shop modal (or Reconnect button on shop detail).
-2. Parent page calls `window.open(oauthStartUrl, "gbp_oauth", "width=600,height=700")`. The popup URL is a Django view (`/integrations/google/oauth/start/?shop_id=<id>&state=<csrf_state_token>`) that immediately redirects to Google's authorization endpoint.
-3. Google shows the OAuth consent screen inside the popup. The user grants access.
-4. Google redirects to the registered callback URL: `/integrations/google/oauth/callback/?code=<auth_code>&state=<state>`.
-5. The Django callback view: (a) validates the state token against session, (b) exchanges the auth code for access + refresh tokens, (c) encrypts and stores the refresh token on the Shop record, (d) closes itself by rendering a minimal HTML page that calls `window.opener.postMessage({status: "success", shopId: "<id>"}, window.location.origin)` then `window.close()`.
-6. Parent page has a `window.addEventListener("message", handler)` that listens for this postMessage, validates origin (must equal `window.location.origin`), and on success refreshes the shop list / updates the shop record's connection status badge.
+- [ ] Filter bar — Region, Store, Date Range (presets + custom date pickers), Clear Filters — URL state via `history.replaceState` + `sessionStorage` fallback
+- [ ] KPI card row — Total Reviews, Average Rating (with half-star display), Negative Reviews (AI sentiment-based) — with skeleton loading and independent per-card error states
+- [ ] Best Performing Outlets bar chart — threshold coloring (green / amber / red), hover tooltip, click-to-reviews navigation
+- [ ] Performance Highlights card — top + bottom performer sub-cards (multi-store path only)
+- [ ] "Your Store" card — KPIs + rating distribution mini-bars + trend indicator (single-store path, mutually exclusive with bar chart)
+- [ ] Sentiment Distribution donut — 3 segments (Positive / Neutral / Negative), hover tooltips, legend, coverage footer, enrichment-aware empty state
+- [ ] `apps/dashboard/` Django app with 5 focused API endpoints + Redis 5-min TTL caching
+- [ ] 3 new indexes on the Review table covering dashboard query shapes
+- [ ] `CaptureQueriesContext` tests asserting fixed query count ceiling on all 5 endpoints
 
-**Critical edge cases to handle:**
+### Add After Validation (v1.x)
 
-| Edge Case | Cause | Handling |
-|-----------|-------|---------|
-| Popup blocked by browser | User has popup blocker or first-time browser prompt | Detect `window.open()` returning null; show fallback message: "Popup was blocked. Please allow popups for this site and try again." |
-| COOP header breaks `window.opener` | Google's OAuth pages sometimes send `Cross-Origin-Opener-Policy: same-origin`, which severs `window.opener` | Use polling fallback: after opening popup, poll `/integrations/google/oauth/status/?shop_id=<id>` every 2s until status changes or popup is detected closed (via `popup.closed`). Server-side, the callback view writes status to a short-lived Redis key (30s TTL) that the status endpoint reads. |
-| User closes popup without completing OAuth | Browser `window.closed` polling detects closure | Cancel polling loop; show informational message: "Authorization cancelled. Your shop was not connected." |
-| `invalid_grant` on first token exchange | Stale auth code, clock skew, or reuse | Return error to popup; popup postMessages `{status: "error", reason: "auth_failed"}`; parent shows inline error in modal |
-| `invalid_grant` on subsequent token refresh (background sync) | Token revoked by user, password change, or 6-month inactivity | Mark shop `connection_status = EXPIRED`; do not retry; notify Org Admin via email + show reconnect badge on shop list |
-| OAuth app in "Testing" status | Tokens expire in 7 days | Move app to "Production" published state in GCP before launch; add pre-launch checklist item |
-| User grants access with wrong Google account | OAuth succeeds but Place ID doesn't match | After token exchange, verify the authorized account has access to the expected location; if not, set connection to ERROR and prompt reconnect with correct account |
+- [ ] Manual Refresh button on dashboard — if user research shows staleness complaints
+- [ ] Export to CSV — when users need historical analysis beyond the 365d cap
+- [ ] Weekly email digest — after engagement data shows Org Admins want async reporting
 
-**Google Business Profile OAuth scopes:**
-The current required scope is `https://www.googleapis.com/auth/business.manage`. The older `plus.business.manage` scope is deprecated. Request `offline` access (to get a refresh token) and `prompt=consent` to force the refresh token to be issued even if the user has previously granted access (important for reconnect flows).
+### Future Consideration (v2+)
 
-**Token storage:**
-Refresh tokens must be encrypted at rest. Use Fernet symmetric encryption with a key stored in GCP Secret Manager. Never store raw tokens in the database. `access_token` does not need to be stored — it can be re-fetched from the refresh token on demand.
-
----
-
-### (b) Hierarchical Access Scopes (Region → Shop) for Team Members
-
-**The two-role, two-scope model (recommended for this milestone):**
-
-| Role | Access | Scope Model |
-|------|--------|-------------|
-| Manager | Full access to all shops, all regions, all team features within the organisation | No scope record needed; role alone grants access |
-| Staff | Scoped read access (future: review reply) to specific regions and/or individual shops | `StaffAccessScope` rows: one per (user, region) or (user, shop) |
-
-**How scope evaluation works in practice:**
-
-When a Staff user makes an API request, the `TenantScopedViewSet` base class already enforces `organisation_id`. An additional `StaffScopedMixin` further filters:
-
-```
-queryset.filter(
-    Q(region_id__in=user.staff_scopes.filter(scope_type="REGION").values("region_id")) |
-    Q(id__in=user.staff_scopes.filter(scope_type="SHOP").values("shop_id"))
-)
-```
-
-**Scope assignment UX at invite time:**
-
-- Invite modal shows a two-section scope picker: "By Region" (checkboxes for each region) and "By Individual Shop" (checkboxes for shops not covered by a selected region).
-- If a region is selected, all current and future shops in that region are implicitly included — this is the expected behaviour in location-management SaaS.
-- At least one scope item must be selected for Staff role. Manager role disables the scope picker.
-
-**Scope change on edit:**
-
-- Editing a Staff member's scope replaces all existing `StaffAccessScope` rows atomically inside `@transaction.atomic`.
-- If a region is removed from scope and the user had explicit individual shop scopes within that region, those shop scopes are also removed (region supersedes individual shop; removing the region removes all its children from scope).
-
-**Industry pattern context:**
-
-The "administrative units" / "data-level RBAC" pattern where scope = set of allowed resources is standard across location-management SaaS (franchise management, retail operations tools). Three tiers (org → region → shop) with role × scope is the dominant pattern. Deeper nesting (district → area → region → shop) is deferred to later milestones per the anti-features rationale.
-
----
-
-### (c) Resource Allocation Enforcement (Shop Limits)
-
-**What Superadmins control:** The `Organisation.number_of_stores` field (already implemented in v1.0) defines how many active shops an Org Admin can create.
-
-**Hard limit enforcement (recommended pattern):**
-
-- Backend: `create_shop()` service checks `active_shop_count < org.number_of_stores` before creating. If at limit, raises a validation error (HTTP 400) with a structured error body: `{code: "SHOP_LIMIT_REACHED", limit: 5, current: 5}`.
-- The check must use `select_for_update()` inside a transaction to prevent race conditions when two simultaneous creation requests race against the same counter.
-
-**Frontend enforcement (UX patterns from research):**
-
-| State | UI Behaviour |
-|-------|-------------|
-| Under limit | "Add Shop" button enabled; header shows "3 of 5 shops used" |
-| At limit (0 remaining) | "Add Shop" button is visually disabled (greyed out, cursor: not-allowed); counter turns amber: "5 of 5 shops used — contact your administrator to increase your limit"; clicking the disabled button shows a tooltip explaining the limit |
-| Over limit (if allocation is reduced retroactively) | Existing shops remain; no new shops can be created; banner shown at top of shops list: "Your shop limit has been reduced. You are currently over your limit. New shops cannot be added." |
-
-**Do NOT soft-block (warn but allow):** Soft-blocking erodes trust in the limit concept and creates billing disputes. Hard block is the industry standard. The UX explains the situation and points the user to the resolution action (contact administrator).
-
-**Counter source of truth:** Always count `Shop.objects.filter(organisation=org, is_active=True).count()` at creation time — do not store a denormalised counter that could drift. Annotating the Organisation queryset with `active_shop_count` via `annotate()` is correct for list display; the `select_for_update` check at creation time is the authoritative gate.
-
----
-
-### Auto-Generated Region IDs
-
-The industry pattern (pioneered by Stripe, now widespread) is a type-prefixed, sequential, human-readable ID. For Regions:
-
-- Format: `REG-{org_short_code}-{zero_padded_sequence}` — e.g., `REG-ACME-001`
-- Or simpler: `REG-{sequential_number_per_org}` — e.g., `REG-001`, `REG-002`
-- The ID is generated at create time, stored as a separate string field (not the database PK), is immutable after creation, and is used for display and reference only.
-- Implementation: use `F()` expressions + annotation or a custom manager method to get the next sequence number per organisation inside a `select_for_update()` guard.
+- [ ] Real-time dashboard via WebSocket — only after explicit Channels scope review and evidence that 6-hour sync staleness causes churn
+- [ ] Compare-to-previous-period toggle on bar chart — after validating trend arrow on "Your Store" KPI cards is insufficient for multi-store users
+- [ ] AI-powered anomaly callout ("Store X rating dropped 0.8 stars this week")
 
 ---
 
@@ -264,53 +141,144 @@ The industry pattern (pioneered by Stripe, now widespread) is a type-prefixed, s
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Org Admin Shell (sidebar + layout) | HIGH | LOW | P1 |
-| Regions — full CRUD | HIGH | LOW | P1 |
-| Shops — list + manual create + edit | HIGH | MEDIUM | P1 |
-| Shop allocation counter enforcement | HIGH | MEDIUM | P1 |
-| Google OAuth popup flow | HIGH | HIGH | P1 |
-| Google token reconnect flow | HIGH | MEDIUM | P1 |
-| Team invite (Manager + Staff scope) | HIGH | MEDIUM | P1 |
-| Team list + enable/disable/remove | HIGH | LOW | P1 |
-| Team invitation email + acceptance | HIGH | MEDIUM | P1 |
-| Self-protection + last-manager guard | HIGH | LOW | P1 |
-| Connection status badge per shop | MEDIUM | LOW | P1 (pairs with OAuth) |
-| Profile page reuse | MEDIUM | LOW | P1 |
-| Popup blocked fallback (polling) | HIGH | MEDIUM | P1 (required for OAuth reliability) |
-| Region detail → shops drill-down | MEDIUM | LOW | P2 |
-| GBP name preview before shop save | MEDIUM | MEDIUM | P2 |
-| Last-seen sync timestamp on shop list | LOW | LOW | P2 |
-| Shop API key management | LOW | MEDIUM | P3 |
-| Bulk shop import CSV | LOW | HIGH | Defer |
-| Staff Admin dashboard | HIGH | HIGH | Defer (needs reviews module) |
+| Filter bar with URL state | HIGH | MEDIUM | P1 |
+| KPI cards with skeletons + error states | HIGH | MEDIUM | P1 |
+| Bar chart with threshold coloring | HIGH | MEDIUM | P1 |
+| "Your Store" single-shop variant | HIGH | MEDIUM | P1 |
+| Sentiment donut with coverage footer | HIGH | MEDIUM | P1 |
+| Performance Highlights card | MEDIUM | LOW | P1 |
+| Half-star rating display | MEDIUM | LOW | P1 |
+| Trend indicator ("Your Store") | MEDIUM | LOW | P1 |
+| Bar chart click → Reviews navigation | MEDIUM | LOW | P1 |
+| Redis TTL caching + invalidation | HIGH | MEDIUM | P1 |
+| Session persistence of filters | LOW | LOW | P2 |
+| Manual Refresh button | LOW | LOW | P2 |
+
+**Priority key:**
+- P1: Required for v0.4 launch
+- P2: Add in same phase if time permits, low risk
+- P3: Nice to have, defer to v1.x
 
 ---
 
-## Open Questions
+## UX Behavior Reference (Per Component)
 
-- **Staff Admin landing page:** What page does an accepted Staff invitation redirect to? A "reviews coming soon" placeholder is needed if the Staff Admin dashboard is deferred.
-- **Manual Place ID validation:** Should the create-shop flow validate the Place ID against the Google Places API immediately, or accept it unvalidated and fail later during sync? Immediate validation gives better UX; requires Places API to be enabled and adds a network call to the create path.
-- **Region ID format:** Confirm whether the org short code should be embedded in the Region ID (e.g. `REG-ACME-001`) or just a scoped sequence (e.g. `REG-001`). The former is more readable in external references; the latter is simpler to generate.
-- **Manager can manage team:** Clarify whether Managers can invite/edit/remove Staff members, or only Org Admins can. This determines the permission classes on Team viewset endpoints.
-- **OAuth app approval status:** The GBP OAuth app may require Google verification for production access (especially for sensitive scopes). This can take 4–6 weeks. Must be initiated well before launch.
-- **Shop deactivation and active count:** Does deactivating a shop free up a slot in the allocation counter? Confirm the business rule (deactivated shops counting against limit is common to prevent quota gaming).
+### 1. Cascading Filter Dropdowns + URL State
+
+**Expected behaviors (table-stakes):**
+
+- Region dropdown: "All Regions" as default option. On Region change → clear Store selection → re-populate Store options. Disable Store dropdown with a spinner while Region options are loading.
+- Store dropdown: disabled if no regions have loaded yet. "All Stores" is default within the selected region. If Region = "All", Store dropdown shows all stores across the org.
+- Selecting a Store auto-sets Region to that store's parent region if Region was "All" (optional but polished behavior — avoids an inconsistent state where Store is filtered but Region shows "All").
+- Date presets: pill/tab group, one active at a time. Clicking the active preset does nothing (no re-fetch). Selecting "Custom" reveals two date inputs; selecting a preset hides them.
+- On any filter change: call `history.replaceState(null, '', '?' + params.toString())` immediately (not debounced). Also write to `sessionStorage`.
+- On mount: read `window.location.search` → parse with `URLSearchParams` → hydrate filter state. Validate: if a store ID is not in the org's store list, silently ignore it (prevents tampered or stale URLs leaking cross-tenant state at the UI layer; the API enforces the real check with a 403).
+- 403 from API (out-of-scope store): reset Store filter to "All Stores" + display an inline toast: "Selected store is not accessible."
+- Clear Filters: disabled (greyed, cursor: not-allowed) when all filters are at their defaults (All Regions, All Stores, 30d preset). Enabled as soon as any filter deviates from the default. One click restores all defaults and clears URL params.
+- The URL must be shareable: another Org Admin from the same organisation opening the link sees the same filtered view.
+
+**Implementation approach (confidence: HIGH):**
+Use `URLSearchParams` + `history.replaceState` directly — no routing library needed since this is a React island mounted in a Django template page. `replaceState` over `pushState` avoids polluting browser history with every filter change. Read from `window.location.search` on component mount; fall back to `sessionStorage` if no URL params present.
+
+### 2. Bar Chart — Threshold-Based Coloring
+
+**Expected behaviors (table-stakes):**
+
+- Vertical bars. X-axis: store names (truncate to ~20 chars; full name in a tooltip on label hover). Y-axis: average rating, domain fixed at [0, 5].
+- Color logic: `rating >= 4.0` → green `#16a34a`, `3.0 <= rating < 4.0` → amber `#d97706`, `rating < 3.0` → red `#dc2626`. Applied per-bar using the Recharts `<Cell>` component inside `<Bar>`.
+- Horizontal reference line at y=4.0: dashed, grey, labelled "Target" — makes the green/amber threshold visible without explanation.
+- Bars sorted descending by `avg_rating` so best performers appear on the left.
+- Tooltip on hover: store name + avg rating (1 decimal) + review count for the period. Custom `<Tooltip content={<CustomTooltip />}>`.
+- Bar click: navigate to `/reviews/?store_id={storeId}&range={currentDateRange}`. Change cursor to `pointer` on bar hover using `cursor: "pointer"` on the BarChart component.
+- `<ResponsiveContainer width="100%" height={300}>` — never a fixed pixel width.
+- Animation: `isAnimationActive={hasInitiallyLoaded}` — animate once on first mount; skip animation on filter-driven re-fetches.
+- Empty state (no reviews in date range): replace chart with "No review data for this period." centered placeholder text.
+- Only rendered when 2+ stores are in scope. At exactly 1 store: switch the entire section to "Your Store" variant.
+
+**Implementation: Recharts over Nivo for this project.**
+Rationale: Recharts has a smaller initial bundle (~150kB vs Nivo's 500kB+ for a full install). This matters in a React-island pattern where the chart bundle is loaded on a Django-rendered page. Recharts per-bar `Cell` coloring is well-documented and confirmed working. Recharts is already likely in the project's frontend dependencies from prior phases (verify in `frontend/package.json`). If not present, add `recharts` — do not add Nivo.
+
+### 3. KPI Cards — Skeleton Loading + Independent Error States
+
+**Expected behaviors (table-stakes):**
+
+- 3 cards in a row: Total Reviews, Average Rating, Negative Reviews.
+- Single `/api/v1/dashboard/kpis/` endpoint returns all three metrics. The React component handles loading/error state independently per card field using the single response.
+- Skeleton state (`isLoading === true`): grey pulsing shimmer rectangle fills the number area of each card (approximately 40px tall, full card width minus padding). Skeleton is not a spinner — it mimics the layout of the real content.
+- On filter change: immediately replace current data with skeleton — do not show stale numbers while re-fetching.
+- Error state: replace the metric number with "—" + a small "Failed to load" label + a "Retry" link that re-triggers the fetch. Error is contained within the card; other cards are unaffected.
+- Success: show the metric number. On first load only, animate a brief count-up from 0 (optional, low-cost differentiator). Skip animation on filter-change re-fetches.
+- Total Reviews card: integer, large font.
+- Average Rating card: numeric value (e.g. "4.2") + half-star visual below the number.
+- Negative Reviews card: integer with a red accent on the number. An `(i)` tooltip icon beside the label: "Based on AI sentiment analysis of enriched reviews." Uses `review.sentiment === 'negative'` count, not star rating.
+
+**Implementation note:** If the KPI endpoint returns partial data (e.g., enrichment count unavailable due to a DB error), Negative Reviews shows its error state independently while Total Reviews and Average Rating display correctly. Model this as three `status` fields derived from a single fetch, not three separate fetches.
+
+### 4. Donut Chart — Percentage Tooltips + Coverage Footer
+
+**Expected behaviors (table-stakes):**
+
+- 3 segments: Positive (green `#16a34a`), Neutral (grey `#6b7280`), Negative (red `#dc2626`). Order: Positive → Neutral → Negative (clockwise from top).
+- Hollow donut: Recharts `<Pie innerRadius="60%" outerRadius="80%">`.
+- No labels on the segments themselves — the legend handles labeling.
+- Center of donut: largest segment's label + its percentage as static text (e.g., "Positive 72%"). Rendered as an SVG `<text>` element at `cx, cy`.
+- Tooltip on hover: `{Label}: {count} reviews ({percentage}%)`. Percentage formatted to 1 decimal. Custom tooltip component.
+- Legend: 3 rows below (or to the right of) the donut. Each row: colored circle swatch + sentiment label + count + percentage. Order matches segment order.
+- Zero-value segments: do not render the segment (a 0% sliver creates visual noise). Show the legend row with "0%" and a greyed swatch.
+- Coverage footer: `"Based on {enriched_count} of {total_count} reviews ({pct}% enriched)"`. Grey italic `<p>` below the chart.
+- Warning callout: if `enriched_count / total_count < 0.20` (less than 20% enriched), show a yellow callout above the chart: "Limited enrichment data — sentiment distribution may not be representative."
+- Empty state (enriched_count === 0): do not render the donut. Show placeholder: "Sentiment data will appear once AI processing completes." No broken empty chart.
+- Accessibility: `role="img"` with `<title>` on the SVG container. `aria-label="Sentiment distribution: 72% positive, 18% neutral, 10% negative"` updated from data.
+
+### 5. Half-Star Rating Display
+
+**Expected behaviors (table-stakes):**
+
+- Display-only. Not interactive (no click, hover, or focus states beyond the container `aria-label`).
+- Supports: full star (fully filled), half star (left 50% filled via `<clipPath>`), empty star (outline only).
+- Rounding: `Math.floor(rating)` full stars; if `(rating % 1) >= 0.5`, add one half star; fill remaining positions with empty stars to total 5.
+  - 4.2 → 4 full + 0 half + 1 empty (fractional part 0.2 < 0.5)
+  - 4.5 → 4 full + 1 half + 0 empty
+  - 4.7 → 4 full + 1 half + 0 empty (fractional part 0.7 >= 0.5)
+- SVG implementation: each of 5 stars is an SVG path. For the half-star position, render the filled star SVG clipped to 50% width using an inline `<clipPath>`. Empty star uses `fill="none" stroke="#FACC15"`.
+- Color: `#FACC15` (brand primary yellow — consistent with the existing design system).
+- Wrapper: `<span role="img" aria-label="4.2 out of 5 stars">`. Individual SVG stars are `aria-hidden="true"`.
+- Size: 16px star icons in a 24px line-height in the KPI card context. Can be made a size-prop for reuse.
+- Do not use emoji stars (`★`) — inaccessible, rendering inconsistent across platforms.
+- Do not pull in a third-party star-rating library for a display-only component — implement with SVG directly (< 30 lines, no extra bundle weight).
+
+---
+
+## Existing Phase Dependencies (v0.3 Components to Reuse)
+
+| Existing Component | Dashboard Usage | Location |
+|--------------------|-----------------|----------|
+| Region list API | Populates Region dropdown | `apps/stores/` — already built |
+| Store list API | Populates Store dropdown (filtered by region) | `apps/stores/` — already built |
+| `Review` model + `enrichment_status` / `sentiment` field | All dashboard metrics derive from this | `apps/reviews/` — already built |
+| `AiUsageLog` | Negative Reviews KPI + Sentiment donut | `apps/reviews/` / `apps/integrations/openai/` — already built |
+| Redis cache infrastructure (DB 0) | TTL caching on dashboard endpoints | `apps/common/` + existing `django-redis` setup |
+| Celery task infrastructure | Post-sync cache invalidation hook | `apps/reviews/tasks.py` — already built |
+| `TenantScopedViewSet` | All 5 dashboard endpoints inherit tenant scoping | `apps/common/` — already built |
+| React island pattern | Dashboard page mounts an embedded React root | Established in v0.3 (Action Items, Notification Bell) |
+| Tailwind design tokens (yellow `#FACC15`, black `#0A0A0A`) | All chart colors, button states, card styling | `static/css/` — already defined |
+| `CursorPagination` | Not needed for dashboard endpoints (aggregates, not lists) | N/A — dashboard endpoints return scalar aggregates |
+| Recharts | Bar chart + Donut chart | Verify in `frontend/package.json`; add if absent |
 
 ---
 
 ## Sources
 
-- Google Business Profile OAuth implementation: [Implement OAuth with Business Profile APIs](https://developers.google.com/my-business/content/implement-oauth), [OAuth setup](https://developers.google.com/my-business/content/oauth-setup)
-- Google OAuth scopes: [OAuth 2.0 Scopes for Google APIs](https://developers.google.com/identity/protocols/oauth2/scopes)
-- Google API deprecation schedule: [Deprecation schedule](https://developers.google.com/my-business/content/sunset-dates)
-- OAuth popup + postMessage pattern: [How we use a popup for Google and Outlook OAuth — DEV Community](https://dev.to/dinkydani21/how-we-use-a-popup-for-google-and-outlook-oauth-oci), [Leave Me Alone blog](https://leavemealone.com/blog/how-to-oauth-popup/)
-- COOP header and OAuth popups: [Chrome for Developers — restrict-properties](https://developer.chrome.com/blog/coop-restrict-properties), [Next.js Discussion #51135](https://github.com/vercel/next.js/discussions/51135), [MDN COOP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy)
-- `invalid_grant` handling: [Nango Blog — Google OAuth invalid_grant](https://nango.dev/blog/google-oauth-invalid-grant-token-has-been-expired-or-revoked/)
-- Multi-tenant RBAC and scope patterns: [EnterpriseReady RBAC Guide](https://www.enterpriseready.io/features/role-based-access-control/), [Frontegg Roles and Permissions](https://frontegg.com/guides/roles-and-permissions-handling-in-saas-applications), [WorkOS multi-tenant architecture](https://workos.com/blog/developers-guide-saas-multi-tenant-architecture)
-- Quota enforcement UX patterns: [Indie Hackers — how to handle limits](https://www.indiehackers.com/post/how-do-you-handle-limits-in-your-saas-plans-3c4f7c692c), [SaaS Upgrade Prompt Examples](https://www.saasframe.io/patterns/upgrade-prompt)
-- Human-readable ID patterns: [Designing APIs for humans: Object IDs](https://dev.to/4thzoa/designing-apis-for-humans-object-ids-3o5a)
-- Team invitation flow: [How to onboard invited users — Userpilot](https://userpilot.com/blog/onboard-invited-users-saas/), [Designing an intuitive user flow for inviting teammates — PageFlows](https://pageflows.com/resources/invite-teammates-user-flow/)
+- Cascading dropdown + URL state: [LogRocket — Advanced React state management via URL parameters](https://blog.logrocket.com/advanced-react-state-management-using-url-parameters/), [DEV Community — Sync React State with URL Search Params](https://dev.to/kphr99/sync-react-state-with-url-search-parameters-using-usequeryparamsstate-hook-1pgi)
+- KPI skeleton + independent error states: [Carbon Design System — Loading Pattern](https://carbondesignsystem.com/patterns/loading-pattern/), [Medium — How Senior React Developers Handle Loading States](https://medium.com/@sainudheenp/how-senior-react-developers-handle-loading-states-error-handling-a-complete-guide-ffe9726ad00a)
+- Bar chart threshold coloring via Cell: [Recharts GitHub — Dynamic Fill Color Per Bar](https://github.com/recharts/recharts/issues/280), [Recharts GitHub — Positive/Negative Referenced Chart discussion](https://github.com/recharts/recharts/discussions/4278)
+- Donut chart UX patterns: [Domo — What Is a Donut Chart?](https://www.domo.com/learn/charts/donut-charts), [PatternFly — Donut Chart](https://pf3.patternfly.org/v3/pattern-library/data-visualization/donut-chart/), [GeeksforGeeks — Recharts Donut](https://www.geeksforgeeks.org/reactjs/create-a-donut-chart-using-recharts-in-reactjs/)
+- Half-star rating accessibility: [DEV Community — Dynamic Star Rating in React](https://dev.to/ramcpucoder/how-you-can-build-a-dynamic-star-rating-component-in-reactjs-full-half-and-empty-stars-included-j0k), [Material UI Rating](https://mui.com/material-ui/react-rating/)
+- Filter bar UX: [Pencil & Paper — Filter UX Design Patterns](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-filtering), [Eleken — Filter UX and UI for SaaS](https://www.eleken.co/blog-posts/filter-ux-and-ui-for-saas)
+- Chart library selection: [PkgPulse — Recharts vs Chart.js vs Nivo 2026](https://www.pkgpulse.com/guides/recharts-vs-chartjs-vs-nivo-vs-visx-react-charting-2026), [LogRocket — Best React chart libraries 2025](https://blog.logrocket.com/best-react-chart-libraries-2025/)
+- Dashboard design principles: [Carbon Design System — Loading Pattern](https://carbondesignsystem.com/patterns/loading-pattern/), [Pencil & Paper — Dashboard UX Patterns](https://www.pencilandpaper.io/articles/ux-pattern-analysis-data-dashboards)
 
 ---
 
-*Feature research for: Organisation Admin Module (v0.2-org-admin)*
-*Researched: 2026-04-27*
+*Feature research for: Organisation Admin Dashboard (v0.4)*
+*Researched: 2026-05-07*

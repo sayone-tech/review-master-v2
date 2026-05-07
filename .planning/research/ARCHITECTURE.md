@@ -1,894 +1,740 @@
-# Architecture Patterns
+# Architecture Research
 
-**Domain:** Multi-tenant SaaS review management — v0.2 Org Admin module integration
-**Researched:** 2026-04-27
-**Confidence:** HIGH (derived from direct codebase reading + existing patterns)
-
----
-
-## System Overview (post v0.2)
-
-```
-Browser
-  ├─ Django Template Pages (server-rendered HTML)
-  │    └─ Tailwind CSS + Alpine.js (shell interactivity)
-  │    └─ React widgets mounted on <div id="..."> via Vite bundles
-  │
-  ├─ DRF JSON API  /api/v1/   (called by React widgets + OAuth callback coordination)
-  │
-  └─ Static assets (WhiteNoise / CDN)
-
-Django (Cloud Run)
-  ├─ config/              Project wiring: settings, urls, wsgi/asgi
-  ├─ apps/accounts/       User model, auth, invitations, RBAC permissions
-  ├─ apps/organisations/  Organisation CRUD (Superadmin)
-  ├─ apps/regions/        NEW — Region model, auto-ID generation, CRUD
-  ├─ apps/shops/          NEW — Shop model, OAuth + manual Place ID, API key mgmt
-  ├─ apps/integrations/   Google Business Profile OAuth client, Places API validation
-  └─ apps/common/         TimeStampedModel, email service, base permissions/mixins
-
-PostgreSQL 16  — Primary datastore
-Redis 7        — Cache (DB0), Throttle (DB1), Sessions (DB2)
-Amazon SES     — Transactional email via django-ses
-GCP Secret Manager — All credentials at runtime
-```
+**Domain:** Multi-tenant SaaS — Organisation Admin Dashboard (v0.4)
+**Researched:** 2026-05-07
+**Confidence:** HIGH — based on direct codebase inspection, not training assumptions
 
 ---
 
-## Existing Architecture (confirmed from codebase)
+## Standard Architecture
 
-### What exists in v1.0
+### System Overview
 
-**apps/accounts/models.py**
-- `User` — AbstractBaseUser; fields: email, full_name, role (SUPERADMIN|ORG_ADMIN|STAFF_ADMIN),
-  organisation FK (null for superadmins), email_suppressed, is_active
-- `InvitationToken` — token_hash (SHA-256), is_used, expires_at, organisation FK, invited_user OneToOne
+```text
+Browser (Django Template: dashboard.html)
+    │
+    ├── Django template renders page shell, filter dropdowns, JSON bootstrap data
+    │    (regions list, shops list) into <script type="application/json"> tags
+    │
+    └── <div id="dashboard-root"> mounts single React island
+         │
+         ├── DashboardWidget (React root — one entrypoint)
+         │    ├── useFilterState        — URL + sessionStorage sync
+         │    ├── FilterBar             — cascading Region→Store dropdowns + date range
+         │    ├── useTopPerforming      — React Query → GET /api/v1/dashboard/top-performing/
+         │    ├── useHighlights         — React Query → GET /api/v1/dashboard/highlights/
+         │    │                              OR useYourStore for single-shop
+         │    ├── useKpis               — React Query → GET /api/v1/dashboard/kpis/
+         │    └── useSentiment          — React Query → GET /api/v1/dashboard/sentiment-distribution/
+         │
+         └── All 5 calls fire in parallel on mount and on filter change
 
-**apps/organisations/models.py**
-- `Organisation` — name, org_type, email, address, number_of_stores, status (ACTIVE|DISABLED|DELETED),
-  created_by FK; soft-delete via `.soft_delete()`
+Django API Layer (apps/dashboard/)
+    │
+    ├── views.py (5 APIView subclasses, not ViewSets — no CRUD, pure read)
+    │    ├── GET /api/v1/dashboard/top-performing/      (date-range filter only)
+    │    ├── GET /api/v1/dashboard/highlights/          (date-range filter only)
+    │    ├── GET /api/v1/dashboard/your-store/          (date-range filter only)
+    │    ├── GET /api/v1/dashboard/kpis/               (full filter)
+    │    └── GET /api/v1/dashboard/sentiment-distribution/  (full filter)
+    │
+    ├── filters.py — DashboardFilterParams (dataclass, not FilterSet)
+    │    └── validate_filter_params() — raises ValidationError or PermissionDenied
+    │
+    ├── selectors/aggregations.py — all ORM aggregations; views call these
+    │
+    └── services/cache.py — cache_get / cache_set helpers, key builder
 
-**apps/accounts/permissions.py**
-- `IsSuperadmin` — checks `user.role == User.Role.SUPERADMIN`
+Redis (DB 0, "default" cache, KEY_PREFIX="app")
+    └── dashboard:{endpoint}:{org_id}:{user_id}:{filter_hash} → TTL 5 min
 
-**config/urls.py**
-- SimpleRouter registers `api/v1/organisations/` → OrganisationViewSet
-- `admin/organisations/` → Superadmin list template view
-- `admin/org-dashboard/` → stub Org Admin dashboard (in organisations/views.py)
-- `admin/profile/` → accounts profile view
-
-**Route namespace reality:** There is NO `accounts/login/` prefix — auth URLs are at root level
-(`/login/`, `/logout/`, `/password-reset/`). Template views are at `/admin/*`. Org Admin stub is
-already at `/admin/org-dashboard/`.
-
-**Frontend widget pattern:**
-- Vite entrypoints in `frontend/src/entrypoints/`
-- Each entrypoint mounts one or more React roots onto `<div id="...">` elements injected by Django templates
-- `window._orgModalHandlers` used as cross-root communication bus (established pattern)
-- `window.dispatchEvent(new CustomEvent("org:refresh"))` for mutation → re-fetch signalling
-- CSRF token read from cookie via `document.cookie` (not from data attribute)
-- `app-shell.ts` loads Alpine.js + Lucide icons globally on every page
+PostgreSQL (Review table + 3 new composite indexes)
+    ├── (organisation_id, review_create_time, sentiment)    — KPI + sentiment queries
+    ├── (shop_id, review_create_time)                       — top-performing per shop
+    └── (organisation_id, review_create_time, enrichment_status) — sentiment coverage
+```
 
 ---
 
-## New Components: Placement and Import Rules
+## Component Responsibilities
 
-### (a) Where New Apps Live and How They Import
+| Component | Responsibility | Location |
+| --------- | -------------- | -------- |
+| `DashboardWidget` | Single React root; owns QueryClient; renders all sections | `frontend/src/widgets/dashboard/` |
+| `FilterBar` | Cascading region/store dropdowns, date range, URL sync | `frontend/src/widgets/dashboard/FilterBar.tsx` |
+| `useDashboard*` hooks | React Query wrappers; one per endpoint | `frontend/src/widgets/dashboard/use*.ts` |
+| `DashboardApiView` (base) | Shared filter validation + permission check; all 5 views inherit | `apps/dashboard/views.py` |
+| `validate_filter_params()` | Scope enforcement: out-of-scope region/store → 403; range >365d → 400; from>to → 400 | `apps/dashboard/filters.py` |
+| `aggregations.py` | All ORM `.aggregate()` / `.annotate()` calls; selectors pattern — no mutations | `apps/dashboard/selectors/aggregations.py` |
+| `services/cache.py` | `dashboard_cache_key()`, `cache_get()`, `cache_set()` — TTL-only, 5 min | `apps/dashboard/services/cache.py` |
+| 3 new Review indexes | Eliminate seq-scan on filtered aggregate queries | `apps/reviews/migrations/000N_dashboard_indexes.py` |
 
-**New apps:**
+---
 
+## Recommended Project Structure
+
+```text
+apps/dashboard/
+├── __init__.py
+├── apps.py
+├── urls.py                  # urlpatterns for all 5 endpoints
+├── filters.py               # DashboardFilterParams dataclass + validate_filter_params()
+├── views.py                 # DashboardApiView base + 5 concrete views
+├── selectors/
+│   ├── __init__.py
+│   └── aggregations.py      # top_performing(), kpis(), sentiment_distribution(), highlights()
+├── services/
+│   ├── __init__.py
+│   └── cache.py             # dashboard_cache_key(), cache_get(), cache_set()
+└── tests/
+    ├── __init__.py
+    ├── factories.py          # reuse ReviewFactory from apps/reviews/tests/factories.py
+    ├── test_filters.py       # validate_filter_params() — 403/400 branches
+    ├── test_aggregations.py  # ORM aggregation correctness + query count assertions
+    └── test_views.py         # end-to-end with CaptureQueriesContext per endpoint
+
+frontend/src/widgets/dashboard/
+├── DashboardWidget.tsx       # root component; owns QueryClient; renders all sections
+├── FilterBar.tsx             # region+store cascading dropdowns, date range, clear
+├── TopPerformingSection.tsx  # bar chart + highlights card
+├── KpiCards.tsx              # total reviews, avg rating, negative count
+├── SentimentDonut.tsx        # donut + summary + coverage footer
+├── api.ts                   # fetch wrappers for all 5 endpoints
+├── types.ts                 # TypeScript response types
+├── useFilterState.ts         # URL search params + sessionStorage sync
+├── useTopPerforming.ts       # React Query hook
+├── useHighlights.ts          # React Query hook
+├── useKpis.ts               # React Query hook
+├── useSentiment.ts          # React Query hook
+└── useDashboardData.ts      # orchestrator: runs all 4 queries in parallel
+
+frontend/src/entrypoints/
+└── dashboard.tsx            # mounts DashboardWidget on #dashboard-root
 ```
-apps/
-  regions/          # NEW bounded context
-  shops/            # NEW bounded context
-  integrations/     # EXPAND — google/ sub-package referenced in CLAUDE.md but not yet created
-```
 
-**Dependency direction (strict acyclic):**
+---
 
-```
-apps/common         ← imported by everything; imports nothing from other apps
-apps/accounts       ← imported by organisations, regions, shops; imports only common
-apps/organisations  ← imported by regions, shops; imports accounts + common
-apps/regions        ← imported by shops (region FK on Shop); imports accounts + organisations + common
-apps/shops          ← imports regions + organisations + accounts + common + integrations
-apps/integrations   ← imports only common (no domain models); called by shops service layer
-```
+## Architectural Patterns
 
-**Circular import risk points and mitigations:**
+### Pattern 1: Single `DashboardApiView` Base Class for Shared Validation
 
-1. `apps/accounts` services reference `apps/organisations` (existing: `Organisation` FK on User).
-   The existing code uses string label `"organisations.Organisation"` in the FK definition —
-   this is the correct pattern. Services that cross boundaries use TYPE_CHECKING guards:
-   ```python
-   if TYPE_CHECKING:
-       from apps.organisations.models import Organisation
-   ```
-   This pattern is already established in `apps/organisations/services/organisations.py`.
+**What:** All 5 endpoints inherit a common base `APIView` that handles filter extraction, scope validation, and cache lookup/population. Concrete subclasses implement only `_fetch()` which calls the appropriate selector.
 
-2. `apps/shops` services will call `apps/integrations/google/` for OAuth and Places validation.
-   `apps/integrations/google/` must NOT import from `apps/shops` — it receives data as parameters,
-   returns plain values. No model imports in integrations/.
+**When to use:** Anytime 5+ endpoints share identical validation logic. Avoids copy-paste divergence.
 
-3. `apps/accounts/services/` will add team invitation functions for v0.2. These services will need
-   to reference `Region` and `Shop` models (for StaffAccessScope). Use TYPE_CHECKING guards:
-   ```python
-   if TYPE_CHECKING:
-       from apps.regions.models import Region
-       from apps.shops.models import Shop
-   ```
-   Do not import Region/Shop models at module level in accounts/services — call sites in
-   team service functions will import lazily inside the function or use string model references.
-
-**Recommended import pattern for cross-app services:**
+**Trade-offs:** Thin base class is fine. Resist putting aggregation logic in the base — keep that in selectors.
 
 ```python
-# apps/shops/services/shops.py
+# apps/dashboard/views.py
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from apps.common.models import TimeStampedModel
-from apps.organisations.models import Organisation   # OK: shops → organisations is one-way
+from rest_framework.views import APIView
+from rest_framework.request import Request
+from rest_framework.response import Response
+from apps.common.permissions import IsOrgScoped
+from apps.dashboard.filters import validate_filter_params, DashboardFilterParams
+from apps.dashboard.services.cache import dashboard_cache_key, cache_get, cache_set
 
-if TYPE_CHECKING:
-    from apps.accounts.models import User  # type-checking only (User passed as param)
+DASHBOARD_TTL = 300  # 5 minutes
+
+class DashboardApiView(APIView):
+    permission_classes = [IsOrgScoped]  # noqa: RUF012
+    endpoint_name: str = ""  # set by subclass
+
+    def get(self, request: Request) -> Response:
+        user = request.user
+        org_id: int = user.organisation_id
+        # validate_filter_params raises ValidationError (400) or PermissionDenied (403)
+        params: DashboardFilterParams = validate_filter_params(
+            request=request,
+            user=user,
+            org_id=org_id,
+        )
+        key = dashboard_cache_key(
+            endpoint=self.endpoint_name,
+            org_id=org_id,
+            user_id=user.pk,
+            params=params,
+        )
+        cached = cache_get(key)
+        if cached is not None:
+            return Response(cached)
+        data = self._fetch(org_id=org_id, params=params, user=user)
+        cache_set(key, data, ttl=DASHBOARD_TTL)
+        return Response(data)
+
+    def _fetch(self, *, org_id: int, params: DashboardFilterParams, user) -> dict:
+        raise NotImplementedError
+
+
+class KpisView(DashboardApiView):
+    endpoint_name = "kpis"
+
+    def _fetch(self, *, org_id, params, user):
+        from apps.dashboard.selectors.aggregations import dashboard_kpis
+        return dashboard_kpis(org_id=org_id, params=params)
 ```
 
-### New App Structure
+### Pattern 2: `DashboardFilterParams` Dataclass with Centralised Scope Enforcement
 
-```
-apps/regions/
-  __init__.py
-  apps.py
-  models.py            # Region model
-  managers.py
-  admin.py
-  permissions.py       # IsOrgAdminForRegion (delegates to IsOrgScoped)
-  serializers.py       # RegionReadSerializer, RegionCreateSerializer
-  views.py             # RegionViewSet (TenantScopedViewSet)
-  urls.py
-  services/
-    __init__.py
-    regions.py         # create_region, update_region, delete_region, generate_region_id
-  selectors/
-    __init__.py
-    regions.py         # list_regions_for_org, get_region_for_org
-  migrations/
-  tests/
-    __init__.py
-    factories.py
-    test_models.py
-    test_services.py
-    test_selectors.py
-    test_views.py
+**What:** A frozen dataclass (not a Django FilterSet) holds validated, normalised filter values plus the resolved `accessible_shop_ids` tuple. The `validate_filter_params()` function is the single point where scope checks, range limits, and ordering of `from_date`/`to_date` are enforced.
 
-apps/shops/
-  __init__.py
-  apps.py
-  models.py            # Shop model, EncryptedTokenField
-  managers.py
-  admin.py
-  serializers.py       # ShopReadSerializer, ShopCreateSerializer, ShopUpdateSerializer
-  views.py             # ShopViewSet (TenantScopedViewSet) + OAuthInitiateView
-  urls.py
-  services/
-    __init__.py
-    shops.py           # create_shop_oauth, create_shop_manual, connect_shop, etc.
-    api_keys.py        # generate_api_key, rotate_api_key
-  selectors/
-    __init__.py
-    shops.py           # list_shops_for_org, get_shop_for_org
-  migrations/
-  tests/
-    __init__.py
-    factories.py
-    test_services.py
-    test_selectors.py
-    test_views.py
+**When to use:** Dashboard endpoints are read-only aggregations, not ORM querysets — Django FilterSet is overkill and adds unnecessary coupling to model field names.
 
-apps/integrations/
-  __init__.py
-  google/
-    __init__.py
-    client.py          # BusinessProfileClient — wraps API calls with retry + backoff
-    oauth.py           # OAuthFlow — initiate, callback, refresh
-    places.py          # PlacesAPI — validate Place ID, fetch place details
-    exceptions.py      # GoogleAPIError, TokenExpiredError, InvalidPlaceIdError
-```
-
----
-
-## (b) Google OAuth Popup Flow Architecture
-
-The OAuth flow for connecting a Shop to Google Business Profile is browser-popup based.
-The canonical pattern for this, matching the existing Django + React widget approach:
-
-### Flow diagram
-
-```
-Org Admin clicks "Connect via Google" button in React Shop modal
-  │
-  ├─ React calls GET /api/v1/shops/{id}/oauth/initiate/
-  │    └─ ShopViewSet.oauth_initiate() action
-  │         └─ integrations.google.oauth.OAuthFlow.build_authorization_url(
-  │              shop_id=shop.id,
-  │              state=sign_state(shop.id, request.user.id)   # TimestampSigner
-  │            )
-  │         → returns {auth_url: "https://accounts.google.com/o/oauth2/auth?..."}
-  │
-  ├─ React opens popup: window.open(auth_url, "google-oauth", "width=600,height=700")
-  │
-  ├─ User authorises in Google popup
-  │
-  ├─ Google redirects popup to: /integrations/google/oauth/callback/?code=...&state=...
-  │    └─ GoogleOAuthCallbackView (Django TemplateView — NOT a DRF view)
-  │         └─ integrations.google.oauth.OAuthFlow.exchange_code(code, state)
-  │               ├─ Verify state signature (TimestampSigner, 10-minute max age)
-  │               ├─ Exchange code → access_token + refresh_token
-  │               ├─ Fernet-encrypt refresh_token
-  │               └─ shops.services.shops.connect_shop_oauth(shop_id, tokens)  # writes DB
-  │         └─ Returns minimal HTML page that calls window.opener.postMessage(...)
-  │
-  └─ React parent window receives postMessage:
-       {type: "google-oauth-success", shopId: 42} or {type: "google-oauth-error", reason: "..."}
-     → closes popup, triggers shop list refresh
-```
-
-### Callback view implementation
+**Trade-offs:** The dataclass approach means filter validation is tested independently of DRF, which is easier to test and reason about.
 
 ```python
-# apps/integrations/google/views.py
-from django.http import HttpRequest, HttpResponse
-from django.views import View
-from django.utils.html import escape
+# apps/dashboard/filters.py
+from __future__ import annotations
+import hashlib, json
+from dataclasses import dataclass
+from datetime import date
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from apps.reviews.selectors.reviews import get_accessible_shop_ids
+from apps.accounts.models import User
 
-class GoogleOAuthCallbackView(View):
-    """Handles Google OAuth callback in a popup window.
+@dataclass(frozen=True)
+class DashboardFilterParams:
+    region_id: int | None
+    shop_id: int | None
+    date_from: date | None
+    date_to: date | None
+    # resolved shop IDs scoped to user; always populated; used in cache key
+    accessible_shop_ids: tuple[int, ...]
 
-    This is a Django TemplateView, NOT a DRF APIView — it must render HTML
-    so the popup can call window.opener.postMessage().
+    def filter_hash(self) -> str:
+        """Deterministic hash for cache key — includes accessible_shop_ids for Staff scoping."""
+        payload = {
+            "region_id": self.region_id,
+            "shop_id": self.shop_id,
+            "date_from": self.date_from.isoformat() if self.date_from else None,
+            "date_to": self.date_to.isoformat() if self.date_to else None,
+            "shop_ids": list(self.accessible_shop_ids),
+        }
+        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
-    Security: never trust the `state` parameter without signature verification.
-    """
-    def get(self, request: HttpRequest) -> HttpResponse:
-        code = request.GET.get("code", "")
-        state = request.GET.get("state", "")
 
-        if not code or not state:
-            return self._postmessage_response(success=False, reason="missing_params")
+def validate_filter_params(*, request, user, org_id: int) -> DashboardFilterParams:
+    qp = request.query_params
 
+    # resolve accessible shops (always needed for scoping + cache key)
+    if user.role == User.Role.STAFF_ADMIN:
+        accessible = tuple(get_accessible_shop_ids(user_id=user.pk))
+    else:
+        # ORG_ADMIN sees all active shops in org
+        from apps.shops.models import Shop
+        accessible = tuple(
+            Shop.objects.filter(organisation_id=org_id, is_active=True)
+            .values_list("id", flat=True)
+            .order_by("id")
+        )
+
+    # region param
+    region_id: int | None = None
+    if raw_region := qp.get("region"):
         try:
-            from apps.integrations.google.oauth import OAuthFlow
-            shop_id, user_id = OAuthFlow.verify_state(state)  # raises on tamper/expiry
-            tokens = OAuthFlow.exchange_code(code)
-            from apps.shops.services.shops import connect_shop_oauth
-            connect_shop_oauth(
-                shop_id=shop_id,
-                access_token=tokens.access_token,
-                refresh_token=tokens.refresh_token,
-            )
-        except Exception as exc:
-            return self._postmessage_response(success=False, reason=str(exc))
+            region_id = int(raw_region)
+        except ValueError:
+            raise ValidationError({"region": "Must be an integer."})
+        from apps.regions.models import Region
+        if not Region.objects.filter(id=region_id, organisation_id=org_id).exists():
+            raise PermissionDenied("Region is not in your organisation.")
 
-        return self._postmessage_response(success=True, shop_id=shop_id)
+    # shop param
+    shop_id: int | None = None
+    if raw_shop := qp.get("shop"):
+        try:
+            shop_id = int(raw_shop)
+        except ValueError:
+            raise ValidationError({"shop": "Must be an integer."})
+        if shop_id not in accessible:
+            raise PermissionDenied("Shop is not accessible to you.")
 
-    def _postmessage_response(
-        self, *, success: bool, reason: str = "", shop_id: int | None = None
-    ) -> HttpResponse:
-        if success:
-            payload = f'{{"type":"google-oauth-success","shopId":{shop_id}}}'
-        else:
-            reason_escaped = escape(reason)
-            payload = f'{{"type":"google-oauth-error","reason":"{reason_escaped}"}}'
-        html = f"""<!DOCTYPE html>
-<html><head><title>Connecting...</title></head>
-<body>
-<script>
-  window.opener && window.opener.postMessage({payload}, window.location.origin);
-  window.close();
-</script>
-</body></html>"""
-        return HttpResponse(html, content_type="text/html")
+    # date params
+    date_from: date | None = None
+    date_to: date | None = None
+    if raw_from := qp.get("from"):
+        try:
+            date_from = date.fromisoformat(raw_from)
+        except ValueError:
+            raise ValidationError({"from": "Must be ISO date (YYYY-MM-DD)."})
+    if raw_to := qp.get("to"):
+        try:
+            date_to = date.fromisoformat(raw_to)
+        except ValueError:
+            raise ValidationError({"to": "Must be ISO date (YYYY-MM-DD)."})
+
+    if date_from and date_to:
+        if date_from > date_to:
+            raise ValidationError({"from": "from date cannot be after to date."})
+        if (date_to - date_from).days > 365:
+            raise ValidationError({"range": "Custom date range cannot exceed 365 days."})
+
+    return DashboardFilterParams(
+        region_id=region_id,
+        shop_id=shop_id,
+        date_from=date_from,
+        date_to=date_to,
+        accessible_shop_ids=accessible,
+    )
 ```
 
-### React popup listener
+### Pattern 3: Cache Key Embeds `accessible_shop_ids` for Correct Staff Scoping
+
+**What:** The cache key includes a hash of `accessible_shop_ids` (the Staff user's resolved shop list). Two Staff users in the same org with different scope assignments get different cache entries. An Org Admin's cache key includes all active shops in the org.
+
+**When to use:** Any multi-role system where different users within the same org should see different aggregate data subsets.
+
+**Trade-offs:** Cache hit rate is lower for Staff users (more unique keys) but correctness is non-negotiable. TTL-only invalidation is safe here because dashboard data staleness of 5 minutes is acceptable — do not add event-based invalidation for this endpoint (complexity not justified for aggregate read data).
+
+```python
+# apps/dashboard/services/cache.py
+from __future__ import annotations
+from django.core.cache import cache
+from apps.dashboard.filters import DashboardFilterParams
+
+def dashboard_cache_key(
+    *,
+    endpoint: str,
+    org_id: int,
+    user_id: int,
+    params: DashboardFilterParams,
+) -> str:
+    """
+    Format: dashboard:{endpoint}:{org_id}:{user_id}:{filter_hash}
+
+    filter_hash is a 16-char SHA-256 prefix of the serialised filter params
+    including accessible_shop_ids — this is what prevents cross-user cache leakage
+    for Staff Admins with different StaffAccessScope assignments.
+    """
+    return f"dashboard:{endpoint}:{org_id}:{user_id}:{params.filter_hash()}"
+
+def cache_get(key: str) -> dict | None:
+    return cache.get(key)
+
+def cache_set(key: str, data: dict, *, ttl: int) -> None:
+    cache.set(key, data, timeout=ttl)
+```
+
+**Critical correctness note:** Including `user_id` in the key is intentional. Two Org Admins in the same org see identical data, so their keys differ only by `user_id`. This is slightly redundant for Org Admins (where `accessible_shop_ids` is the same for all Org Admins in the same org) but it eliminates any possibility of a Staff Admin receiving a cached result from an Org Admin's key or vice versa. The 5-minute TTL means the worst-case wastage is a few extra Redis keys — acceptable.
+
+### Pattern 4: ORM Aggregations with `Q` Filters — All in Selectors
+
+**What:** All `aggregate()` and `annotate()` calls live in `apps/dashboard/selectors/aggregations.py`. Views call selector functions. No raw SQL.
+
+**When to use:** Always in this codebase. The services/selectors pattern is established convention.
+
+```python
+# apps/dashboard/selectors/aggregations.py
+from __future__ import annotations
+from django.db.models import Avg, Count, Q
+from apps.reviews.models import Review
+from apps.dashboard.filters import DashboardFilterParams
+
+
+def _base_qs(org_id: int, params: DashboardFilterParams):
+    """Base active queryset scoped to org + accessible shops + date range."""
+    qs = (
+        Review.objects.active()
+        .filter(organisation_id=org_id)
+        .filter(shop_id__in=params.accessible_shop_ids)
+    )
+    if params.region_id is not None:
+        qs = qs.filter(shop__region_id=params.region_id)
+    if params.shop_id is not None:
+        qs = qs.filter(shop_id=params.shop_id)
+    if params.date_from is not None:
+        qs = qs.filter(review_create_time__date__gte=params.date_from)
+    if params.date_to is not None:
+        qs = qs.filter(review_create_time__date__lte=params.date_to)
+    return qs
+
+
+def dashboard_kpis(*, org_id: int, params: DashboardFilterParams) -> dict:
+    """
+    KPI card row: total reviews, average rating, negative review count.
+    Negative = AI sentiment "negative" WHERE enrichment_status = SUCCESS only.
+    Query count: 1 (single aggregate call).
+    """
+    qs = _base_qs(org_id, params)
+    agg = qs.aggregate(
+        total_reviews=Count("pk"),
+        avg_rating=Avg("star_rating"),
+        negative_count=Count(
+            "pk",
+            filter=Q(
+                sentiment="negative",
+                enrichment_status=Review.EnrichmentStatus.SUCCESS,
+            ),
+        ),
+    )
+    return {
+        "total_reviews": agg["total_reviews"] or 0,
+        "avg_rating": round(float(agg["avg_rating"] or 0.0), 1),
+        "negative_reviews": agg["negative_count"] or 0,
+    }
+
+
+def dashboard_sentiment_distribution(*, org_id: int, params: DashboardFilterParams) -> dict:
+    """
+    Sentiment donut: positive/neutral/negative counts for enriched reviews only.
+    Coverage = enriched / total (for the footer).
+    Query count: 1 (single aggregate call with 4 conditional counts).
+    """
+    qs = _base_qs(org_id, params)
+    agg = qs.aggregate(
+        total=Count("pk"),
+        enriched=Count("pk", filter=Q(enrichment_status=Review.EnrichmentStatus.SUCCESS)),
+        positive=Count(
+            "pk",
+            filter=Q(sentiment="positive", enrichment_status=Review.EnrichmentStatus.SUCCESS),
+        ),
+        neutral=Count(
+            "pk",
+            filter=Q(sentiment="neutral", enrichment_status=Review.EnrichmentStatus.SUCCESS),
+        ),
+        negative=Count(
+            "pk",
+            filter=Q(sentiment="negative", enrichment_status=Review.EnrichmentStatus.SUCCESS),
+        ),
+    )
+    total: int = agg["total"] or 0
+    enriched: int = agg["enriched"] or 0
+    coverage_pct: int = round(enriched / total * 100) if total > 0 else 0
+    return {
+        "positive": agg["positive"] or 0,
+        "neutral": agg["neutral"] or 0,
+        "negative": agg["negative"] or 0,
+        "enriched_count": enriched,
+        "total_count": total,
+        "coverage_pct": coverage_pct,
+    }
+
+
+def dashboard_top_performing(
+    *, org_id: int, params: DashboardFilterParams, limit: int = 10
+) -> list[dict]:
+    """
+    Bar chart: shops ranked by average rating + review count, descending.
+    Uses date-range-only (region/shop filter NOT applied — per spec).
+    N+1 risk: shop name fetched in the same query via values("shop__name") — no extra query.
+    Query count: 1 (single values/annotate/order_by).
+    """
+    qs = (
+        Review.objects.active()
+        .filter(organisation_id=org_id)
+        .filter(shop_id__in=params.accessible_shop_ids)
+    )
+    if params.date_from is not None:
+        qs = qs.filter(review_create_time__date__gte=params.date_from)
+    if params.date_to is not None:
+        qs = qs.filter(review_create_time__date__lte=params.date_to)
+
+    rows = (
+        qs.values("shop_id", "shop__name")
+        .annotate(
+            review_count=Count("pk"),
+            avg_rating=Avg("star_rating"),
+        )
+        .order_by("-avg_rating", "-review_count")[:limit]
+    )
+    return [
+        {
+            "shop_id": r["shop_id"],
+            "shop_name": r["shop__name"],
+            "review_count": r["review_count"],
+            "avg_rating": round(float(r["avg_rating"] or 0.0), 2),
+        }
+        for r in rows
+    ]
+```
+
+### Pattern 5: React Query for Parallel Fetching with Filter State as Query Keys
+
+**What:** One `QueryClient` is instantiated in `DashboardWidget`. Each widget section uses `useQuery` with a stable query key that includes all filter state. When filters change, all 5 queries refetch automatically because their keys change.
+
+**When to use:** Multiple independent data fetches that all depend on shared filter state. React Query's declarative key-based refetch model eliminates the `useEffect` + manual fetch chains found in the existing `useReviews.ts`.
+
+**Trade-offs:** React Query is not currently a dependency (`package.json` confirms only `react`, `react-dom`, `lucide-react`, `alpinejs`, `focus-trap-react`). It must be added (`@tanstack/react-query`). The existing custom `useReviews` / `useActionItems` patterns use `useState` + `useEffect` + `useCallback` and work for single-endpoint widgets. For a dashboard with 5 parallel endpoints that all share filter state, React Query eliminates ~150 lines of boilerplate and provides automatic background refetch, stale-while-revalidate, and loading/error states per query — worth the new dependency.
 
 ```typescript
-// In ShopConnectionModal or ShopViewSet action component
-function openGoogleOAuth(shopId: number, authUrl: string) {
-  const popup = window.open(authUrl, "google-oauth", "width=600,height=700,noopener=0");
-  if (!popup) {
-    emitToast({ kind: "error", title: "Popup blocked", msg: "Allow popups for this site." });
-    return;
-  }
+// frontend/src/widgets/dashboard/DashboardWidget.tsx
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { useFilterState } from "./useFilterState";
+import { fetchKpis, fetchSentiment, fetchTopPerforming, fetchHighlights } from "./api";
 
-  const handler = (event: MessageEvent) => {
-    if (event.origin !== window.location.origin) return;
-    const data = event.data as { type: string; shopId?: number; reason?: string };
-    if (data.type === "google-oauth-success") {
-      window.removeEventListener("message", handler);
-      // Trigger shop list refresh
-      window.dispatchEvent(new CustomEvent("shop:refresh"));
-      emitToast({ kind: "success", title: "Google account connected" });
-    } else if (data.type === "google-oauth-error") {
-      window.removeEventListener("message", handler);
-      emitToast({ kind: "error", title: "Connection failed", msg: data.reason });
-    }
-  };
-  window.addEventListener("message", handler);
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,  // 5 min — matches server TTL exactly
+      retry: 1,
+    },
+  },
+});
+
+export function DashboardWidget() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <DashboardInner />
+    </QueryClientProvider>
+  );
+}
+
+function DashboardInner() {
+  const { filters, setRegion, setShop, setDateRange, clearFilters } = useFilterState();
+
+  // All 5 queries fire in parallel; each re-fetches when filters change.
+  // queryKey includes filters so React Query treats different filter combos as distinct cache entries.
+  const kpisQuery = useQuery({
+    queryKey: ["dashboard", "kpis", filters],
+    queryFn: () => fetchKpis(filters),
+  });
+
+  const sentimentQuery = useQuery({
+    queryKey: ["dashboard", "sentiment", filters],
+    queryFn: () => fetchSentiment(filters),
+  });
+
+  // top-performing uses date range only — region/shop excluded from key to match server behaviour
+  const topFilters = { date_from: filters.date_from, date_to: filters.date_to };
+  const topQuery = useQuery({
+    queryKey: ["dashboard", "top-performing", topFilters],
+    queryFn: () => fetchTopPerforming(topFilters),
+  });
+
+  const highlightsQuery = useQuery({
+    queryKey: ["dashboard", "highlights", topFilters],
+    queryFn: () => fetchHighlights(topFilters),
+  });
+
+  return ( /* render sections from each query result */ );
 }
 ```
 
-### URL registration for OAuth callback
-
-```python
-# config/urls.py addition
-from apps.integrations.google.views import GoogleOAuthCallbackView
-
-urlpatterns = [
-    ...
-    path("integrations/google/oauth/callback/", GoogleOAuthCallbackView.as_view(),
-         name="google_oauth_callback"),
-]
-```
-
-**Security notes:**
-- `state` parameter signed with `TimestampSigner` (max_age=600, 10 minutes) — same pattern as invitation tokens
-- Callback view does NOT require `@login_required` because the Google redirect lands in a popup without session cookie (SameSite=Lax blocks cookie on cross-site redirect); instead, user identity is encoded in the signed `state` parameter alongside `shop_id`
-- `window.opener.postMessage` uses `window.location.origin` as targetOrigin — prevents message interception by other origins
-- CSP must allow `'self'` for script-src to execute the postMessage script inline. Use a nonce if CSP strict mode is enabled in a future phase
+**Note on `staleTime: 5 * 60 * 1000`:** Matches the server-side TTL exactly. React Query will not refetch from the server within 5 minutes of a successful fetch — the client-side cache and server-side Redis cache share the same TTL window, preventing redundant requests.
 
 ---
 
-## (c) IsOrgScoped Permission Base Class
+## Data Flow
 
-### Design
+### Filter Change Flow
 
-The `IsOrgScoped` permission class enforces two things simultaneously:
-1. The user has an org-level role (ORG_ADMIN or STAFF_ADMIN)
-2. Every queryset returned by the view is scoped to `request.user.organisation_id`
-
-The scoping enforcement belongs in the **queryset layer**, not only in the permission class.
-`IsOrgScoped` handles authentication/role check; `TenantScopedViewSet` handles queryset filtering.
-Both must exist — permission class alone does not prevent data leaks if `get_queryset` is miscoded.
-
-### Permission class
-
-```python
-# apps/accounts/permissions.py  (add alongside IsSuperadmin)
-from rest_framework.permissions import BasePermission
-from rest_framework.request import Request
-from rest_framework.views import APIView
-from apps.accounts.models import User
-
-
-class IsSuperadmin(BasePermission):
-    """Allow only authenticated users whose role is SUPERADMIN."""
-    message = "Superadmin role required."
-
-    def has_permission(self, request: Request, view: APIView) -> bool:
-        user = request.user
-        if not user or not user.is_authenticated:
-            return False
-        return bool(getattr(user, "role", None) == User.Role.SUPERADMIN)
-
-
-class IsOrgAdmin(BasePermission):
-    """Allow only authenticated ORG_ADMIN users who have an organisation."""
-    message = "Organisation Admin role required."
-
-    def has_permission(self, request: Request, view: APIView) -> bool:
-        user = request.user
-        if not user or not user.is_authenticated:
-            return False
-        return bool(
-            getattr(user, "role", None) == User.Role.ORG_ADMIN
-            and user.organisation_id is not None
-        )
-
-
-class IsOrgScoped(BasePermission):
-    """Allow ORG_ADMIN or STAFF_ADMIN users who belong to an organisation.
-
-    This is the base for all Org Admin and Staff Admin endpoints. It does NOT
-    filter querysets — that is TenantScopedViewSet's responsibility. This class
-    only gates the request.
-
-    Use this as the permission_classes base for all /org-admin/* viewsets.
-    Compose with role-specific checks for more restrictive endpoints:
-
-        permission_classes = [IsOrgScoped, IsOrgAdmin]   # managers only
-        permission_classes = [IsOrgScoped]                # all org members
-    """
-    message = "Organisation membership required."
-
-    def has_permission(self, request: Request, view: APIView) -> bool:
-        user = request.user
-        if not user or not user.is_authenticated:
-            return False
-        role = getattr(user, "role", None)
-        if role not in (User.Role.ORG_ADMIN, User.Role.STAFF_ADMIN):
-            return False
-        return bool(user.organisation_id is not None)
+```text
+User changes a filter (region / store / date)
+    │
+    ├── useFilterState updates URL search params (window.history.replaceState)
+    │   and sessionStorage (for persistence across page navigations)
+    │
+    └── React Query detects queryKey change → triggers 5 parallel fetches
+         │
+         ├── fetch /api/v1/dashboard/kpis/?region=X&from=Y&to=Z
+         ├── fetch /api/v1/dashboard/sentiment-distribution/?region=X&from=Y&to=Z
+         ├── fetch /api/v1/dashboard/top-performing/?from=Y&to=Z      (date only)
+         ├── fetch /api/v1/dashboard/highlights/?from=Y&to=Z          (date only)
+         └── fetch /api/v1/dashboard/your-store/?from=Y&to=Z          (if single-shop user)
+              │
+              └── DashboardApiView.get()
+                   ├── validate_filter_params() — 400 / 403 on bad input
+                   ├── dashboard_cache_key() → cache.get()
+                   │    ├── HIT → return cached Response immediately (no DB query)
+                   │    └── MISS → call selector → single DB aggregate → cache.set(ttl=300) → return
+                   └── selector calls _base_qs() → .aggregate() → single DB query
 ```
 
-### TenantScopedViewSet base
+### Filter State Architecture
 
-```python
-# apps/common/views.py  (add to existing file)
-from rest_framework.viewsets import GenericViewSet
-from django.db.models import QuerySet
+```text
+URL search params (source of truth, shareable URLs)
+    ↕  read on mount, write on change
+sessionStorage (persistence across same-tab navigations)
 
+useFilterState hook
+    ├── reads from URL on mount
+    ├── updates URL on change (replaceState — no browser history entry per keystroke)
+    ├── syncs to sessionStorage on change
+    └── exposes: filters, setRegion, setShop, setDateRange, clearFilters
 
-class TenantScopedViewSet(GenericViewSet):
-    """Base for ALL Org Admin and Staff Admin viewsets.
-
-    Ensures every get_queryset() call is filtered to the authenticated user's
-    organisation. Superadmin viewsets must NOT inherit this — they use a
-    different queryset shape.
-
-    Subclasses call super().get_queryset() from their own get_queryset(), then
-    apply additional filters (e.g., search, status).
-
-    NEVER override this filter without an explicit comment explaining why
-    the tenant scope is being relaxed — doing so silently creates data leaks.
-    """
-
-    def get_queryset(self) -> QuerySet:
-        qs = super().get_queryset()
-        org_id = self.request.user.organisation_id  # type: ignore[union-attr]
-        if org_id is None:
-            return qs.none()  # safety: no org → no data
-        return qs.filter(organisation_id=org_id)
+DashboardWidget uses filters as React Query keys
+    └── all 5 queries refetch automatically when filters change
 ```
 
-### Staff access scoping (StaffAccessScope)
+### Cache Invalidation Policy
 
-Staff Admins have a narrower scope than Org Admins: they can only access regions and shops
-assigned to them via `StaffAccessScope`. This is a **data-layer filter**, not just a permission check.
+TTL-only — 5 minutes. No event-based invalidation. This is correct because:
 
-```python
-# apps/accounts/models.py (new model to add in Phase 6 migration)
-class StaffAccessScope(TimeStampedModel):
-    class ScopeType(models.TextChoices):
-        REGION = "REGION", "Region"
-        SHOP = "SHOP", "Shop"
-
-    user = models.ForeignKey(
-        "accounts.User",
-        on_delete=models.CASCADE,
-        related_name="access_scopes",
-        limit_choices_to={"role": User.Role.STAFF_ADMIN},
-    )
-    scope_type = models.CharField(max_length=10, choices=ScopeType.choices, db_index=True)
-    region = models.ForeignKey(
-        "regions.Region",
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-        related_name="staff_scopes",
-    )
-    shop = models.ForeignKey(
-        "shops.Shop",
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-        related_name="staff_scopes",
-    )
-
-    class Meta:
-        db_table = "accounts_staff_access_scope"
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    models.Q(scope_type="REGION", region__isnull=False, shop__isnull=True)
-                    | models.Q(scope_type="SHOP", shop__isnull=False, region__isnull=True)
-                ),
-                name="staff_scope_xor_region_shop",
-            )
-        ]
-        indexes = [
-            models.Index(fields=["user", "scope_type"], name="staff_scope_user_type_idx"),
-        ]
-```
-
-**StaffAccessScope placement:** Model lives in `apps/accounts/` (it's about user access).
-Its FKs reference `regions.Region` and `shops.Shop` using string labels — this avoids
-circular imports since accounts is imported by regions and shops.
-
-**Queryset filtering for Staff Admin:** shops and regions viewsets must branch on role:
-
-```python
-# apps/shops/selectors/shops.py
-def list_shops_for_user(*, user: User) -> QuerySet[Shop]:
-    qs = Shop.objects.filter(organisation_id=user.organisation_id)
-    if user.role == User.Role.STAFF_ADMIN:
-        scoped_shop_ids = (
-            StaffAccessScope.objects
-            .filter(user=user, scope_type=StaffAccessScope.ScopeType.SHOP)
-            .values_list("shop_id", flat=True)
-        )
-        qs = qs.filter(id__in=scoped_shop_ids)
-    return qs.select_related("region", "organisation").order_by("name")
-```
+- Review writes happen via Celery background sync, not user-triggered writes
+- Adding cache invalidation hooks to the sync pipeline would couple `apps/reviews` to `apps/dashboard` — wrong dependency direction
+- Dashboard aggregate staleness of 5 minutes is acceptable for this use case
+- After sync completes, the TTL expires naturally and the next page load gets fresh data
 
 ---
 
-## (d) Route Separation: Superadmin vs Org Admin
+## New Review Table Indexes
 
-### Existing URL structure (confirmed)
-
-```
-/login/                             accounts/views.py — CustomLoginView
-/logout/                            accounts/views.py — LogoutView
-/admin/organisations/               organisations/views.py — Superadmin list (template)
-/admin/org-dashboard/               organisations/views.py — Org Admin dashboard stub
-/admin/profile/                     accounts/views.py — profile (shared across roles)
-/invite/accept/<token>/             accounts/views.py — invite_accept_view
-/api/v1/organisations/              config/urls.py — OrganisationViewSet (Superadmin)
-```
-
-### Target URL structure for v0.2
-
-The existing `/admin/` prefix is used by BOTH Superadmin and Org Admin views.
-This is a naming problem that is too costly to fix in v0.2 (would break existing URLs in production).
-Instead, distinguish by sub-path:
-
-```
-SUPERADMIN routes (existing):
-  /admin/organisations/
-  /admin/profile/                    # shared — but Org Admins will use /org/profile/ in v0.2
-
-ORG ADMIN routes (new):
-  /org/dashboard/                    # replaces /admin/org-dashboard/ stub
-  /org/profile/                      # Org Admin profile (reuses same view, different template namespace)
-  /org/regions/                      # Regions list (Django template + React widget)
-  /org/shops/                        # Shops list
-  /org/team/                         # Team management
-
-API routes (new, Org Admin):
-  /api/v1/regions/                   # RegionViewSet (IsOrgScoped)
-  /api/v1/shops/                     # ShopViewSet (IsOrgScoped)
-  /api/v1/shops/{id}/oauth/initiate/ # OAuth initiation action
-  /api/v1/team/                      # TeamViewSet (IsOrgAdmin — managers only)
-
-Integration routes (new):
-  /integrations/google/oauth/callback/  # GoogleOAuthCallbackView (public — state-signed)
-```
-
-**config/urls.py additions:**
+Three composite indexes must be added to `apps/reviews/migrations/` as a standalone migration.
 
 ```python
-# config/urls.py
-from rest_framework.routers import SimpleRouter
-from apps.organisations.views import OrganisationViewSet
-from apps.regions.views import RegionViewSet
-from apps.shops.views import ShopViewSet
-from apps.accounts.views import TeamViewSet
+# Additions to Review.Meta.indexes in the new migration:
 
-router = SimpleRouter()
-router.register(r"api/v1/organisations", OrganisationViewSet, basename="organisation")
-router.register(r"api/v1/regions", RegionViewSet, basename="region")
-router.register(r"api/v1/shops", ShopViewSet, basename="shop")
-router.register(r"api/v1/team", TeamViewSet, basename="team-member")
-
-urlpatterns = [
-    path("", include(router.urls)),
-    path("", include("apps.organisations.urls")),
-    path("", include("apps.accounts.urls")),
-    path("", include("apps.common.urls")),
-    path("", include("apps.regions.urls")),    # /org/regions/
-    path("", include("apps.shops.urls")),      # /org/shops/
-    path("integrations/google/oauth/callback/",
-         GoogleOAuthCallbackView.as_view(), name="google_oauth_callback"),
-    path("admin/", admin.site.urls),
-]
+models.Index(
+    fields=["organisation", "review_create_time", "sentiment"],
+    name="review_org_date_sentiment_idx",
+),
+models.Index(
+    fields=["shop", "review_create_time"],
+    name="review_shop_date_idx",
+),
+models.Index(
+    fields=["organisation", "review_create_time", "enrichment_status"],
+    name="review_org_date_status_idx",
+),
 ```
 
-**Redirect from old stub:** The existing `/admin/org-dashboard/` route in `organisations/urls.py`
-should be preserved for the activation redirect (it's hardcoded in `invite_accept_view`) but
-immediately redirects to `/org/dashboard/` once the new view exists. This avoids a breaking change
-in the activation flow.
+**Why these three:**
 
-### Template namespace convention
+- `(organisation, review_create_time, sentiment)` — used by KPI negative count and sentiment distribution queries which always filter on `organisation_id`, optionally on date range, then aggregate by sentiment. Postgres index-only scan possible.
+- `(shop, review_create_time)` — used by top-performing query which groups by `shop_id` within a date range. The existing `review_org_date_idx (organisation, review_create_time)` does not help here because this query's outer group is `shop_id`, not `organisation_id`.
+- `(organisation, review_create_time, enrichment_status)` — used by sentiment coverage query counting enriched vs total within org + date range.
 
-```
-templates/
-  base.html              # Superadmin shell (existing)
-  base_org.html          # Org Admin shell (existing, already has sidebar_org.html)
-  organisations/         # Superadmin org management templates
-  accounts/              # Auth templates (shared)
-  regions/               # NEW — Org Admin region templates
-    list.html
-  shops/                 # NEW — Org Admin shop templates
-    list.html
-  team/                  # NEW — Org Admin team templates
-    list.html
-  org/                   # NEW — Org Admin shell pages
-    dashboard.html       # replaces organisations/org_dashboard.html
-    profile.html         # Org Admin profile (same view, org shell)
-  emails/
-    team_invitation.html  # NEW
-    team_invitation.txt   # NEW
-```
+**Existing indexes preserved (do not drop):**
+
+- `review_org_shop_filter_idx (organisation, shop, is_replied, star_rating)` — Reviews list view
+- `review_org_date_idx (organisation, review_create_time)` — general org+date queries
+- `review_search_vec_idx (search_vector GIN)` — full-text search
 
 ---
 
-## Data Model Additions (Phase 6)
+## Integration Points
 
-### Models to add / modify
+### Backend Integration
 
-**MODIFY: apps/accounts/models.py — User**
-Add fields (new migration required):
-```python
-invited_by = models.ForeignKey(
-    "accounts.User",
-    null=True,
-    blank=True,
-    on_delete=models.SET_NULL,
-    related_name="invited_users",
-)
-invited_at = models.DateTimeField(null=True, blank=True)
-accepted_at = models.DateTimeField(null=True, blank=True)
-```
+| Boundary | Integration | Notes |
+| -------- | ----------- | ----- |
+| `apps/dashboard` → `apps/reviews` | Import `Review` model + `ReviewQuerySet.active()` | One-way dependency; `apps/reviews` must not import from `apps/dashboard` |
+| `apps/dashboard` → `apps/reviews.selectors` | Reuse `get_accessible_shop_ids()` from `apps/reviews/selectors/reviews.py` | Already tested; do not duplicate |
+| `apps/dashboard` → `apps/shops` | Import `Shop` model inside `validate_filter_params()` for Org Admin shop resolution | Local import to avoid circular app load |
+| `apps/dashboard` → `apps/regions` | Import `Region` model inside `validate_filter_params()` for region existence check | Local import |
+| `apps/dashboard` → `apps/common` | Inherit `IsOrgScoped` permission; do NOT inherit `TenantScopedViewSet` | `TenantScopedViewSet` is for `ModelViewSet` with `get_queryset()`; dashboard views are `APIView` with no queryset |
+| `apps/dashboard` → Django cache | Use `django.core.cache.cache` (Redis DB 0, `KEY_PREFIX="app"`) | No new Redis DB needed |
+| `config/urls.py` | `path("api/v1/", include("apps.dashboard.urls"))` | Same pattern as `action_items_api_urls` and `notifications_api_urls` |
+| `config/settings/base.py` | Add `"apps.dashboard"` to `INSTALLED_APPS` after `apps.reviews` | Standard app registration |
 
-**MODIFY: apps/accounts/models.py — InvitationToken**
-Current `InvitationToken` is tightly coupled to `Organisation` (not the invited user directly).
-For team invitations (ORG_ADMIN inviting STAFF_ADMIN), the pattern needs to extend to invite
-a user to a role, not an org. Options:
+### Frontend Integration
 
-Option A (recommended): Add `purpose` enum + nullable `invited_for_role` to existing `InvitationToken`:
-```python
-class InvitationToken(TimeStampedModel):
-    class Purpose(models.TextChoices):
-        ORG_ADMIN = "ORG_ADMIN", "Org Admin Setup"
-        TEAM_MEMBER = "TEAM_MEMBER", "Team Member Invitation"
+| Boundary | Integration | Notes |
+| -------- | ----------- | ----- |
+| New `dashboard.tsx` entrypoint | Add to `vite.config.ts` `rollupOptions.input` | Same pattern as all other 9 existing entrypoints |
+| Django dashboard template | `<div id="dashboard-root">` + `{% vite_asset 'dashboard' %}` | Bootstrap data (regions, shops) passed via `<script type="application/json">` tags — same pattern `ReviewManagementWidget` uses via `readJsonScript()` |
+| React Query | New npm dependency `@tanstack/react-query` | Not in current `package.json`; must be added |
+| Filter state URL sync | `window.history.replaceState` + `URLSearchParams` | No router library; consistent with existing no-router pattern |
+| `accessible_shop_ids` | NOT passed from template; resolved server-side in `validate_filter_params()` | Intentional — client never receives the accessible list |
+| Single-shop Staff variant | Django template view detects `accessible_shop_ids` length == 1 and passes `data-is-single-shop="true"` to `#dashboard-root` | React island renders `YourStoreCard` instead of `PerformanceHighlightsCard` |
 
-    purpose = models.CharField(
-        max_length=20, choices=Purpose.choices, default=Purpose.ORG_ADMIN, db_index=True
-    )
-    # existing: organisation FK, invited_user, token_hash, is_used, expires_at
-    # new: invited_for_role (null = ORG_ADMIN purpose; populated for TEAM_MEMBER)
-    invited_for_role = models.CharField(
-        max_length=20, choices=User.Role.choices, null=True, blank=True
-    )
-```
+### Permission Model
 
-This preserves backward compatibility with existing activation flow (purpose=ORG_ADMIN is default).
-Team invite services create tokens with purpose=TEAM_MEMBER and populate `invited_for_role`.
+Dashboard views use `IsOrgScoped` directly (not `TenantScopedViewSet`). Confirmed from codebase:
 
-Option B: Separate `TeamInvitationToken` model. Simpler model but duplicates the signing/expiry logic.
-Reject: violates DRY and creates two token-hash lookup paths.
-
-**NEW: apps/regions/models.py**
-```python
-class Region(TimeStampedModel):
-    organisation = models.ForeignKey(
-        "organisations.Organisation",
-        on_delete=models.CASCADE,
-        related_name="regions",
-    )
-    name = models.CharField(max_length=100)
-    region_id = models.CharField(max_length=20, db_index=True)  # auto-generated, org-scoped unique
-    is_active = models.BooleanField(default=True, db_index=True)
-
-    class Meta:
-        db_table = "regions_region"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["organisation", "region_id"],
-                name="region_org_id_unique",
-            )
-        ]
-        indexes = [
-            models.Index(fields=["organisation", "is_active"], name="region_org_active_idx"),
-        ]
-```
-
-**NEW: apps/shops/models.py**
-```python
-class Shop(TimeStampedModel):
-    class ConnectionStatus(models.TextChoices):
-        NOT_CONNECTED = "NOT_CONNECTED", "Not Connected"
-        CONNECTED = "CONNECTED", "Connected"
-        EXPIRED = "EXPIRED", "Expired"
-
-    organisation = models.ForeignKey(
-        "organisations.Organisation",
-        on_delete=models.CASCADE,
-        related_name="shops",
-    )
-    region = models.ForeignKey(
-        "regions.Region",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="shops",
-    )
-    name = models.CharField(max_length=200, db_index=True)
-    place_id = models.CharField(max_length=300, blank=True, db_index=True)
-    connection_status = models.CharField(
-        max_length=15,
-        choices=ConnectionStatus.choices,
-        default=ConnectionStatus.NOT_CONNECTED,
-        db_index=True,
-    )
-    # Encrypted at rest — use django-cryptography EncryptedCharField
-    google_refresh_token = models.TextField(blank=True)  # Fernet-encrypted
-    api_key_hash = models.CharField(max_length=64, blank=True)  # SHA-256 of API key
-    is_active = models.BooleanField(default=True, db_index=True)
-
-    class Meta:
-        db_table = "shops_shop"
-        indexes = [
-            models.Index(
-                fields=["organisation", "is_active", "connection_status"],
-                name="shop_org_active_conn_idx",
-            ),
-        ]
-```
-
-**NEW: apps/accounts/models.py — StaffAccessScope** (see schema above in permission section)
+- `IsOrgScoped.has_permission()` checks `ORG_ADMIN or STAFF_ADMIN` role with valid `organisation_id` — this is the correct gate
+- `TenantScopedViewSet.get_queryset()` operates on `qs.filter(organisation_id=org_id)` which requires a `queryset` class attribute — dashboard views have no such queryset
+- Additional Staff scoping (accessible_shop_ids) happens inside `validate_filter_params()`
 
 ---
 
-## Build Order Within Each Phase
+## Build Order
 
-### Phase 6: Shell + Data Model Migrations
+Dependencies between backend and frontend components determine this sequence:
 
-Sequential dependencies within Phase 6:
-
-```
-Step 6.1 — Data model migrations (BLOCKING for all subsequent phases)
-  ├─ Modify User: add invited_by, invited_at, accepted_at + migration
-  ├─ Modify InvitationToken: add purpose, invited_for_role + migration
-  ├─ Create apps/regions/ + Region model + migration
-  ├─ Create apps/shops/ + Shop model + migration (depends on regions migration)
-  └─ Create StaffAccessScope in accounts + migration (depends on regions + shops)
-
-Step 6.2 — Permission classes (depends on 6.1 — StaffAccessScope model)
-  ├─ Add IsOrgAdmin, IsOrgScoped to apps/accounts/permissions.py
-  └─ Add TenantScopedViewSet to apps/common/views.py
-
-Step 6.3 — Org Admin shell (depends on 6.2)
-  ├─ Update sidebar_org.html — full nav items (Dashboard, Shops, Regions, Team, Profile)
-  ├─ Create templates/org/dashboard.html (replaces org_dashboard.html stub)
-  ├─ Add /org/dashboard/ URL (new), keep /admin/org-dashboard/ as redirect
-  └─ Wire @login_required + IsOrgAdmin decorator/mixin on dashboard view
-
-Step 6.4 — Profile page reuse for Org Admin (depends on 6.3)
-  └─ /org/profile/ URL → same profile services, base_org.html shell
-
-Step 6.5 — Router + URL wiring skeleton (depends on 6.2)
-  └─ Register RegionViewSet + ShopViewSet stubs in config/urls.py
-     (empty viewsets that return 501 are fine — needed so URL names resolve for templates)
-```
-
-Phases 6.2 and 6.3 can be parallelised after 6.1 completes.
-
-### Phase 7: Regions Module
-
-Sequential within Phase 7 (depends on Phase 6 complete):
-
-```
-Step 7.1 — Region selectors + services (no UI dependency)
-  ├─ apps/regions/selectors/regions.py
-  ├─ apps/regions/services/regions.py — including generate_region_id()
-  └─ Full test suite for selectors + services
-
-Step 7.2 — Region API (depends on 7.1)
-  ├─ apps/regions/serializers.py
-  ├─ apps/regions/views.py — RegionViewSet (TenantScopedViewSet + IsOrgScoped)
-  ├─ Register in config/urls.py router (replaces 6.5 stub)
-  └─ API tests including query-count assertion
-
-Step 7.3 — Region list template + React widget (depends on 7.2)
-  ├─ templates/regions/list.html
-  ├─ frontend/src/widgets/region-management/ — RegionTable, CreateRegionModal, etc.
-  ├─ frontend/src/entrypoints/region-management.tsx
-  └─ /org/regions/ URL → apps/regions/views.py template view
-
-Step 7.4 — Delete guard (depends on 7.2)
-  └─ delete_region() service checks shops assigned before deletion; raises BusinessRuleViolation
-```
-
-7.1 must precede 7.2. 7.3 and 7.4 can be parallelised after 7.2.
-
-### Phase 8: Shops Module (depends on Phase 7 complete)
-
-```
-Step 8.1 — Google integrations layer (no UI dependency; can start in parallel with 7.x)
-  ├─ apps/integrations/google/__init__.py, client.py, oauth.py, places.py, exceptions.py
-  └─ Full test suite with mocked HTTP (responses library)
-
-Step 8.2 — Shop selectors + services (depends on 8.1 for oauth/places services)
-  ├─ apps/shops/selectors/shops.py — list_shops_for_user (branches on role)
-  ├─ apps/shops/services/shops.py — create_shop_oauth, create_shop_manual,
-  │     connect_shop_oauth, disconnect_shop, activate_shop, deactivate_shop
-  ├─ apps/shops/services/api_keys.py — generate_api_key, rotate_api_key
-  └─ Full test suite
-
-Step 8.3 — Shop API (depends on 8.2)
-  ├─ apps/shops/serializers.py
-  ├─ apps/shops/views.py — ShopViewSet + oauth_initiate action
-  ├─ apps/integrations/google/views.py — GoogleOAuthCallbackView
-  ├─ Register in config/urls.py (shops router + oauth callback URL)
-  └─ API tests including query-count assertions
-
-Step 8.4 — Shop list template + React widget (depends on 8.3)
-  ├─ templates/shops/list.html
-  ├─ frontend/src/widgets/shop-management/ — ShopTable, CreateShopModal,
-  │     ConnectShopModal (OAuth popup flow), ManageApiKeyModal
-  └─ frontend/src/entrypoints/shop-management.tsx
-```
-
-8.1 can run in parallel with Phase 7. 8.2 depends on 8.1. 8.3 depends on 8.2. 8.4 depends on 8.3.
-
-### Phase 9: Team Module (depends on Phase 7 + Phase 8 complete)
-
-```
-Step 9.1 — Team invitation service (modifies apps/accounts/)
-  ├─ apps/accounts/services/team.py — invite_team_member, update_team_scope,
-  │     enable_team_member, disable_team_member, remove_team_member, resend_team_invitation
-  ├─ templates/emails/team_invitation.html + team_invitation.txt (NEW email templates)
-  └─ Full test suite including email outbox assertions
-
-Step 9.2 — Team acceptance flow (depends on 9.1)
-  ├─ Extend invite_accept_view to handle purpose=TEAM_MEMBER tokens
-  ├─ Separate template: templates/accounts/team_invite_accept.html
-  └─ Redirect to /org/dashboard/ after acceptance (not /admin/org-dashboard/)
-
-Step 9.3 — Team API (depends on 9.1)
-  ├─ apps/accounts/serializers.py — TeamMemberReadSerializer, TeamMemberInviteSerializer
-  ├─ apps/accounts/views.py — TeamViewSet (IsOrgAdmin for write actions, IsOrgScoped for read)
-  ├─ Register in config/urls.py router
-  └─ API tests
-
-Step 9.4 — Team list template + React widget (depends on 9.3)
-  ├─ templates/team/list.html
-  ├─ frontend/src/widgets/team-management/ — TeamTable, InviteTeamMemberModal,
-  │     EditScopeModal (region+shop multi-select), enable/disable modals
-  └─ frontend/src/entrypoints/team-management.tsx
-```
-
-9.1 and 9.2 must precede 9.3. 9.4 depends on 9.3.
+1. **Indexes migration** (`apps/reviews/migrations/000N_dashboard_indexes.py`) — no code dependencies; add first so queries use indexes from day one of testing
+2. **`apps/dashboard/` backend** in this order:
+   - `filters.py` (no model imports at module level; local imports only inside functions)
+   - `selectors/aggregations.py` (imports Review model)
+   - `services/cache.py` (imports from filters.py)
+   - `views.py` (imports all of the above)
+   - `urls.py` + wire into `config/urls.py` + add to `INSTALLED_APPS`
+3. **Tests for `filters.py` and `aggregations.py`** — query count assertions here; validates correctness before wiring the frontend
+4. **Django dashboard template view** (renders the shell; mounts `#dashboard-root`; passes bootstrap JSON)
+5. **Frontend**:
+   - `npm install @tanstack/react-query` — add dependency
+   - `api.ts` + `types.ts` (fetch wrappers, TypeScript types)
+   - `useFilterState.ts` (URL + sessionStorage sync)
+   - Individual query hooks (`useKpis.ts`, `useSentiment.ts`, `useTopPerforming.ts`, `useHighlights.ts`)
+   - Widget components (`KpiCards.tsx`, `SentimentDonut.tsx`, `TopPerformingSection.tsx`, `FilterBar.tsx`)
+   - `DashboardWidget.tsx` (root component, `QueryClient`)
+   - `dashboard.tsx` entrypoint + `vite.config.ts` entry
+6. **`CaptureQueriesContext` tests** on all 5 endpoints — target: 3 queries per endpoint (1 shop resolution, 1 aggregate, cache is mocked/bypassed in tests)
 
 ---
 
-## Key Architecture Decisions (v0.2 additions)
+## Scaling Considerations
 
-| Decision | Rationale | Confidence |
-|----------|-----------|------------|
-| New apps (`regions/`, `shops/`) as separate bounded contexts | Avoids the ">8 models" split rule being violated; each has its own selectors/services | HIGH |
-| `IsOrgScoped` in `apps/accounts/permissions.py` | Permissions are an accounts concern; avoids cross-app permission imports | HIGH |
-| `TenantScopedViewSet` in `apps/common/views.py` | Cross-cutting base class; common/ is the right owner | HIGH |
-| `StaffAccessScope` in `apps/accounts/` | It's about user access grants, not about shops or regions directly; avoids circular FK import | HIGH |
-| OAuth callback as Django TemplateView (not DRF) | Must render HTML for postMessage; DRF JSON response cannot drive popup close | HIGH |
-| `state` parameter signed with TimestampSigner | Reuses existing invitation token pattern; no new signing libraries | HIGH |
-| Extend `InvitationToken` with `purpose` enum | Reuses 48h expiry, single-use, hash-in-DB infrastructure; avoids duplication | HIGH |
-| `/org/*` URL prefix for new Org Admin views | Clean separation from `/admin/*` Superadmin views; `/admin/org-dashboard/` preserved as redirect | HIGH |
-| React entrypoint per module (not one SPA) | Matches existing pattern; each module loads independently; no shared state problems | HIGH |
-| `google_refresh_token` stored Fernet-encrypted in Shop.google_refresh_token | CLAUDE.md §11 requirement; key from GCP Secret Manager | HIGH |
+| Scale | Architecture Adjustments |
+| ----- | ------------------------ |
+| Current (< 1K reviews/org) | No changes needed; single aggregate query well under 10ms |
+| 10K reviews/org | 3 new composite indexes handle this cleanly |
+| 100K+ reviews/org | Increase `DASHBOARD_CACHE_TTL` to 15 min via settings; consider Postgres materialized view for top-performing |
+| Concurrent users during peak | Redis TTL cache absorbs thundering herd; worst case is one DB query per 5-minute window per user+filter combination |
 
 ---
 
-## Anti-Patterns to Avoid (v0.2 specific)
+## Anti-Patterns
 
-| Anti-Pattern | Why Bad | Instead |
-|---|---|---|
-| Importing `Shop` or `Region` models at module level in `apps/accounts/` | Creates circular import (accounts ← regions ← accounts) | Use string FK labels in model definitions; use TYPE_CHECKING in service functions |
-| Putting StaffAccessScope in `apps/regions/` or `apps/shops/` | Creates circular import — accounts imports these apps | StaffAccessScope lives in accounts/; references regions/shops via string FK labels |
-| Putting OAuth callback view in apps/shops/ | shops/ is a domain app; OAuth callback is an integration concern | Put callback in apps/integrations/google/views.py |
-| `window.opener.postMessage("*")` | Broadcasts to any origin; any page opened by the user can intercept | Always use `window.location.origin` as targetOrigin |
-| Using `@login_required` on GoogleOAuthCallbackView | Google redirect lands in popup without session cookie (SameSite=Lax); login check fails | Verify identity via signed `state` parameter instead |
-| Sharing state between shop-management and region-management React widgets | Different entrypoints; stale data, tight coupling | Use `window.dispatchEvent(new CustomEvent("shop:refresh"))` pattern; each widget is self-contained |
-| Applying `TenantScopedViewSet` to superadmin viewsets | Superadmin views must see all orgs | `OrganisationViewSet` does NOT inherit TenantScopedViewSet |
-| Omitting `organisation_id` filter in Staff Admin querysets | Relying solely on StaffAccessScope without org scoping still leaks if scope table is misconfigured | Always filter by `organisation_id` first, then apply scope filter for STAFF_ADMIN |
+### Anti-Pattern 1: Using `TenantScopedViewSet` for Dashboard Views
+
+**What people do:** Inherit `TenantScopedViewSet` because all other org admin views do.
+
+**Why it's wrong:** `TenantScopedViewSet.get_queryset()` works only when there is a `queryset` model on the viewset. Dashboard views aggregate across a queryset — they are `APIView`, not `ModelViewSet`. Inheriting would require setting `queryset = Review.objects.none()` which is misleading and fragile.
+
+**Do this instead:** Use `APIView` + `IsOrgScoped` permission directly. Put scoping logic in `validate_filter_params()`.
+
+### Anti-Pattern 2: Separate `QueryClient` Per Widget
+
+**What people do:** Create a `QueryClient` inside each widget hook or component.
+
+**Why it's wrong:** Separate clients cannot share cache entries, so parallel queries that happen to request the same data get duplicated. Also prevents global loading/error coordination.
+
+**Do this instead:** Instantiate one `QueryClient` at the `DashboardWidget` root and wrap with `QueryClientProvider`.
+
+### Anti-Pattern 3: Passing `accessible_shop_ids` to the Frontend
+
+**What people do:** Serialize the Staff user's accessible shop list into the template or API response so the frontend can filter results.
+
+**Why it's wrong:** Leaks the user's exact access scope to the client. A Staff user could infer which shop IDs they cannot access. Also makes the frontend responsible for enforcing a security boundary.
+
+**Do this instead:** Resolve `accessible_shop_ids` server-side in `validate_filter_params()`, embed it in the cache key via `filter_hash()`, and never expose it in API responses.
+
+### Anti-Pattern 4: Python-Side Aggregation
+
+**What people do:** Fetch all matching `Review` rows, then compute counts/averages with `len()`, `sum()`, `statistics.mean()` in Python.
+
+**Why it's wrong:** Loads potentially thousands of rows from Postgres into Python memory. Violates the no-N+1 policy. P95 < 400ms constraint would be breached.
+
+**Do this instead:** Push all aggregation to the database with `.aggregate()` and conditional `Count(..., filter=Q(...))`. One query per endpoint.
+
+### Anti-Pattern 5: Event-Based Cache Invalidation for Dashboard
+
+**What people do:** Emit a signal or Celery task on every `Review` create/update to invalidate dashboard cache keys for the relevant org.
+
+**Why it's wrong:** Reviews are created by background Celery sync — potentially thousands at once during initial backfill. Each create would trigger cache invalidation, flooding Redis. The cache key includes `user_id` and `filter_hash`, so there is no stable wildcard pattern without a Redis SCAN — expensive under load.
+
+**Do this instead:** TTL-only invalidation. 5 minutes of staleness during active sync is acceptable. After sync completes, TTL expires naturally.
+
+### Anti-Pattern 6: Using Django FilterSet for Dashboard Params
+
+**What people do:** Define a `DashboardFilterSet(django_filters.FilterSet)` wired to the `Review` model, same as `ReviewFilterSet`.
+
+**Why it's wrong:** `ReviewFilterSet` filters rows for a list view. Dashboard endpoints aggregate — they do not return a filtered queryset. FilterSet is designed for queryset filtering + DRF integration; it cannot express the "resolve accessible_shop_ids for cache key" logic or the 365-day range check.
+
+**Do this instead:** Plain dataclass + validation function as shown in Pattern 2. Simpler, testable without a request object.
 
 ---
 
 ## Sources
 
-- Direct codebase reading: `apps/accounts/models.py`, `apps/organisations/models.py`, `apps/accounts/permissions.py`, `apps/accounts/urls.py`, `apps/organisations/views.py`, `config/urls.py`, `apps/organisations/services/organisations.py`, `frontend/src/entrypoints/org-management.tsx`, `frontend/src/lib/toast.ts`, `templates/partials/sidebar_org.html`, `templates/base_org.html`
-- CLAUDE.md §9 (tenant scoping), §11 (Google OAuth per-store, encrypted tokens), §5 (services/selectors pattern), §3 (app layout rules)
-- `.planning/PROJECT.md` — v0.2 target feature list
-- Existing `.planning/research/ARCHITECTURE.md` — Phase 1 patterns (confirmed still valid for v0.2)
+- Direct codebase inspection: `apps/common/viewsets.py`, `apps/common/permissions.py`, `apps/reviews/models.py`, `apps/reviews/views.py`, `apps/reviews/selectors/reviews.py`, `apps/reviews/filters.py`, `apps/reviews/managers.py`, `config/settings/base.py`, `config/urls.py`, `frontend/vite.config.ts`, `frontend/package.json`, `frontend/src/entrypoints/` (all 9), `frontend/src/widgets/review-management/` (all), `frontend/src/widgets/action-items/useActionItems.ts`
+- Existing confirmed patterns: `IsOrgScoped` + `TenantScopedViewSet` separation; `get_accessible_shop_ids()` selector; `cache` default Redis DB 0; `KEY_PREFIX="app"`; `readJsonScript()` for template bootstrap data; `APIView` for non-CRUD endpoints (`/api/v1/reviews/stats/` uses a ViewSet action, but notifications and action-item list use `APIView`)
+- Django ORM conditional aggregation: <https://docs.djangoproject.com/en/5.2/topics/db/aggregation/#conditional-aggregation>
+- React Query parallel queries: <https://tanstack.com/query/latest/docs/framework/react/guides/parallel-queries>
+
+---
+
+*Architecture research for: Organisation Admin Dashboard — v0.4*
+*Researched: 2026-05-07*
