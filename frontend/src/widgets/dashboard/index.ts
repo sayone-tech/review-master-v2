@@ -5,6 +5,7 @@ export { useKpis } from "./useKpis";
 export { useSentiment } from "./useSentiment";
 export { PerformanceHighlights } from "./PerformanceHighlights";
 export { TopPerformingSection } from "./TopPerformingSection";
+export { YourStore } from "./YourStore";
 export {
   useFilterState,
   DEFAULT_FILTERS,
