@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: — Dashboard
 status: unknown
-stopped_at: Completed 14-03-PLAN.md
-last_updated: "2026-05-07T08:45:49.992Z"
+stopped_at: Completed 14-04-PLAN.md
+last_updated: "2026-05-07T08:49:03.602Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -49,6 +49,7 @@ Plan: 2 of 8
 | Phase 14 P01 | 2 | 3 tasks | 13 files |
 | Phase 14 P02 | 10 | 2 tasks | 4 files |
 | Phase 14 P03 | 8 | 2 tasks | 6 files |
+| Phase 14 P04 | 7 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Recent decisions affecting current work:
 - [Phase 14 P02]: trend_direction='none' guard: prev_total < MIN_REVIEWS_FOR_RANKING => skip comparison (STORE-03)
 - [Phase 14]: DashboardApiView base class: single security+cache gate shared by all 5 endpoints via inheritance
 - [Phase 14]: handler404/handler500 as module-level string paths after urlpatterns in config/urls.py
+- [Phase 14]: get_accessible_shop_ids uses user_id (not user object) — function signature preserved from Phase 11
+- [Phase 14]: recharts and @tanstack/react-query installed as production deps with ^ semver range; patch versions locked in package-lock.json
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-07T08:45:49.990Z
-Stopped at: Completed 14-03-PLAN.md
+Last session: 2026-05-07T08:48:59.771Z
+Stopped at: Completed 14-04-PLAN.md
 Resume file: None

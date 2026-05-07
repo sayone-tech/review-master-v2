@@ -9,8 +9,8 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 
 ### Filter Bar (FILT)
 
-- [ ] **FILT-01**: User can filter dashboard data by Region (All Regions default; lists regions containing at least one accessible shop)
-- [ ] **FILT-02**: User can filter dashboard data by Store (All Stores default; cascades to shops within the selected region only)
+- [x] **FILT-01**: User can filter dashboard data by Region (All Regions default; lists regions containing at least one accessible shop)
+- [x] **FILT-02**: User can filter dashboard data by Store (All Stores default; cascades to shops within the selected region only)
 - [ ] **FILT-03**: User can filter by Date Range: Last 7 days / Last 30 days (default) / Last 90 days / Custom
 - [ ] **FILT-04**: User can enter a custom From/To date range with inline date pickers and client-side validation
 - [ ] **FILT-05**: User can clear all filters to defaults with a single "Clear Filters" button (enabled only when at least one filter differs from default)
@@ -32,7 +32,7 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 
 ### Your Store — Single-Shop Variant (STORE)
 
-- [ ] **STORE-01**: Single-shop users see a "Your Store" card instead of the bar chart and Performance Highlights card (date range only; Region/Store filters do not apply)
+- [x] **STORE-01**: Single-shop users see a "Your Store" card instead of the bar chart and Performance Highlights card (date range only; Region/Store filters do not apply)
 - [x] **STORE-02**: "Your Store" card shows shop name, region badge, average rating, total reviews, positive/negative counts with percentages, and a 5-star rating distribution mini-bar chart
 - [x] **STORE-03**: "Your Store" card shows a trend indicator vs the previous equivalent period (↑ green / ↓ red / — gray); gray "no previous data" shown when the previous period has fewer than 3 reviews
 
@@ -59,7 +59,7 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 - [x] **TECH-02**: All five endpoints use Redis TTL caching (5-minute TTL); cache key format: `dashboard:{endpoint}:{org_id}:{user_id}:{filter_hash}` where filter_hash includes `accessible_shop_ids` to prevent cross-user leakage
 - [x] **TECH-03**: Migration adds three composite indexes to the Review table: `(organisation_id, review_created_at, sentiment)`, `(shop_id, review_created_at)`, and `(organisation_id, review_created_at, enrichment_status)`
 - [x] **TECH-04**: All five dashboard endpoints have `CaptureQueriesContext` tests asserting a fixed query count ceiling regardless of data volume
-- [ ] **TECH-05**: Dashboard page at `/admin/org/dashboard/` replaces the Phase 2 placeholder; Org Admin, Manager, and Staff land here after login
+- [x] **TECH-05**: Dashboard page at `/admin/org/dashboard/` replaces the Phase 2 placeholder; Org Admin, Manager, and Staff land here after login
 - [x] **TECH-06**: All five widgets load in parallel via parallel API calls; each renders an independent loading skeleton until its data arrives
 
 ### Error Pages (ERR)
@@ -105,8 +105,8 @@ Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FILT-01 | Phase 14 | Pending |
-| FILT-02 | Phase 14 | Pending |
+| FILT-01 | Phase 14 | Complete |
+| FILT-02 | Phase 14 | Complete |
 | FILT-03 | Phase 14 | Pending |
 | FILT-04 | Phase 14 | Pending |
 | FILT-05 | Phase 14 | Pending |
@@ -122,7 +122,7 @@ Populated during roadmap creation.
 | TOP-05 | Phase 14 | Pending |
 | TOP-06 | Phase 14 | Complete |
 | TOP-07 | Phase 14 | Complete |
-| STORE-01 | Phase 14 | Pending |
+| STORE-01 | Phase 14 | Complete |
 | STORE-02 | Phase 14 | Complete |
 | STORE-03 | Phase 14 | Complete |
 | KPI-01 | Phase 14 | Complete |
@@ -140,7 +140,7 @@ Populated during roadmap creation.
 | TECH-02 | Phase 14 | Complete |
 | TECH-03 | Phase 14 | Complete |
 | TECH-04 | Phase 14 | Complete |
-| TECH-05 | Phase 14 | Pending |
+| TECH-05 | Phase 14 | Complete |
 | TECH-06 | Phase 14 | Complete |
 | ERR-01 | Phase 14 | Complete |
 | ERR-02 | Phase 14 | Complete |
