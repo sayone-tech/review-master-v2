@@ -39,7 +39,10 @@
         -Server
     }
 
-    log {
+    @not_healthcheck {
+        not path /healthz/ /readyz/
+    }
+    log @not_healthcheck {
         output stdout
         format console
         level INFO
