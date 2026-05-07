@@ -1,4 +1,10 @@
 export { FilterBar } from "./FilterBar";
+export { KpiCards } from "./KpiCards";
+export { SentimentDonut } from "./SentimentDonut";
+export { useKpis } from "./useKpis";
+export { useSentiment } from "./useSentiment";
+export { PerformanceHighlights } from "./PerformanceHighlights";
+export { TopPerformingSection } from "./TopPerformingSection";
 export {
   useFilterState,
   DEFAULT_FILTERS,
