@@ -25,6 +25,7 @@ export default defineConfig({
           "src/entrypoints/action-items-management.tsx",
         ),
         "notif-bell": resolve(__dirname, "src/entrypoints/notif-bell.tsx"),
+        dashboard: resolve(__dirname, "src/entrypoints/dashboard.tsx"),
       },
     },
   },
