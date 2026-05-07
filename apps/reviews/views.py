@@ -27,7 +27,7 @@ from apps.reviews.selectors.reviews import (
     get_accessible_shop_ids,
 )
 from apps.reviews.serializers import ReviewReadSerializer, ReviewReplySerializer
-from apps.reviews.services.replies import submit_reply
+from apps.reviews.services.replies import remove_reply, submit_reply
 
 
 class ReviewPageNumberPagination(PageNumberPagination):
@@ -89,7 +89,7 @@ class ReviewViewSet(
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
         """Aggregate stats for the reviews list header cards."""
-        qs = self.get_queryset()
+        qs = self.filter_queryset(self.get_queryset())
         agg = qs.aggregate(
             total=Count("pk"),
             avg_rating=Avg("star_rating"),
@@ -118,14 +118,35 @@ class ReviewViewSet(
 
     @action(
         detail=True,
-        methods=["post"],
+        methods=["post", "delete"],
         url_path="reply",
         throttle_classes=[ScopedRateThrottle],
     )
     def reply(self, request: Request, pk: int | None = None) -> Response:
-        """Submit a reply that is posted to Google synchronously."""
+        """POST: submit reply to Google. DELETE: remove reply from Google."""
         self.throttle_scope = "review_reply"
         review = self.get_object()
+
+        if request.method == "DELETE":
+            if not review.is_replied:
+                return Response(
+                    {"detail": "This review has no reply to delete.", "code": "no_reply"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                updated = remove_reply(review=review, actor=request.user)
+            except ReplyConflictError as exc:
+                return Response(
+                    {"detail": str(exc), "code": "conflict"},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            except ReplyFailedError as exc:
+                return Response(
+                    {"detail": exc.message, "code": exc.code},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            return Response(ReviewReadSerializer(updated).data, status=status.HTTP_200_OK)
+
         serializer = ReviewReplySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:

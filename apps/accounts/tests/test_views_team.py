@@ -494,8 +494,8 @@ def test_team_invite_accept_uses_team_template(db) -> None:
     assert b"You're joining as" in resp.content
 
 
-def test_team_invite_accept_post_staff_redirects_to_welcome(db) -> None:
-    """POST on TEAM_MEMBER invite for STAFF_ADMIN redirects to /admin/org/welcome/."""
+def test_team_invite_accept_post_staff_redirects_to_dashboard(db) -> None:
+    """POST on TEAM_MEMBER invite for STAFF_ADMIN redirects to the dashboard."""
     raw_token, _inv, member = _create_team_member_token()
     client = Client()
     resp = client.post(
@@ -507,7 +507,7 @@ def test_team_invite_accept_post_staff_redirects_to_welcome(db) -> None:
         },
     )
     assert resp.status_code == 302
-    assert resp.url == "/admin/org/welcome/"
+    assert resp.url == "/admin/org-dashboard/"
     member.refresh_from_db()
     assert member.is_active is True
 
@@ -565,16 +565,3 @@ def test_team_list_page_renders(db) -> None:
     assert resp.status_code == 200
     assert b"Team" in resp.content
     assert b"team-table-root" in resp.content
-
-
-def test_team_welcome_renders(db) -> None:
-    """GET /admin/org/welcome/ renders the Staff welcome page."""
-    org = OrganisationFactory()
-    staff = UserFactory(
-        role=User.Role.STAFF_ADMIN, organisation=org, email="staffwelcome@example.com"
-    )
-    client = Client()
-    client.force_login(staff)
-    resp = client.get("/admin/org/welcome/")
-    assert resp.status_code == 200
-    assert b"Your account is ready" in resp.content

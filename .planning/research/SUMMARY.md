@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** v0.2-org-admin — Organisation Admin Module (Shops, Regions, Team)
-**Domain:** Multi-tenant SaaS — Django 6, three-role RBAC, Google Business Profile integration
-**Researched:** 2026-04-27
+**Project:** Review Master — v0.4 Organisation Admin Dashboard
+**Domain:** Multi-tenant SaaS analytics dashboard — Django backend + React island frontend
+**Researched:** 2026-05-07
 **Confidence:** HIGH
 
 ## Executive Summary
 
-The v0.2-org-admin milestone adds the Organisation Admin control plane on top of the live v1.0 Superadmin system. The module introduces four bounded contexts — a shell/layout layer, a Regions module, a Shops module with Google Business Profile OAuth, and a Team management module — each with a strict dependency order driven by the data model graph. Experts building this class of multi-tenant, location-management SaaS establish tenant isolation infrastructure (scoped querysets, permission base classes, cross-tenant isolation tests) before writing any feature code, then build features in dependency order: shell → regions → shops (manual) → shops (OAuth) → team → team invitations. The Google OAuth popup flow is the highest-complexity and highest-risk unit; it must be treated as its own scoped work item with explicit fallbacks for COOP header breakage, popup blocking on Safari and mobile, and concurrent token-refresh races.
+The v0.4 milestone adds a read-only analytics dashboard to an existing multi-tenant SaaS platform. The dashboard is a React island embedded in a Django template page, surfacing five data widgets (KPI cards, sentiment donut, top-performing outlets bar chart, performance highlights card, and a single-store variant) all driven by a shared filter bar. The backend is a new `apps/dashboard/` Django app with five pure-read `APIView` endpoints backed by single-query ORM aggregations, Redis TTL caching, and three new composite indexes on the `Review` table. The frontend introduces `recharts` for charting and `@tanstack/react-query` for parallel data fetching with filter-key-driven refetch.
 
-The recommended approach is to make the wave-0 scaffold commit (tenant scoping mixin, IsOrgScoped permission class, TenantIsolationTest CI gate, Fernet key in GCP Secret Manager, and the three-step InvitationToken expand-contract migration plan) the hard gate that blocks all feature work. From that foundation, regions and the Google integrations layer can be built in parallel since they have no mutual dependency. The Shops module consumes both, and the Team module consumes Shops and Regions for its scope-selection UI. Field-level encryption for OAuth refresh tokens must be wired into the Shop model from its first migration — retrofitting encryption is a multi-step downtime-risk migration per the expand-contract pitfall pattern.
+The recommended approach is to build backend-first: add indexes, write the `DashboardFilterParams` validation function and cache key builder, implement aggregation selectors with `CaptureQueriesContext` tests, then wire views and URLs. The frontend follows once the API contract is locked. The single most important architectural decision is that the cache key must embed a hash of the user's `accessible_shop_ids` — without this, Staff Admins with different shop scopes will receive each other's cached dashboard data, a security failure. All other design choices follow directly from this constraint.
 
-The key risks fall into two categories: security architecture (cross-tenant data leakage via unscoped viewsets, postMessage origin spoofing, unsigned OAuth state parameters, missing object-level permission checks on mutations) and operational correctness (COOP header silently breaking the popup channel, concurrent token-refresh race producing false "reconnect required" notifications, Region ID generation race yielding duplicate IDs, and the InvitationToken table rename breaking live pods during rolling deploy). All ten new-pitfall entries have concrete prevention steps that must be implemented in the same work unit as the feature they protect — not deferred as hardening tasks.
+The two primary risks are: (1) the cache scoping bug described above, which must be designed in from the very first utility function written; and (2) the timezone boundary mismatch, where date-window presets computed in UTC silently exclude reviews from non-UTC users' current day. If adding `User.timezone` is out of scope, the correct mitigation is an explicit "Dates are shown in UTC" notice rather than silent incorrect exclusion. The remaining pitfalls (index field order, Python-side aggregation, wrong filter scope on the top-performers widget) are all preventable with the `CaptureQueriesContext` query-count tests and `EXPLAIN ANALYZE` verification called for in the implementation plan.
 
 ---
 
@@ -19,130 +19,150 @@ The key risks fall into two categories: security architecture (cross-tenant data
 
 ### Recommended Stack
 
-The v1.0 stack requires seven new production packages and four new dev packages for this milestone. The single most important package decision is the replacement of `django-cryptography` (abandoned since 2022, no Django 6 support) with `django-fernet-encrypted-fields==0.3.1` from jazzband, which is verified against Django 6.0 and Python 3.12. For Google OAuth, the recommended approach is `google-auth-oauthlib` (server-side code exchange) combined with Google Identity Services in the frontend for the popup code flow — not django-allauth, which replaces the user authentication system and is wrong for per-shop API authorization. Google Places validation uses direct `httpx` calls rather than `google-maps-services-python`, which has a hard `requests` dependency and is heavier than needed.
+The milestone adds exactly two new npm packages to the existing Vite + React 19 + TypeScript + Tailwind setup: `recharts@^3.8.1` for charts and `@tanstack/react-query` v5 for data fetching. No other packages are required. No new backend packages are needed; all backend dependencies are already installed from earlier phases.
 
-The one unresolved compatibility question is `django-sequences==3.0`, which lists Django 3.2–5.0 in its tested matrix and has not yet confirmed Django 6 support. It is pure Python with no Django internals coupling, so the risk is low, but a smoke test in the Phase 6 setup is mandatory. A 30-line `select_for_update()` fallback on a `Sequence` model is ready if it fails.
+**Conflict resolved: TanStack Query v5 is added (overrides STACK.md recommendation).**
 
-**Core new technologies:**
-- `django-fernet-encrypted-fields==0.3.1`: field-level Fernet encryption for OAuth refresh tokens and API keys — jazzband-maintained, Django 6.0 verified
-- `google-auth==2.49.2` + `google-auth-oauthlib==1.3.1`: Google OAuth 2.0 server-side code exchange, popup flow
-- `google-api-python-client==2.194.0`: Google Business Profile API calls with discovery caching
-- `httpx==0.28.1`: HTTP client for Places API validation, testable via `pytest-httpx`
-- `tenacity==9.1.4`: retry with exponential backoff for all Google API calls
-- `django-sequences==3.0`: gapless per-org Region ID sequences (Django 6 compatibility needs smoke test)
+STACK.md recommended continuing the existing vanilla `useEffect` + `fetch` pattern and not adding React Query. ARCHITECTURE.md, after direct codebase inspection, concluded that React Query must be added. The conflict is resolved in favor of ARCHITECTURE.md and the explicit requirement in the project requirements doc (section 9.6: "React Query handles parallel fetching and per-card loading states") for the following reasons:
 
-**Settings additions required:**
-- `FERNET_KEYS` loaded from GCP Secret Manager (dedicated key, never `SECRET_KEY`)
-- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` from Secret Manager
-- `GOOGLE_PLACES_API_KEY` backend-only, never exposed to frontend
+- The dashboard has five parallel endpoints all sharing a single filter state object. Filter changes must trigger coordinated refetches across all five queries, which requires approximately 150 lines of `useEffect` + `useCallback` boilerplate per hook without React Query.
+- React Query's query-key-based declarative refetch model maps directly to the filter-as-key pattern used here.
+- `staleTime: 5min` on the client aligns with the 5-minute server-side Redis TTL, preventing redundant requests.
+- TanStack Query v5 is React 19 compatible (peer dep includes `^18 || ^19`).
+
+STACK.md's concern about bundle cost (13.4 KB gzipped) and unfamiliar abstraction is noted. The tradeoff is accepted because the dashboard is the most complex widget in the codebase and the vanilla hooks pattern would produce a maintenance burden disproportionate to the size saving.
+
+**Core technologies:**
+- `recharts@^3.8.1`: bar chart + donut chart — React 19 peer dep verified; SVG rendering avoids Canvas destroy lifecycle; single package covers both required chart types
+- `@tanstack/react-query` v5: parallel fetching with filter-as-query-key — declarative refetch on filter change; `staleTime` aligned to server TTL; per-query loading/error states
+- `URLSearchParams` + `window.history.replaceState`: URL filter state — no library needed; 20-line utility; `replaceState` over `pushState` prevents browser history pollution
+- `sessionStorage`: filter persistence across same-tab navigation — fallback when URL params absent
+
+**Not added:**
+- `react-chartjs-2` / `chart.js`: NOT React 19 compatible (peer dep omits React 19; open issue #1235)
+- `@nivo/*`: PARTIAL React 19 compatibility; requires `--legacy-peer-deps` (open issue #2618)
+- `nuqs` / `react-router-dom`: over-engineering for 5 filter params in a non-SPA Django page
+
+---
 
 ### Expected Features
 
-The features break cleanly by the dependency graph. The Org Admin shell is the universal prerequisite. Regions must exist before shops (region FK on Shop) and before team (scope multi-select at invite time). Manual shop creation must precede Google OAuth shop creation (OAuth adds to a record, not replaces it). Team must follow both regions and shops to populate scope selectors.
+All items below are required for v0.4. There are no optional items in the MVP.
 
-**Must have (table stakes — all P1):**
-- Org Admin sidebar shell with role-aware navigation
-- Dashboard landing with setup-state orientation and empty-state CTAs
-- Regions: searchable list, create with auto-ID (REG-001 format), edit name, delete blocked when shops assigned
-- Shops: searchable/filtered list with allocation counter, create via manual Place ID, activate/deactivate, edit
-- Shop allocation counter enforcement — hard block at backend with `select_for_update()`, disabled button + explanatory banner in UI
-- Google Business Profile OAuth popup flow — connect and reconnect, with COOP fallback polling and Safari/mobile redirect fallback
-- Connection status badge per shop (NOT_CONNECTED / CONNECTED / EXPIRED)
-- Team: invite Manager (full org) and Staff (region/shop scope), list with status badges, edit scope, enable/disable, remove
-- Self-protection (cannot disable/remove yourself) and last-manager guard
-- Team invitation email + context-aware acceptance page
-- Profile page (reuse Superadmin services, swap shell context)
+**Must have (table stakes) — v0.4:**
+- Filter bar: cascading Region to Store dropdowns, date presets (7d/30d/90d) plus custom date pickers, Clear Filters button, URL state via `replaceState`, `sessionStorage` fallback
+- KPI cards: Total Reviews, Average Rating with half-star SVG display, Negative Reviews (AI sentiment-based) — skeleton loading, independent per-card error states with inline Retry
+- Best Performing Outlets bar chart: threshold coloring (green ≥4.0, amber 3.0–3.99, red <3.0), hover tooltip, click navigates to Reviews page, `ResponsiveContainer`
+- Sentiment Distribution donut: 3 segments with hover tooltips, legend, coverage footer, <20% enrichment warning, enrichment-aware empty state, accessibility attributes
+- Performance Highlights card: top and bottom performer sub-cards — multi-store path only
+- "Your Store" single-shop variant: KPIs + rating distribution mini-bars + trend indicator — mutually exclusive with bar chart, active when exactly 1 store in scope
+- `apps/dashboard/` Django app with 5 focused read-only API endpoints
+- Redis 5-minute TTL caching with scope-aware cache keys (includes `accessible_shop_ids` hash)
+- 3 new composite indexes on the `Review` table
 
-**Should have (differentiators — low-complexity, high value):**
-- Popup-blocked polling fallback via Redis status key (HIGH operational value, required for OAuth reliability)
-- Last-seen sync timestamp per shop (pairs naturally with connection status badge)
-- Invitation context-aware acceptance copy ("You've been invited by X to join Y as Manager")
+**Should have (competitive differentiators):**
+- Threshold-based bar coloring — instant visual triage without reading numbers
+- Bar chart click to Reviews page navigation — bridges insight to action
+- Session persistence of filter state — reduces repetitive reconfiguration
+- Coverage footer with warning callout when enrichment coverage < 20%
 
-**Defer to future milestones:**
-- Staff Admin dashboard — needs reviews module to be meaningful (Phase 3+)
-- Google Business Profile name preview before shop save — secondary API call; ship after initial OAuth is stable
-- Region detail page showing assigned shops — quality-of-life, not blocking
-- Bulk shop CSV import — post-PMF
-- Shop API key management — low immediate value
+**Defer to v1.x:**
+- Manual Refresh button — add only if user research shows staleness complaints
+- Export to CSV — for users needing historical analysis beyond 365 days
+
+**Defer to v2+:**
+- Real-time WebSocket dashboard — only after explicit Channels scope review (CLAUDE.md section 13.2 prohibits new consumers without architecture sign-off)
+- Compare-to-previous-period toggle on bar chart
+- AI-powered anomaly callouts
+
+**Anti-features — never build:**
+- Global error boundary replacing all widgets — hides which widget failed
+- Date range beyond 365 days — breaks P95 < 400ms target under load
+- `history.pushState` for filter changes — pollutes browser history
+
+---
 
 ### Architecture Approach
 
-The architecture follows the existing services/selectors pattern from CLAUDE.md with four additions: `IsOrgScoped` and `IsOrgAdmin` permission classes in `apps/accounts/permissions.py`, a `TenantScopedViewSet` base in `apps/common/views.py`, and two new bounded-context apps (`apps/regions/`, `apps/shops/`) alongside expansion of `apps/integrations/google/`. Import direction is strictly acyclic: `common <- accounts <- organisations <- regions <- shops <- integrations` (integrations receives data as parameters and returns plain values, importing no domain models). `StaffAccessScope` lives in `apps/accounts/` using string FK labels to `regions.Region` and `shops.Shop` to avoid circular imports. The OAuth callback is a Django `TemplateView` (not a DRF view) because it must render HTML to drive `window.opener.postMessage()`. The `/org/*` URL prefix cleanly separates new Org Admin views from the existing `/admin/*` Superadmin routes.
+The architecture is a strict separation of concerns across three layers. The backend layer: a single-query aggregation layer in `apps/dashboard/selectors/aggregations.py` using ORM `aggregate()` and `annotate()`; a thin `DashboardApiView` base class that handles validation, cache lookup, and cache write; and a `DashboardFilterParams` frozen dataclass that carries validated params and the resolved `accessible_shop_ids` tuple. The frontend layer: one `QueryClient` at the React root serving five parallel `useQuery` hooks whose keys are the filter state object. The integration layer: Django template passes bootstrap data as `<script type="application/json">` tags read via `readJsonScript()`, the established pattern from `ReviewManagementWidget`.
 
 **Major components:**
-1. `apps/accounts/permissions.py` — `IsOrgScoped`, `IsOrgAdmin`, `StaffAccessScope` model; all permission and access-scope logic owned here
-2. `apps/common/views.py` — `TenantScopedViewSet`; cross-cutting base that injects `organisation_id` filter into every Org Admin queryset
-3. `apps/regions/` — Region CRUD with gapless auto-ID generation via `select_for_update()` on the Organisation row
-4. `apps/integrations/google/` — `OAuthFlow`, `BusinessProfileClient`, `PlacesAPI`, `exceptions`; pure integration layer with no domain model imports
-5. `apps/shops/` — Shop CRUD, allocation enforcement, OAuth connection/reconnect, API key management; consumes integrations layer
-6. `apps/accounts/services/team.py` — team invite, scope management, enable/disable/remove; extends existing invitation token infrastructure with `purpose` enum
+
+1. `apps/dashboard/filters.py` — `DashboardFilterParams` dataclass plus `validate_filter_params()`. Single point for scope enforcement (403 on out-of-scope region/shop), date range validation (400 on >365d or from>to), and `accessible_shop_ids` resolution. Must be the first module written.
+
+2. `apps/dashboard/selectors/aggregations.py` — all ORM aggregations; `_base_qs()` shared queryset; `dashboard_kpis()`, `dashboard_sentiment_distribution()`, `dashboard_top_performing()`, `dashboard_highlights()`. Each function is one DB query. No Python-side aggregation.
+
+3. `apps/dashboard/services/cache.py` — `dashboard_cache_key()` (embeds `filter_hash()` which includes `accessible_shop_ids`), `cache_get()`, `cache_set()`. TTL-only invalidation; no event-based invalidation.
+
+4. `apps/dashboard/views.py` — `DashboardApiView` base plus 5 concrete views. Base handles filter validation, cache check, and cache write. Subclasses implement only `_fetch()`. Uses `IsOrgScoped` directly, not `TenantScopedViewSet` (dashboard views are `APIView` with no queryset class attribute — `TenantScopedViewSet` is incompatible).
+
+5. `frontend/src/widgets/dashboard/DashboardWidget.tsx` — single React root; owns `QueryClient`; renders all sections. Five `useQuery` hooks fire in parallel. Top-performing and highlights use a `dateOnlyFilters` object, not `fullFilters` — this is the prevention for DASH-C2.
+
+6. `apps/reviews/migrations/000N_dashboard_indexes.py` — three new composite indexes. Must be added first; indexes must exist from the first day of testing.
+
+---
 
 ### Critical Pitfalls
 
-1. **Cross-tenant data leakage via unscoped viewsets (NEW-C4)** — The most common multi-tenant Django mistake. Create `TenantScopedViewSet` and `TenantIsolationTest` (covering list + PATCH + DELETE for both org contexts) in wave 0 before any Org Admin viewset is written. Never accept `organisation_id` from `request.data` in `perform_create`.
+1. **DASH-C1: Cache key missing `accessible_shop_ids` hash (security incident risk)** — Staff Admin A's cached data is served to Staff Admin B if they share org and filter params. Prevention: `dashboard_cache_key()` must include `filter_hash()` which serializes `accessible_shop_ids`. For Org Admins pass empty list (`[]`); the hash of `[]` is stable and distinct from any Staff user's list. Recovery cost: HIGH — requires cache flush, access log audit, and user notification.
 
-2. **COOP header breaks OAuth popup postMessage channel (NEW-C1)** — Setting `Cross-Origin-Opener-Policy: same-origin` globally (common security hardening) severs `window.opener` and silently breaks the Google connect flow. Set `same-origin-allow-popups` only on the OAuth initiation view; implement a polling fallback via a 30-second Redis key for when postMessage is unavailable.
+2. **DASH-C2: Top Performing Outlets applies Region/Store filter (data correctness)** — When a specific store is selected, the "top performers" chart shows only that one store. Prevention: construct two filter objects in React: `fullFilters` (all params) for KPIs and Sentiment, `dateOnlyFilters` (date only) for Top Performers and Highlights. Backend must also ignore region/shop params for those two endpoints. Test: `GET /api/v1/dashboard/top-performing/?region=1` returns all shops.
 
-3. **Popup blocked silently on Safari and mobile (NEW-C10)** — Calling `window.open()` inside an `async` function or `.then()` breaks the synchronous gesture chain required by Safari's popup blocker. Open `window.open('about:blank', ...)` synchronously before any `await`, then assign `popup.location.href` after the fetch resolves. Default to redirect flow on mobile.
+3. **DASH-C3: Out-of-scope URL params silently ignored instead of 403 (security)** — Staff user with a bookmarked Org Admin URL sees unfiltered data without knowing their scope filter was dropped. Prevention: `validate_filter_params()` raises `PermissionDenied` (403, not 400) for any `shop_id` or `region_id` outside the user's `accessible_shop_ids` or `organisation_id`. Frontend handles 403 by clearing the offending filter and showing an access-denied message.
 
-4. **InvitationToken rename breaks live pods during rolling deploy (NEW-C5)** — A table rename mid-deploy causes `ProgrammingError` in old pods still using the original table name. Use the three-step expand-contract pattern: add columns with nulls -> backfill data -> rename in a separate deploy only after all old pods retire.
+4. **DASH-C5: Composite index field order mismatches query filter shape (performance)** — Index added as `(organisation, sentiment, review_create_time)` but query filters on `(organisation, enrichment_status, sentiment, review_create_time)`. PostgreSQL falls back to seq scan; P95 > 400ms at >10K reviews. Prevention: design indexes from actual `EXPLAIN ANALYZE` output. Correct indexes: `(organisation, review_create_time, sentiment)`, `(shop, review_create_time)`, `(organisation, review_create_time, enrichment_status)`. Verify with `EXPLAIN ANALYZE` after seeding 5K rows in staging.
 
-5. **Encrypted field migration leaves plaintext in old rows (NEW-C6)** — Adding `EncryptedTextField` does not re-encrypt existing rows. Use the four-step migration: add new nullable encrypted column -> data migration backfill (batched, `chunk_size=200`) -> make old column nullable -> separate deploy to drop it. The Fernet key must come from GCP Secret Manager, never `SECRET_KEY`.
-
-6. **Region ID race condition — duplicate IDs under concurrent creates (NEW-C7)** — `SELECT COUNT` then INSERT is non-atomic. Lock the Organisation row with `select_for_update()` inside `@transaction.atomic` for the entire generate-and-insert operation. Back it with `UniqueConstraint(fields=["organisation", "region_id"])` as the DB-level safety net.
-
-7. **StaffAccessScope N+1 on Team list (NEW-C8)** — The two-nullable-FK scope model resists standard `prefetch_related`. Use `Prefetch('access_scopes', queryset=StaffAccessScope.objects.select_related('region', 'shop'), to_attr='prefetched_scopes')`. Add a CI query-count test asserting <= 4 queries for 20 Staff Admins with 3 scopes each.
+5. **DASH-C7: Timezone mismatch on date window boundaries (silent data exclusion)** — UTC-based "Last 30 days" silently excludes reviews from non-UTC users' current partial day. Prevention: compute date windows in the user's local timezone, then convert to UTC for DB queries. If `User.timezone` is out of scope, show explicit "Dates are shown in UTC" notice. Never silently drop data.
 
 ---
 
 ## Implications for Roadmap
 
-### Phase 6: Shell, Data Model, and Security Scaffold
-**Rationale:** The dependency graph makes data models the hard blocker for everything else. The security scaffold (tenant scoping mixin, permission classes, isolation tests) must exist before any Org Admin viewset is written — retrofitting it is the single most common source of data leakage bugs in multi-tenant Django.
-**Delivers:** All migrations for User extensions, InvitationToken purpose enum (step 1 of 3-step expand-contract), Region, Shop, StaffAccessScope; `IsOrgAdmin`, `IsOrgScoped`, `TenantScopedViewSet`; Org Admin shell with full sidebar nav, dashboard page, profile page; URL skeleton with stub viewsets; Fernet key infrastructure in GCP Secret Manager.
-**Addresses:** Org Admin shell (table stakes), profile page reuse, all permission classes
-**Avoids:** NEW-C4 (cross-tenant leakage), NEW-C5 (InvitationToken rename), NEW-C6 (encryption key infrastructure), M6 (IsOrgAdmin missing object permissions)
-**Research flag:** Standard patterns — skip phase research. All architecture decisions are documented in ARCHITECTURE.md with code-level detail.
+This milestone is a single phase (Phase 14 in the existing roadmap). The internal build order is strictly determined by the dependency graph — indexes enable query testing; filter validation is the security foundation; selectors before views; backend API contract before frontend binds to it.
 
-### Phase 7: Regions Module
-**Rationale:** Region is the lightest bounded context and a hard prerequisite for both Shops (region FK) and Team (scope multi-select). Building it first proves the `TenantScopedViewSet` pattern on a simple resource before the complexity of OAuth.
-**Delivers:** `apps/regions/` with full services/selectors/views, `generate_region_id()` with `select_for_update()` on org row, Region list React widget (search, paginate, create modal, edit modal, delete with guard), `/org/regions/` URL, full test suite including query-count CI assertion.
-**Addresses:** Regions CRUD (all table-stakes features), auto-generated Region IDs
-**Avoids:** NEW-C7 (Region ID race condition), M7 (select_for_update outside transaction)
-**Research flag:** Standard patterns — skip phase research. Pattern is fully specified in ARCHITECTURE.md Phase 7 build steps.
+### Phase 1: Indexes + Filter Validation Foundation
+**Rationale:** Indexes are a prerequisite to all query plan testing. `DashboardFilterParams` and `validate_filter_params()` are prerequisites to every other backend module — building them first means security constraints (DASH-C1, DASH-C3) are in the data model before any endpoint code exists.
+**Delivers:** Migration with 3 composite indexes; `filters.py` with full scope enforcement and 403/400 behavior; `services/cache.py` with scope-aware key builder; tests for both modules.
+**Addresses:** DASH-C1 (cache scoping), DASH-C3 (403 on out-of-scope params), DASH-C5 (correct index field order).
+**Avoids:** Retrofitting security constraints onto already-written endpoints.
 
-### Phase 8: Shops Module — Manual Creation and Google Integrations Layer
-**Rationale:** The Google integrations layer (`apps/integrations/google/`) has no UI dependency and can be built in parallel with Phase 7 (start 8.1 while 7.x is in progress). Manual shop creation unblocks Staff scope assignment without the OAuth complexity. OAuth is a discrete sub-phase within Phase 8 that can be sequenced after the list/create/edit/deactivate surfaces are stable.
-**Delivers:** `apps/integrations/google/` (client, oauth, places, exceptions); Shop model with Fernet-encrypted `google_refresh_token` field (four-step encryption migration); shop list with allocation counter, filter by region/status; manual Place ID creation with Places API validation; activate/deactivate; connection status badge; Google OAuth popup flow with COOP polling fallback and Safari/mobile redirect fallback; reconnect flow; `/org/shops/` URL; Shop React widget.
-**Addresses:** Shops list, manual create, allocation enforcement, Google OAuth popup, reconnect, connection status badge
-**Avoids:** NEW-C1 (COOP header), NEW-C2 (postMessage origin), NEW-C3 (token refresh race), NEW-C6 (encrypted field migration), NEW-C9 (soft-delete cascade), NEW-C10 (popup blocked on Safari), m5 (GCP key not available at migration time), m6 (6-month refresh token inactivity expiry)
-**Research flag:** Needs focused sub-phase research on the Google OAuth popup COOP fallback and Safari synchronous-open pattern before coding begins. A minimal browser prototype validating the dual postMessage+polling path is recommended before integrating into the Shop modal.
+### Phase 2: Aggregation Selectors + Query-Count Tests
+**Rationale:** Selectors are the most logic-dense backend layer and have the highest test value. Writing them before views allows `CaptureQueriesContext` tests to validate query counts in isolation — no HTTP stack overhead, no cache interference. DASH-C4 (Python-side aggregation) cannot survive this phase if query-count ceilings are enforced.
+**Delivers:** `aggregations.py` with five selector functions (each one DB query); `test_aggregations.py` with `CaptureQueriesContext` assertions; test for DASH-C6 (50% enrichment coverage = chart renders, not blank).
+**Addresses:** DASH-C4 (all aggregation at DB level), DASH-C6 (partial enrichment coverage is informative, not an empty state).
+**Uses:** Composite indexes from Phase 1.
 
-### Phase 9: Team Module
-**Rationale:** Team depends on both Regions and Shops being live so the scope multi-select is populated with real data. The InvitationToken purpose enum step 2 (backfill) and step 3 (rename, if pursued) must be completed before Staff invitation tokens can be issued.
-**Delivers:** `apps/accounts/services/team.py` (invite, update scope, enable/disable, remove, resend); InvitationToken purpose enum step 2 backfill and non-null constraint; `TeamViewSet` (write = IsOrgAdmin, read = IsOrgScoped); team list React widget with scope chips; invite modal with Manager/Staff role selector and region/shop multi-select; edit scope modal; enable/disable/remove confirmations with self-protection and last-manager guards; `team_invitation.html` + `team_invitation.txt` email templates; purpose-aware acceptance view routing; `/org/team/` URL.
-**Addresses:** Team invite, team list, scope management, invitation email + acceptance, self-protection + last-manager guard
-**Avoids:** NEW-C8 (StaffAccessScope N+1), M5 (Staff token accepted by wrong activation endpoint), NEW-C5 (InvitationToken rename — step 2/3)
-**Research flag:** Standard patterns — the team invitation and StaffAccessScope prefetch patterns are fully specified in ARCHITECTURE.md Phase 9 build steps. No new external dependencies.
+### Phase 3: Dashboard Views + URL Registration
+**Rationale:** Views are thin wrappers once selectors are tested. This phase is low-complexity and enables end-to-end HTTP testing before any frontend work begins.
+**Delivers:** `DashboardApiView` base + 5 concrete views; `apps/dashboard/urls.py`; wired into `config/urls.py`; `INSTALLED_APPS` updated; `test_views.py` covering 403/400/cache-hit/cache-miss paths.
+**Implements:** `DashboardApiView` base class pattern (single validation + cache check + delegate `_fetch()` pattern from ARCHITECTURE.md).
+
+### Phase 4: Django Template View + Bootstrap Data
+**Rationale:** The template view defines the bootstrap data contract (regions JSON, shops JSON, `data-is-single-shop` attribute). Defining it before the React island means the contract is testable from the server side before the frontend binds to it, preventing shape-mismatch surprises late in development.
+**Delivers:** Django template view for the dashboard page; `dashboard.html` with `#dashboard-root` mount point and `<script type="application/json">` bootstrap tags.
+
+### Phase 5: React Frontend — Hooks, Components, Entrypoint
+**Rationale:** Frontend is the last layer; all API contracts are locked. Build order: types then api.ts then hooks then components then root then entrypoint, following the dependency graph.
+**Delivers:** `types.ts`; `api.ts`; `useFilterState.ts` (URL + sessionStorage); four `useQuery` hooks; `FilterBar.tsx`; `KpiCards.tsx`; `SentimentDonut.tsx`; `TopPerformingSection.tsx`; `DashboardWidget.tsx` with `QueryClientProvider`; `dashboard.tsx` entrypoint; `vite.config.ts` entry added.
+**Uses:** `recharts@^3.8.1` and `@tanstack/react-query` v5 (both added to `package.json`).
+**Addresses:** DASH-C2 (two separate filter objects: `fullFilters` and `dateOnlyFilters`); `replaceState` not `pushState`; `staleTime: 5min` matching server TTL.
 
 ### Phase Ordering Rationale
 
-- Data models block everything: all migrations must exist before any viewset can be wired. The Phase 6 migration set (User extensions, InvitationToken purpose, Region, Shop, StaffAccessScope) must be a single ordered migration sequence since each depends on the previous.
-- Security scaffold precedes features: `TenantScopedViewSet`, `IsOrgScoped`, and cross-tenant isolation tests in Phase 6 ensure no Org Admin viewset in Phases 7–9 can be written without the guard rails in place.
-- Regions before Shops because Shop has a FK to Region; Shops before Team because Team scope selection references both.
-- Google integrations layer (Phase 8, step 8.1) can overlap with Phase 7 since it has no dependency on Regions — this is the primary parallelism opportunity.
-- The InvitationToken expand-contract spans all phases: step 1 (add nullable columns) in Phase 6, step 2 (backfill, make non-null) in Phase 9, step 3 (rename table) as a separate post-v0.2 deploy only if required.
+- Indexes before selectors: composite indexes must exist before `EXPLAIN ANALYZE` verification is meaningful and before CI query-count tests can confirm the correct query plan is selected.
+- `filters.py` before `views.py`: the filter validation function is the security contract. Building it first ensures scope enforcement is the foundation, not a retrofit.
+- Selectors before views: decouples aggregation correctness testing from the HTTP layer. `CaptureQueriesContext` tests on selectors alone are faster and more precise than on views.
+- Backend fully wired before frontend: the Django template bootstrap data shape and URL contracts must be stable before React binds to them.
+- `api.ts` and `types.ts` before components: TypeScript types from API responses prevent runtime shape mismatches in components.
 
 ### Research Flags
 
-Needs focused pre-implementation research or prototype:
-- **Phase 8 (Google OAuth popup):** The COOP polling fallback pattern and the synchronous `window.open('about:blank')` Safari workaround should be validated in a minimal browser prototype before being integrated into the Shop modal. The postMessage + polling dual-path adds frontend complexity that benefits from an isolated proof-of-concept.
-- **Phase 8 (`django-sequences` Django 6 smoke test):** Run `get_next_value("test")` in a test against the Django 6.0.2 test database in Phase 6 setup. If it fails, implement the 30-line `select_for_update()` fallback before Phase 7 begins.
+Phases with standard, well-documented patterns (no additional research needed):
+- **All phases:** ARCHITECTURE.md is based on direct codebase inspection. PITFALLS.md provides verified prevention strategies and test assertions for every critical pitfall. The implementation plan is complete enough to execute without further research.
 
-Standard patterns (skip research-phase):
-- **Phase 6:** Permission classes, TenantScopedViewSet, shell, and migration patterns are fully specified with code in ARCHITECTURE.md.
-- **Phase 7:** Region CRUD with `select_for_update()` ID generation is fully specified in ARCHITECTURE.md and PITFALLS.md.
-- **Phase 9:** Team invitation and StaffAccessScope prefetch patterns are fully specified. All external dependencies already added in Phase 6/8.
+Areas requiring implementation decisions before coding begins (not research, but scope decisions):
+- **`User.timezone` field (DASH-C7):** Does Phase 14 add this field to the `User` model, or does it ship with a "UTC only" notice? This must be resolved before `validate_filter_params()` is written.
+- **Minimum review threshold for Top Performers:** PITFALLS.md references a minimum-3-reviews threshold (HAVING clause). The threshold value must be confirmed with the product owner before writing `dashboard_top_performing()`.
 
 ---
 
@@ -150,48 +170,48 @@ Standard patterns (skip research-phase):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM-HIGH | All packages verified on PyPI with Django 6.0/Python 3.12 compatibility except `django-sequences` (pure Python, LOW confidence on Django 6 test matrix — smoke test required). `django-fernet-encrypted-fields` is the definitive replacement for the abandoned `django-cryptography`. |
-| Features | HIGH | Dependency graph is unambiguous. Priority calls are well-grounded: hard allocation enforcement (not soft-block), two hardcoded roles (not attribute-based RBAC), flat region hierarchy (not nested). All anti-feature exclusions have explicit rationale. |
-| Architecture | HIGH | Derived from direct codebase reading of v1.0 source files. Import rules, URL structure, and existing patterns (postMessage bus, CustomEvent refresh, CSRF from cookie) are confirmed against live code, not inferred. OAuth callback view implementation is fully specified. |
-| Pitfalls | HIGH (Django-specific) / MEDIUM (OAuth popup browser edge cases) | Django pitfalls are well-sourced from official Django/DRF docs and established migration guides. OAuth popup pitfalls (COOP, Safari popup blocking) sourced from Chrome developer docs and browser-specific issue threads — the patterns are correct but browser behaviour may evolve. |
+| Stack | HIGH | `recharts` React 19 peer dep verified on GitHub main branch. TanStack Query v5 React 19 peer dep verified on npm. Stack conflict resolved with explicit rationale. |
+| Features | HIGH | All features verified against existing v0.3 infrastructure capabilities. Feature dependency graph fully mapped. UX patterns sourced from established design systems (Carbon, PatternFly). |
+| Architecture | HIGH | Based on direct codebase inspection of `apps/common/permissions.py`, `apps/reviews/selectors/reviews.py`, `config/urls.py`, `frontend/package.json`, `frontend/vite.config.ts`, and all 9 existing entrypoints. Not training assumptions. |
+| Pitfalls | HIGH (cache, ORM, indexes) / MEDIUM (timezone, React Query patterns) | Cache scoping and ORM aggregation verified against Django 6.0 docs and existing codebase. Timezone handling verified against Django docs and known production failure modes. React Query stale patterns verified against TanStack Query v5 docs. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **`django-sequences` Django 6 compatibility:** Must be smoke-tested in Phase 6 setup before committing to it for Region ID generation. The fallback implementation is defined and ready.
-- **GIS popup + Safari/iOS behaviour:** The synchronous `window.open('about:blank')` workaround is the documented fix, but iOS Safari has additional restrictions in PWA contexts. QA must cover Safari desktop, Safari iOS, and Chrome iOS as distinct test cases.
-- **Google Business Profile API approval status:** The GBP API requires Google application review for production access. This is a process dependency, not a code dependency — must be confirmed before Phase 8 ships to production.
-- **Region ID format confirmation:** Whether to embed an org short code (`REG-ACME-001`) or use a scoped sequence (`REG-001`) needs a product-owner decision before Phase 7 begins.
-- **Manager can manage team:** Whether Managers (not just Org Admins) can invite/edit/remove Staff affects the permission class composition on `TeamViewSet`. Confirm before Phase 9 service layer is written.
-- **Deactivated shop and allocation counter:** Whether deactivating a shop frees a slot in the limit counter needs a business rule decision before the allocation enforcement service is coded in Phase 8.
+- **`User.timezone` field scope:** DASH-C7 requires a decision before implementation begins. Option A: add `timezone = CharField(default="UTC", max_length=64)` to `User` model, validated against `zoneinfo.available_timezones()` on save — clean, correct. Option B: ship with an explicit "Dates are shown in UTC" notice in the filter bar — honest limitation. Neither is a research gap; it is a product scope decision.
+
+- **Minimum review threshold for Top Performers:** PITFALLS.md assumes a minimum of 3 reviews threshold enforced via HAVING clause. FEATURES.md and ARCHITECTURE.md do not specify this value. The implementation should confirm the threshold with the product owner before writing the `dashboard_top_performing()` selector. Default to no minimum (1+) if unspecified.
+
+- **`your-store` vs `highlights` endpoint structure:** ARCHITECTURE.md shows both `/your-store/` and `/highlights/` as separate endpoints. FEATURES.md describes them as mutually exclusive views. The implementation should confirm whether these are two separate conditional endpoints (cleaner, consistent with single-responsibility principle) or one endpoint with a `variant` response field.
 
 ---
 
 ## Sources
 
-### Primary (HIGH confidence)
-- Direct codebase reading — `apps/accounts/models.py`, `apps/accounts/permissions.py`, `apps/organisations/models.py`, `apps/organisations/views.py`, `config/urls.py`, `frontend/src/entrypoints/org-management.tsx`, `templates/partials/sidebar_org.html`
-- jazzband/django-fernet-encrypted-fields — GitHub — Django 6.0 test matrix confirmed
-- Google GIS popup code model docs — canonical popup flow pattern
-- Google Business Profile OAuth docs — per-store OAuth requirements
-- Chrome for Developers COOP restrict-properties — COOP behaviour with popups
-- DRF Permissions Object Level — has_object_permission limitations
-- PostgreSQL SELECT FOR UPDATE concurrency patterns
+### Primary (HIGH confidence — direct codebase inspection)
+- `apps/common/permissions.py` — `IsOrgScoped` confirmed; `TenantScopedViewSet` incompatibility with `APIView` confirmed
+- `apps/reviews/selectors/reviews.py` — `get_accessible_shop_ids()` exists and is tested
+- `config/settings/base.py` — Redis DB 0, `KEY_PREFIX="app"`, `django-redis` backend confirmed
+- `config/urls.py` — URL namespace patterns confirmed
+- `frontend/package.json` — existing deps confirmed; `@tanstack/react-query` and `recharts` absent
+- `frontend/vite.config.ts` — entrypoint pattern confirmed (9 existing entrypoints)
+- `recharts/recharts package.json` (GitHub main) — React 19 peer dep verified: `"react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"`
+- `@tanstack/react-query` npm — v5 React 18 + 19 peer dep verified
 
-### Secondary (MEDIUM confidence)
-- google-auth PyPI v2.49.2 — version and Python 3.12 compatibility confirmed
-- google-api-python-client PyPI v2.194.0 — version confirmed
-- httpx PyPI v0.28.1 — sync API, Python 3.12 compatible
-- tenacity PyPI v9.1.4 — retry with exponential backoff
-- Nango Blog — Google OAuth invalid_grant — refresh token race patterns
-- EnterpriseReady RBAC Guide — two-role scope model validation
-- Django Zero-Downtime Migrations — Loopwerk — expand-contract pattern
+### Secondary (MEDIUM confidence — official documentation)
+- Django 6.0 ORM aggregation docs — `annotate()` plus HAVING via `.filter()` after `.annotate()` confirmed
+- PostgreSQL multicolumn index docs — leftmost field must match leading filter predicate
+- TanStack Query v5 docs — `staleTime`, `refetchOnWindowFocus`, parallel queries confirmed
+- Django `USE_TZ = True` timezone docs — all `DateTimeField` values stored in UTC; comparison requires timezone-aware datetimes
+- `history.replaceState` vs `pushState` — React Router and TanStack Router docs both recommend `replaceState` for filter state
 
-### Tertiary (LOW confidence)
-- django-sequences PyPI v3.0 — Django 6 not yet in test matrix; pure Python; smoke test required
-- Browser popup-blocking behaviour on Safari iOS — sourced from GitHub issue threads; may be version-dependent
+### Tertiary (supporting)
+- PkgPulse — Recharts vs Chart.js vs Nivo 2026 comparison
+- LogRocket — Best React chart libraries 2025
+- Carbon Design System — Loading Pattern (skeleton + per-card error states)
+- Pencil and Paper — Filter UX Design Patterns (cascading dropdowns, Clear Filters)
 
 ---
-*Research completed: 2026-04-27*
+*Research completed: 2026-05-07*
 *Ready for roadmap: yes*

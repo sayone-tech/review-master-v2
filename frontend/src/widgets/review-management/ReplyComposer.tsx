@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Trash2 } from "lucide-react";
 import { emitToast } from "../../lib/toast";
-import { ApiError, submitReply } from "./api";
+import { ApiError, deleteReply, submitReply } from "./api";
 import { StarRating } from "./StarRating";
 import type { ReviewRow } from "./types";
 
@@ -20,6 +20,8 @@ export function ReplyComposer({
 }: Props) {
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const charCount = comment.length;
@@ -57,31 +59,98 @@ export function ReplyComposer({
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    setErrorMessage(null);
+    try {
+      const updated = await deleteReply(row.id);
+      emitToast({ kind: "success", title: "Reply deleted." });
+      onSuccess(updated);
+    } catch (e) {
+      let message = "Failed to delete reply. Please try again.";
+      if (e instanceof ApiError) {
+        if (e.status === 409) message = "Another operation is in progress. Please wait.";
+        else if (e.status === 502 && typeof e.data === "object" && e.data) {
+          const code = (e.data as { code?: string }).code;
+          if (code === "invalid_grant") message = "Google connection expired. Reconnect Google in Shops.";
+          else if (code === "unreachable") message = "Google is temporarily unavailable. Please try again.";
+        }
+      }
+      setErrorMessage(message);
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // Replied view — replaces composer after success.
   if (row.is_replied) {
     const replyDate = row.reply_update_time
       ? new Date(row.reply_update_time).toLocaleString()
       : "";
     return (
-      <tr className="border-b border-line">
+      <tr id={`composer-row-${row.id}`} className="border-b border-line">
         <td colSpan={totalColumns} className="px-4 py-4 bg-line-soft">
           <div className="flex items-start gap-2">
             <CheckCircle size={20} className="text-green mt-0.5" aria-hidden="true" />
             <div className="flex-1">
-              <div className="text-[14px] font-semibold text-ink">
-                Replied on {replyDate}
+              <div>
+                <div className="text-[14px] font-semibold text-ink">
+                  Replied on {replyDate}
+                </div>
+                {row.replied_by_name && (
+                  <div className="text-[12px] text-subtle mt-0.5">
+                    by {row.replied_by_name}
+                  </div>
+                )}
               </div>
               <div className="text-[14px] text-text mt-1 whitespace-pre-wrap">
                 {row.reply_comment}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-[12px] text-muted underline hover:text-ink"
-            >
-              Close
-            </button>
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              {confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-red">Delete this reply?</span>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="text-[12px] font-semibold text-red hover:underline disabled:opacity-50"
+                  >
+                    {deleting ? "Deleting…" : "Confirm"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={deleting}
+                    className="text-[12px] text-muted hover:text-ink"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="inline-flex items-center gap-1 text-[12px] text-muted hover:text-red transition-colors"
+                  title="Delete reply"
+                >
+                  <Trash2 size={13} aria-hidden="true" />
+                  Delete reply
+                </button>
+              )}
+              {errorMessage && (
+                <p className="text-[12px] text-red text-right">{errorMessage}</p>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-[12px] text-muted underline hover:text-ink"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </td>
       </tr>
@@ -89,7 +158,7 @@ export function ReplyComposer({
   }
 
   return (
-    <tr className="border-b border-line">
+    <tr id={`composer-row-${row.id}`} className="border-b border-line">
       <td colSpan={totalColumns} className="p-0">
         <div className="px-4 py-3 bg-line-soft border-b border-line">
           <div className="flex items-center gap-3 mb-2">

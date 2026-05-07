@@ -238,21 +238,29 @@ export function ReviewTable({
       accessor: (r) => {
         if (r.is_replied) {
           return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold bg-line-soft text-ink">
-              <MessageCircle size={12} aria-hidden="true" />
-              1 reply
-            </span>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => onReply(r)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold bg-line-soft text-ink hover:bg-line transition-colors whitespace-nowrap"
+              >
+                <MessageCircle size={12} aria-hidden="true" />
+                1 reply
+              </button>
+            </div>
           );
         }
         return (
-          <button
-            type="button"
-            onClick={() => onReply(r)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold bg-yellow text-black hover:bg-yellow-hover"
-          >
-            <MessageCircle size={12} aria-hidden="true" />
-            Reply
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onReply(r)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold bg-yellow text-black hover:bg-yellow-hover transition-colors"
+            >
+              <MessageCircle size={12} aria-hidden="true" />
+              Reply
+            </button>
+          </div>
         );
       },
     },

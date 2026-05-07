@@ -38,7 +38,7 @@ def base_reviews_queryset(*, organisation_id: int) -> QuerySet[Review]:
     return (
         Review.objects.active()
         .filter(organisation_id=organisation_id)
-        .select_related("shop", "shop__region")
+        .select_related("shop", "shop__region", "replied_by")
     )
 
 

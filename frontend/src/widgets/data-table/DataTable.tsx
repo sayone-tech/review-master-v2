@@ -50,20 +50,20 @@ export function DataTable<T>({
       data-testid="data-table-wrap"
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-[13.5px] text-text">
-          <thead className="bg-[#FBFBFB] sticky top-0">
+        <table className="w-full text-left text-[13.5px] text-text border-collapse">
+          <thead>
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-[11px] text-[12px] font-medium text-subtle uppercase tracking-[0.05em] border-b border-line ${col.align === "right" ? "text-right" : "text-left"}`}
+                  className={`px-4 py-[11px] text-[12px] font-medium text-subtle uppercase tracking-[0.05em] bg-[#FBFBFB] border-b border-line sticky top-0 z-10 ${col.align === "right" ? "text-right" : "text-left"}`}
                 >
                   {col.label}
                 </th>
               ))}
               {renderRowActions && (
                 <th
-                  className="px-4 py-[11px] border-b border-line w-12"
+                  className="px-4 py-[11px] bg-[#FBFBFB] border-b border-line sticky top-0 z-10 w-12"
                   aria-label="Actions"
                 ></th>
               )}

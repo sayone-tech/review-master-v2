@@ -13,6 +13,7 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
     shop_name = serializers.CharField(source="shop.name", read_only=True)
     shop_region_name = serializers.SerializerMethodField()
     region_id = serializers.IntegerField(source="shop.region_id", read_only=True)
+    replied_by_name = serializers.SerializerMethodField()
     # Phase 13 Plan 07 (B3): True iff one or more ActionItem rows exist for this
     # review. Backed by an Exists() annotation on the queryset (see
     # ReviewViewSet.get_queryset). Annotation collapses into the existing list
@@ -38,6 +39,7 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
             "reply_comment",
             "reply_update_time",
             "is_replied",
+            "replied_by_name",
             "enrichment_status",
             "sentiment",
             "tags",
@@ -52,6 +54,14 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
         if obj.shop and obj.shop.region:
             return str(obj.shop.region.name)
         return ""
+
+    def get_replied_by_name(self, obj: Review) -> str | None:
+        if obj.replied_by_id is None:
+            return None
+        user = obj.replied_by
+        if user is None:
+            return None
+        return str(user.full_name).strip() or str(user.email)
 
 
 class ReviewReplySerializer(serializers.Serializer):  # type: ignore[type-arg]

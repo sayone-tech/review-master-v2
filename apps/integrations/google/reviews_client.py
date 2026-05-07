@@ -1,7 +1,8 @@
 """Google Business Profile Reviews API client.
 
-GET  /v4/{accountName}/locations/{locationName}/reviews
-PUT  /v4/{accountName}/locations/{locationName}/reviews/{reviewId}/reply
+GET    /v4/{accountName}/locations/{locationName}/reviews
+PUT    /v4/{accountName}/locations/{locationName}/reviews/{reviewId}/reply
+DELETE /v4/{accountName}/locations/{locationName}/reviews/{reviewId}/reply
 
 See 11-RESEARCH.md Pattern 3 for endpoint details and CLAUDE.md §11 for
 retry/backoff rules. accountName and locationName are full resource paths
@@ -11,6 +12,8 @@ shop.google_account_name and shop.google_location_name.
 
 from __future__ import annotations
 
+import logging
+import time
 from typing import Any
 
 import httpx
@@ -21,6 +24,8 @@ from apps.integrations.google.exceptions import (
     GoogleReplyError,
     GoogleUnreachableError,
 )
+
+logger = logging.getLogger(__name__)
 
 REVIEWS_BASE = "https://mybusiness.googleapis.com/v4"
 REQUEST_TIMEOUT = 10.0
@@ -63,6 +68,7 @@ def list_reviews(
     params: dict[str, Any] = {"pageSize": min(page_size, DEFAULT_PAGE_SIZE)}
     if page_token:
         params["pageToken"] = page_token
+    t0 = time.monotonic()
     try:
         resp = httpx.get(
             url,
@@ -71,15 +77,50 @@ def list_reviews(
             timeout=REQUEST_TIMEOUT,
         )
     except httpx.TransportError as exc:
+        logger.error(
+            "google_reviews_list_transport_error location=%s error=%s",
+            location_name,
+            exc,
+            exc_info=True,
+        )
         raise GoogleUnreachableError() from exc
+    finally:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+
+    logger.debug(
+        "google_reviews_list location=%s status=%s latency_ms=%s",
+        location_name,
+        resp.status_code,
+        latency_ms,
+    )
 
     if resp.status_code == 401:
         raise GoogleAuthError(reason="invalid_grant")
     if resp.status_code == 403:
+        logger.warning(
+            "google_reviews_quota_exceeded location=%s latency_ms=%s body=%s",
+            location_name,
+            latency_ms,
+            resp.text[:200],
+        )
         raise GoogleQuotaError()
     if resp.status_code >= 500:
+        logger.error(
+            "google_reviews_server_error location=%s status=%s latency_ms=%s body=%s",
+            location_name,
+            resp.status_code,
+            latency_ms,
+            resp.text[:200],
+        )
         raise GoogleUnreachableError()
     if resp.status_code >= 400:
+        logger.error(
+            "google_reviews_client_error location=%s status=%s latency_ms=%s body=%s",
+            location_name,
+            resp.status_code,
+            latency_ms,
+            resp.text[:200],
+        )
         raise GoogleUnreachableError()
     return resp.json()  # type: ignore[no-any-return]
 
@@ -101,6 +142,7 @@ def post_reply(
         GoogleUnreachableError: 5xx or transport error
     """
     url = _build_url(account_name, location_name, suffix=f"/{review_id}/reply")
+    t0 = time.monotonic()
     try:
         resp = httpx.put(
             url,
@@ -109,12 +151,112 @@ def post_reply(
             timeout=REQUEST_TIMEOUT,
         )
     except httpx.TransportError as exc:
+        logger.error(
+            "google_reply_post_transport_error location=%s review_id=%s error=%s",
+            location_name,
+            review_id,
+            exc,
+            exc_info=True,
+        )
         raise GoogleUnreachableError() from exc
+    finally:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+
+    logger.debug(
+        "google_reply_post location=%s review_id=%s status=%s latency_ms=%s",
+        location_name,
+        review_id,
+        resp.status_code,
+        latency_ms,
+    )
 
     if resp.status_code == 401:
         raise GoogleAuthError(reason="invalid_grant")
     if resp.status_code >= 500:
+        logger.error(
+            "google_reply_server_error location=%s review_id=%s status=%s latency_ms=%s body=%s",
+            location_name,
+            review_id,
+            resp.status_code,
+            latency_ms,
+            resp.text[:200],
+        )
         raise GoogleUnreachableError()
     if resp.status_code >= 400:
+        logger.warning(
+            "google_reply_client_error location=%s review_id=%s status=%s latency_ms=%s body=%s",
+            location_name,
+            review_id,
+            resp.status_code,
+            latency_ms,
+            resp.text[:200],
+        )
         raise GoogleReplyError(status=resp.status_code, body=resp.text)
     return resp.json()  # type: ignore[no-any-return]
+
+
+def delete_reply(
+    *,
+    access_token: str,
+    account_name: str,
+    location_name: str,
+    review_id: str,
+) -> None:
+    """DELETE reply from GBP review.
+
+    Returns: None (204 No Content on success)
+    Raises:
+        GoogleAuthError(reason="invalid_grant"): 401
+        GoogleReplyError(status=...): 400, 404, etc. (non-auth 4xx)
+        GoogleUnreachableError: 5xx or transport error
+    """
+    url = _build_url(account_name, location_name, suffix=f"/{review_id}/reply")
+    t0 = time.monotonic()
+    try:
+        resp = httpx.delete(
+            url,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+    except httpx.TransportError as exc:
+        logger.error(
+            "google_reply_delete_transport_error location=%s review_id=%s error=%s",
+            location_name,
+            review_id,
+            exc,
+            exc_info=True,
+        )
+        raise GoogleUnreachableError() from exc
+    finally:
+        latency_ms = int((time.monotonic() - t0) * 1000)
+
+    logger.debug(
+        "google_reply_delete location=%s review_id=%s status=%s latency_ms=%s",
+        location_name,
+        review_id,
+        resp.status_code,
+        latency_ms,
+    )
+
+    if resp.status_code == 401:
+        raise GoogleAuthError(reason="invalid_grant")
+    if resp.status_code >= 500:
+        logger.error(
+            "google_reply_delete_server_error location=%s review_id=%s status=%s latency_ms=%s body=%s",
+            location_name,
+            review_id,
+            resp.status_code,
+            latency_ms,
+            resp.text[:200],
+        )
+        raise GoogleUnreachableError()
+    if resp.status_code >= 400:
+        logger.warning(
+            "google_reply_delete_client_error location=%s review_id=%s status=%s latency_ms=%s body=%s",
+            location_name,
+            review_id,
+            resp.status_code,
+            latency_ms,
+            resp.text[:200],
+        )
+        raise GoogleReplyError(status=resp.status_code, body=resp.text)

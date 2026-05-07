@@ -259,7 +259,7 @@ def test_org_admin_dashboard_org_admin_without_org_returns_403(client, db):
     assert resp.status_code == 403
 
 
-def test_org_admin_dashboard_org_admin_sees_welcome_card(client, db):
+def test_org_admin_dashboard_org_admin_sees_dashboard(client, db):
     org = OrganisationFactory(name="Acme Holdings")
     user = UserFactory(
         role=User.Role.ORG_ADMIN,
@@ -270,10 +270,8 @@ def test_org_admin_dashboard_org_admin_sees_welcome_card(client, db):
     client.force_login(user)
     resp = client.get("/admin/org-dashboard/")
     assert resp.status_code == 200
-    # Plan 04 updated template: "Welcome, {first_name}" card + org name as subtitle
-    assert b"Welcome, Jane" in resp.content
-    assert b"Acme Holdings" in resp.content
-    assert b'data-testid="org-dashboard-card"' in resp.content
+    # Dashboard renders the React island mount point
+    assert b'id="dashboard-root"' in resp.content
 
 
 def test_org_admin_dashboard_renders_org_sidebar_not_superadmin_sidebar(client, db):
@@ -497,7 +495,7 @@ def test_named_url_patterns_resolve_correctly() -> None:
     assert reverse("org_team") == "/admin/org/team/"
 
 
-# --- Phase 6 Plan 04: Personalised dashboard + zero-regions setup banner ---
+# --- Dashboard: React island rendering ---
 
 
 def _dashboard_get(
@@ -519,80 +517,22 @@ def _dashboard_get(
     return c.get("/admin/org/dashboard/"), user
 
 
-def test_dashboard_welcome_uses_first_word_of_full_name() -> None:
-    response, _ = _dashboard_get(full_name="Renjith Raj")
+def test_dashboard_renders_react_island_for_org_admin() -> None:
+    response, _ = _dashboard_get()
     assert response.status_code == 200
-    assert response.context["first_name"] == "Renjith"
-    assert b"Welcome, Renjith" in response.content
-    assert b"Welcome, Renjith Raj" not in response.content
+    assert b'id="dashboard-root"' in response.content
 
 
-def test_dashboard_welcome_handles_whitespace_in_full_name() -> None:
-    response, _ = _dashboard_get(full_name="   Bob   Jones  ")
+def test_dashboard_renders_react_island_for_staff_admin() -> None:
+    response, _ = _dashboard_get(role=User.Role.STAFF_ADMIN)
     assert response.status_code == 200
-    assert response.context["first_name"] == "Bob"
-    assert b"Welcome, Bob" in response.content
-
-
-def test_dashboard_welcome_falls_back_to_email_prefix_when_full_name_blank() -> None:
-    response, _ = _dashboard_get(full_name="", email="alice.smith@example.com")
-    assert response.status_code == 200
-    assert response.context["first_name"] == "alice.smith"
-    assert b"Welcome, alice.smith" in response.content
-
-
-def test_dashboard_welcome_falls_back_to_email_prefix_when_full_name_only_whitespace() -> None:
-    response, _ = _dashboard_get(full_name="   ", email="bob@example.com")
-    assert response.context["first_name"] == "bob"
-
-
-def test_dashboard_subtitle_contains_organisation_name() -> None:
-    org = OrganisationFactory(name="Acme Coffee Co")
-    response, _ = _dashboard_get(organisation=org)
-    assert response.status_code == 200
-    assert b"Acme Coffee Co" in response.content
-    assert b"Manage your shops, regions and team from here." in response.content
-
-
-def test_dashboard_setup_banner_shown_when_zero_regions() -> None:
-    org = OrganisationFactory()
-    response, _ = _dashboard_get(organisation=org)
-    assert response.status_code == 200
-    assert response.context["show_setup_banner"] is True
-    assert b"Get started by creating your first region" in response.content
-    assert b'href="/admin/org/regions/"' in response.content
-    assert b"Create Region" in response.content
-    assert b'data-testid="setup-banner-zero-regions"' in response.content
-
-
-def test_dashboard_setup_banner_hidden_when_one_or_more_regions() -> None:
-    org = OrganisationFactory()
-    RegionFactory(organisation=org)
-    response, _ = _dashboard_get(organisation=org)
-    assert response.status_code == 200
-    assert response.context["show_setup_banner"] is False
-    assert b"Get started by creating your first region" not in response.content
-    assert b'data-testid="setup-banner-zero-regions"' not in response.content
-
-
-def test_dashboard_setup_banner_only_counts_own_organisation() -> None:
-    """Banner stays visible if a DIFFERENT org has regions."""
-    own_org = OrganisationFactory()
-    other_org = OrganisationFactory()
-    RegionFactory(organisation=other_org)  # belongs to a different org
-    response, _ = _dashboard_get(organisation=own_org)
-    assert response.context["show_setup_banner"] is True
+    assert b'id="dashboard-root"' in response.content
 
 
 def test_dashboard_redirects_superadmin_to_organisations() -> None:
     response, _ = _dashboard_get(role=User.Role.SUPERADMIN, organisation=None)
     assert response.status_code == 302
     assert response["Location"] == "/admin/organisations/"
-
-
-def test_dashboard_returns_403_for_staff_admin() -> None:
-    response, _ = _dashboard_get(role=User.Role.STAFF_ADMIN)
-    assert response.status_code == 403
 
 
 def test_dashboard_returns_403_for_org_admin_without_organisation() -> None:

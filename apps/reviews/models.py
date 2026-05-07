@@ -57,6 +57,14 @@ class Review(TimeStampedModel):
     reply_comment = models.TextField(blank=True)
     reply_update_time = models.DateTimeField(null=True, blank=True)
     is_replied = models.BooleanField(default=False, db_index=True)
+    replied_by = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies",
+        db_index=True,
+    )
 
     enrichment_status = models.CharField(
         max_length=15,
@@ -95,6 +103,18 @@ class Review(TimeStampedModel):
                 name="review_org_date_idx",
             ),
             GinIndex(fields=["search_vector"], name="review_search_vec_idx"),
+            models.Index(
+                fields=["organisation", "review_create_time", "sentiment"],
+                name="review_org_time_sent_idx",
+            ),
+            models.Index(
+                fields=["shop", "review_create_time"],
+                name="review_shop_time_idx",
+            ),
+            models.Index(
+                fields=["organisation", "review_create_time", "enrichment_status"],
+                name="review_org_time_status_idx",
+            ),
         ]
 
     def __str__(self) -> str:

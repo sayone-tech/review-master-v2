@@ -33,6 +33,7 @@ export interface ReviewRow {
   reply_comment: string;
   reply_update_time: string | null;
   is_replied: boolean;
+  replied_by_name: string | null;
   enrichment_status: EnrichmentStatus;
   sentiment: Sentiment;
   tags: ReviewTag[];

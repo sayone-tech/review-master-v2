@@ -24,7 +24,7 @@ from apps.accounts.forms import (
     ProfilePasswordChangeForm,
 )
 from apps.accounts.models import InvitationToken, User
-from apps.accounts.permissions import IsOrgAdmin, org_admin_required
+from apps.accounts.permissions import IsOrgAdmin, org_member_required
 from apps.accounts.selectors.team import get_team_stats, list_team_members
 from apps.accounts.serializers import (
     TeamMemberCreateSerializer,
@@ -345,8 +345,6 @@ def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
                 except ValidationError:
                     return render(request, "accounts/invite_error.html", {"message": ACTV05_COPY})
                 login(request, user)
-                if user.role == User.Role.STAFF_ADMIN:
-                    return redirect(reverse("org_welcome"))
                 return redirect(reverse("org_admin_dashboard"))
             # ORG_ADMIN path — existing code unchanged
             from apps.organisations.services.organisations import activate_account
@@ -454,7 +452,7 @@ def change_password_view(request: HttpRequest) -> HttpResponse:
     )
 
 
-@org_admin_required
+@org_member_required
 def org_profile(request: HttpRequest) -> HttpResponse:
     """Org Admin profile page — /admin/org/profile/.
 
@@ -464,7 +462,7 @@ def org_profile(request: HttpRequest) -> HttpResponse:
     return render(request, "accounts/org_profile.html", {"page_title": "Profile"})
 
 
-@org_admin_required
+@org_member_required
 def org_update_name_view(request: HttpRequest) -> HttpResponse:
     """POST-only Org Admin name update."""
     if request.method != "POST":
@@ -485,7 +483,7 @@ def org_update_name_view(request: HttpRequest) -> HttpResponse:
     )
 
 
-@org_admin_required
+@org_member_required
 def org_change_password_view(request: HttpRequest) -> HttpResponse:
     """POST-only Org Admin password change."""
     if request.method != "POST":

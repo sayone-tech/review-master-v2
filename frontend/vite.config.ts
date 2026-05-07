@@ -6,6 +6,9 @@ import { resolve } from "path";
 export default defineConfig({
   base: "/static/dist/",
   plugins: [react(), tailwindcss()],
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
   build: {
     manifest: "manifest.json",
     outDir: resolve(__dirname, "../static/dist"),
@@ -25,6 +28,7 @@ export default defineConfig({
           "src/entrypoints/action-items-management.tsx",
         ),
         "notif-bell": resolve(__dirname, "src/entrypoints/notif-bell.tsx"),
+        dashboard: resolve(__dirname, "src/entrypoints/dashboard.tsx"),
       },
     },
   },

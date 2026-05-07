@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listReviews } from "./api";
 import type { ReviewFilterParams, ReviewListResponse, ReviewRow, SortKey } from "./types";
 
@@ -16,13 +16,34 @@ const DEFAULT_PARAMS: ReviewFilterParams = {
   page: 1,
 };
 
+function parseUrlParams(): Partial<ReviewFilterParams> {
+  if (typeof window === "undefined") return {};
+  const p = new URLSearchParams(window.location.search);
+  const out: Partial<ReviewFilterParams> = {};
+  const sentiment = p.get("sentiment");
+  if (sentiment === "positive" || sentiment === "neutral" || sentiment === "negative") {
+    out.sentiment = sentiment;
+  }
+  const store = p.get("store");
+  if (store) {
+    const n = Number(store);
+    if (!isNaN(n) && n > 0) out.shop = n;
+  }
+  const from = p.get("from");
+  if (from) out.from_date = from;
+  const to = p.get("to");
+  if (to) out.to_date = to;
+  return out;
+}
+
 export function useReviews(initial?: Partial<UseReviewsState>) {
   const [rows, setRows] = useState<ReviewRow[]>(initial?.rows ?? []);
   const [count, setCount] = useState<number>(initial?.count ?? 0);
   const [next, setNext] = useState<string | null>(initial?.next ?? null);
   const [previous, setPrevious] = useState<string | null>(initial?.previous ?? null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [filters, setFilters] = useState<ReviewFilterParams>(DEFAULT_PARAMS);
+  const urlParams = useMemo(() => parseUrlParams(), []);
+  const [filters, setFilters] = useState<ReviewFilterParams>({ ...DEFAULT_PARAMS, ...urlParams });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(
@@ -47,9 +68,9 @@ export function useReviews(initial?: Partial<UseReviewsState>) {
     [filters],
   );
 
-  // Initial load
+  // Initial load — apply URL params if present
   useEffect(() => {
-    void refresh(DEFAULT_PARAMS);
+    void refresh({ ...DEFAULT_PARAMS, ...urlParams });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

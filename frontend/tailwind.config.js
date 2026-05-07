@@ -45,6 +45,8 @@ export default {
         "modal":        "14px",
         "logo":         "7px",
         "confirm-icon": "12px",
+        "2xl":          "16px",
+        "3xl":          "24px",
       },
     },
   },

@@ -54,3 +54,11 @@ def test_audit_log_can_be_created() -> None:
 def test_review_str_representation() -> None:
     r = ReviewFactory(star_rating=4)
     assert "stars=4" in str(r)
+
+
+def test_review_meta_indexes() -> None:
+    """TECH-03: three new composite indexes for dashboard query plans must exist."""
+    index_names = {idx.name for idx in Review._meta.indexes}
+    assert "review_org_time_sent_idx" in index_names
+    assert "review_shop_time_idx" in index_names
+    assert "review_org_time_status_idx" in index_names
