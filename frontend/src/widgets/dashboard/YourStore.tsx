@@ -41,13 +41,8 @@ function TrendIndicator({
       </div>
     );
   }
-  // "none"
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <span className="text-[16px] text-faint">—</span>
-      <span className="text-[14px] text-subtle">No previous data</span>
-    </div>
-  );
+  // "none" — no comparison period available, show nothing
+  return null;
 }
 
 function DistributionBars({
