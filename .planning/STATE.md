@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: — Dashboard
 status: unknown
-stopped_at: Completed 14-07-PLAN.md
-last_updated: "2026-05-07T08:56:57.038Z"
+stopped_at: Completed 14-06-PLAN.md
+last_updated: "2026-05-07T08:57:02.737Z"
 progress:
   total_phases: 1
   completed_phases: 0
@@ -52,6 +52,7 @@ Plan: 2 of 8
 | Phase 14 P04 | 7 | 2 tasks | 5 files |
 | Phase 14 P05 | 1 | 3 tasks | 5 files |
 | Phase 14 P07 | 3 | 2 tasks | 5 files |
+| Phase 14 P06 | 3 | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ Recent decisions affecting current work:
 - [Phase 14]: FilterBar is a pure controlled component — all state in useFilterState hook
 - [Phase 14]: KpiCards shares one useKpis query across all 3 cards — per-card skeletons satisfy KPI-05 layout without triple network calls
 - [Phase 14]: SentimentDonut refetch wrapped in void arrow to satisfy TypeScript MouseEventHandler compatibility
+- [Phase 14]: recharts onClick handler uses 'as unknown as ChartBar' cast — BarRectangleItem structurally compatible but not assignable; separator sentinel shop_id=-1 with _separator discriminant
 
 ### Pending Todos
 
@@ -92,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-07T08:56:50.226Z
-Stopped at: Completed 14-07-PLAN.md
+Last session: 2026-05-07T08:57:02.735Z
+Stopped at: Completed 14-06-PLAN.md
 Resume file: None

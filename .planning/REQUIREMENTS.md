@@ -24,9 +24,9 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 
 - [x] **TOP-01**: Multi-shop users see a Best Performing Outlets bar chart scoped to date range only (Region and Store filters do NOT apply to this section)
 - [x] **TOP-02**: Bar chart shows all eligible shops when ≤10 accessible; shows Top 5 + Worst 5 with a visual gap when >10 accessible; shops with fewer than 3 reviews in the window are excluded silently
-- [ ] **TOP-03**: Each bar is colored by rating threshold: green ≥4.0, amber 3.0–3.99, red <3.0
-- [ ] **TOP-04**: Hovering a bar shows a tooltip: shop name, exact average rating, review count in the window
-- [ ] **TOP-05**: Clicking a bar navigates to the Reviews page filtered to that shop and the same date range
+- [x] **TOP-03**: Each bar is colored by rating threshold: green ≥4.0, amber 3.0–3.99, red <3.0
+- [x] **TOP-04**: Hovering a bar shows a tooltip: shop name, exact average rating, review count in the window
+- [x] **TOP-05**: Clicking a bar navigates to the Reviews page filtered to that shop and the same date range
 - [x] **TOP-06**: Performance Highlights card shows the highest-rated shop (green sub-card, AI-derived positive review count) and lowest-rated shop (red sub-card, AI-derived negative review count); requires ≥3 reviews per shop
 - [x] **TOP-07**: Combined empty state renders when no shops qualify (none have ≥3 reviews); includes a "View last 90 days" CTA that sets the date filter to 90d
 
@@ -117,9 +117,9 @@ Populated during roadmap creation.
 | FILT-10 | Phase 14 | Complete |
 | TOP-01 | Phase 14 | Complete |
 | TOP-02 | Phase 14 | Complete |
-| TOP-03 | Phase 14 | Pending |
-| TOP-04 | Phase 14 | Pending |
-| TOP-05 | Phase 14 | Pending |
+| TOP-03 | Phase 14 | Complete |
+| TOP-04 | Phase 14 | Complete |
+| TOP-05 | Phase 14 | Complete |
 | TOP-06 | Phase 14 | Complete |
 | TOP-07 | Phase 14 | Complete |
 | STORE-01 | Phase 14 | Complete |
