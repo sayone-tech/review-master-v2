@@ -1,10 +1,11 @@
 ---
 phase: 14
 slug: dashboard
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-05-07
+reviewed_at: 2026-05-07
 ---
 
 # Phase 14 — UI Design Contract
@@ -42,8 +43,8 @@ Declared values (must be multiples of 4):
 | 3xl | 64px | Sidebar rail width (spacing-sidebar-rail — existing token) |
 
 Exceptions:
-- Filter bar row gap: 8px (`gap-2`) — compact row matching `ReviewFilters.tsx` precedent
-- KPI card internal gap between title row and metric value: 6px (`gap-1.5`) — matches `ReviewStatsCards.tsx` precedent
+
+- KPI card internal gap between title row and metric value: 8px (`gap-2`) — matches `ReviewStatsCards.tsx` precedent
 - Bar chart `ResponsiveContainer` min-height: 240px — chart-specific, not a spacing token
 - Donut chart `ResponsiveContainer` height: 200px — chart-specific
 - Touch targets minimum: 44px height for all interactive filter controls (WCAG 2.5.5)
@@ -54,13 +55,14 @@ Exceptions:
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Body | 13.5px | 400 | 1.5 | Filter dropdowns, tooltip text, coverage footer, error page body copy |
-| Label | 11px | 600 (semibold) | 1.4 | KPI card titles (all-caps + letter-spacing 0.06em), chart axis labels |
-| Heading | 20px | 700 | 1.2 | KPI metric values, error page code number (48px for the large 404/500 numeral — display only) |
-| Sub-heading | 14px | 600 (semibold) | 1.4 | Section headings ("Best Performing Outlets", "Sentiment Distribution"), performance highlights sub-card labels, "Your Store" card shop name |
+| Label | 11px | 700 | 1.4 | KPI card titles (all-caps + letter-spacing 0.06em), chart axis labels, badge text, mini-bar star labels |
+| Body | 14px | 400 | 1.5 | Filter dropdowns, card footer text, legend labels, tooltip text, error page body, UTC notice, coverage footer, date scope notes, all helper/muted text |
+| Section Heading | 20px | 700 | 1.2 | Widget section headings ("Best Performing Outlets", "Sentiment Distribution"), error page title ("Page Not Found" / "Something went wrong"), Your Store card shop name |
+| Metric | 24px | 700 | 1.0 | KPI numeric values (Total Reviews, Average Rating, Negative Reviews count), performance highlights ratings |
 
-Display variant for error pages only:
-- Error code numeral (404 / 500): 48px, weight 700, color `--color-faint` (#A1A1AA), line-height 1.0
+*Your Store avg rating numeral uses an inline arbitrary size `text-[36px] font-bold text-ink tabular-nums`. This is a single-component display numeral, not a type scale entry.*
+
+*Error page code numeral (404/500) uses `text-[48px] font-bold text-faint`. This is not a type scale entry.*
 
 All font sizes use `text-[Npx]` Tailwind arbitrary values, consistent with the established codebase pattern (see `ReviewStatsCards.tsx`).
 
@@ -104,49 +106,51 @@ Accent (#FACC15) reserved for:
 - Extends `base_org.html` — inherits sidebar, topbar, content block
 - Content block: `px-6 py-6` padding, `bg-bg` background, `max-w-[1400px] mx-auto`
 - Two-column layout for the top section (Top Performers + KPI/Sentiment): `grid grid-cols-[1fr_320px] gap-6` on desktop (≥1280px), single column on tablet/mobile
-- UTC notice: 12px `text-subtle` text positioned inline in the filter bar row, right-aligned: "All dates in UTC"
+- UTC notice: `text-[14px]` `text-subtle` text positioned inline in the filter bar row, right-aligned: "All dates in UTC"
 
 ### 2. Filter Bar
 Source: `frontend/src/widgets/dashboard/FilterBar.tsx`
 
 Structure: single horizontal row of flex controls, wraps on mobile
-- Region select: `<select>` element, same Tailwind classes as `ReviewFilters.tsx` (`px-3 py-2 text-[13.5px] bg-white border border-line rounded-md`), `min-w-[160px]`
+
+- Region select: `<select>` element, same Tailwind classes as `ReviewFilters.tsx` (`px-3 py-2 text-[14px] bg-white border border-line rounded-md`), `min-w-[160px]`
 - Store select: same classes, `min-w-[160px]`, options cascade from selected region
 - Date Range select: same classes, `min-w-[160px]`, options: "Last 7 days" / "Last 30 days" (default) / "Last 90 days" / "Custom"
 - Custom date panel: appears directly below the Date Range select via `absolute` positioning, `top-[calc(100%+4px)]`, `z-50`, white card `rounded-card border border-line shadow-sm p-4`, width `320px`
-  - Two `<input type="date">` inputs side by side: `w-full px-3 py-2 text-[13.5px] bg-white border border-line rounded-md`
-  - Inline validation error: `text-[12px] text-red` below the inputs
-  - Apply button: `px-4 py-2 bg-black text-yellow text-[13.5px] font-semibold rounded-md`
+  - Two `<input type="date">` inputs side by side: `w-full px-3 py-2 text-[14px] bg-white border border-line rounded-md`
+  - Inline validation error: `text-[14px] text-red` below the inputs
+  - Apply button: `px-4 py-2 bg-black text-yellow text-[14px] font-bold rounded-md`
 - Clear Filters button: disabled appearance (`opacity-40 cursor-not-allowed`) when all filters are at defaults; enabled appearance matches the Reset button in `ReviewFilters.tsx` (`text-muted hover:text-ink border border-line rounded-md bg-white`)
-- UTC notice: `text-[12px] text-subtle ml-auto self-center` ("All dates in UTC")
+- UTC notice: `text-[14px] text-subtle ml-auto self-center` ("All dates in UTC")
 
 ### 3. KPI Cards
 Source: `frontend/src/widgets/dashboard/KpiCards.tsx`
 
 Three equal-width cards in a CSS grid: `grid grid-cols-3 gap-4`
 Card structure (identical to `ReviewStatsCards.tsx` precedent):
-- Container: `bg-white border border-line rounded-card p-4 flex flex-col gap-1.5`
-- Title row: label `text-[11px] font-semibold text-subtle uppercase tracking-[0.06em]` + icon `size={16}` top-right
-- Metric value: `text-[26px] font-bold leading-none tabular-nums`
-- Footer text: `text-[12px] text-muted`
+
+- Container: `bg-white border border-line rounded-card p-4 flex flex-col gap-2`
+- Title row: label `text-[11px] font-bold text-subtle uppercase tracking-[0.06em]` + icon `size={16}` top-right
+- Metric value: `text-[24px] font-bold leading-none tabular-nums`
+- Footer text: `text-[14px] text-muted`
 
 Card-specific colors:
 - Total Reviews: icon `FileText` color `--color-faint`, value color `--color-ink`
 - Average Rating: icon `Star` filled `--color-yellow`, value color `--color-ink`; half-star at decimal .25–.74 uses a split SVG star (2 `Star` halves or a single `StarHalf` icon)
 - Negative Reviews: icon `TrendingDown` color `--color-red`, value color `--color-red`; percentage shown as `text-[14px] text-red` below the count
 
-Loading skeleton: `bg-line-soft rounded animate-[sk-pulse_1.6s_ease-in-out_infinite]` blocks matching the exact card dimensions — title row skeleton `h-3 w-24 mb-1.5`, value skeleton `h-7 w-16`, footer skeleton `h-3 w-32`
+Loading skeleton: `bg-line-soft rounded animate-[sk-pulse_1.6s_ease-in-out_infinite]` blocks matching the exact card dimensions — title row skeleton `h-3 w-24 mb-2`, value skeleton `h-8 w-16`, footer skeleton `h-3 w-32`
 
 Empty state (no reviews in period): value shows "—", footer shows "No reviews in this period"
 
-Error state (fetch failed): replaces card content with `text-[12px] text-muted` message "Could not load." + `<button>` "Retry" in `text-[12px] font-semibold text-ink underline`
+Error state (fetch failed): replaces card content with `text-[14px] text-muted` message "Could not load." + `<button>` "Retry" in `text-[14px] font-semibold text-ink underline`
 
 ### 4. Top Performing Outlets — Bar Chart
 Source: `frontend/src/widgets/dashboard/TopPerformingSection.tsx`
 
 Container card: `bg-white border border-line rounded-card p-4`
-Section heading: `text-[14px] font-semibold text-ink mb-4` — "Best Performing Outlets"
-Date scope note: `text-[12px] text-subtle` — "(date range only)"
+Section heading: `text-[20px] font-bold text-ink mb-4` — "Best Performing Outlets"
+Date scope note: `text-[14px] text-subtle` — "(date range only)"
 
 recharts `BarChart` configuration:
 - `ResponsiveContainer width="100%" height={240}`
@@ -155,7 +159,7 @@ recharts `BarChart` configuration:
 - X-axis: shop name, `tick={{ fontSize: 11 }}`, `interval={0}`, truncate to 16 chars + ellipsis if longer
 - Bar: `<Bar dataKey="avg_rating" radius={[4, 4, 0, 0]}>`; fill determined per-bar by `<Cell fill={barColor(rating)}>`
 - Bar color function: rating ≥ 4.0 → `#22C55E`; 3.0–3.99 → `#F59E0B`; < 3.0 → `#EF4444`
-- `<Tooltip>` custom content component: white card, `rounded-md shadow border border-line p-2`, 12px text, shows shop name bold + "Avg: {rating}" + "{N} reviews"
+- `<Tooltip>` custom content component: white card, `rounded-md shadow border border-line p-2`, `text-[14px]` text, shows shop name bold + "Avg: {rating}" + "{N} reviews"
 - Visual gap between Top 5 and Worst 5 (when >10 shops): render a placeholder `<Cell fill="transparent">` separator bar or a thin vertical rule with `text-[11px] text-subtle` label "· · ·"
 - Cursor: `cursor-pointer` on bar hover; `onClick` calls `window.location.href` navigation
 
@@ -165,38 +169,40 @@ Source: `frontend/src/widgets/dashboard/PerformanceHighlights.tsx`
 Container: stacks vertically in the right ~1/3 of the top section (`flex flex-col gap-4`)
 
 Top sub-card (highest rated): `bg-green-tint border border-green/30 rounded-card p-4`
-- Header: `TrendingUp` icon 16px `text-green` + label `text-[13px] font-semibold text-green` "Top Performer"
+
+- Header: `TrendingUp` icon 16px `text-green` + label `text-[14px] font-bold text-green` "Top Performer"
 - Shop name: `text-[14px] font-semibold text-ink`
-- Rating: `text-[22px] font-bold text-green tabular-nums`
-- Positive review count: `text-[12px] text-muted` "N positive reviews (AI-derived)"
+- Rating: `text-[24px] font-bold text-green tabular-nums`
+- Positive review count: `text-[14px] text-muted` "N positive reviews (AI-derived)"
 
 Bottom sub-card (lowest rated): `bg-red-tint border border-red/30 rounded-card p-4`
-- Header: `TrendingDown` icon 16px `text-red` + label `text-[13px] font-semibold text-red` "Needs Attention"
+
+- Header: `TrendingDown` icon 16px `text-red` + label `text-[14px] font-bold text-red` "Needs Attention"
 - Shop name: `text-[14px] font-semibold text-ink`
-- Rating: `text-[22px] font-bold text-red tabular-nums`
-- Negative review count: `text-[12px] text-muted` "N negative reviews (AI-derived)"
+- Rating: `text-[24px] font-bold text-red tabular-nums`
+- Negative review count: `text-[14px] text-muted` "N negative reviews (AI-derived)"
 
 ### 6. Your Store Card (single-shop variant)
 Source: `frontend/src/widgets/dashboard/YourStore.tsx`
 
 Replaces bar chart + highlights when exactly 1 accessible shop.
 Container: `bg-white border border-line rounded-card p-6`
-Section heading: `text-[14px] font-semibold text-ink mb-1` "Your Store"
+Section heading: `text-[20px] font-bold text-ink mb-1` "Your Store"
 
 Layout: two-column `grid grid-cols-[1fr_auto] gap-4 items-start`
 
 Left column:
-- Shop name: `text-[18px] font-bold text-ink`
-- Region badge: `inline-flex items-center px-2 py-0.5 bg-line-soft text-[11px] font-semibold text-subtle rounded-full` (matches existing badge pattern)
+- Shop name: `text-[20px] font-bold text-ink`
+- Region badge: `inline-flex items-center px-2 py-1 bg-line-soft text-[11px] font-semibold text-subtle rounded-full` (matches existing badge pattern)
 - Avg rating: `text-[36px] font-bold text-ink tabular-nums` + `text-[14px] text-muted` "out of 5"
-- Total reviews: `text-[13px] text-muted` "N reviews"
-- Positive count: `text-[13px] text-green font-semibold` "N positive (P%)"
-- Negative count: `text-[13px] text-red font-semibold` "N negative (P%)"
+- Total reviews: `text-[14px] text-muted` "N reviews"
+- Positive count: `text-[14px] text-green font-semibold` "N positive (P%)"
+- Negative count: `text-[14px] text-red font-semibold` "N negative (P%)"
 
 Right column — trend indicator:
-- Up: `↑` `text-[16px] font-bold text-green` + delta value `text-[13px] text-green`
-- Down: `↓` `text-[16px] font-bold text-red` + delta value `text-[13px] text-red`
-- Flat / no previous data: `—` `text-[16px] text-faint` + `text-[12px] text-subtle` "No previous data"
+- Up: `↑` `text-[16px] font-bold text-green` + delta value `text-[14px] text-green`
+- Down: `↓` `text-[16px] font-bold text-red` + delta value `text-[14px] text-red`
+- Flat / no previous data: `—` `text-[16px] text-faint` + `text-[14px] text-subtle` "No previous data"
 
 5-star rating distribution mini-bars:
 - 5 rows, each: star label `text-[11px] text-muted w-4` + bar track `bg-line-soft h-2 rounded-full flex-1` + filled segment `bg-yellow h-2 rounded-full` proportional to count + count `text-[11px] text-muted w-6 text-right`
@@ -205,7 +211,7 @@ Right column — trend indicator:
 Source: `frontend/src/widgets/dashboard/SentimentDonut.tsx`
 
 Container card: `bg-white border border-line rounded-card p-4`
-Section heading: `text-[14px] font-semibold text-ink mb-4` "Sentiment Distribution"
+Section heading: `text-[20px] font-bold text-ink mb-4` "Sentiment Distribution"
 
 recharts `PieChart` configuration:
 - `ResponsiveContainer width="100%" height={200}`
@@ -217,9 +223,9 @@ recharts `PieChart` configuration:
 
 Legend (below donut): three rows, each `flex items-center justify-between gap-2`
 - Color swatch: `w-3 h-3 rounded-sm shrink-0` with matching fill
-- Label: `text-[13px] text-text`
-- Count: `text-[13px] font-semibold text-ink tabular-nums`
-- Percentage: `text-[12px] text-muted`
+- Label: `text-[14px] text-text`
+- Count: `text-[14px] font-semibold text-ink tabular-nums`
+- Percentage: `text-[14px] text-muted`
 - Progress bar: `bg-line-soft h-2 rounded-full` track, filled `h-2 rounded-full` with matching color
 
 Coverage footer: `text-[11px] text-subtle mt-3 pt-3 border-t border-line`
@@ -227,16 +233,16 @@ Coverage footer: `text-[11px] text-subtle mt-3 pt-3 border-t border-line`
 - Below 50% enrichment: adds `Loader2` icon 12px spinning + " Analysis is still in progress."
 
 Empty states:
-- No reviews in window: `text-[13px] text-muted text-center py-8` "No reviews to analyze in this period."
-- Reviews exist but none enriched: `text-[13px] text-muted text-center py-8` with `Loader2` spinner icon above + "Sentiment analysis is in progress. Check back shortly."
+- No reviews in window: `text-[14px] text-muted text-center py-8` "No reviews to analyze in this period."
+- Reviews exist but none enriched: `text-[14px] text-muted text-center py-8` with `Loader2` spinner icon above + "Sentiment analysis is in progress. Check back shortly."
 
 ### 8. Combined Empty State (Top Performers section)
 When no shops qualify (< 3 reviews each in the date window):
 - Centered within the card area: `text-center py-12`
 - `BarChart2` icon 32px `text-faint` mb-3
-- Heading: `text-[14px] font-semibold text-ink` "No qualifying stores in this period"
-- Body: `text-[13px] text-muted` "Stores need at least 3 reviews in the selected period to appear here."
-- CTA button: `mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-black text-yellow text-[13.5px] font-semibold rounded-md` "View last 90 days"
+- Heading: `text-[20px] font-bold text-ink` "No qualifying stores in this period"
+- Body: `text-[14px] text-muted` "Stores need at least 3 reviews in the selected period to appear here."
+- CTA button: `mt-4 inline-flex items-center gap-2 px-4 py-2 bg-black text-yellow text-[14px] font-bold rounded-md` "View last 90 days"
 
 ### 9. Loading Skeletons
 All skeletons use `bg-line-soft rounded animate-[sk-pulse_1.6s_ease-in-out_infinite]` (reuses existing `@keyframes sk-pulse` from tailwind.css).
@@ -330,7 +336,7 @@ No destructive actions in this phase — dashboard is entirely read-only.
 | Filter dropdown | Active filter | 6px yellow dot (`bg-yellow rounded-full`) appended to dropdown label |
 | Custom date panel | Closed | `display: none` (not `visibility: hidden`) |
 | Custom date panel | Open | slide-in via `transition-[opacity,transform] duration-150` — opacity 0→1, translateY(-4px→0) |
-| Custom date panel | Validation error | Red border `border-red` on offending input + `text-[12px] text-red` below |
+| Custom date panel | Validation error | Red border `border-red` on offending input + `text-[14px] text-red` below |
 | Apply button | Disabled (incomplete dates) | `opacity-50 cursor-not-allowed` |
 | Clear Filters | Disabled (at defaults) | `opacity-40 cursor-not-allowed pointer-events-none` |
 | Bar chart bar | Hover | recharts built-in `activeBar` with `opacity-80` + tooltip appears |
@@ -442,17 +448,17 @@ New npm packages for this phase:
 | Two filter objects (fullFilters / dateOnlyFilters) | RESEARCH.md DASH-C2 prevention |
 | Recharts + React Query addition | RESEARCH.md recommended stack |
 | UTC notice | RESEARCH.md DASH-C7 prevention |
-| Typography scale (px sizes, weight 400/600/700) | Extracted from `ReviewStatsCards.tsx` and `ReviewFilters.tsx` patterns |
+| Typography scale (11px label, 14px body, 20px section heading, 24px metric; weights 400/700) | Consolidated from `ReviewStatsCards.tsx`, `ReviewFilters.tsx` patterns; revised per checker BLOCK 1 |
 
 ---
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: FLAG (2 non-blocking — "Apply" and "Retry" are single-word CTAs)
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-05-07
