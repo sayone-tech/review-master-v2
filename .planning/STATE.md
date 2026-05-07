@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: — Dashboard
-status: planning
-stopped_at: Phase 14 plans created and verified
-last_updated: "2026-05-07T08:06:28.855Z"
-last_activity: 2026-05-07 — Roadmap created for v0.4 Dashboard; Phase 14 defined with 8 plans
+status: unknown
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-05-07T08:12:02.352Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-07)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** v0.4 Dashboard — Phase 14 ready to plan
+**Current focus:** Phase 14 — dashboard
 
 ## Current Position
 
-Phase: 14 of 14 (Dashboard)
-Plan: 0 of 8 in current phase
-Status: Ready to plan
-Last activity: 2026-05-07 — Roadmap created for v0.4 Dashboard; Phase 14 defined with 8 plans
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 14 (dashboard) — EXECUTING
+Plan: 1 of 8
 
 ## Performance Metrics
 
@@ -52,6 +46,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: stable
 
 *Updated after each plan completion*
+| Phase 14 P01 | 2 | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -67,6 +62,8 @@ Recent decisions affecting current work:
 - [v0.4 research]: `recharts@^3.8.1` only new chart library — React 19 peer dep verified; covers both BarChart and PieChart needs
 - [v0.4 research]: `history.replaceState` (not pushState) for URL filter state — prevents browser history pollution
 - [v0.4 research]: UTC-only date windows with explicit "Dates are shown in UTC" notice — User.timezone field deferred
+- [Phase 14]: validate_filter_params branches on user.role for ORG_ADMIN vs STAFF_ADMIN accessible shop resolution
+- [Phase 14]: filter_hash includes shop_ids list to enforce cross-user cache isolation (DASH-C1)
 
 ### Pending Todos
 
@@ -79,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-07T08:06:28.845Z
-Stopped at: Phase 14 plans created and verified
-Resume file: .planning/phases/14-dashboard/14-01-PLAN.md
+Last session: 2026-05-07T08:12:02.350Z
+Stopped at: Completed 14-01-PLAN.md
+Resume file: None

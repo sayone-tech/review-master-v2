@@ -16,9 +16,9 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 - [ ] **FILT-05**: User can clear all filters to defaults with a single "Clear Filters" button (enabled only when at least one filter differs from default)
 - [ ] **FILT-06**: Filter state is reflected in URL query params (?region, ?store, ?range, ?from, ?to) via history.replaceState — shareable and bookmarkable
 - [ ] **FILT-07**: Filter state persists within the session; URL params take precedence over session state when both are present
-- [ ] **FILT-08**: Out-of-scope region or store IDs in URL params return 403 (do NOT silently fall back to defaults)
-- [ ] **FILT-09**: Custom date range exceeding 365 days returns 400 with a clear error message
-- [ ] **FILT-10**: Custom range with from > to returns 400 with a clear error message
+- [x] **FILT-08**: Out-of-scope region or store IDs in URL params return 403 (do NOT silently fall back to defaults)
+- [x] **FILT-09**: Custom date range exceeding 365 days returns 400 with a clear error message
+- [x] **FILT-10**: Custom range with from > to returns 400 with a clear error message
 
 ### Top Performing Outlets (TOP)
 
@@ -55,9 +55,9 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 
 ### Technical Foundation (TECH)
 
-- [ ] **TECH-01**: New `apps/dashboard/` app with `selectors/aggregations.py`, `services/cache.py`, and `views.py`; five focused read-only endpoints registered under `/api/v1/dashboard/`
-- [ ] **TECH-02**: All five endpoints use Redis TTL caching (5-minute TTL); cache key format: `dashboard:{endpoint}:{org_id}:{user_id}:{filter_hash}` where filter_hash includes `accessible_shop_ids` to prevent cross-user leakage
-- [ ] **TECH-03**: Migration adds three composite indexes to the Review table: `(organisation_id, review_created_at, sentiment)`, `(shop_id, review_created_at)`, and `(organisation_id, review_created_at, enrichment_status)`
+- [x] **TECH-01**: New `apps/dashboard/` app with `selectors/aggregations.py`, `services/cache.py`, and `views.py`; five focused read-only endpoints registered under `/api/v1/dashboard/`
+- [x] **TECH-02**: All five endpoints use Redis TTL caching (5-minute TTL); cache key format: `dashboard:{endpoint}:{org_id}:{user_id}:{filter_hash}` where filter_hash includes `accessible_shop_ids` to prevent cross-user leakage
+- [x] **TECH-03**: Migration adds three composite indexes to the Review table: `(organisation_id, review_created_at, sentiment)`, `(shop_id, review_created_at)`, and `(organisation_id, review_created_at, enrichment_status)`
 - [ ] **TECH-04**: All five dashboard endpoints have `CaptureQueriesContext` tests asserting a fixed query count ceiling regardless of data volume
 - [ ] **TECH-05**: Dashboard page at `/admin/org/dashboard/` replaces the Phase 2 placeholder; Org Admin, Manager, and Staff land here after login
 - [ ] **TECH-06**: All five widgets load in parallel via parallel API calls; each renders an independent loading skeleton until its data arrives
@@ -112,9 +112,9 @@ Populated during roadmap creation.
 | FILT-05 | Phase 14 | Pending |
 | FILT-06 | Phase 14 | Pending |
 | FILT-07 | Phase 14 | Pending |
-| FILT-08 | Phase 14 | Pending |
-| FILT-09 | Phase 14 | Pending |
-| FILT-10 | Phase 14 | Pending |
+| FILT-08 | Phase 14 | Complete |
+| FILT-09 | Phase 14 | Complete |
+| FILT-10 | Phase 14 | Complete |
 | TOP-01 | Phase 14 | Pending |
 | TOP-02 | Phase 14 | Pending |
 | TOP-03 | Phase 14 | Pending |
@@ -136,9 +136,9 @@ Populated during roadmap creation.
 | SENT-04 | Phase 14 | Pending |
 | SENT-05 | Phase 14 | Pending |
 | SENT-06 | Phase 14 | Pending |
-| TECH-01 | Phase 14 | Pending |
-| TECH-02 | Phase 14 | Pending |
-| TECH-03 | Phase 14 | Pending |
+| TECH-01 | Phase 14 | Complete |
+| TECH-02 | Phase 14 | Complete |
+| TECH-03 | Phase 14 | Complete |
 | TECH-04 | Phase 14 | Pending |
 | TECH-05 | Phase 14 | Pending |
 | TECH-06 | Phase 14 | Pending |
