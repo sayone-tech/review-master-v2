@@ -221,6 +221,7 @@ export function FilterBar({ filters, regions, shops, onApply, onClear }: FilterB
               aria-label="From date"
               className="flex-1 bg-transparent focus:outline-none text-[14px] text-ink min-w-0"
               value={draft.from}
+              max={draft.to || undefined}
               onChange={(e) => { setDraft((d) => ({ ...d, from: e.target.value })); setDateError(null); }}
             />
           </div>
@@ -232,6 +233,7 @@ export function FilterBar({ filters, regions, shops, onApply, onClear }: FilterB
               aria-label="To date"
               className="flex-1 bg-transparent focus:outline-none text-[14px] text-ink min-w-0"
               value={draft.to}
+              min={draft.from || undefined}
               onChange={(e) => { setDraft((d) => ({ ...d, to: e.target.value })); setDateError(null); }}
             />
           </div>

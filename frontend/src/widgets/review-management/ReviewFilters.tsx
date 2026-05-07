@@ -144,6 +144,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
             type="date"
             className="flex-1 bg-transparent focus:outline-none text-[13px] min-w-0 py-2"
             value={draft.from_date ?? ""}
+            max={draft.to_date ?? undefined}
             onChange={(e) => setDraft((d) => ({ ...d, from_date: e.target.value || undefined }))}
             aria-label="From date"
           />
@@ -152,6 +153,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
             type="date"
             className="flex-1 bg-transparent focus:outline-none text-[13px] min-w-0 py-2"
             value={draft.to_date ?? ""}
+            min={draft.from_date ?? undefined}
             onChange={(e) => setDraft((d) => ({ ...d, to_date: e.target.value || undefined }))}
             aria-label="To date"
           />
