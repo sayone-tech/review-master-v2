@@ -449,6 +449,18 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
             }
         except (GoogleQuotaError, GoogleUnreachableError) as exc:
             error_code = "quota_exceeded" if isinstance(exc, GoogleQuotaError) else "unreachable"
+            logger.error(
+                "google_sync_failed shop_id=%s organisation_id=%s trigger=%s "
+                "error_code=%s pages_completed=%s reviews_fetched_so_far=%s error=%s",
+                shop_id,
+                shop.organisation_id,
+                trigger,
+                error_code,
+                page_count,
+                total_persisted,
+                exc,
+                exc_info=True,
+            )
             write_progress_snapshot(
                 shop_id=shop_id,
                 data={
