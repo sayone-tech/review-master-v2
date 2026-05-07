@@ -1,6 +1,6 @@
 # Infrastructure Hardening Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Move the app to `app.reviewbee.in`, migrate all secrets from SSM Parameter Store to AWS Secrets Manager, and replace SSH with Session Manager — all rolled out together.
 
@@ -32,7 +32,7 @@
 **Files:**
 - Create: `deployment/terraform/secrets.tf`
 
-- [ ] **Step 1: Create `deployment/terraform/secrets.tf`**
+- [x] **Step 1: Create `deployment/terraform/secrets.tf`**
 
 ```hcl
 resource "aws_secretsmanager_secret" "app" {
@@ -82,7 +82,7 @@ resource "aws_secretsmanager_secret_version" "app" {
 }
 ```
 
-- [ ] **Step 2: Verify the file is valid HCL**
+- [x] **Step 2: Verify the file is valid HCL**
 
 Run from `deployment/terraform/`:
 ```bash
@@ -90,7 +90,7 @@ terraform validate
 ```
 Expected: `Success! The configuration is valid.`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add deployment/terraform/secrets.tf
@@ -104,7 +104,7 @@ git commit -m "feat(terraform): add Secrets Manager secret for all app env vars"
 **Files:**
 - Modify: `deployment/terraform/route53.tf`
 
-- [ ] **Step 1: Add the `app` subdomain A record**
+- [x] **Step 1: Add the `app` subdomain A record**
 
 Open `deployment/terraform/route53.tf` and add after the existing `www` record:
 
@@ -118,14 +118,14 @@ resource "aws_route53_record" "app" {
 }
 ```
 
-- [ ] **Step 2: Validate**
+- [x] **Step 2: Validate**
 
 ```bash
 terraform validate
 ```
 Expected: `Success! The configuration is valid.`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add deployment/terraform/route53.tf
@@ -144,7 +144,7 @@ This task does three things to `iam.tf`:
 2. EC2 role: remove manual `ssmmessages:*` statements (covered by the managed policy)
 3. GitHub Actions role: remove `ssm:GetParameter`, add `secretsmanager:GetSecretValue`
 
-- [ ] **Step 1: Replace EC2 SSM parameter + KMS statements with Secrets Manager**
+- [x] **Step 1: Replace EC2 SSM parameter + KMS statements with Secrets Manager**
 
 In `deployment/terraform/iam.tf`, find and replace the SSM and KMS blocks in `data.aws_iam_policy_document.ec2_permissions`:
 
@@ -178,7 +178,7 @@ Replace with:
   }
 ```
 
-- [ ] **Step 2: Remove manual ssmmessages statements from EC2 role**
+- [x] **Step 2: Remove manual ssmmessages statements from EC2 role**
 
 In `data.aws_iam_policy_document.ec2_permissions`, remove this entire statement block:
 ```hcl
@@ -195,7 +195,7 @@ In `data.aws_iam_policy_document.ec2_permissions`, remove this entire statement 
   }
 ```
 
-- [ ] **Step 3: Attach AmazonSSMManagedInstanceCore managed policy to EC2 role**
+- [x] **Step 3: Attach AmazonSSMManagedInstanceCore managed policy to EC2 role**
 
 After the `aws_iam_role_policy.ec2` resource, add:
 ```hcl
@@ -205,7 +205,7 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm" {
 }
 ```
 
-- [ ] **Step 4: Update GitHub Actions role — swap SSM for Secrets Manager**
+- [x] **Step 4: Update GitHub Actions role — swap SSM for Secrets Manager**
 
 In `data.aws_iam_policy_document.github_permissions`, remove:
 ```hcl
@@ -225,14 +225,14 @@ Add:
   }
 ```
 
-- [ ] **Step 5: Validate**
+- [x] **Step 5: Validate**
 
 ```bash
 terraform validate
 ```
 Expected: `Success! The configuration is valid.`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add deployment/terraform/iam.tf
@@ -249,7 +249,7 @@ git commit -m "feat(terraform): swap SSM perms for Secrets Manager on EC2 and Gi
 - Modify: `deployment/terraform/variables.tf`
 - Modify: `deployment/terraform/terraform.tfvars`
 
-- [ ] **Step 1: Remove SSH ingress rule from security group**
+- [x] **Step 1: Remove SSH ingress rule from security group**
 
 In `deployment/terraform/security_groups.tf`, remove the entire SSH ingress block and update the description:
 
@@ -278,7 +278,7 @@ Remove the SSH ingress block entirely:
   }
 ```
 
-- [ ] **Step 2: Remove key pair resource and key_name from EC2 instance**
+- [x] **Step 2: Remove key pair resource and key_name from EC2 instance**
 
 In `deployment/terraform/ec2.tf`, remove:
 ```hcl
@@ -293,7 +293,7 @@ And remove `key_name` from the `aws_instance.app` resource:
   key_name               = aws_key_pair.operator.key_name  # remove this line
 ```
 
-- [ ] **Step 3: Remove operator_ip variable**
+- [x] **Step 3: Remove operator_ip variable**
 
 In `deployment/terraform/variables.tf`, remove:
 ```hcl
@@ -303,21 +303,21 @@ variable "operator_ip" {
 }
 ```
 
-- [ ] **Step 4: Remove operator_ip from terraform.tfvars**
+- [x] **Step 4: Remove operator_ip from terraform.tfvars**
 
 In `deployment/terraform/terraform.tfvars`, remove:
 ```hcl
 operator_ip    = "117.254.10.46/32"
 ```
 
-- [ ] **Step 5: Validate**
+- [x] **Step 5: Validate**
 
 ```bash
 terraform validate
 ```
 Expected: `Success! The configuration is valid.`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add deployment/terraform/security_groups.tf \
@@ -333,7 +333,7 @@ git commit -m "feat(terraform): remove SSH access - port 22, key pair, operator_
 
 This apply creates the Secrets Manager secret, Route 53 record, attaches the managed policy, and removes SSH. It does NOT delete SSM yet.
 
-- [ ] **Step 1: Plan and review**
+- [x] **Step 1: Plan and review**
 
 Run from `deployment/terraform/`:
 ```bash
@@ -357,7 +357,7 @@ Expected destructions:
 
 Review the plan carefully before applying.
 
-- [ ] **Step 2: Apply**
+- [x] **Step 2: Apply**
 
 ```bash
 terraform apply -var-file=terraform.tfvars
@@ -373,11 +373,11 @@ Expected: `Apply complete!` with no errors.
 
 Now populate the real production values in the Secrets Manager secret. The secret currently has placeholder values from Terraform.
 
-- [ ] **Step 1: Open Secrets Manager in AWS Console**
+- [x] **Step 1: Open Secrets Manager in AWS Console**
 
 Go to: **AWS Console → Secrets Manager → review-master/prod → Retrieve secret value → Edit**
 
-- [ ] **Step 2: Copy each real value from SSM Parameter Store**
+- [x] **Step 2: Copy each real value from SSM Parameter Store**
 
 Open a second tab: **AWS Console → Systems Manager → Parameter Store → filter by `/review-master/prod`**
 
@@ -397,7 +397,7 @@ Also update these four domain values to the new subdomain:
 - `SITE_URL` → `https://app.reviewbee.in`
 - `GOOGLE_OAUTH_REDIRECT_URI` → `https://app.reviewbee.in/oauth/google/callback/`
 
-- [ ] **Step 3: Save the secret**
+- [x] **Step 3: Save the secret**
 
 Click **Save** in the console. The secret now has all real values.
 
@@ -408,7 +408,7 @@ Click **Save** in the console. The secret now has all real values.
 **Files:**
 - Modify: `deployment/scripts/load-secrets.sh`
 
-- [ ] **Step 1: Replace the file content**
+- [x] **Step 1: Replace the file content**
 
 ```bash
 #!/usr/bin/env bash
@@ -436,7 +436,7 @@ chmod 600 "${ENV_FILE}"
 echo "[load-secrets] Written ${ENV_FILE} ($(wc -l < "${ENV_FILE}") vars)"
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add deployment/scripts/load-secrets.sh
@@ -450,7 +450,7 @@ git commit -m "feat(scripts): rewrite load-secrets.sh to use Secrets Manager"
 **Files:**
 - Modify: `.github/workflows/deploy.yml`
 
-- [ ] **Step 1: Replace the smoke test domain lookup**
+- [x] **Step 1: Replace the smoke test domain lookup**
 
 Find the `Smoke test` step in `.github/workflows/deploy.yml` and replace the `DOMAIN` lookup:
 
@@ -485,7 +485,7 @@ To:
           curl -fsSL "https://$DOMAIN/healthz/" | grep -q "ok" && echo "Healthcheck passed."
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add .github/workflows/deploy.yml
@@ -498,7 +498,7 @@ git commit -m "feat(ci): update smoke test to read domain from Secrets Manager"
 
 Before deleting SSM, verify the new setup works end-to-end using Session Manager (first time without SSH).
 
-- [ ] **Step 1: Install Session Manager plugin on your Mac (one-time)**
+- [x] **Step 1: Install Session Manager plugin on your Mac (one-time)**
 
 ```bash
 brew install --cask session-manager-plugin
@@ -510,7 +510,7 @@ session-manager-plugin --version
 ```
 Expected: version string printed.
 
-- [ ] **Step 2: Upload updated scripts to EC2**
+- [x] **Step 2: Upload updated scripts to EC2**
 
 From your Mac (not inside the session):
 ```bash
@@ -529,7 +529,7 @@ sudo chmod +x /opt/review-master/scripts/*.sh
 
 > **Note:** After SSH is removed (Task 4 Terraform apply), use SSM Run Command to copy files, or commit the scripts and have deploy.sh pull them from S3. For this one-time migration, do the SCP while SSH still works, before applying Terraform.
 
-- [ ] **Step 3: Connect to EC2 via Session Manager**
+- [x] **Step 3: Connect to EC2 via Session Manager**
 
 ```bash
 aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
@@ -537,7 +537,7 @@ aws ssm start-session --target i-0782bee2ff9885151 --region ap-south-1
 
 Expected: interactive shell on the instance as `ssm-user`.
 
-- [ ] **Step 4: Run load-secrets.sh**
+- [x] **Step 4: Run load-secrets.sh**
 
 ```bash
 sudo /opt/review-master/scripts/load-secrets.sh
@@ -551,7 +551,7 @@ Expected output:
 
 If you see an error, the IAM policy hasn't propagated yet — wait 30 seconds and retry.
 
-- [ ] **Step 4: Run deploy.sh**
+- [x] **Step 4: Run deploy.sh**
 
 ```bash
 sudo /opt/review-master/scripts/deploy.sh
@@ -559,7 +559,7 @@ sudo /opt/review-master/scripts/deploy.sh
 
 Expected: all 6 containers restart and show healthy. The final line should be `Web healthy after Xs`.
 
-- [ ] **Step 5: Verify app.reviewbee.in is live**
+- [x] **Step 5: Verify app.reviewbee.in is live**
 
 ```bash
 curl -I https://app.reviewbee.in/healthz/
@@ -567,7 +567,7 @@ curl -I https://app.reviewbee.in/healthz/
 
 Expected: `HTTP/2 200`
 
-- [ ] **Step 6: Exit the Session Manager session**
+- [x] **Step 6: Exit the Session Manager session**
 
 ```bash
 exit
@@ -579,13 +579,13 @@ exit
 
 Only do this after Task 9 confirms the app is working on `app.reviewbee.in` with Secrets Manager.
 
-- [ ] **Step 1: Delete ssm.tf**
+- [x] **Step 1: Delete ssm.tf**
 
 ```bash
 rm deployment/terraform/ssm.tf
 ```
 
-- [ ] **Step 2: Plan — confirm only SSM resources are destroyed**
+- [x] **Step 2: Plan — confirm only SSM resources are destroyed**
 
 ```bash
 terraform plan -var-file=terraform.tfvars
@@ -595,7 +595,7 @@ Expected: only `aws_ssm_parameter.app["*"]` resources shown as destroyed (29 of 
 
 If anything other than SSM parameters is shown for destruction, stop and investigate before applying.
 
-- [ ] **Step 3: Apply**
+- [x] **Step 3: Apply**
 
 ```bash
 terraform apply -var-file=terraform.tfvars
@@ -603,7 +603,7 @@ terraform apply -var-file=terraform.tfvars
 
 Type `yes`. Expected: `Apply complete!` — 29 destroyed.
 
-- [ ] **Step 4: Commit deletion of ssm.tf**
+- [x] **Step 4: Commit deletion of ssm.tf**
 
 ```bash
 git add deployment/terraform/ssm.tf  # stages the deletion
@@ -614,25 +614,25 @@ git commit -m "feat(terraform): delete SSM parameters — migrated to Secrets Ma
 
 ### Task 11: Push to main and verify CI/CD pipeline
 
-- [ ] **Step 1: Check current branch and push**
+- [x] **Step 1: Check current branch and push**
 
 ```bash
 git log main..HEAD --oneline
 git push origin HEAD
 ```
 
-- [ ] **Step 2: Open a PR to main on GitHub**
+- [x] **Step 2: Open a PR to main on GitHub**
 
 Title: `feat(infra): app.reviewbee.in + Secrets Manager + Session Manager`
 
-- [ ] **Step 3: Merge PR and watch Actions tab**
+- [x] **Step 3: Merge PR and watch Actions tab**
 
 After merge:
 1. CI workflow runs (lint, mypy, tests)
 2. Deploy workflow triggers after CI passes
 3. Smoke test should hit `https://app.reviewbee.in/healthz/` and return `Healthcheck passed.`
 
-- [ ] **Step 4: Final verification**
+- [x] **Step 4: Final verification**
 
 ```bash
 curl -I https://app.reviewbee.in/healthz/
