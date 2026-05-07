@@ -30,7 +30,7 @@ urlpatterns = [
     path("", include("apps.shops.urls")),
     path("", include("apps.reviews.urls")),
     path("", include("apps.action_items.urls")),
-    path("admin/", admin.site.urls),
+    path("django-admin/", admin.site.urls),
 ]
 
 handler404 = "apps.common.views.page_not_found"
