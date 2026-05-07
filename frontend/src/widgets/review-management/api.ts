@@ -73,6 +73,15 @@ export async function submitReply(reviewId: number, comment: string): Promise<Re
   return (await handle(resp)) as ReviewRow;
 }
 
+export async function deleteReply(reviewId: number): Promise<ReviewRow> {
+  const resp = await fetch(`/api/v1/reviews/${reviewId}/reply/`, {
+    method: "DELETE",
+    headers: headers("DELETE"),
+    credentials: "same-origin",
+  });
+  return (await handle(resp)) as ReviewRow;
+}
+
 export async function fetchReviewStats(params?: ReviewFilterParams): Promise<ReviewStats> {
   const qs = params ? buildQs(params) : "";
   const resp = await fetch(`/api/v1/reviews/stats/${qs}`, {
