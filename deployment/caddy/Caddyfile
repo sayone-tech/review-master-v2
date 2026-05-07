@@ -5,6 +5,24 @@
 {$CADDY_DOMAIN} {
     encode gzip zstd
 
+    # Serve robots.txt — disallow all crawlers (this is an admin panel, not public content).
+    @robots_txt path /robots.txt
+    respond @robots_txt "User-agent: *\nDisallow: /" 200
+
+    # Block requests with no User-Agent header (most automated junk).
+    @no_ua {
+        not header User-Agent *
+    }
+    respond @no_ua 403
+
+    # Block known bad bots, scrapers, and vulnerability scanners by User-Agent.
+    # Covers lazy scrapers that don't bother spoofing their UA.
+    # Legitimate crawlers (Googlebot, Bingbot) are not in this list.
+    @bad_bots {
+        header_regexp User-Agent (?i)(ahrefsbot|semrushbot|dotbot|mj12bot|blexbot|petalbot|serpstatbot|seokicks|seznambot|backlinkbot|linkpadbot|lipperhey|siteexplorer|spbot|opensiteexplorer|rogerbot|exabot|gigabot|ia_archiver|scrapy|zgrab|masscan|nikto|sqlmap|nmap|nuclei|dirbuster|gobuster|wfuzz|hydra|python-httpx|python-requests|go-http-client/1\.1|libwww-perl|lwp-trivial|curl/[0-7]\.|wget/1\.[0-9])
+    }
+    respond @bad_bots 403
+
     # WebSockets (Channels) and HTTP both go to web:8000 (Daphne).
     reverse_proxy web:8000 {
         header_up X-Real-IP {remote_host}
