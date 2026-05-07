@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "apps.shops",
     "apps.reviews",
     "apps.action_items",
+    "apps.dashboard",
     "apps.notifications",
     "apps.integrations.openai",
 ]
