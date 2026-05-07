@@ -1,46 +1,19 @@
 {% extends "base_org.html" %}
-{% block title %}Dashboard · Review Bee{% endblock %}
+{% load static django_vite %}
+
+{% block title %}Dashboard · Review Master{% endblock %}
 
 {% block content %}
-  <div class="max-w-[560px] mx-auto space-y-4" data-testid="org-dashboard">
-
-    {# =============== Zero-regions setup banner (SHEL-03) =============== #}
-    {% if show_setup_banner %}
-      <div
-        class="bg-yellow text-black border border-yellow-hover rounded-card p-5 flex items-start gap-3"
-        role="status"
-        data-testid="setup-banner-zero-regions"
-      >
-        <span class="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" data-lucide="lightbulb"></span>
-        <div class="flex-1">
-          <h2 class="text-[15px] font-semibold mb-1">Get started by creating your first region</h2>
-          <p class="text-[13.5px] mb-3">
-            Regions group your shops by location. Create at least one region before adding shops.
-          </p>
-          <a
-            href="/admin/org/regions/"
-            class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-black text-yellow border border-black rounded-md text-[13.5px] font-medium hover:bg-ink"
-            data-testid="setup-banner-cta"
-          >
-            <span class="w-[14px] h-[14px]" aria-hidden="true" data-lucide="plus"></span>
-            Create Region
-          </a>
-        </div>
-      </div>
-    {% endif %}
-
-    {# =============== Welcome card (SHEL-02) =============== #}
+  <div class="px-6 py-6 bg-bg max-w-[1400px] mx-auto">
+    {{ regions_json|json_script:"dashboard-regions" }}
+    {{ shops_json|json_script:"dashboard-shops" }}
     <div
-      class="bg-white border border-line rounded-card shadow-sm px-8 py-8"
-      data-testid="org-dashboard-card"
-    >
-      <h1 class="text-[20px] font-semibold text-ink mb-2" data-testid="welcome-heading">
-        Welcome, {{ first_name }}
-      </h1>
-      <p class="text-sm text-subtle" data-testid="welcome-subtitle">
-        <span class="font-medium text-ink">{{ organisation.name }}</span><br>
-        Manage your shops, regions and team from here.
-      </p>
-    </div>
+      id="dashboard-root"
+      data-is-single-shop="{{ is_single_shop|yesno:'true,false' }}"
+    ></div>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/dashboard.tsx' %}
 {% endblock %}

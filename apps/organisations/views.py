@@ -103,44 +103,47 @@ def organisation_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
-    """Personalised Org Admin dashboard.
+    """Personalised Org Admin / Staff Admin dashboard.
 
     - SUPERADMIN → redirect to /admin/organisations/
-    - ORG_ADMIN with organisation → render welcome card + conditional setup banner
-    - STAFF_ADMIN or ORG_ADMIN without organisation → 403 (NOT redirect, per SHEL spec)
+    - ORG_ADMIN / STAFF_ADMIN with organisation → render React dashboard island
+    - ORG_ADMIN without organisation → 403 (NOT redirect, per SHEL spec)
     - Anonymous → @login_required redirects to /login/?next=...
     """
+    from apps.reviews.selectors.reviews import get_accessible_shop_ids
+    from apps.shops.models import Shop
+
     user = request.user
     # assert type narrowing for mypy strict
     if not isinstance(user, User):
         return redirect("/login/")
     if user.role == User.Role.SUPERADMIN:
         return redirect("/admin/organisations/")
-    if user.role != User.Role.ORG_ADMIN or user.organisation is None:
+    if user.organisation is None or user.organisation_id is None:
         return HttpResponseForbidden("Organisation Admin role required.")
 
-    # First-name extraction per CONTEXT.md decision:
-    # - split user.full_name on first whitespace; take first token
-    # - fall back to part before '@' in user.email if full_name is blank/whitespace-only
-    first_name = ""
-    if user.full_name and user.full_name.strip():
-        first_name = user.full_name.split()[0]
-    elif user.email:
-        first_name = user.email.split("@")[0]
+    org_id: int = user.organisation_id
+    accessible_shop_ids = list(get_accessible_shop_ids(user_id=user.pk))
 
-    # Zero-regions banner — .exists() short-circuits at first row (faster than .count())
-    show_setup_banner = not Region.objects.filter(organisation=user.organisation).exists()
-
-    return render(
-        request,
-        "organisations/org_dashboard.html",
-        {
-            "organisation": user.organisation,
-            "first_name": first_name,
-            "show_setup_banner": show_setup_banner,
-            "page_title": "Dashboard",
-        },
+    shops = list(
+        Shop.objects.filter(
+            organisation_id=org_id,
+            id__in=accessible_shop_ids,
+        )
+        .select_related("region")
+        .values("id", "name", "region_id")
+        .order_by("name")
     )
+    region_ids = {s["region_id"] for s in shops if s["region_id"]}
+    regions = list(Region.objects.filter(id__in=region_ids).values("id", "name").order_by("name"))
+    is_single_shop = len(accessible_shop_ids) == 1
+
+    context: dict[str, Any] = {
+        "regions_json": regions,
+        "shops_json": shops,
+        "is_single_shop": is_single_shop,
+    }
+    return render(request, "organisations/org_dashboard.html", context)
 
 
 _STUB_DISPLAY: dict[str, tuple[str, str]] = {
