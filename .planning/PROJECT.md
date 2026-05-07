@@ -4,6 +4,18 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
+## Current Milestone: v0.4 Dashboard
+
+**Goal:** Replace the Dashboard placeholder with a functional multi-widget overview page surfacing review-volume metrics, shop performance rankings, and AI-derived sentiment distribution — with a flexible filter bar and Redis caching.
+
+**Target features:**
+
+- Filter bar (Region, Store, Date Range, Clear Filters) — cascading dropdowns with URL state and session persistence
+- Top Performing Outlets section — bar chart + Performance Highlights card (multi-shop) or "Your Store" card (single-shop)
+- KPI card row — Total Reviews, Average Rating, Negative Reviews (AI sentiment-based)
+- Overall Sentiment Distribution card — donut chart + summary, enriched reviews only
+- New `apps/dashboard/` app with 5 focused API endpoints, Redis TTL caching, 3 Review table indexes
+
 ## Current State
 
 **v0.3 shipped 2026-05-05** — Reviews and Action Items module complete. Org Admins and Staff can view, respond to, and action Google Business Profile reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
@@ -62,7 +74,14 @@ A multi-tenant SaaS platform for managing organisations, their stores, and Googl
 
 ### Active
 
-_(none — v0.4 requirements TBD via `/gsd:new-milestone`)_
+<!-- v0.4 Dashboard — single Phase 14 -->
+
+- [ ] Filter bar (Region, Store, Date Range) with cascading dropdowns, URL state, session persistence, 403 on out-of-scope params
+- [ ] Top Performing Outlets: bar chart (date-range only) + Performance Highlights card, or "Your Store" single-shop variant
+- [ ] KPI card row: Total Reviews, Average Rating, Negative Reviews (AI sentiment, not star rating)
+- [ ] Sentiment Distribution donut + summary (enriched reviews only, coverage footer)
+- [ ] `apps/dashboard/` with 5 focused endpoints, 5-min Redis TTL cache, 3 Review table indexes
+- [ ] CaptureQueriesContext tests on all 5 endpoints; fixed query count regardless of result size
 
 ### Out of Scope
 
@@ -150,4 +169,4 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 </details>
 
 ---
-Last updated: 2026-05-05 after v0.3-reviews-and-action-items milestone shipped
+Last updated: 2026-05-07 after v0.4-dashboard milestone started
