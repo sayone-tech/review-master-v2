@@ -760,14 +760,13 @@ def test_org_profile_redirects_superadmin() -> None:
     assert response["Location"] == "/admin/organisations/"
 
 
-def test_org_profile_redirects_staff_admin_to_login() -> None:
+def test_org_profile_accessible_to_staff_admin() -> None:
     org = OrganisationFactory()
     user = UserFactory(role=User.Role.STAFF_ADMIN, organisation=org)
     client = Client()
     client.force_login(user)
     response = client.get("/admin/org/profile/")
-    assert response.status_code == 302
-    assert response["Location"] == "/login/"
+    assert response.status_code == 200
 
 
 def test_org_profile_redirects_org_admin_without_organisation_to_login() -> None:

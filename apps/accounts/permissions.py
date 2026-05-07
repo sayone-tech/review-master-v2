@@ -63,3 +63,30 @@ def org_admin_required(
         return view_func(request, *args, **kwargs)
 
     return wrapper
+
+
+def org_member_required(
+    view_func: Callable[..., HttpResponse],
+) -> Callable[..., HttpResponse]:
+    """Template-view decorator: requires ORG_ADMIN or STAFF_ADMIN with organisation.
+
+    Used for pages accessible to both roles (e.g. profile). Superadmins are
+    redirected to their own area. Anonymous users get the login redirect.
+    """
+    from django.contrib.auth.decorators import login_required
+
+    @login_required
+    @wraps(view_func)
+    def wrapper(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        user = request.user
+        if not isinstance(user, User):
+            return HttpResponseRedirect("/login/")
+        if user.role == User.Role.SUPERADMIN:
+            return HttpResponseRedirect("/admin/organisations/")
+        if user.role not in (User.Role.ORG_ADMIN, User.Role.STAFF_ADMIN):
+            return HttpResponseRedirect("/login/")
+        if user.organisation_id is None:
+            return HttpResponseRedirect("/login/")
+        return view_func(request, *args, **kwargs)
+
+    return wrapper

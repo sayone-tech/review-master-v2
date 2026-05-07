@@ -24,11 +24,15 @@
       </span>
       <ul role="list">
         {% include "partials/_nav_item.html" with href="/admin/org/dashboard/" icon="layout-dashboard" label="Dashboard" %}
-        {% include "partials/_nav_item.html" with href="/admin/org/shops/" icon="store" label="Shops" %}
+        {% if user.role != "STAFF_ADMIN" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/shops/" icon="store" label="Shops" %}
+        {% endif %}
         {% include "partials/_nav_item.html" with href="/admin/org/reviews/" icon="star" label="Reviews" %}
         {% include "partials/_nav_item.html" with href="/admin/org/action-items/" icon="clipboard-list" label="Action Items" %}
-        {% include "partials/_nav_item.html" with href="/admin/org/regions/" icon="map-pin" label="Regions" %}
-        {% include "partials/_nav_item.html" with href="/admin/org/team/" icon="users" label="Team" %}
+        {% if user.role != "STAFF_ADMIN" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/regions/" icon="map-pin" label="Regions" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/team/" icon="users" label="Team" %}
+        {% endif %}
         {% include "partials/_nav_item.html" with href="/admin/org/profile/" icon="user" label="Profile" %}
       </ul>
     </nav>
