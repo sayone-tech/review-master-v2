@@ -11,12 +11,15 @@ from django.utils import timezone
 
 from apps.dashboard.filters import DashboardFilterParams
 from apps.dashboard.selectors.aggregations import (
+    dashboard_highlights,
     dashboard_kpis,
     dashboard_sentiment_distribution,
+    dashboard_top_performing,
     dashboard_your_store,
 )
 from apps.dashboard.tests.conftest import make_review
 from apps.reviews.models import Review
+from apps.shops.tests.factories import ShopFactory
 
 SUCCESS = Review.EnrichmentStatus.SUCCESS
 PENDING = Review.EnrichmentStatus.PENDING
@@ -271,3 +274,160 @@ def test_dashboard_your_store_trend_up(single_shop, org):
     assert result is not None
     assert result["trend_direction"] == "up"
     assert result["trend_delta"] == 2.0
+
+
+# ===========================================================================
+# dashboard_top_performing
+# ===========================================================================
+
+
+@pytest.mark.django_db
+def test_top_performing_date_only(org, region):
+    """TOP-01: region_id and shop_id filters are ignored — all accessible shops appear."""
+    shop1 = ShopFactory(organisation=org, region=region)
+    shop2 = ShopFactory(organisation=org, region=region)
+    shop3 = ShopFactory(organisation=org, region=region)
+
+    for shop in [shop1, shop2, shop3]:
+        for _ in range(3):
+            make_review(shop=shop, star_rating=4, sentiment="positive", enrichment_status=SUCCESS)
+
+    today = timezone.now().date()
+    params = DashboardFilterParams(
+        region_id=region.id,  # should be ignored by dashboard_top_performing
+        shop_id=shop1.id,  # should be ignored by dashboard_top_performing
+        date_from=today - timedelta(days=30),
+        date_to=today,
+        accessible_shop_ids=(shop1.id, shop2.id, shop3.id),
+    )
+    result = dashboard_top_performing(org_id=org.id, params=params)
+    shop_ids = [s["shop_id"] for s in result["shops"]]
+    assert shop1.id in shop_ids
+    assert shop2.id in shop_ids
+    assert shop3.id in shop_ids
+
+
+@pytest.mark.django_db
+def test_top_performing_min_reviews(org, region):
+    """TOP-02: shops with < 3 reviews are excluded."""
+    shop_a = ShopFactory(organisation=org, region=region)
+    shop_b = ShopFactory(organisation=org, region=region)
+
+    # shop_a: only 2 reviews — below threshold
+    for _ in range(2):
+        make_review(shop=shop_a, star_rating=5, sentiment="positive", enrichment_status=SUCCESS)
+    # shop_b: 5 reviews — above threshold
+    for _ in range(5):
+        make_review(shop=shop_b, star_rating=4, sentiment="positive", enrichment_status=SUCCESS)
+
+    params = _params(org, [shop_a.id, shop_b.id])
+    result = dashboard_top_performing(org_id=org.id, params=params)
+    shop_ids = [s["shop_id"] for s in result["shops"]]
+    assert shop_a.id not in shop_ids
+    assert shop_b.id in shop_ids
+
+
+@pytest.mark.django_db
+def test_top_performing_split_at_11_shops(org, region):
+    """TOP-02: split=True and len(shops)==10 when > 10 qualifying shops."""
+    shops = [ShopFactory(organisation=org, region=region) for _ in range(11)]
+    for i, shop in enumerate(shops):
+        for _ in range(3):
+            make_review(
+                shop=shop,
+                star_rating=(i % 5) + 1,
+                sentiment="positive",
+                enrichment_status=SUCCESS,
+            )
+
+    params = _params(org, [s.id for s in shops])
+    result = dashboard_top_performing(org_id=org.id, params=params)
+    assert result["split"] is True
+    assert len(result["shops"]) == 10  # top 5 + worst 5
+
+
+@pytest.mark.django_db
+def test_top_performing_query_count(accessible_shops, org):
+    """TECH-04: dashboard_top_performing uses exactly 1 DB query."""
+    shop = accessible_shops[0]
+    for _ in range(3):
+        make_review(shop=shop, star_rating=4, sentiment="positive", enrichment_status=SUCCESS)
+
+    params = _params(org, [s.id for s in accessible_shops])
+
+    with CaptureQueriesContext(connection) as ctx:
+        dashboard_top_performing(org_id=org.id, params=params)
+
+    assert len(ctx.captured_queries) == 1, f"Expected 1 query, got {len(ctx.captured_queries)}"
+
+
+@pytest.mark.django_db
+def test_top_performing_empty(accessible_shops, org):
+    """TOP-07: no shops with >= 3 reviews -> returns empty list with split=False."""
+    shop = accessible_shops[0]
+    # Only 2 reviews — below threshold
+    for _ in range(2):
+        make_review(shop=shop, star_rating=4, sentiment="positive", enrichment_status=SUCCESS)
+
+    params = _params(org, [s.id for s in accessible_shops])
+    result = dashboard_top_performing(org_id=org.id, params=params)
+    assert result == {"shops": [], "split": False}
+
+
+# ===========================================================================
+# dashboard_highlights
+# ===========================================================================
+
+
+@pytest.mark.django_db
+def test_highlights_returns_top_and_bottom(org, region):
+    """TOP-06: top shop has highest avg_rating, bottom has lowest."""
+    shop_high = ShopFactory(organisation=org, region=region)
+    shop_mid = ShopFactory(organisation=org, region=region)
+    shop_low = ShopFactory(organisation=org, region=region)
+
+    for _ in range(3):
+        make_review(shop=shop_high, star_rating=5, sentiment="positive", enrichment_status=SUCCESS)
+    for _ in range(3):
+        make_review(shop=shop_mid, star_rating=3, sentiment="neutral", enrichment_status=SUCCESS)
+    for _ in range(3):
+        make_review(shop=shop_low, star_rating=1, sentiment="negative", enrichment_status=SUCCESS)
+
+    params = _params(org, [shop_high.id, shop_mid.id, shop_low.id])
+    result = dashboard_highlights(org_id=org.id, params=params)
+    assert result["top"] is not None
+    assert result["bottom"] is not None
+    assert result["top"]["shop_id"] == shop_high.id
+    assert result["bottom"]["shop_id"] == shop_low.id
+
+
+@pytest.mark.django_db
+def test_highlights_uses_ai_sentiment_counts(org, region):
+    """TOP-06: negative_count reflects AI sentiment, not star rating."""
+    shop = ShopFactory(organisation=org, region=region)
+    # 3 reviews: star=5 but AI says negative + enriched
+    for _ in range(3):
+        make_review(shop=shop, star_rating=5, sentiment="negative", enrichment_status=SUCCESS)
+
+    params = _params(org, [shop.id])
+    result = dashboard_highlights(org_id=org.id, params=params)
+    assert result["top"] is not None
+    # avg_rating is 5 (from star_rating) but negative_count is 3 (from AI sentiment)
+    assert result["top"]["avg_rating"] == 5.0
+    assert result["top"]["negative_count"] == 3
+    assert result["top"]["positive_count"] == 0
+
+
+@pytest.mark.django_db
+def test_highlights_query_count(accessible_shops, org):
+    """TECH-04: dashboard_highlights uses exactly 1 DB query."""
+    shop = accessible_shops[0]
+    for _ in range(3):
+        make_review(shop=shop, star_rating=4, sentiment="positive", enrichment_status=SUCCESS)
+
+    params = _params(org, [s.id for s in accessible_shops])
+
+    with CaptureQueriesContext(connection) as ctx:
+        dashboard_highlights(org_id=org.id, params=params)
+
+    assert len(ctx.captured_queries) == 1, f"Expected 1 query, got {len(ctx.captured_queries)}"
