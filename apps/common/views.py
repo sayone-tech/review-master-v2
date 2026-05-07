@@ -55,6 +55,16 @@ def home(request: HttpRequest) -> HttpResponse:
     return redirect("org_admin_dashboard_v02")
 
 
+def page_not_found(request: HttpRequest, exception: Exception | None = None) -> HttpResponse:
+    """Branded 404 page (ERR-01). Auth-state detected in template via {% if request.user.is_authenticated %}."""
+    return render(request, "404.html", status=404)
+
+
+def server_error(request: HttpRequest) -> HttpResponse:
+    """Branded 500 page (ERR-02). MUST NOT access request.user in Python — template handles auth detection."""
+    return render(request, "500.html", status=500)
+
+
 def showcase(request: HttpRequest) -> HttpResponse:
     """Component showcase page at /__ui__/ — renders every design system primitive."""
 

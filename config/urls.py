@@ -23,6 +23,7 @@ urlpatterns = [
     path("api/v1/", include(action_items_api_urls)),
     path("api/v1/", include(notifications_api_urls)),
     path("api/v1/", include("apps.accounts.api_urls")),
+    path("api/v1/dashboard/", include("apps.dashboard.urls")),
     path("", include("apps.organisations.urls")),
     path("", include("apps.accounts.urls")),
     path("", include("apps.common.urls")),
@@ -31,6 +32,9 @@ urlpatterns = [
     path("", include("apps.action_items.urls")),
     path("admin/", admin.site.urls),
 ]
+
+handler404 = "apps.common.views.page_not_found"
+handler500 = "apps.common.views.server_error"
 
 if settings.DEBUG:
     import debug_toolbar
