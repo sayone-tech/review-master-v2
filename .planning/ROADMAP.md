@@ -58,7 +58,7 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
   5. Out-of-scope Region or Store IDs in URL params return 403 (not silent fallback); custom date ranges over 365 days or with from>to return 400 with a clear error message
   6. All five dashboard widgets load in parallel; each widget is independently cached in Redis for 5 minutes using a scope-aware cache key that includes `accessible_shop_ids` hash to prevent cross-user leakage
   7. User sees branded 404 and 500 error pages matching the platform design system, with navigation actions appropriate to authentication state
-**Plans**: TBD
+**Plans**: 8 plans
 
 Plans:
 - [ ] 14-01: Indexes + filter validation foundation (3 composite Review indexes, `DashboardFilterParams`, `validate_filter_params()`, `services/cache.py` with `accessible_shop_ids` hash)
