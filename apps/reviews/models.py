@@ -57,6 +57,14 @@ class Review(TimeStampedModel):
     reply_comment = models.TextField(blank=True)
     reply_update_time = models.DateTimeField(null=True, blank=True)
     is_replied = models.BooleanField(default=False, db_index=True)
+    replied_by = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="replies",
+        db_index=True,
+    )
 
     enrichment_status = models.CharField(
         max_length=15,

@@ -127,21 +127,24 @@ def submit_reply(*, review: Review, comment: str, actor: Any) -> Review:
             ) from exc
 
         # SUCCESS path — persist locally and audit.
+        authenticated_actor = actor if getattr(actor, "is_authenticated", False) else None
         with transaction.atomic():
             review.reply_comment = comment
             review.reply_update_time = timezone.now()
             review.is_replied = True
+            review.replied_by = authenticated_actor
             review.save(
                 update_fields=[
                     "reply_comment",
                     "reply_update_time",
                     "is_replied",
+                    "replied_by",
                     "updated_at",
                 ]
             )
             AuditLog.objects.create(
                 organisation_id=review.organisation_id,
-                actor=actor if getattr(actor, "is_authenticated", False) else None,
+                actor=authenticated_actor,
                 entity_type="review",
                 entity_id=str(review.pk),
                 action="reply_posted",
