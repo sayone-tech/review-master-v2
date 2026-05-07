@@ -4,7 +4,6 @@ from django.urls import path
 
 from apps.organisations.views import (
     org_admin_dashboard,
-    org_welcome,
     organisation_list,
     team_list,
 )
@@ -38,11 +37,5 @@ urlpatterns = [
         "admin/org/team/",
         team_list,
         name="org_team",
-    ),
-    # Staff welcome stub page — redirected to after TEAM_MEMBER acceptance.
-    path(
-        "admin/org/welcome/",
-        org_welcome,
-        name="org_welcome",
     ),
 ]

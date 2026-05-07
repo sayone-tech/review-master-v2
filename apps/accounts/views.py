@@ -345,8 +345,6 @@ def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
                 except ValidationError:
                     return render(request, "accounts/invite_error.html", {"message": ACTV05_COPY})
                 login(request, user)
-                if user.role == User.Role.STAFF_ADMIN:
-                    return redirect(reverse("org_welcome"))
                 return redirect(reverse("org_admin_dashboard"))
             # ORG_ADMIN path — existing code unchanged
             from apps.organisations.services.organisations import activate_account

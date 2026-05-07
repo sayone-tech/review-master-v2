@@ -233,15 +233,6 @@ def team_list(request: HttpRequest) -> HttpResponse:
     )
 
 
-@login_required
-def org_welcome(request: HttpRequest) -> HttpResponse:
-    """Staff welcome stub page — /admin/org/welcome/.
-
-    Rendered after TEAM_MEMBER activation for STAFF_ADMIN users.
-    """
-    return render(request, "organisations/team_welcome.html", {"page_title": "Welcome"})
-
-
 class OrganisationViewSet(viewsets.ModelViewSet[Organisation]):
     permission_classes = [IsAuthenticated, IsSuperadmin]  # noqa: RUF012
     pagination_class = PageNumberPagination
