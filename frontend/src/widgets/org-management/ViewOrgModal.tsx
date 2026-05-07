@@ -64,7 +64,7 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
         </>
       }
     >
-      <dl className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-3">
+      <dl style={{ display: "grid", gridTemplateColumns: "140px 1fr", columnGap: 16, rowGap: 12 }}>
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Type
         </dt>

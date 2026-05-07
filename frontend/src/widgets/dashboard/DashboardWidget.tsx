@@ -250,14 +250,11 @@ function DashboardInner() {
         filters={fs.filters}
         regions={bootstrap.regions}
         shops={bootstrap.shops}
-        onRegionChange={fs.setRegion}
-        onStoreChange={fs.setStore}
-        onRangeChange={fs.setDateRange}
-        onCustomRange={fs.setCustomRange}
+        onApply={fs.applyAll}
         onClear={fs.clearFilters}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24 }}>
         <div className="flex flex-col gap-6">
           {bootstrap.isSingleShop ? (
             <YourStore dateOnlyFilters={dateOnlyFilters} />

@@ -130,7 +130,7 @@ export function YourStore({ dateOnlyFilters }: Props) {
     <div className="bg-white border border-line rounded-card p-6">
       <h2 className="text-[20px] font-bold text-ink mb-1">Your Store</h2>
 
-      <div className="grid grid-cols-[1fr_auto] gap-4 items-start mt-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "start", marginTop: 12 }}>
         {/* Left column */}
         <div>
           <p className="text-[20px] font-bold text-ink">{data.shop_name}</p>

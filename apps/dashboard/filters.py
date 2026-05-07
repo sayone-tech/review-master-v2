@@ -14,6 +14,7 @@ from apps.reviews.selectors.reviews import get_accessible_shop_ids
 MAX_RANGE_DAYS = 365
 DEFAULT_RANGE_DAYS = 30
 PRESET_DAYS = {"7d": 7, "30d": 30, "90d": 90}
+ALL_TIME_KEY = "all"
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,8 @@ def _resolve_date_window(
     raw_to: str | None,
 ) -> tuple[date | None, date | None]:
     today = timezone.now().date()
+    if range_key == ALL_TIME_KEY:
+        return None, None
     if range_key in PRESET_DAYS:
         days = PRESET_DAYS[range_key]
         return today - timedelta(days=days), today
@@ -74,8 +77,8 @@ def _resolve_date_window(
         if (d_to - d_from).days > MAX_RANGE_DAYS:
             raise ValidationError({"detail": "Date range cannot exceed 365 days."})
         return d_from, d_to
-    # Default: last 30 days
-    return today - timedelta(days=DEFAULT_RANGE_DAYS), today
+    # Default: all time (no restriction)
+    return None, None
 
 
 def _get_all_org_shop_ids(org_id: int) -> list[int]:
@@ -98,7 +101,7 @@ def validate_filter_params(*, request: Any, user: Any, org_id: int) -> Dashboard
 
     region_id = _parse_int(params.get("region"))
     shop_id = _parse_int(params.get("store"))
-    range_key = params.get("range") or "30d"
+    range_key = params.get("range") or ALL_TIME_KEY
     date_from, date_to = _resolve_date_window(
         range_key=range_key,
         raw_from=params.get("from"),

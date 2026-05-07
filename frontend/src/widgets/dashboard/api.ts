@@ -21,7 +21,7 @@ function buildFullQs(f: DashboardFilters): string {
   const p = new URLSearchParams();
   if (f.region_id) p.set("region", String(f.region_id));
   if (f.shop_id) p.set("store", String(f.shop_id));
-  p.set("range", f.range);
+  if (f.range !== "all") p.set("range", f.range);
   if (f.range === "custom" && f.date_from) p.set("from", f.date_from);
   if (f.range === "custom" && f.date_to) p.set("to", f.date_to);
   return p.toString();
@@ -31,7 +31,7 @@ function buildDateOnlyQs(
   f: Pick<DashboardFilters, "range" | "date_from" | "date_to">,
 ): string {
   const p = new URLSearchParams();
-  p.set("range", f.range);
+  if (f.range !== "all") p.set("range", f.range);
   if (f.range === "custom" && f.date_from) p.set("from", f.date_from);
   if (f.range === "custom" && f.date_to) p.set("to", f.date_to);
   return p.toString();

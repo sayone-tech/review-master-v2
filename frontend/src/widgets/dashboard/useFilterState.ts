@@ -25,21 +25,22 @@ export function presetToAbsoluteDates(preset: DateRangePreset): {
   if (preset === "7d") return { date_from: daysAgoUTC(7), date_to: todayUTC() };
   if (preset === "30d") return { date_from: daysAgoUTC(30), date_to: todayUTC() };
   if (preset === "90d") return { date_from: daysAgoUTC(90), date_to: todayUTC() };
-  // custom: caller supplies dates
+  // "all" and "custom": no computed dates
   return { date_from: null, date_to: null };
 }
 
 export const DEFAULT_FILTERS: DashboardFilters = {
   region_id: null,
   shop_id: null,
-  range: "30d",
-  ...presetToAbsoluteDates("30d"),
+  range: "all",
+  date_from: null,
+  date_to: null,
 };
 
 function parseFromUrl(url: URLSearchParams): DashboardFilters | null {
   const hasAny = ["region", "store", "range", "from", "to"].some((k) => url.has(k));
   if (!hasAny) return null;
-  const range = (url.get("range") ?? "30d") as DateRangePreset;
+  const range = (url.get("range") ?? "all") as DateRangePreset;
   const region_id = url.get("region") ? Number(url.get("region")) : null;
   const shop_id = url.get("store") ? Number(url.get("store")) : null;
   if (range === "custom") {
@@ -75,7 +76,7 @@ function syncToUrl(f: DashboardFilters): void {
   const p = new URLSearchParams();
   if (f.region_id) p.set("region", String(f.region_id));
   if (f.shop_id) p.set("store", String(f.shop_id));
-  if (f.range !== "30d") p.set("range", f.range);
+  if (f.range !== "all") p.set("range", f.range);
   if (f.range === "custom") {
     if (f.date_from) p.set("from", f.date_from);
     if (f.date_to) p.set("to", f.date_to);
@@ -85,7 +86,7 @@ function syncToUrl(f: DashboardFilters): void {
 }
 
 export function isDefault(f: DashboardFilters): boolean {
-  return f.region_id === null && f.shop_id === null && f.range === "30d";
+  return f.region_id === null && f.shop_id === null && f.range === "all";
 }
 
 export interface UseFilterStateReturn {
@@ -94,6 +95,7 @@ export interface UseFilterStateReturn {
   setStore: (id: number | null) => void;
   setDateRange: (preset: DateRangePreset) => void;
   setCustomRange: (from: string, to: string) => void;
+  applyAll: (region_id: number | null, shop_id: number | null, range: DateRangePreset, date_from: string | null, date_to: string | null) => void;
   clearFilters: () => void;
   clearOutOfScope: (kind: "region" | "store") => void;
 }
@@ -146,6 +148,23 @@ export function useFilterState(): UseFilterStateReturn {
     [filters, update],
   );
 
+  const applyAll = useCallback(
+    (
+      region_id: number | null,
+      shop_id: number | null,
+      range: DateRangePreset,
+      date_from: string | null,
+      date_to: string | null,
+    ) => {
+      const dates =
+        range === "custom"
+          ? { date_from, date_to }
+          : presetToAbsoluteDates(range);
+      update({ region_id, shop_id, range, ...dates });
+    },
+    [update],
+  );
+
   const clearFilters = useCallback(() => {
     update(DEFAULT_FILTERS);
   }, [update]);
@@ -164,6 +183,7 @@ export function useFilterState(): UseFilterStateReturn {
     setStore,
     setDateRange,
     setCustomRange,
+    applyAll,
     clearFilters,
     clearOutOfScope,
   };

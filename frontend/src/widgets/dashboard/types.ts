@@ -9,7 +9,7 @@ export interface Shop {
   region_id: number | null;
 }
 
-export type DateRangePreset = "7d" | "30d" | "90d" | "custom";
+export type DateRangePreset = "all" | "7d" | "30d" | "90d" | "custom";
 
 export interface DashboardFilters {
   region_id: number | null;
