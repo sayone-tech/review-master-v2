@@ -6,6 +6,9 @@ import { resolve } from "path";
 export default defineConfig({
   base: "/static/dist/",
   plugins: [react(), tailwindcss()],
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
   build: {
     manifest: "manifest.json",
     outDir: resolve(__dirname, "../static/dist"),
