@@ -1,3 +1,4 @@
+export { DashboardWidget } from "./DashboardWidget";
 export { FilterBar } from "./FilterBar";
 export { KpiCards } from "./KpiCards";
 export { SentimentDonut } from "./SentimentDonut";
