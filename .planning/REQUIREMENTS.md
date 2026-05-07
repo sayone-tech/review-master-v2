@@ -11,11 +11,11 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 
 - [x] **FILT-01**: User can filter dashboard data by Region (All Regions default; lists regions containing at least one accessible shop)
 - [x] **FILT-02**: User can filter dashboard data by Store (All Stores default; cascades to shops within the selected region only)
-- [ ] **FILT-03**: User can filter by Date Range: Last 7 days / Last 30 days (default) / Last 90 days / Custom
-- [ ] **FILT-04**: User can enter a custom From/To date range with inline date pickers and client-side validation
-- [ ] **FILT-05**: User can clear all filters to defaults with a single "Clear Filters" button (enabled only when at least one filter differs from default)
-- [ ] **FILT-06**: Filter state is reflected in URL query params (?region, ?store, ?range, ?from, ?to) via history.replaceState — shareable and bookmarkable
-- [ ] **FILT-07**: Filter state persists within the session; URL params take precedence over session state when both are present
+- [x] **FILT-03**: User can filter by Date Range: Last 7 days / Last 30 days (default) / Last 90 days / Custom
+- [x] **FILT-04**: User can enter a custom From/To date range with inline date pickers and client-side validation
+- [x] **FILT-05**: User can clear all filters to defaults with a single "Clear Filters" button (enabled only when at least one filter differs from default)
+- [x] **FILT-06**: Filter state is reflected in URL query params (?region, ?store, ?range, ?from, ?to) via history.replaceState — shareable and bookmarkable
+- [x] **FILT-07**: Filter state persists within the session; URL params take precedence over session state when both are present
 - [x] **FILT-08**: Out-of-scope region or store IDs in URL params return 403 (do NOT silently fall back to defaults)
 - [x] **FILT-09**: Custom date range exceeding 365 days returns 400 with a clear error message
 - [x] **FILT-10**: Custom range with from > to returns 400 with a clear error message
@@ -107,11 +107,11 @@ Populated during roadmap creation.
 |-------------|-------|--------|
 | FILT-01 | Phase 14 | Complete |
 | FILT-02 | Phase 14 | Complete |
-| FILT-03 | Phase 14 | Pending |
-| FILT-04 | Phase 14 | Pending |
-| FILT-05 | Phase 14 | Pending |
-| FILT-06 | Phase 14 | Pending |
-| FILT-07 | Phase 14 | Pending |
+| FILT-03 | Phase 14 | Complete |
+| FILT-04 | Phase 14 | Complete |
+| FILT-05 | Phase 14 | Complete |
+| FILT-06 | Phase 14 | Complete |
+| FILT-07 | Phase 14 | Complete |
 | FILT-08 | Phase 14 | Complete |
 | FILT-09 | Phase 14 | Complete |
 | FILT-10 | Phase 14 | Complete |

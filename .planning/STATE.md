@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: — Dashboard
 status: unknown
-stopped_at: Completed 14-04-PLAN.md
-last_updated: "2026-05-07T08:49:03.602Z"
+stopped_at: Completed 14-05-PLAN.md
+last_updated: "2026-05-07T08:52:28.732Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Plan: 2 of 8
 | Phase 14 P02 | 10 | 2 tasks | 4 files |
 | Phase 14 P03 | 8 | 2 tasks | 6 files |
 | Phase 14 P04 | 7 | 2 tasks | 5 files |
+| Phase 14 P05 | 1 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 14]: handler404/handler500 as module-level string paths after urlpatterns in config/urls.py
 - [Phase 14]: get_accessible_shop_ids uses user_id (not user object) — function signature preserved from Phase 11
 - [Phase 14]: recharts and @tanstack/react-query installed as production deps with ^ semver range; patch versions locked in package-lock.json
+- [Phase 14]: buildDateOnlyQs for top-performing/highlights/your-store — no region/shop params (DASH-C2)
+- [Phase 14]: FilterBar is a pure controlled component — all state in useFilterState hook
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-07T08:48:59.771Z
-Stopped at: Completed 14-04-PLAN.md
+Last session: 2026-05-07T08:52:28.730Z
+Stopped at: Completed 14-05-PLAN.md
 Resume file: None
