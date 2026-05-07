@@ -89,7 +89,7 @@ class ReviewViewSet(
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
         """Aggregate stats for the reviews list header cards."""
-        qs = self.get_queryset()
+        qs = self.filter_queryset(self.get_queryset())
         agg = qs.aggregate(
             total=Count("pk"),
             avg_rating=Avg("star_rating"),

@@ -75,16 +75,26 @@ export const ReviewManagementWidget = ({
     });
   };
 
-  // Stats cards
+  // Stats cards — re-fetch whenever active filters change
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   useEffect(() => {
     setStatsLoading(true);
-    fetchReviewStats()
+    fetchReviewStats(filters)
       .then(setStats)
       .catch(() => {})
       .finally(() => setStatsLoading(false));
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    filters.shop,
+    filters.sentiment,
+    filters.rating,
+    filters.is_replied,
+    filters.has_comment,
+    filters.from_date,
+    filters.to_date,
+    filters.search,
+  ]);
 
   const isOrgAdmin = userRole === "ORG_ADMIN";
   const pageSize = filters.page_size ?? 10;
@@ -114,8 +124,10 @@ export const ReviewManagementWidget = ({
   }
 
   const handleReplyCtaClick = (row: ReviewRow) => {
-    window.dispatchEvent(new CustomEvent("review:open-composer", { detail: row }));
     setOpenComposerId(row.id);
+    requestAnimationFrame(() => {
+      document.getElementById(`composer-row-${row.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   };
 
   return (

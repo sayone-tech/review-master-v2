@@ -66,11 +66,12 @@ def dashboard_kpis(*, org_id: int, params: DashboardFilterParams) -> dict[str, A
     """Return top-level KPI metrics in a single DB query.
 
     Keys: total_reviews, avg_rating, negative_reviews, negative_pct,
-    enriched_count, store_count.
+    enriched_count, store_count, awaiting_reply.
 
     KPI-03: negative_reviews counts only AI-sentiment='negative' with
     enrichment_status=SUCCESS — NOT by star rating.
     KPI-04: negative_pct denominator is enriched_count.
+    KPI-05: awaiting_reply counts reviews with no reply posted yet.
     """
     agg = _base_qs(org_id=org_id, params=params).aggregate(
         total_reviews=Count("pk"),
@@ -80,6 +81,7 @@ def dashboard_kpis(*, org_id: int, params: DashboardFilterParams) -> dict[str, A
             "pk",
             filter=Q(sentiment="negative", enrichment_status=SUCCESS),
         ),
+        awaiting_reply=Count("pk", filter=Q(reply_comment="")),
     )
     total = agg["total_reviews"] or 0
     enriched = agg["enriched_count"] or 0
@@ -93,6 +95,7 @@ def dashboard_kpis(*, org_id: int, params: DashboardFilterParams) -> dict[str, A
         "negative_pct": neg_pct,
         "enriched_count": enriched,
         "store_count": len(params.accessible_shop_ids),
+        "awaiting_reply": agg["awaiting_reply"] or 0,
     }
 
 

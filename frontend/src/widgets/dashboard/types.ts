@@ -26,6 +26,7 @@ export interface KpisResponse {
   negative_pct: number;
   enriched_count: number;
   store_count: number;
+  awaiting_reply: number;
 }
 
 export interface SentimentResponse {

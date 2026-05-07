@@ -63,7 +63,7 @@ export function ReplyComposer({
       ? new Date(row.reply_update_time).toLocaleString()
       : "";
     return (
-      <tr className="border-b border-line">
+      <tr id={`composer-row-${row.id}`} className="border-b border-line">
         <td colSpan={totalColumns} className="px-4 py-4 bg-line-soft">
           <div className="flex items-start gap-2">
             <CheckCircle size={20} className="text-green mt-0.5" aria-hidden="true" />
@@ -89,7 +89,7 @@ export function ReplyComposer({
   }
 
   return (
-    <tr className="border-b border-line">
+    <tr id={`composer-row-${row.id}`} className="border-b border-line">
       <td colSpan={totalColumns} className="p-0">
         <div className="px-4 py-3 bg-line-soft border-b border-line">
           <div className="flex items-center gap-3 mb-2">

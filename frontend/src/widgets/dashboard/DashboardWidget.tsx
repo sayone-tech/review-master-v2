@@ -3,7 +3,6 @@ import { useMemo } from "react";
 
 import { FilterBar } from "./FilterBar";
 import { KpiCards } from "./KpiCards";
-import { PerformanceHighlights } from "./PerformanceHighlights";
 import { SentimentDonut } from "./SentimentDonut";
 import { TopPerformingSection } from "./TopPerformingSection";
 import { YourStore } from "./YourStore";
@@ -245,7 +244,7 @@ function DashboardInner() {
       : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div>
       <FilterBar
         filters={fs.filters}
         regions={bootstrap.regions}
@@ -254,24 +253,20 @@ function DashboardInner() {
         onClear={fs.clearFilters}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24 }}>
-        <div className="flex flex-col gap-6">
-          {bootstrap.isSingleShop ? (
-            <YourStore dateOnlyFilters={dateOnlyFilters} />
-          ) : (
-            <TopPerformingSection
-              dateOnlyFilters={dateOnlyFilters}
-              onSelect90d={() => fs.setDateRange("90d")}
-            />
-          )}
-        </div>
-        <div className="flex flex-col gap-6">
-          <KpiCards filters={fullFilters} shopNameIfSingle={shopNameIfSingle} />
-          <SentimentDonut filters={fullFilters} />
-          {!bootstrap.isSingleShop && (
-            <PerformanceHighlights dateOnlyFilters={dateOnlyFilters} />
-          )}
-        </div>
+      {/* KPI strip — 4 tiles across full width */}
+      <KpiCards filters={fullFilters} shopNameIfSingle={shopNameIfSingle} />
+
+      {/* Main two-column grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.7fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+        {bootstrap.isSingleShop ? (
+          <YourStore dateOnlyFilters={dateOnlyFilters} />
+        ) : (
+          <TopPerformingSection
+            dateOnlyFilters={dateOnlyFilters}
+            onSelect90d={() => fs.setDateRange("90d")}
+          />
+        )}
+        <SentimentDonut filters={fullFilters} />
       </div>
     </div>
   );
