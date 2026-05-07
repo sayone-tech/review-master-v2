@@ -95,6 +95,18 @@ class Review(TimeStampedModel):
                 name="review_org_date_idx",
             ),
             GinIndex(fields=["search_vector"], name="review_search_vec_idx"),
+            models.Index(
+                fields=["organisation", "review_create_time", "sentiment"],
+                name="review_org_time_sent_idx",
+            ),
+            models.Index(
+                fields=["shop", "review_create_time"],
+                name="review_shop_time_idx",
+            ),
+            models.Index(
+                fields=["organisation", "review_create_time", "enrichment_status"],
+                name="review_org_time_status_idx",
+            ),
         ]
 
     def __str__(self) -> str:
