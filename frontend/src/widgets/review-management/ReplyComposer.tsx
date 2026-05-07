@@ -70,6 +70,11 @@ export function ReplyComposer({
             <div className="flex-1">
               <div className="text-[14px] font-semibold text-ink">
                 Replied on {replyDate}
+                {row.replied_by_name && (
+                  <span className="ml-1.5 text-[13px] font-normal text-subtle">
+                    by {row.replied_by_name}
+                  </span>
+                )}
               </div>
               <div className="text-[14px] text-text mt-1 whitespace-pre-wrap">
                 {row.reply_comment}
