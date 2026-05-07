@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: — Dashboard
 status: unknown
-stopped_at: Completed 14-02-PLAN.md
-last_updated: "2026-05-07T08:30:00.000Z"
+stopped_at: Completed 14-03-PLAN.md
+last_updated: "2026-05-07T08:45:49.992Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -48,6 +48,7 @@ Plan: 2 of 8
 *Updated after each plan completion*
 | Phase 14 P01 | 2 | 3 tasks | 13 files |
 | Phase 14 P02 | 10 | 2 tasks | 4 files |
+| Phase 14 P03 | 8 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting current work:
 - [Phase 14 P02]: _base_qs applies region+shop+date filters; _date_only_qs skips region/shop to enforce TOP-01 date-only scope
 - [Phase 14 P02]: negative_count uses Q(sentiment='negative', enrichment_status=SUCCESS) not star_rating — locks in KPI-03
 - [Phase 14 P02]: trend_direction='none' guard: prev_total < MIN_REVIEWS_FOR_RANKING => skip comparison (STORE-03)
+- [Phase 14]: DashboardApiView base class: single security+cache gate shared by all 5 endpoints via inheritance
+- [Phase 14]: handler404/handler500 as module-level string paths after urlpatterns in config/urls.py
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-07T08:30:00.000Z
-Stopped at: Completed 14-02-PLAN.md
+Last session: 2026-05-07T08:45:49.990Z
+Stopped at: Completed 14-03-PLAN.md
 Resume file: None

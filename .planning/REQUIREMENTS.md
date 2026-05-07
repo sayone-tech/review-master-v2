@@ -60,12 +60,12 @@ Requirements for the Dashboard milestone (Phase 14). One phase.
 - [x] **TECH-03**: Migration adds three composite indexes to the Review table: `(organisation_id, review_created_at, sentiment)`, `(shop_id, review_created_at)`, and `(organisation_id, review_created_at, enrichment_status)`
 - [x] **TECH-04**: All five dashboard endpoints have `CaptureQueriesContext` tests asserting a fixed query count ceiling regardless of data volume
 - [ ] **TECH-05**: Dashboard page at `/admin/org/dashboard/` replaces the Phase 2 placeholder; Org Admin, Manager, and Staff land here after login
-- [ ] **TECH-06**: All five widgets load in parallel via parallel API calls; each renders an independent loading skeleton until its data arrives
+- [x] **TECH-06**: All five widgets load in parallel via parallel API calls; each renders an independent loading skeleton until its data arrives
 
 ### Error Pages (ERR)
 
-- [ ] **ERR-01**: User sees a branded 404 page matching the platform design system instead of Django's plain "Not Found" response; includes a navigation action (authenticated users → Dashboard, unauthenticated → Login)
-- [ ] **ERR-02**: User sees a branded 500 page matching the platform design system instead of Django's plain "Server Error" response; includes a navigation action (authenticated users → Dashboard, unauthenticated → Login)
+- [x] **ERR-01**: User sees a branded 404 page matching the platform design system instead of Django's plain "Not Found" response; includes a navigation action (authenticated users → Dashboard, unauthenticated → Login)
+- [x] **ERR-02**: User sees a branded 500 page matching the platform design system instead of Django's plain "Server Error" response; includes a navigation action (authenticated users → Dashboard, unauthenticated → Login)
 
 ## Future Requirements
 
@@ -141,9 +141,9 @@ Populated during roadmap creation.
 | TECH-03 | Phase 14 | Complete |
 | TECH-04 | Phase 14 | Complete |
 | TECH-05 | Phase 14 | Pending |
-| TECH-06 | Phase 14 | Pending |
-| ERR-01 | Phase 14 | Pending |
-| ERR-02 | Phase 14 | Pending |
+| TECH-06 | Phase 14 | Complete |
+| ERR-01 | Phase 14 | Complete |
+| ERR-02 | Phase 14 | Complete |
 
 **Coverage:**
 - v0.4 requirements: 38 total
