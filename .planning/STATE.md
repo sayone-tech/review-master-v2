@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.4
 milestone_name: — Dashboard
 status: unknown
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-05-07T08:12:02.352Z"
+stopped_at: Completed 14-02-PLAN.md
+last_updated: "2026-05-07T08:30:00.000Z"
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 8
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-05-07)
 ## Current Position
 
 Phase: 14 (dashboard) — EXECUTING
-Plan: 1 of 8
+Plan: 2 of 8
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Plan: 1 of 8
 
 *Updated after each plan completion*
 | Phase 14 P01 | 2 | 3 tasks | 13 files |
+| Phase 14 P02 | 10 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,9 @@ Recent decisions affecting current work:
 - [v0.4 research]: UTC-only date windows with explicit "Dates are shown in UTC" notice — User.timezone field deferred
 - [Phase 14]: validate_filter_params branches on user.role for ORG_ADMIN vs STAFF_ADMIN accessible shop resolution
 - [Phase 14]: filter_hash includes shop_ids list to enforce cross-user cache isolation (DASH-C1)
+- [Phase 14 P02]: _base_qs applies region+shop+date filters; _date_only_qs skips region/shop to enforce TOP-01 date-only scope
+- [Phase 14 P02]: negative_count uses Q(sentiment='negative', enrichment_status=SUCCESS) not star_rating — locks in KPI-03
+- [Phase 14 P02]: trend_direction='none' guard: prev_total < MIN_REVIEWS_FOR_RANKING => skip comparison (STORE-03)
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-07T08:12:02.350Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-05-07T08:30:00.000Z
+Stopped at: Completed 14-02-PLAN.md
 Resume file: None
