@@ -432,6 +432,16 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                 "page_count": page_count,
             }
             write_progress_snapshot(shop_id=shop_id, data=success_payload)
+            emit_progress_event(
+                shop_id=shop_id,
+                payload={
+                    "type": "sync.complete",
+                    "shop_id": shop_id,
+                    "total_fetched": total_persisted,
+                    "total_estimate": total_estimate or total_persisted,
+                    "duration_seconds": duration,
+                },
+            )
             _audit(
                 shop=shop,
                 action="sync.completed",

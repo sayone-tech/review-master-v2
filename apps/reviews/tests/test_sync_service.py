@@ -328,12 +328,12 @@ def test_fetch_and_persist_enqueues_enrichment_for_pending_reviews(
 
 
 @pytest.mark.django_db
-def test_fetch_and_persist_does_not_emit_sync_complete(patched_dependencies) -> None:
-    """Phase 12 CONTEXT.md: sync.complete is NO LONGER emitted by fetch_and_persist_reviews.
+def test_fetch_and_persist_emits_sync_complete(patched_dependencies) -> None:
+    """fetch_and_persist_reviews must emit sync.complete on success so the UI updates.
 
-    The enrichment service is the sole source of sync.complete in Phase 12 once
-    enriched >= fetched. fetch_and_persist_reviews still writes the success
-    snapshot and the sync.completed AuditLog entry but emits no sync.complete event.
+    Previously the success path only wrote the Redis snapshot but never sent
+    the WebSocket event, leaving the progress bar frozen at the last fetch-progress
+    value. The fix adds emit_progress_event in the success path.
     """
     shop = _make_shop()
     page = {
@@ -354,9 +354,12 @@ def test_fetch_and_persist_does_not_emit_sync_complete(patched_dependencies) -> 
         sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
 
     emitted_types = [p["type"] for p in captured_emit]
-    assert "sync.complete" not in emitted_types, (
-        f"sync.complete must not be emitted by fetch_and_persist_reviews; "
+    # sync.fetch.progress emitted during fetch, sync.complete emitted on success
+    assert "sync.fetch.progress" in emitted_types
+    assert "sync.complete" in emitted_types, (
+        f"sync.complete must be emitted by fetch_and_persist_reviews on success; "
         f"got types: {emitted_types}"
     )
-    # sync.fetch.progress is still emitted at least once
-    assert "sync.fetch.progress" in emitted_types
+    complete_event = next(p for p in captured_emit if p["type"] == "sync.complete")
+    assert complete_event["shop_id"] == shop.pk
+    assert complete_event["total_fetched"] == 1
