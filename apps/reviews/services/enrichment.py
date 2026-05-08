@@ -314,6 +314,7 @@ def _emit_enrichment_progress(*, review: Review) -> None:
     (RESEARCH.md anti-pattern: do not emit events from within a transaction).
     """
     from apps.reviews.services.progress import (
+        claim_sync_complete,
         increment_enriched_counter,
         read_progress_snapshot,
         write_progress_snapshot,
@@ -349,7 +350,7 @@ def _emit_enrichment_progress(*, review: Review) -> None:
         },
     )
 
-    if fetched > 0 and enriched >= fetched:
+    if fetched > 0 and enriched >= fetched and claim_sync_complete(shop_id=shop_id):
         _dispatch_sync_complete_notifications(review=review, total_fetched=fetched)
         emit_progress_event(
             shop_id=shop_id,

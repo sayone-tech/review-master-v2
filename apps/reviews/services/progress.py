@@ -31,6 +31,7 @@ PROGRESS_KEY_TMPL = "sync:progress:{shop_id}"
 ENRICHED_COUNTER_KEY_TMPL = "sync:enriched:{shop_id}"
 ACTION_ITEMS_COUNTER_KEY_TMPL = "sync:action_items:{shop_id}"
 BRAND_FLAG_KEY_TMPL = "sync:brand_flag:{shop_id}"
+SYNC_COMPLETE_SENT_KEY_TMPL = "sync:complete_sent:{shop_id}"
 TTL_ACTIVE_SECONDS = 86400  # 24h while running
 TTL_SUCCESS_SECONDS = 3600  # 1h after success
 TTL_FAILED_SECONDS = 604800  # 7d after permanent failure
@@ -80,7 +81,26 @@ def clear_progress_snapshot(*, shop_id: int) -> None:
         ENRICHED_COUNTER_KEY_TMPL.format(shop_id=shop_id),
         ACTION_ITEMS_COUNTER_KEY_TMPL.format(shop_id=shop_id),
         BRAND_FLAG_KEY_TMPL.format(shop_id=shop_id),
+        SYNC_COMPLETE_SENT_KEY_TMPL.format(shop_id=shop_id),
     )
+
+
+def claim_sync_complete(*, shop_id: int) -> bool:
+    """Atomically claim the right to dispatch sync-complete notifications (SETNX).
+
+    Returns True exactly once per sync run — the first caller wins. Subsequent
+    callers always return False, preventing duplicate notification dispatches
+    when enriched >= fetched evaluates true for more than one enrichment task
+    (race between concurrent workers and the snapshot read-modify-write).
+
+    The key is cleared by clear_progress_snapshot at the start of each new sync.
+    """
+    conn = get_redis_connection("default")
+    key = SYNC_COMPLETE_SENT_KEY_TMPL.format(shop_id=shop_id)
+    acquired = conn.setnx(key, "1")
+    if acquired:
+        conn.expire(key, TTL_SUCCESS_SECONDS)
+    return bool(acquired)
 
 
 def increment_enriched_counter(*, shop_id: int) -> int:

@@ -138,6 +138,11 @@ def test_emit_enrichment_progress_fires_sync_complete_when_caught_up() -> None:
         ),
         # Notification dispatch at sync.complete is tested separately
         patch.object(enrichment_mod, "_dispatch_sync_complete_notifications"),
+        # claim_sync_complete uses Redis SETNX; mock to return True (first caller wins)
+        patch(
+            "apps.reviews.services.progress.claim_sync_complete",
+            return_value=True,
+        ),
     ):
         _emit_enrichment_progress(review=review)
 
@@ -196,3 +201,74 @@ def test_emit_enrichment_progress_no_sync_complete_when_fetched_zero() -> None:
 
     types = [p["type"] for p in emitted_payloads]
     assert "sync.complete" not in types
+
+
+@pytest.mark.django_db
+def test_sync_complete_dispatched_exactly_once_under_concurrent_enrichments() -> None:
+    """Regression test for the notification spam bug (6 418 notifications for
+    FRUITBAE Kakkanad).
+
+    Root cause: _emit_enrichment_progress does a non-atomic read-modify-write on
+    the Redis snapshot, which can overwrite sync.py's updated 'fetched' value with
+    a stale one.  Once enriched > stale_fetched, the condition 'enriched >= fetched'
+    evaluates True on every subsequent enrichment call, firing
+    _dispatch_sync_complete_notifications once per review instead of once per sync.
+
+    The fix: claim_sync_complete() uses Redis SETNX so only the first caller that
+    satisfies the condition wins the right to dispatch.  All later callers — including
+    those running with a stale fetched value — receive False and are silenced.
+    """
+    from apps.reviews.services.enrichment import _emit_enrichment_progress
+
+    review = ReviewFactory()
+    shop_id = review.shop_id
+
+    # Simulate the stale-snapshot race: fetched appears to be 50 (page 1 total) in
+    # every worker's snapshot read, but the enriched counter has already surpassed 50
+    # because enrichments for page 1 completed before sync.py wrote the page-2
+    # snapshot (fetched=100).
+    stale_snapshot = {
+        "shop_id": shop_id,
+        "status": "enriching",
+        "fetched": 50,
+        "enriched": 49,
+        "started_at": "2026-04-01T10:00:00Z",
+        "last_update_at": "2026-04-01T10:01:00Z",
+        "page_count": 1,
+    }
+
+    dispatch_calls: list[dict] = []
+
+    def _capture_dispatch(*, review: object, total_fetched: int) -> None:
+        dispatch_calls.append({"total_fetched": total_fetched})
+
+    # Simulate 10 concurrent enrichment completions where enriched (51-60) > fetched (50)
+    # — every single one satisfies the condition without the SETNX guard.
+    claim_results = [True] + [False] * 9  # only the first call wins the lock
+
+    with (
+        patch(
+            "apps.reviews.services.progress.read_progress_snapshot",
+            return_value=stale_snapshot,
+        ),
+        patch("apps.reviews.services.progress.write_progress_snapshot"),
+        patch("apps.reviews.services.sync.emit_progress_event"),
+        patch.object(
+            enrichment_mod, "_dispatch_sync_complete_notifications", side_effect=_capture_dispatch
+        ),
+        patch(
+            "apps.reviews.services.progress.claim_sync_complete",
+            side_effect=claim_results,
+        ),
+    ):
+        for counter_value in range(51, 61):
+            with patch(
+                "apps.reviews.services.progress.increment_enriched_counter",
+                return_value=counter_value,
+            ):
+                _emit_enrichment_progress(review=review)
+
+    assert len(dispatch_calls) == 1, (
+        f"_dispatch_sync_complete_notifications must fire exactly once; "
+        f"fired {len(dispatch_calls)} times (notification spam regression)"
+    )
