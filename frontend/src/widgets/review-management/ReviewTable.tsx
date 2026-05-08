@@ -144,14 +144,38 @@ export function ReviewTable({
       key: "review",
       label: "REVIEW",
       skeletonWidth: "240px",
-      accessor: (r) =>
-        r.comment ? (
-          <span className="text-[13.5px] text-text line-clamp-2 leading-snug max-w-[360px]">
-            {r.comment}
-          </span>
-        ) : (
-          <span className="text-[13px] text-muted italic">No comment left</span>
-        ),
+      accessor: (r) => {
+        if (!r.comment) {
+          return <span className="text-[13px] text-muted italic">No comment left</span>;
+        }
+        const isLong = r.comment.length > 200;
+        const expanded = showFullComment.get(r.id) ?? false;
+        return (
+          <div className="max-w-[360px]">
+            {!expanded && isLong ? (
+              <span className="text-[13.5px] text-text leading-snug line-clamp-2">
+                {r.comment}
+              </span>
+            ) : (
+              <span className="text-[13.5px] text-text leading-snug block">
+                {r.comment}
+              </span>
+            )}
+            {isLong && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleShowFullComment(r.id);
+                }}
+                className="mt-1 inline-flex items-center gap-0.5 text-[11.5px] font-semibold text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
+              >
+                {expanded ? "Show less" : "Read more"}
+              </button>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "tags",
