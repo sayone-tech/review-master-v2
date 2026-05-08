@@ -93,7 +93,7 @@ export function KpiCards({ filters, shopNameIfSingle }: Props) {
 
   if (isLoading) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 18 }}>
         <KpiTile label="" value="" sub="" skeleton />
         <KpiTile label="" value="" sub="" skeleton />
         <KpiTile label="" value="" sub="" skeleton />
@@ -104,7 +104,7 @@ export function KpiCards({ filters, shopNameIfSingle }: Props) {
 
   if (isError || !data) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 18 }}>
         {["Total Reviews", "Average Rating", "Negative Reviews", "Awaiting Reply"].map((title) => (
           <div key={title} className="bg-white border border-line rounded-xl p-4 flex flex-col gap-2 min-h-[112px]">
             <p className="text-[13px] text-muted">Could not load.</p>
@@ -128,7 +128,7 @@ export function KpiCards({ filters, shopNameIfSingle }: Props) {
     (shopNameIfSingle ?? "");
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 18 }}>
       {/* Total reviews */}
       <KpiTile
         label="Total reviews"
