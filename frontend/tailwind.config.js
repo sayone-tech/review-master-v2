@@ -50,5 +50,6 @@ export default {
       },
     },
   },
+  safelist: ["lg:hidden"],
   plugins: [],
 };
