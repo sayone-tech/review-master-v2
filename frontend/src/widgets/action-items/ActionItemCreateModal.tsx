@@ -66,9 +66,11 @@ export function ActionItemCreateModal({
     setError(null);
   }, [open]);
 
-  // Clear shop when switching to BRAND.
+  // Clear shop when switching to BRAND; clear assignee when scope changes
+  // to avoid silently submitting a staff member for a shop-scoped item.
   useEffect(() => {
     if (scope === "BRAND") setShopId("");
+    setAssigneeId("");
   }, [scope]);
 
   if (!open) return null;
@@ -211,6 +213,11 @@ export function ActionItemCreateModal({
 
         <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
           Assignee
+          {scope === "SHOP" && (
+            <span className="ml-2 normal-case font-normal text-[11px] text-subtle">
+              (shop items — org admins only)
+            </span>
+          )}
           <select
             value={assigneeId}
             onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : "")}
@@ -218,7 +225,10 @@ export function ActionItemCreateModal({
             disabled={submitting}
           >
             <option value="">Unassigned</option>
-            {teamMembers.map((m) => (
+            {(scope === "SHOP"
+              ? teamMembers.filter((m) => m.role === "ORG_ADMIN")
+              : teamMembers
+            ).map((m) => (
               <option key={m.id} value={m.id}>
                 {m.full_name}
               </option>

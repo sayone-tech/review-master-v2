@@ -174,7 +174,7 @@ def action_item_list_view(request: HttpRequest) -> HttpResponse:
                 role__in=[UserModel.Role.ORG_ADMIN, UserModel.Role.STAFF_ADMIN],
                 is_active=True,
             )
-            .values("id", "full_name")
+            .values("id", "full_name", "role")
             .order_by("full_name")
         )
 

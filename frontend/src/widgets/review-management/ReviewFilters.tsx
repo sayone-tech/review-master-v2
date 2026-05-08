@@ -109,11 +109,11 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
 
   return (
     <div className="bg-white border border-line rounded-xl p-3.5 mb-[18px]">
-      {/* Row 1 — search + store + rating + sentiment + actions */}
+      {/* Row 1 — search + store + rating + sentiment */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto",
+          gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
           gap: 14,
           alignItems: "end",
         }}
@@ -214,34 +214,14 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
           </div>
         </label>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 pb-0">
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-3 py-[10px] rounded-[10px] bg-transparent border border-dashed border-line text-subtle text-[13px] hover:text-ink hover:border-ink transition-colors"
-            >
-              <RefreshCw size={13} aria-hidden="true" />
-              Reset
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onApply(draft)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-[10px] rounded-[10px] bg-yellow text-black border border-yellow-hover text-[14px] font-medium hover:bg-yellow-hover transition-colors shrink-0"
-          >
-            Apply
-          </button>
-        </div>
       </div>
 
-      {/* Row 2 — date range + reply + comment */}
+      {/* Row 2 — date range + reply + comment + actions */}
       <div
         className="mt-3 pt-3 border-t border-dashed border-line"
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr)",
+          gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto",
           gap: 14,
           alignItems: "end",
         }}
@@ -326,6 +306,27 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
             <ChevronIcon />
           </div>
         </label>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="inline-flex items-center gap-1.5 px-3 py-[10px] rounded-[10px] bg-transparent border border-dashed border-line text-subtle text-[13px] hover:text-ink hover:border-ink transition-colors"
+            >
+              <RefreshCw size={13} aria-hidden="true" />
+              Reset
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onApply(draft)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-[10px] rounded-[10px] bg-yellow text-black border border-yellow-hover text-[14px] font-medium hover:bg-yellow-hover transition-colors shrink-0"
+          >
+            Apply
+          </button>
+        </div>
       </div>
     </div>
   );
