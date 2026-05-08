@@ -15,11 +15,11 @@ import { PriorityIndicator } from "./PriorityIndicator";
 import { SourceReviewTab } from "./SourceReviewTab";
 import { addNote, getActionItem, transitionStatus, updateActionItemBackend } from "./api";
 import { emitToast } from "../../lib/toast";
+import { getAssignableMembers } from "./assigneeUtils";
 import {
   STATUS_LABEL,
   type ActionItemDetail,
   type ActionItemPriority,
-  type ActionItemScope,
   type ActionItemStatus,
   type ShopOption,
   type TeamMember,
@@ -87,7 +87,6 @@ interface DetailsTabProps {
   saving: boolean;
   error: string | null;
   teamMembers: TeamMember[];
-  scope: ActionItemDetail["scope"];
 }
 
 function DetailsTab({
@@ -102,12 +101,8 @@ function DetailsTab({
   saving,
   error,
   teamMembers,
-  scope,
 }: DetailsTabProps) {
-  const assignableMembers =
-    scope === "SHOP"
-      ? teamMembers.filter((m) => m.role === "ORG_ADMIN")
-      : teamMembers;
+  const assignableMembers = getAssignableMembers(teamMembers, item.scope, item.shop_id);
   const today = new Date().toISOString().slice(0, 10);
   if (!editing) {
     return (
@@ -409,7 +404,6 @@ export function ActionItemModal({
               saving={saving}
               error={error}
               teamMembers={teamMembers}
-              scope={item.scope}
             />
           )}
           {activeTab === "notes" && (
