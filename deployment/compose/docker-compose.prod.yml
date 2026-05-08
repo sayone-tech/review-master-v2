@@ -122,7 +122,7 @@ services:
 
   flower:
     <<: *app
-    command: celery -A config flower --port=5555 --address=127.0.0.1
+    command: celery -A config flower --port=5555 --address=0.0.0.0
     ports:
       - "127.0.0.1:5555:5555"
     healthcheck:
