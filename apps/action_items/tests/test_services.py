@@ -118,6 +118,55 @@ def test_transition_status_writes_audit_log():
 
 
 @pytest.mark.django_db
+def test_todo_to_in_progress_auto_assigns_actor_when_unassigned():
+    item = ActionItemFactory(status=ActionItem.Status.TODO, assignee=None)
+    actor = OrgAdminFactory(organisation=item.organisation)
+    transition_status(action_item=item, new_status=ActionItem.Status.IN_PROGRESS, actor=actor)
+    item.refresh_from_db()
+    assert item.assignee_id == actor.pk
+    assert (
+        AuditLog.objects.filter(
+            entity_type="action_item",
+            entity_id=str(item.pk),
+            action="action_item.assigned",
+        ).count()
+        == 1
+    )
+
+
+@pytest.mark.django_db
+def test_todo_to_in_progress_does_not_override_existing_assignee():
+    org = OrganisationFactory()
+    existing_assignee = UserFactory(organisation=org)
+    item = ActionItemFactory(
+        status=ActionItem.Status.TODO,
+        organisation=org,
+        assignee=existing_assignee,
+    )
+    actor = OrgAdminFactory(organisation=org)
+    transition_status(action_item=item, new_status=ActionItem.Status.IN_PROGRESS, actor=actor)
+    item.refresh_from_db()
+    assert item.assignee_id == existing_assignee.pk
+    assert (
+        AuditLog.objects.filter(
+            entity_type="action_item",
+            entity_id=str(item.pk),
+            action="action_item.assigned",
+        ).count()
+        == 0
+    )
+
+
+@pytest.mark.django_db
+def test_other_transitions_do_not_auto_assign():
+    item = ActionItemFactory(status=ActionItem.Status.IN_PROGRESS, assignee=None)
+    actor = OrgAdminFactory(organisation=item.organisation)
+    transition_status(action_item=item, new_status=ActionItem.Status.COMPLETE, actor=actor)
+    item.refresh_from_db()
+    assert item.assignee_id is None
+
+
+@pytest.mark.django_db
 def test_transition_status_no_op_on_same_status():
     item = ActionItemFactory(status=ActionItem.Status.TODO)
     actor = OrgAdminFactory(organisation=item.organisation)
