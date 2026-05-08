@@ -40,6 +40,7 @@ from apps.integrations.google.oauth import _refresh_access_token
 from apps.integrations.google.reviews_client import list_reviews
 from apps.reviews.models import Review
 from apps.reviews.services.progress import (
+    bulk_increment_enriched_counter,
     clear_progress_snapshot,
     increment_google_token_bucket,
     token_bucket_depleted,
@@ -367,23 +368,35 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                     },
                 )
 
-                # ENRCH-02: enqueue enrichment for every upserted PENDING review.
-                # Local import avoids circular dependency:
-                #   sync.py <- tasks.py (run_incremental_sync, run_initial_backfill)
-                #   tasks.py -> enrich_review_task (defined in same file)
+                # ENRCH-02: enqueue enrichment for PENDING reviews; bulk-advance
+                # the enriched counter for already-SUCCESS reviews without
+                # dispatching tasks (avoids flooding ai-enrichment queue with
+                # no-op idempotent tasks when a shop is re-synced after a
+                # previous full enrichment run).
                 if ids:
                     from apps.reviews.tasks import enrich_review_task
 
-                    pending_ids = list(
+                    page_statuses = list(
                         Review.objects.filter(
                             shop=shop,
                             google_review_id__in=ids,
-                            enrichment_status=Review.EnrichmentStatus.PENDING,
                             deleted_at__isnull=True,
-                        ).values_list("id", flat=True)
+                        ).values_list("id", "enrichment_status")
+                    )
+                    pending_ids = [
+                        r_id
+                        for r_id, status in page_statuses
+                        if status == Review.EnrichmentStatus.PENDING
+                    ]
+                    already_enriched = sum(
+                        1
+                        for _, status in page_statuses
+                        if status == Review.EnrichmentStatus.SUCCESS
                     )
                     for review_id in pending_ids:
                         enrich_review_task.delay(review_id)
+                    if already_enriched:
+                        bulk_increment_enriched_counter(shop_id=shop_id, count=already_enriched)
 
                 snapshot = {
                     "shop_id": shop_id,

@@ -38,7 +38,7 @@ TTL_FAILED_SECONDS = 604800  # 7d after permanent failure
 
 GOOGLE_BUCKET_KEY = "rate:google:project"
 GOOGLE_BUCKET_WINDOW_SECONDS = 60
-GOOGLE_BUCKET_MAX_CALLS_PER_MINUTE = 600  # defensive ceiling — adjust per CLAUDE.md §7.7
+GOOGLE_BUCKET_MAX_CALLS_PER_MINUTE = 1800  # Google's published QPM for GBP API
 
 
 def _ttl_for_status(status: str) -> int:
@@ -114,6 +114,28 @@ def increment_enriched_counter(*, shop_id: int) -> int:
     key = ENRICHED_COUNTER_KEY_TMPL.format(shop_id=shop_id)
     pipe = conn.pipeline()
     pipe.incr(key)
+    pipe.expire(key, TTL_ACTIVE_SECONDS)
+    new_value, _ = pipe.execute()
+    return int(new_value)
+
+
+def bulk_increment_enriched_counter(*, shop_id: int, count: int) -> int:
+    """Atomically advance the enriched counter by count (Redis INCRBY).
+
+    Called by fetch_and_persist_reviews for reviews that are already SUCCESS at
+    page-persist time, so no enrichment task needs to be dispatched for them.
+    This prevents flooding the ai-enrichment queue with no-op idempotent tasks.
+
+    Returns the new counter value.
+    """
+    if count <= 0:
+        conn = get_redis_connection("default")
+        raw = conn.get(ENRICHED_COUNTER_KEY_TMPL.format(shop_id=shop_id))
+        return int(raw or 0)
+    conn = get_redis_connection("default")
+    key = ENRICHED_COUNTER_KEY_TMPL.format(shop_id=shop_id)
+    pipe = conn.pipeline()
+    pipe.incrby(key, count)
     pipe.expire(key, TTL_ACTIVE_SECONDS)
     new_value, _ = pipe.execute()
     return int(new_value)
