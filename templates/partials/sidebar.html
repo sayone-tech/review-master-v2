@@ -36,7 +36,6 @@
           {% include "partials/_nav_item.html" with href="/admin/org/reviews/" icon="star" label="Reviews" %}
           {% include "partials/_nav_item.html" with href="/admin/org/action-items/" icon="clipboard-list" label="Action Items" %}
         {% endif %}
-        {% include "partials/_nav_item.html" with href="/admin/profile/" icon="user" label="Profile" %}
       </ul>
     </nav>
 
@@ -58,15 +57,20 @@
         </button>
       </form>
 
-      <div class="mt-3 flex items-center gap-2" data-testid="sidebar-user">
-        <span class="w-7 h-7 rounded-full bg-black text-yellow flex items-center justify-center text-[11px] font-semibold border border-[#27272A]">
+      <a
+        href="/admin/profile/"
+        class="mt-3 flex items-center gap-2 rounded-md py-1 -mx-1 px-1 hover:bg-white/[0.06] transition-colors group"
+        data-testid="sidebar-user"
+        aria-label="Go to profile"
+      >
+        <span class="w-7 h-7 rounded-full bg-black text-yellow flex items-center justify-center text-[11px] font-semibold border border-[#27272A] shrink-0 group-hover:border-yellow/40 transition-colors">
           {{ user.full_name|slice:":1"|default:user.email|slice:":1"|upper }}
         </span>
         <div class="md:hidden lg:block min-w-0">
-          <div class="text-[13px] text-white truncate">{{ user.full_name|default:user.email }}</div>
+          <div class="text-[13px] text-white truncate group-hover:text-yellow transition-colors">{{ user.full_name|default:user.email }}</div>
           <div class="text-[11px] text-[#52525B] truncate">{{ user.get_role_display }}</div>
         </div>
-      </div>
+      </a>
     </div>
   {% endif %}
 </aside>
