@@ -126,7 +126,24 @@ def transition_status(*, action_item: ActionItem, new_status: str, actor: User) 
     if old_status == new_status:
         return locked
     locked.status = new_status
-    locked.save(update_fields=["status", "updated_at"])
+
+    # Auto-assign to the actor when claiming an item (TODO → IN_PROGRESS).
+    # Only fires when the item is currently unassigned — explicit assignments
+    # made by an admin are not overridden.
+    actor_pk = getattr(actor, "pk", None)
+    prev_assignee_id = locked.assignee_id
+    auto_assigned = (
+        old_status == ActionItem.Status.TODO
+        and new_status == ActionItem.Status.IN_PROGRESS
+        and locked.assignee_id is None
+        and actor_pk is not None
+    )
+    if auto_assigned:
+        locked.assignee_id = actor_pk
+        locked.save(update_fields=["status", "assignee", "updated_at"])
+    else:
+        locked.save(update_fields=["status", "updated_at"])
+
     AuditLog.objects.create(
         organisation_id=locked.organisation_id,
         actor=actor if getattr(actor, "is_authenticated", False) else None,
@@ -136,6 +153,17 @@ def transition_status(*, action_item: ActionItem, new_status: str, actor: User) 
         before_data={"status": old_status},
         after_data={"status": new_status},
     )
+    if auto_assigned:
+        AuditLog.objects.create(
+            organisation_id=locked.organisation_id,
+            actor=actor if getattr(actor, "is_authenticated", False) else None,
+            entity_type="action_item",
+            entity_id=str(locked.pk),
+            action="action_item.assigned",
+            before_data={"assignee_id": prev_assignee_id},
+            after_data={"assignee_id": actor_pk},
+        )
+
     return locked
 
 

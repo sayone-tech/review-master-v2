@@ -87,6 +87,7 @@ export interface ShopOption {
 export interface TeamMember {
   id: number;
   full_name: string;
+  role: "ORG_ADMIN" | "STAFF_ADMIN";
 }
 
 // Phase 13 Plan 07 — additive constants for the modals.

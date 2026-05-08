@@ -3,10 +3,12 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { ActionItemFilters } from "./ActionItemFilters";
 import { ActionItemTable } from "./ActionItemTable";
 import { ActionItemModal } from "./ActionItemModal";
+import { AssignModal } from "./AssignModal";
 import { transitionStatus } from "./api";
 import { useActionItems } from "./useActionItems";
 import { emitToast } from "../../lib/toast";
 import type {
+  ActionItemListRow,
   ActionItemScope,
   ActionItemStatus,
   ListParams,
@@ -107,6 +109,7 @@ export function ActionItemManagementWidget({
   const { data, loading, params, setParams, refetch } = useActionItems({ reviewParam });
 
   const [openModalId, setOpenModalId] = useState<number | null>(null);
+  const [assignRow, setAssignRow] = useState<ActionItemListRow | null>(null);
 
   // Deep-link support: ?id={N} opens the detail modal on mount, then strips
   // the param so refresh doesn't re-open.
@@ -193,6 +196,7 @@ export function ActionItemManagementWidget({
           emptyState={pickEmptyState(params, data, userRole, handleReset)}
           onOpenModal={setOpenModalId}
           onTransitionStatus={handleTransition}
+          onAssign={setAssignRow}
         />
         <nav
           className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
@@ -319,6 +323,14 @@ export function ActionItemManagementWidget({
           onChanged={() => void refetch()}
         />
       )}
+
+      <AssignModal
+        open={assignRow !== null}
+        item={assignRow}
+        teamMembers={teamMembers}
+        onClose={() => setAssignRow(null)}
+        onAssigned={() => void refetch()}
+      />
     </div>
   );
 }

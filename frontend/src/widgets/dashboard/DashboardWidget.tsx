@@ -257,7 +257,7 @@ function DashboardInner() {
       <KpiCards filters={fullFilters} shopNameIfSingle={shopNameIfSingle} />
 
       {/* Main two-column grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.7fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
         {bootstrap.isSingleShop ? (
           <YourStore dateOnlyFilters={dateOnlyFilters} />
         ) : (

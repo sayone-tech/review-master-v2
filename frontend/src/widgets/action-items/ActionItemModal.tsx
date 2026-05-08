@@ -19,6 +19,7 @@ import {
   STATUS_LABEL,
   type ActionItemDetail,
   type ActionItemPriority,
+  type ActionItemScope,
   type ActionItemStatus,
   type ShopOption,
   type TeamMember,
@@ -86,6 +87,7 @@ interface DetailsTabProps {
   saving: boolean;
   error: string | null;
   teamMembers: TeamMember[];
+  scope: ActionItemDetail["scope"];
 }
 
 function DetailsTab({
@@ -100,7 +102,12 @@ function DetailsTab({
   saving,
   error,
   teamMembers,
+  scope,
 }: DetailsTabProps) {
+  const assignableMembers =
+    scope === "SHOP"
+      ? teamMembers.filter((m) => m.role === "ORG_ADMIN")
+      : teamMembers;
   const today = new Date().toISOString().slice(0, 10);
   if (!editing) {
     return (
@@ -232,7 +239,7 @@ function DetailsTab({
           disabled={saving}
         >
           <option value="">Unassigned</option>
-          {teamMembers.map((m) => (
+          {assignableMembers.map((m) => (
             <option key={m.id} value={m.id}>
               {m.full_name}
             </option>
@@ -402,6 +409,7 @@ export function ActionItemModal({
               saving={saving}
               error={error}
               teamMembers={teamMembers}
+              scope={item.scope}
             />
           )}
           {activeTab === "notes" && (

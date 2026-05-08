@@ -395,26 +395,28 @@ def test_legacy_org_admin_dashboard_url_still_works() -> None:
     assert response.status_code == 200
 
 
-def test_sidebar_renders_six_items_in_order() -> None:
+def test_sidebar_renders_nav_items_in_order() -> None:
+    # Profile is no longer a nav item — it is accessible via the clickable
+    # footer user block. Only the five nav labels remain in the sidebar nav.
     client, _, _ = _org_admin_client()
     response = client.get("/admin/org/dashboard/")
     html = response.content.decode("utf-8")
-    # All six labels present
-    for label in ["Dashboard", "Shops", "Regions", "Team", "Profile", "Log out"]:
+    for label in ["Dashboard", "Shops", "Regions", "Team", "Log out"]:
         assert label in html, f"Sidebar missing label: {label}"
-    # Order check — find positions, must be ascending
+    # Order check — positions must be ascending
     positions = [
         html.find(">Dashboard<"),
         html.find(">Shops<"),
         html.find(">Regions<"),
         html.find(">Team<"),
-        html.find(">Profile<"),
     ]
     assert all(p > 0 for p in positions), f"Some labels not found: {positions}"
     assert positions == sorted(positions), f"Sidebar items out of order: {positions}"
 
 
-def test_sidebar_contains_six_lucide_icons() -> None:
+def test_sidebar_contains_nav_icons() -> None:
+    # The "user" icon was removed along with the Profile nav item.
+    # Profile is now reached via the footer user avatar link.
     client, _, _ = _org_admin_client()
     response = client.get("/admin/org/dashboard/")
     html = response.content.decode("utf-8")
@@ -423,7 +425,6 @@ def test_sidebar_contains_six_lucide_icons() -> None:
         "store",
         "map-pin",
         "users",
-        "user",
         "log-out",
     ]:
         assert f'data-lucide="{icon}"' in html, f"Missing icon: {icon}"
@@ -437,6 +438,7 @@ def test_sidebar_uses_new_alias_urls() -> None:
     assert 'href="/admin/org/shops/"' in html
     assert 'href="/admin/org/regions/"' in html
     assert 'href="/admin/org/team/"' in html
+    # Profile URL is on the footer user block link, not a nav item
     assert 'href="/admin/org/profile/"' in html
 
 

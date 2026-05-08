@@ -132,9 +132,6 @@ export const ReviewManagementWidget = ({
 
   return (
     <div className="space-y-4">
-      {/* Stats cards */}
-      <ReviewStatsCards stats={stats} loading={statsLoading} />
-
       <div className="flex items-center justify-between">
         <h1 className="text-[20px] font-semibold text-ink">
           Reviews{" "}
@@ -160,6 +157,9 @@ export const ReviewManagementWidget = ({
         }
         onReset={clearFilters}
       />
+
+      {/* Stats cards — below the filter so they reflect active filter context */}
+      <ReviewStatsCards stats={stats} loading={statsLoading} />
 
       <div className="border border-line rounded-card overflow-hidden">
         <ReviewTable

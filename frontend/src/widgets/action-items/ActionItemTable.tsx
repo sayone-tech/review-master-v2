@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, MoreHorizontal, Sparkles, User } from "lucide-react";
+import { Check, MoreHorizontal, Sparkles, User, UserCheck } from "lucide-react";
 import { DataTable, type DataTableColumn } from "../data-table/DataTable";
 import { StatusBadge } from "./StatusBadge";
 import { ScopePill } from "./ScopePill";
@@ -47,11 +47,12 @@ interface RowMenuProps {
   row: ActionItemListRow;
   onOpenModal: (id: number) => void;
   onTransitionStatus: (id: number, status: ActionItemStatus) => void;
+  onAssign: (row: ActionItemListRow) => void;
 }
 
 const STATUS_ORDER: ActionItemStatus[] = ["TODO", "IN_PROGRESS", "COMPLETE", "WONT_DO"];
 
-function RowMenu({ row, onOpenModal, onTransitionStatus }: RowMenuProps) {
+function RowMenu({ row, onOpenModal, onTransitionStatus, onAssign }: RowMenuProps) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -113,6 +114,18 @@ function RowMenu({ row, onOpenModal, onTransitionStatus }: RowMenuProps) {
             >
               Open details
             </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onAssign(row);
+              }}
+              className="w-full text-left px-4 py-2 text-[14px] text-ink hover:bg-line-soft cursor-pointer flex items-center gap-2"
+            >
+              <UserCheck size={13} className="text-subtle shrink-0" aria-hidden="true" />
+              Assign
+            </button>
             <div className="border-t border-line-soft mt-1 pt-1">
               <div
                 role="group"
@@ -157,6 +170,7 @@ interface Props {
   emptyState: ReactNode;
   onOpenModal: (id: number) => void;
   onTransitionStatus: (id: number, status: ActionItemStatus) => void;
+  onAssign: (row: ActionItemListRow) => void;
 }
 
 export function ActionItemTable({
@@ -165,6 +179,7 @@ export function ActionItemTable({
   emptyState,
   onOpenModal,
   onTransitionStatus,
+  onAssign,
 }: Props) {
   const columns: DataTableColumn<ActionItemListRow>[] = [
     {
@@ -280,6 +295,7 @@ export function ActionItemTable({
           row={row}
           onOpenModal={onOpenModal}
           onTransitionStatus={onTransitionStatus}
+          onAssign={onAssign}
         />
       )}
     />

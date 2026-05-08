@@ -49,7 +49,45 @@ MAX_TOTAL_ENRICH_ATTEMPTS = 3
 )
 def initial_backfill_task(self: Any, shop_id: int) -> dict[str, Any]:
     """Initial historical review backfill for a shop, dispatched after OAuth."""
-    return run_initial_backfill(shop_id=shop_id)
+    task_id = self.request.id
+    attempt = self.request.retries + 1
+    logger.info(
+        "initial_backfill_task.start task_id=%s shop_id=%s attempt=%s",
+        task_id,
+        shop_id,
+        attempt,
+    )
+    try:
+        result = run_initial_backfill(shop_id=shop_id)
+    except Exception as exc:
+        logger.error(
+            "initial_backfill_task.error task_id=%s shop_id=%s attempt=%s max_retries=%s error=%r",
+            task_id,
+            shop_id,
+            attempt,
+            self.max_retries,
+            exc,
+            exc_info=True,
+        )
+        raise
+    if result.get("skipped"):
+        logger.info(
+            "initial_backfill_task.skipped task_id=%s shop_id=%s reason=%s",
+            task_id,
+            shop_id,
+            result["skipped"],
+        )
+    else:
+        logger.info(
+            "initial_backfill_task.success task_id=%s shop_id=%s "
+            "fetched=%s soft_deleted=%s duration_seconds=%.1f",
+            task_id,
+            shop_id,
+            result.get("fetched", 0),
+            result.get("soft_deleted", 0),
+            result.get("duration_seconds", 0.0),
+        )
+    return result
 
 
 @shared_task(  # type: ignore[misc]
@@ -62,7 +100,45 @@ def initial_backfill_task(self: Any, shop_id: int) -> dict[str, Any]:
 )
 def sync_shop_reviews_task(self: Any, shop_id: int) -> dict[str, Any]:
     """6-hour incremental sync for a shop, dispatched by Beat fan-out."""
-    return run_incremental_sync(shop_id=shop_id)
+    task_id = self.request.id
+    attempt = self.request.retries + 1
+    logger.info(
+        "sync_shop_reviews_task.start task_id=%s shop_id=%s attempt=%s",
+        task_id,
+        shop_id,
+        attempt,
+    )
+    try:
+        result = run_incremental_sync(shop_id=shop_id)
+    except Exception as exc:
+        logger.error(
+            "sync_shop_reviews_task.error task_id=%s shop_id=%s attempt=%s max_retries=%s error=%r",
+            task_id,
+            shop_id,
+            attempt,
+            self.max_retries,
+            exc,
+            exc_info=True,
+        )
+        raise
+    if result.get("skipped"):
+        logger.info(
+            "sync_shop_reviews_task.skipped task_id=%s shop_id=%s reason=%s",
+            task_id,
+            shop_id,
+            result["skipped"],
+        )
+    else:
+        logger.info(
+            "sync_shop_reviews_task.success task_id=%s shop_id=%s "
+            "fetched=%s soft_deleted=%s duration_seconds=%.1f",
+            task_id,
+            shop_id,
+            result.get("fetched", 0),
+            result.get("soft_deleted", 0),
+            result.get("duration_seconds", 0.0),
+        )
+    return result
 
 
 @shared_task  # type: ignore[misc]
@@ -82,6 +158,10 @@ def enqueue_incremental_syncs_task() -> int:
     for shop_id in shop_ids:
         countdown = random.uniform(0, INCREMENTAL_JITTER_SECONDS_MAX)  # nosec B311  # noqa: S311
         sync_shop_reviews_task.apply_async(args=[shop_id], countdown=countdown)
+    logger.info(
+        "enqueue_incremental_syncs_task.dispatched shops_count=%s",
+        len(shop_ids),
+    )
     return len(shop_ids)
 
 
@@ -105,7 +185,33 @@ def enrich_review_task(self: Any, review_id: int) -> None:
     """
     from apps.reviews.services.enrichment import enrich_review
 
-    enrich_review(review_id=review_id)
+    task_id = self.request.id
+    attempt = self.request.retries + 1
+    logger.info(
+        "enrich_review_task.start task_id=%s review_id=%s attempt=%s",
+        task_id,
+        review_id,
+        attempt,
+    )
+    try:
+        enrich_review(review_id=review_id)
+    except Exception as exc:
+        logger.error(
+            "enrich_review_task.error task_id=%s review_id=%s attempt=%s max_retries=%s error=%r",
+            task_id,
+            review_id,
+            attempt,
+            self.max_retries,
+            exc,
+            exc_info=True,
+        )
+        raise
+    logger.info(
+        "enrich_review_task.success task_id=%s review_id=%s attempt=%s",
+        task_id,
+        review_id,
+        attempt,
+    )
 
 
 @shared_task  # type: ignore[misc]
@@ -133,5 +239,8 @@ def retry_failed_enrichments_task() -> int:
     )
     for review_id in ids:
         enrich_review_task.delay(review_id)
-    logger.info("retry_failed_enrichments dispatched count=%s", len(ids))
+    logger.info(
+        "retry_failed_enrichments_task.dispatched reviews_count=%s",
+        len(ids),
+    )
     return len(ids)

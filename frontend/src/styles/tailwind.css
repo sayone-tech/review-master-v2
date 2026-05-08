@@ -59,6 +59,13 @@
   }
 }
 
+/* Responsive display utilities missing from Tailwind v4 scan */
+@media (min-width: 64rem) {
+  .lg\:hidden {
+    display: none;
+  }
+}
+
 /* Accessible focus ring (yellow, 2px outline, 2px offset) */
 :focus-visible {
   outline: 2px solid #facc15;
