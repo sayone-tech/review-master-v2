@@ -3,6 +3,7 @@ import { UserCheck } from "lucide-react";
 import { Modal } from "../modal/Modal";
 import { updateActionItemBackend } from "./api";
 import { emitToast } from "../../lib/toast";
+import { getAssignableMembers } from "./assigneeUtils";
 import type { ActionItemListRow, TeamMember } from "./types";
 
 interface Props {
@@ -21,11 +22,9 @@ export function AssignModal({ open, item, teamMembers, onClose, onAssigned }: Pr
     setSelectedId(item?.assignee_id ?? "");
   }, [item?.id]);
 
-  // SHOP-scoped items can only be assigned to org admins
-  const assignableMembers =
-    item?.scope === "SHOP"
-      ? teamMembers.filter((m) => m.role === "ORG_ADMIN")
-      : teamMembers;
+  const assignableMembers = item
+    ? getAssignableMembers(teamMembers, item.scope, item.shop_id)
+    : [];
 
   const handleSave = async () => {
     if (!item) return;
@@ -58,11 +57,9 @@ export function AssignModal({ open, item, teamMembers, onClose, onAssigned }: Pr
       <div className="p-5 space-y-4">
         <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
           Assignee
-          {item?.scope === "SHOP" && (
-            <span className="ml-2 normal-case font-normal text-[11px] text-subtle">
-              (shop items — org admins only)
-            </span>
-          )}
+          <span className="ml-2 normal-case font-normal text-[11px] text-subtle">
+            {item?.scope === "BRAND" ? "(org admins only)" : "(org admins + assigned staff)"}
+          </span>
           <select
             value={selectedId}
             onChange={(e) =>

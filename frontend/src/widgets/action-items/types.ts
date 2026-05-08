@@ -88,6 +88,7 @@ export interface TeamMember {
   id: number;
   full_name: string;
   role: "ORG_ADMIN" | "STAFF_ADMIN";
+  shop_ids: number[]; // populated for STAFF_ADMIN; empty for ORG_ADMIN
 }
 
 // Phase 13 Plan 07 — additive constants for the modals.

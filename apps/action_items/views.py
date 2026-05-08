@@ -166,9 +166,10 @@ def action_item_list_view(request: HttpRequest) -> HttpResponse:
             shops_qs = shops_qs.filter(id__in=get_accessible_shop_ids(user_id=user.pk))
         shops_data = list(shops_qs.values("id", "name").order_by("name"))
 
+        from apps.accounts.models import StaffAccessScope
         from apps.accounts.models import User as UserModel
 
-        team_data = list(
+        members_qs = list(
             UserModel.objects.filter(
                 organisation_id=org_id,
                 role__in=[UserModel.Role.ORG_ADMIN, UserModel.Role.STAFF_ADMIN],
@@ -177,6 +178,20 @@ def action_item_list_view(request: HttpRequest) -> HttpResponse:
             .values("id", "full_name", "role")
             .order_by("full_name")
         )
+
+        # For each staff member, attach the shop IDs they can access so the
+        # frontend can filter the assignee list per shop-scoped action item.
+        staff_ids = [m["id"] for m in members_qs if m["role"] == UserModel.Role.STAFF_ADMIN]
+        staff_shop_map: dict[int, list[int]] = {sid: [] for sid in staff_ids}
+        if staff_ids:
+            for scope_row in StaffAccessScope.objects.filter(
+                user_id__in=staff_ids,
+                scope_type=StaffAccessScope.ScopeType.SHOP,
+                shop__isnull=False,
+            ).values("user_id", "shop_id"):
+                staff_shop_map[scope_row["user_id"]].append(scope_row["shop_id"])
+
+        team_data = [{**m, "shop_ids": staff_shop_map.get(m["id"], [])} for m in members_qs]
 
     return render(
         request,
