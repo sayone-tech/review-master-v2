@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.action_items",
     "apps.dashboard",
     "apps.notifications",
+    "apps.reply_templates",
     "apps.integrations.openai",
 ]
 

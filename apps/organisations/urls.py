@@ -8,6 +8,7 @@ from apps.organisations.views import (
     team_list,
 )
 from apps.regions.views import region_list
+from apps.reply_templates.views import template_list
 from apps.shops.views import shop_list
 
 urlpatterns = [
@@ -37,5 +38,10 @@ urlpatterns = [
         "admin/org/team/",
         team_list,
         name="org_team",
+    ),
+    path(
+        "admin/org/reply-templates/",
+        template_list,
+        name="org_reply_templates",
     ),
 ]

@@ -32,6 +32,7 @@
         {% include "partials/_nav_item.html" with href="/admin/org/action-items/" icon="clipboard-list" label="Action Items" %}
         {% if user.role != "STAFF_ADMIN" %}
           {% include "partials/_nav_item.html" with href="/admin/org/regions/" icon="map-pin" label="Regions" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/reply-templates/" icon="file-text" label="Templates" %}
           {% include "partials/_nav_item.html" with href="/admin/org/team/" icon="users" label="Team" %}
         {% endif %}
       </ul>

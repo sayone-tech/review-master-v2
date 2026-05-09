@@ -1,0 +1,30 @@
+{% extends "base_org.html" %}
+{% load static django_vite %}
+
+{% block content %}
+  <div class="flex items-center justify-between mb-5">
+    <h1 class="text-[18px] font-semibold text-ink">Reply Templates</h1>
+    <button
+      id="open-create-template"
+      class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
+    >
+      + Create Template
+    </button>
+  </div>
+
+  {% include "components/filter_bar.html" with search_placeholder="Search by name or content" %}
+
+  <div id="template-modals-root"></div>
+
+  {% if templates_count > 0 %}
+    {{ templates_json|json_script:"template-data" }}
+  {% endif %}
+  <div class="border border-line rounded-card overflow-hidden">
+    <div id="template-table-root"></div>
+    {% include "components/pagination.html" with page_obj=page_obj per_page=per_page per_page_options=per_page_options page_url_params=page_url_params %}
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/reply-templates.tsx' %}
+{% endblock %}
