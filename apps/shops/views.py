@@ -4,23 +4,25 @@ import contextlib
 import json
 import logging
 import secrets
-from typing import Any
+from typing import Any, cast
 
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import render
 from django.views import View
 from django_redis import get_redis_connection
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status
 from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import BasePermission
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsOrgAdmin, org_admin_required
-from apps.common.permissions import IsOrgScoped
+from apps.common.permissions import IsOrgScoped, RequiresSessionAuth
 from apps.common.viewsets import TenantScopedViewSet
 from apps.integrations.google.exceptions import (
     GoogleAuthError,
@@ -132,6 +134,11 @@ class ShopViewSet(
     http_method_names = ["get", "post", "patch", "head", "options"]  # noqa: RUF012
     pagination_class = ShopsPagination
 
+    def get_permissions(self) -> list[BasePermission]:
+        if self.action in ("create", "update", "partial_update"):
+            return [RequiresSessionAuth(), IsOrgAdmin(), IsOrgScoped()]
+        return cast(list[BasePermission], super().get_permissions())
+
     def get_serializer_class(self) -> type[drf_serializers.BaseSerializer[Any]]:
         if self.action == "create":
             return ShopCreateSerializer
@@ -175,6 +182,7 @@ class ShopViewSet(
     # Create — returns ShopReadSerializer in 201 (Phase 7 pattern)
     # ------------------------------------------------------------------
 
+    @extend_schema(exclude=True)
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -246,10 +254,12 @@ class ShopViewSet(
     # Update — returns ShopReadSerializer in 200
     # ------------------------------------------------------------------
 
+    @extend_schema(exclude=True)
     def partial_update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
 
+    @extend_schema(exclude=True)
     def update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
