@@ -859,3 +859,36 @@ class TestShopMobileScoping:
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         resp = client.get("/api/v1/shops/")
         assert resp.status_code == 200
+
+    def test_org_admin_jwt_cannot_activate_shop(self, db):
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region)
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.post(f"/api/v1/shops/{shop.pk}/activate/")
+        assert resp.status_code == 403
+
+    def test_org_admin_jwt_cannot_deactivate_shop(self, db):
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region)
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.post(f"/api/v1/shops/{shop.pk}/deactivate/")
+        assert resp.status_code == 403
+
+    def test_org_admin_jwt_cannot_reconnect_shop(self, db):
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region)
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.post(f"/api/v1/shops/{shop.pk}/reconnect/", {"state": "invalid"})
+        assert resp.status_code == 403

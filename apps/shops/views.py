@@ -135,7 +135,14 @@ class ShopViewSet(
     pagination_class = ShopsPagination
 
     def get_permissions(self) -> list[BasePermission]:
-        if self.action in ("create", "update", "partial_update"):
+        if self.action in (
+            "create",
+            "update",
+            "partial_update",
+            "activate",
+            "deactivate",
+            "reconnect",
+        ):
             return [RequiresSessionAuth(), IsOrgAdmin(), IsOrgScoped()]
         # Read actions (list, retrieve) are open to both ORG_ADMIN and STAFF_ADMIN.
         return [IsOrgScoped()]
@@ -284,18 +291,21 @@ class ShopViewSet(
     # Custom actions
     # ------------------------------------------------------------------
 
+    @extend_schema(exclude=True)
     @action(detail=True, methods=["post"], url_path="activate")
     def activate(self, request: Request, pk: int | None = None) -> Response:
         shop = self.get_object()
         activate_shop(shop=shop)
         return Response(ShopReadSerializer(shop).data)
 
+    @extend_schema(exclude=True)
     @action(detail=True, methods=["post"], url_path="deactivate")
     def deactivate(self, request: Request, pk: int | None = None) -> Response:
         shop = self.get_object()
         deactivate_shop(shop=shop)
         return Response(ShopReadSerializer(shop).data)
 
+    @extend_schema(exclude=True)
     @action(detail=True, methods=["post"], url_path="reconnect")
     def reconnect(self, request: Request, pk: int | None = None) -> Response:
         shop = self.get_object()
