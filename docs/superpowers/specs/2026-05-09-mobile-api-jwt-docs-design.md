@@ -287,7 +287,87 @@ No sidebar link — docs are a developer tool. Navigate directly to `/api/v1/sch
 
 ---
 
-## 5. Files Changed
+## 5. Testing
+
+All tests live in `apps/accounts/tests/test_jwt.py`, `apps/shops/tests/test_views.py`,
+`apps/regions/tests/test_views.py`, and `apps/common/tests/test_permissions.py`.
+No real JWT calls — `APIClient` sets tokens directly via `credentials()`.
+
+### 5.1 JWT token obtain (`POST /api/v1/auth/token/`)
+
+| Test | Expected |
+|---|---|
+| Valid Org Admin email + password | 200 — returns `access` and `refresh` tokens |
+| Valid Staff Admin email + password | 200 — returns `access` and `refresh` tokens |
+| Wrong password | 401 |
+| Non-existent email | 401 |
+| Inactive user | 401 |
+| Superadmin credentials | 403 — `"Mobile access is not available for superadmin accounts."` |
+| Missing email field | 400 |
+| Missing password field | 400 |
+
+### 5.2 JWT claims
+
+| Test | Expected |
+|---|---|
+| Decode access token after Org Admin login | Contains `user_id`, `email`, `full_name`, `role="ORG_ADMIN"`, `organisation_id` |
+| Decode access token after Staff Admin login | Contains `role="STAFF_ADMIN"`, correct `organisation_id` |
+
+### 5.3 JWT token refresh (`POST /api/v1/auth/token/refresh/`)
+
+| Test | Expected |
+|---|---|
+| Valid refresh token | 200 — returns new `access` and new `refresh` token |
+| Old refresh token after rotation | 401 — blacklisted |
+| Tampered/invalid refresh token | 401 |
+| Missing refresh field | 400 |
+
+### 5.4 JWT access on protected endpoints
+
+| Test | Expected |
+|---|---|
+| `GET /api/v1/reviews/` with valid `Bearer` access token | 200 |
+| `GET /api/v1/reviews/` with expired access token | 401 |
+| `GET /api/v1/reviews/` with no token and no session | 401 |
+| `GET /api/v1/reviews/` with valid session cookie (web) | 200 — session auth still works |
+
+### 5.5 RequiresSessionAuth — shop mutations
+
+| Test | Setup | Expected |
+|---|---|---|
+| Staff Admin + JWT → `GET /api/v1/shops/` | JWT auth | 200 — list allowed |
+| Org Admin + JWT → `GET /api/v1/shops/` | JWT auth | 200 — list allowed |
+| Staff Admin + JWT → `POST /api/v1/shops/` | JWT auth | 403 |
+| Org Admin + JWT → `POST /api/v1/shops/` | JWT auth | 403 |
+| Org Admin + JWT → `PATCH /api/v1/shops/{id}/` | JWT auth | 403 |
+| Org Admin + session → `POST /api/v1/shops/` | Session auth | 201 — web still works |
+| Org Admin + session → `PATCH /api/v1/shops/{id}/` | Session auth | 200 — web still works |
+
+### 5.6 RequiresSessionAuth — region mutations
+
+| Test | Setup | Expected |
+|---|---|---|
+| Staff Admin + JWT → `GET /api/v1/regions/` | JWT auth | 200 — list allowed |
+| Org Admin + JWT → `POST /api/v1/regions/` | JWT auth | 403 |
+| Org Admin + JWT → `DELETE /api/v1/regions/{id}/` | JWT auth | 403 |
+| Org Admin + session → `POST /api/v1/regions/` | Session auth | 201 — web still works |
+| Org Admin + session → `DELETE /api/v1/regions/{id}/` | Session auth | 204 — web still works |
+
+### 5.7 API documentation access
+
+| Test | User | Expected |
+|---|---|---|
+| `GET /api/v1/schema/` | Superadmin (session) | 200 — OpenAPI JSON |
+| `GET /api/v1/schema/scalar/` | Superadmin (session) | 200 — HTML page |
+| `GET /api/v1/schema/redoc/` | Superadmin (session) | 200 — HTML page |
+| `GET /api/v1/schema/scalar/` | Org Admin (session) | 403 |
+| `GET /api/v1/schema/scalar/` | Staff Admin (session) | 403 |
+| `GET /api/v1/schema/scalar/` | Unauthenticated | 403 |
+| `GET /api/v1/schema/scalar/` | Org Admin (JWT) | 403 |
+
+---
+
+## 6. Files Changed
 
 | File | Change |
 |---|---|
