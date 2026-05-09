@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import BasePermission
 from rest_framework.request import Request
 from rest_framework.views import APIView
@@ -34,3 +35,17 @@ class IsOrgScoped(BasePermission):
         if obj_org_id is None:
             return False
         return bool(obj_org_id == getattr(user, "organisation_id", None))
+
+
+class RequiresSessionAuth(BasePermission):
+    """Grant access only to requests authenticated via Django's SessionAuthentication.
+
+    JWT-authenticated requests (mobile clients) and unauthenticated requests are
+    both denied with a 403.  This prevents mobile API tokens from being used
+    against browser-only mutation endpoints.
+    """
+
+    message = "This action is only available via the web application."
+
+    def has_permission(self, request: Request, view: APIView) -> bool:
+        return isinstance(request.successful_authenticator, SessionAuthentication)
