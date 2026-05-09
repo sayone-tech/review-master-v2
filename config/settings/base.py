@@ -238,15 +238,20 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    # 30-day refresh token with rotation+blacklist: stolen tokens can only be used once
+    # before being invalidated. Tradeoff: longer window if attacker uses token first.
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     "ROTATE_REFRESH_TOKENS": True,
+    # BLACKLIST_AFTER_ROTATION requires token_blacklist migrations to be applied before
+    # the refresh endpoint is called, or it will raise an OperationalError at runtime.
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
+    # HS256 + SECRET_KEY: rotating SECRET_KEY invalidates all outstanding tokens.
+    # Migrate to RS256 if zero-downtime key rotation is ever needed.
     "ALGORITHM": "HS256",
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
-    "TOKEN_OBTAIN_SERIALIZER": "apps.accounts.serializers.MobileTokenObtainPairSerializer",
 }
 
 SPECTACULAR_SETTINGS = {

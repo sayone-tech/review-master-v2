@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.routers import SimpleRouter
 
 from apps.accounts.permissions import IsSuperadmin
@@ -29,16 +30,22 @@ urlpatterns = [
     path("api/v1/", include(notifications_api_urls)),
     path("api/v1/", include("apps.accounts.api_urls")),
     path("api/v1/dashboard/", include("apps.dashboard.urls")),
-    # API documentation — Superadmin only
+    # API documentation — Superadmin only, session auth only (no JWT access to docs)
     path(
         "api/v1/schema/",
-        SpectacularAPIView.as_view(permission_classes=[IsSuperadmin]),
+        SpectacularAPIView.as_view(
+            permission_classes=[IsSuperadmin],
+            authentication_classes=[SessionAuthentication],
+        ),
         name="schema",
     ),
     path("api/v1/schema/scalar/", ScalarDocsView.as_view(), name="schema-scalar"),
     path(
         "api/v1/schema/redoc/",
-        SpectacularRedocView.as_view(permission_classes=[IsSuperadmin]),
+        SpectacularRedocView.as_view(
+            permission_classes=[IsSuperadmin],
+            authentication_classes=[SessionAuthentication],
+        ),
         name="schema-redoc",
     ),
     path("", include("apps.organisations.urls")),

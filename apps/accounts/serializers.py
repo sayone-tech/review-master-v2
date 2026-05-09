@@ -18,7 +18,7 @@ class MobileTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         # self.user is always populated by super().validate() when credentials are valid.
         user = cast(User, self.user)
-        if user.organisation_id is None:
+        if user.role == User.Role.SUPERADMIN:
             raise PermissionDenied("Mobile access is not available for superadmin accounts.")
         return data
 
