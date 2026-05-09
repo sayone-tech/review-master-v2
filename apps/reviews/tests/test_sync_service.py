@@ -328,12 +328,12 @@ def test_fetch_and_persist_enqueues_enrichment_for_pending_reviews(
 
 
 @pytest.mark.django_db
-def test_fetch_and_persist_does_not_emit_sync_complete(patched_dependencies) -> None:
-    """Phase 12 CONTEXT.md: sync.complete is NO LONGER emitted by fetch_and_persist_reviews.
+def test_fetch_and_persist_emits_sync_complete(patched_dependencies) -> None:
+    """fetch_and_persist_reviews must emit sync.complete on success so the UI updates.
 
-    The enrichment service is the sole source of sync.complete in Phase 12 once
-    enriched >= fetched. fetch_and_persist_reviews still writes the success
-    snapshot and the sync.completed AuditLog entry but emits no sync.complete event.
+    Previously the success path only wrote the Redis snapshot but never sent
+    the WebSocket event, leaving the progress bar frozen at the last fetch-progress
+    value. The fix adds emit_progress_event in the success path.
     """
     shop = _make_shop()
     page = {
@@ -354,9 +354,89 @@ def test_fetch_and_persist_does_not_emit_sync_complete(patched_dependencies) -> 
         sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
 
     emitted_types = [p["type"] for p in captured_emit]
-    assert "sync.complete" not in emitted_types, (
-        f"sync.complete must not be emitted by fetch_and_persist_reviews; "
+    # sync.fetch.progress emitted during fetch, sync.complete emitted on success
+    assert "sync.fetch.progress" in emitted_types
+    assert "sync.complete" in emitted_types, (
+        f"sync.complete must be emitted by fetch_and_persist_reviews on success; "
         f"got types: {emitted_types}"
     )
-    # sync.fetch.progress is still emitted at least once
-    assert "sync.fetch.progress" in emitted_types
+    complete_event = next(p for p in captured_emit if p["type"] == "sync.complete")
+    assert complete_event["shop_id"] == shop.pk
+    assert complete_event["total_fetched"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Rate-limit and enrichment-dispatch optimisations
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_token_bucket_cap_is_1800() -> None:
+    """Google's published QPM for the GBP API is 1 800.  Our defensive cap must
+    not be lower than that — a cap of 600 caused mid-sync halts for shops with
+    more than 600 reviews per minute of fetch time when multiple stores synced
+    concurrently (token_bucket_depleted short-circuits the pagination loop)."""
+    from apps.reviews.services.progress import GOOGLE_BUCKET_MAX_CALLS_PER_MINUTE
+
+    assert GOOGLE_BUCKET_MAX_CALLS_PER_MINUTE >= 1800, (
+        "Token bucket cap must be >= 1800 (Google GBP QPM limit). "
+        "A lower cap causes partial syncs for large shops."
+    )
+
+
+@pytest.mark.django_db
+def test_already_enriched_reviews_bulk_incremented_not_dispatched(
+    patched_dependencies,
+) -> None:
+    """Re-syncing a shop where reviews are already SUCCESS must NOT dispatch
+    enrich_review_task for those reviews.  Instead, fetch_and_persist_reviews
+    must call bulk_increment_enriched_counter so the enriched-counter advances
+    without flooding the ai-enrichment queue with no-op idempotent tasks.
+
+    Scenario: page contains 2 reviews; both are already SUCCESS in the DB.
+    Expected: enrich_review_task.delay never called; bulk_increment called once
+    with count=2.
+    """
+    shop = _make_shop()
+    page = {
+        "reviews": [_api_review("g-already-1"), _api_review("g-already-2")],
+        "totalReviewCount": 2,
+    }
+
+    # Pre-create reviews as SUCCESS with the same comment/rating as the API
+    # fixture — if the content differs, _persist_page resets status to PENDING.
+    from apps.reviews.models import Review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    ReviewFactory(
+        shop=shop,
+        google_review_id="g-already-1",
+        comment="Great!",
+        star_rating=5,
+        enrichment_status=Review.EnrichmentStatus.SUCCESS,
+    )
+    ReviewFactory(
+        shop=shop,
+        google_review_id="g-already-2",
+        comment="Great!",
+        star_rating=5,
+        enrichment_status=Review.EnrichmentStatus.SUCCESS,
+    )
+
+    with (
+        patch.object(sync_mod, "list_reviews", return_value=page),
+        patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay,
+        patch.object(sync_mod, "bulk_increment_enriched_counter") as mock_bulk,
+    ):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+
+    assert mock_delay.call_count == 0, (
+        "enrich_review_task must NOT be dispatched for already-SUCCESS reviews"
+    )
+    assert mock_bulk.call_count >= 1, (
+        "bulk_increment_enriched_counter must be called for already-SUCCESS reviews"
+    )
+    total_bulk_incremented = sum(c.kwargs["count"] for c in mock_bulk.call_args_list)
+    assert total_bulk_incremented == 2, (
+        "bulk counter must be advanced by exactly 2 (the number of SUCCESS reviews)"
+    )

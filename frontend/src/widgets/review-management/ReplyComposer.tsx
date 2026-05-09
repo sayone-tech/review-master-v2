@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { CheckCircle, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { CheckCircle, ChevronDown, Trash2 } from "lucide-react";
 import { emitToast } from "../../lib/toast";
 import { ApiError, deleteReply, submitReply } from "./api";
+import { listTemplates } from "../reply-templates/api";
+import type { TemplateRow } from "../reply-templates/types";
 import { StarRating } from "./StarRating";
 import type { ReviewRow } from "./types";
 
@@ -23,6 +25,24 @@ export function ReplyComposer({
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    listTemplates().then(setTemplates).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [pickerOpen]);
 
   const charCount = comment.length;
   const counterCls =
@@ -205,12 +225,49 @@ export function ReplyComposer({
           )}
         </div>
         <div className="px-4 py-4">
-          <label
-            htmlFor={`reply-textarea-${row.id}`}
-            className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em] mb-2 block"
-          >
-            Your reply
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label
+              htmlFor={`reply-textarea-${row.id}`}
+              className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]"
+            >
+              Your reply
+            </label>
+            {templates.length > 0 && (
+              <div ref={pickerRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen((o) => !o)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium border border-line rounded-md text-ink bg-white hover:bg-line-soft transition-colors"
+                >
+                  Use template
+                  <ChevronDown size={12} aria-hidden="true" />
+                </button>
+                {pickerOpen && (
+                  <div className="absolute right-0 z-20 mt-1 w-64 bg-white border border-line rounded-md shadow-lg overflow-hidden">
+                    <ul role="listbox" aria-label="Reply templates" className="max-h-56 overflow-y-auto py-1">
+                      {templates.map((t) => (
+                        <li key={t.id}>
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={false}
+                            onClick={() => {
+                              setComment(t.content);
+                              setPickerOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-line-soft transition-colors"
+                          >
+                            <div className="text-[13px] font-semibold text-ink truncate">{t.name}</div>
+                            <div className="text-[11.5px] text-muted truncate mt-0.5">{t.content.slice(0, 60)}{t.content.length > 60 ? "…" : ""}</div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <textarea
             id={`reply-textarea-${row.id}`}
             className="w-full min-h-[120px] px-3 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink resize-y"

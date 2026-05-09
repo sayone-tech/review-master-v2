@@ -200,7 +200,7 @@ export function ActionItemTable({
     {
       key: "status",
       label: "STATUS",
-      skeletonWidth: "80px",
+      skeletonWidth: "100px",
       accessor: (r) => <StatusBadge status={r.status} />,
     },
     {
