@@ -1,8 +1,29 @@
+from __future__ import annotations
+
 from django.core.cache import cache
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.renderers import TemplateHTMLRenderer
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.accounts.permissions import IsSuperadmin
+
+
+class ScalarDocsView(APIView):
+    """Interactive API documentation (Scalar) — Superadmin only."""
+
+    permission_classes = [IsSuperadmin]  # noqa: RUF012
+    authentication_classes = [SessionAuthentication]  # noqa: RUF012
+    renderer_classes = [TemplateHTMLRenderer]  # noqa: RUF012
+    template_name = "api_docs/scalar.html"
+
+    def get(self, request: Request) -> Response:
+        return Response()
 
 
 def healthz(request: HttpRequest) -> JsonResponse:

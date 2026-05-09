@@ -1,9 +1,12 @@
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 from rest_framework.routers import SimpleRouter
 
+from apps.accounts.permissions import IsSuperadmin
 from apps.action_items.urls import api_urlpatterns as action_items_api_urls
+from apps.common.views import ScalarDocsView
 from apps.notifications.urls import api_urlpatterns as notifications_api_urls
 from apps.organisations.views import OrganisationViewSet
 from apps.regions.views import RegionViewSet
@@ -26,6 +29,18 @@ urlpatterns = [
     path("api/v1/", include(notifications_api_urls)),
     path("api/v1/", include("apps.accounts.api_urls")),
     path("api/v1/dashboard/", include("apps.dashboard.urls")),
+    # API documentation — Superadmin only
+    path(
+        "api/v1/schema/",
+        SpectacularAPIView.as_view(permission_classes=[IsSuperadmin]),
+        name="schema",
+    ),
+    path("api/v1/schema/scalar/", ScalarDocsView.as_view(), name="schema-scalar"),
+    path(
+        "api/v1/schema/redoc/",
+        SpectacularRedocView.as_view(permission_classes=[IsSuperadmin]),
+        name="schema-redoc",
+    ),
     path("", include("apps.organisations.urls")),
     path("", include("apps.accounts.urls")),
     path("", include("apps.common.urls")),
