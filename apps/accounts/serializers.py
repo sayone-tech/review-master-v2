@@ -1,10 +1,39 @@
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import Token
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from apps.accounts.models import StaffAccessScope, User
+
+
+class MobileTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = "email"
+
+    def validate(self, attrs: dict) -> dict:  # type: ignore[type-arg]
+        data = super().validate(attrs)
+        # self.user is always populated by super().validate() when credentials are valid.
+        user = cast(User, self.user)
+        if user.organisation_id is None:
+            raise PermissionDenied("Mobile access is not available for superadmin accounts.")
+        return data
+
+    @classmethod
+    def get_token(cls, user: User) -> Token:  # type: ignore[override]
+        token = super().get_token(user)
+        token["email"] = user.email
+        token["full_name"] = user.full_name
+        token["role"] = user.role
+        token["organisation_id"] = user.organisation_id
+        return token
+
+
+class MobileTokenObtainPairView(TokenObtainPairView):
+    serializer_class = MobileTokenObtainPairSerializer  # type: ignore[assignment]
 
 
 class StaffAccessScopeSerializer(serializers.ModelSerializer[StaffAccessScope]):
