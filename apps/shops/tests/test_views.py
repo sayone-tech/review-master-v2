@@ -371,7 +371,7 @@ class TestShopsApiUpdate:
 
 @pytest.mark.django_db
 class TestShopsApiActions:
-    def test_deactivate_action_returns_200(self, org_and_admin):
+    def test_deactivate_action_returns_200(self, org_and_admin, bypass_session_auth):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         shop = ShopFactory(organisation=org, region=region, is_active=True)
@@ -381,7 +381,7 @@ class TestShopsApiActions:
         shop.refresh_from_db()
         assert shop.is_active is False
 
-    def test_activate_action_returns_200(self, org_and_admin):
+    def test_activate_action_returns_200(self, org_and_admin, bypass_session_auth):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         shop = ShopFactory(organisation=org, region=region, is_active=False)
@@ -444,7 +444,9 @@ class TestShopsCrossTenantIsolation:
         resp = client_a.patch(f"/api/v1/shops/{shop_b.pk}/", {"name": "Hacked"})
         assert resp.status_code == 404
 
-    def test_admin_a_deactivate_org_b_shop_returns_404(self, two_orgs_two_admins):
+    def test_admin_a_deactivate_org_b_shop_returns_404(
+        self, two_orgs_two_admins, bypass_session_auth
+    ):
         d = two_orgs_two_admins
         shop_b = ShopFactory(organisation=d["org_b"])
         client_a = APIClient()
