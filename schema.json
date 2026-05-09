@@ -1,0 +1,3878 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "Review Master API",
+        "version": "1.0.0",
+        "description": "Internal API for web and mobile clients. Not for external use."
+    },
+    "paths": {
+        "/api/v1/action-items/": {
+            "get": {
+                "operationId": "action_items_list",
+                "description": "ActionItem CRUD + custom transition-status / add-note actions.\n\nThree-layer Staff scope:\n  - Layer 1 (selector): list_action_items filters Staff to SHOP-scope only.\n  - Layer 2 (permission): BrandScopeGuard returns 403 for direct-id access\n    to BRAND items by Staff.\n  - Layer 3 (UI): hide brand controls in plan 13-06/07.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "assignee",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "from_date",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "review",
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "scope",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "BRAND",
+                                "SHOP"
+                            ]
+                        },
+                        "description": "* `SHOP` - Shop\n* `BRAND` - Brand"
+                    },
+                    {
+                        "in": "query",
+                        "name": "search",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "shop",
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "COMPLETE",
+                                "IN_PROGRESS",
+                                "TODO",
+                                "WONT_DO"
+                            ]
+                        },
+                        "description": "* `TODO` - To Do\n* `IN_PROGRESS` - In Progress\n* `COMPLETE` - Complete\n* `WONT_DO` - Won't Do"
+                    },
+                    {
+                        "in": "query",
+                        "name": "to_date",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "tags": [
+                    "action-items"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedActionItemListList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "action_items_create",
+                "description": "ActionItem CRUD + custom transition-status / add-note actions.\n\nThree-layer Staff scope:\n  - Layer 1 (selector): list_action_items filters Staff to SHOP-scope only.\n  - Layer 2 (permission): BrandScopeGuard returns 403 for direct-id access\n    to BRAND items by Staff.\n  - Layer 3 (UI): hide brand controls in plan 13-06/07.",
+                "tags": [
+                    "action-items"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemCreate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemCreate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionItemCreate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/action-items/{id}/": {
+            "get": {
+                "operationId": "action_items_retrieve",
+                "description": "ActionItem CRUD + custom transition-status / add-note actions.\n\nThree-layer Staff scope:\n  - Layer 1 (selector): list_action_items filters Staff to SHOP-scope only.\n  - Layer 2 (permission): BrandScopeGuard returns 403 for direct-id access\n    to BRAND items by Staff.\n  - Layer 3 (UI): hide brand controls in plan 13-06/07.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this action item.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "action-items"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionItemRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "put": {
+                "operationId": "action_items_update",
+                "description": "ActionItem CRUD + custom transition-status / add-note actions.\n\nThree-layer Staff scope:\n  - Layer 1 (selector): list_action_items filters Staff to SHOP-scope only.\n  - Layer 2 (permission): BrandScopeGuard returns 403 for direct-id access\n    to BRAND items by Staff.\n  - Layer 3 (UI): hide brand controls in plan 13-06/07.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this action item.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "action-items"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemUpdate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemUpdate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemUpdate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionItemUpdate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "action_items_partial_update",
+                "description": "ActionItem CRUD + custom transition-status / add-note actions.\n\nThree-layer Staff scope:\n  - Layer 1 (selector): list_action_items filters Staff to SHOP-scope only.\n  - Layer 2 (permission): BrandScopeGuard returns 403 for direct-id access\n    to BRAND items by Staff.\n  - Layer 3 (UI): hide brand controls in plan 13-06/07.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this action item.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "action-items"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedActionItemUpdate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedActionItemUpdate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedActionItemUpdate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionItemUpdate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/action-items/{id}/add-note/": {
+            "post": {
+                "operationId": "action_items_add_note_create",
+                "description": "ActionItem CRUD + custom transition-status / add-note actions.\n\nThree-layer Staff scope:\n  - Layer 1 (selector): list_action_items filters Staff to SHOP-scope only.\n  - Layer 2 (permission): BrandScopeGuard returns 403 for direct-id access\n    to BRAND items by Staff.\n  - Layer 3 (UI): hide brand controls in plan 13-06/07.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this action item.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "action-items"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemRead"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemRead"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemRead"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionItemRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/action-items/{id}/transition-status/": {
+            "post": {
+                "operationId": "action_items_transition_status_create",
+                "description": "ActionItem CRUD + custom transition-status / add-note actions.\n\nThree-layer Staff scope:\n  - Layer 1 (selector): list_action_items filters Staff to SHOP-scope only.\n  - Layer 2 (permission): BrandScopeGuard returns 403 for direct-id access\n    to BRAND items by Staff.\n  - Layer 3 (UI): hide brand controls in plan 13-06/07.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this action item.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "action-items"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemRead"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemRead"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ActionItemRead"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionItemRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/token/": {
+            "post": {
+                "operationId": "auth_token_create",
+                "description": "Takes a set of user credentials and returns an access and refresh JSON web\ntoken pair to prove the authentication of those credentials.",
+                "tags": [
+                    "auth"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MobileTokenObtainPair"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MobileTokenObtainPair"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MobileTokenObtainPair"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MobileTokenObtainPair"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/token/refresh/": {
+            "post": {
+                "operationId": "auth_token_refresh_create",
+                "description": "Takes a refresh type JSON web token and returns an access type JSON web\ntoken if the refresh token is valid.",
+                "tags": [
+                    "auth"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefresh"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefresh"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRefresh"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenRefresh"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/dashboard/highlights/": {
+            "get": {
+                "operationId": "dashboard_highlights_retrieve",
+                "tags": [
+                    "dashboard"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/dashboard/kpis/": {
+            "get": {
+                "operationId": "dashboard_kpis_retrieve",
+                "tags": [
+                    "dashboard"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/dashboard/sentiment-distribution/": {
+            "get": {
+                "operationId": "dashboard_sentiment_distribution_retrieve",
+                "tags": [
+                    "dashboard"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/dashboard/top-performing/": {
+            "get": {
+                "operationId": "dashboard_top_performing_retrieve",
+                "tags": [
+                    "dashboard"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/dashboard/your-store/": {
+            "get": {
+                "operationId": "dashboard_your_store_retrieve",
+                "tags": [
+                    "dashboard"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/{id}/read/": {
+            "post": {
+                "operationId": "notifications_read_create",
+                "description": "NOTF-03: Mark a single notification read. Idempotent.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this notification.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NotificationRead"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NotificationRead"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NotificationRead"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotificationRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/bell/": {
+            "get": {
+                "operationId": "notifications_bell_retrieve",
+                "description": "NOTF-01 / NOTF-04: ``{unread_count, items}`` for the bell popover.\n\nHot path — polled every 60 s. ≤ 3 SQL queries (auth, count, select).",
+                "tags": [
+                    "notifications"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotificationRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/notifications/mark-all-read/": {
+            "post": {
+                "operationId": "notifications_mark_all_read_create",
+                "description": "NOTF-03: Mark every unread notification for the current user as read.",
+                "tags": [
+                    "notifications"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NotificationRead"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NotificationRead"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NotificationRead"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotificationRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/organisations/": {
+            "get": {
+                "operationId": "organisations_list",
+                "parameters": [
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "organisations"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedOrganisationListList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "organisations_create",
+                "tags": [
+                    "organisations"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganisationCreate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganisationCreate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganisationCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganisationCreate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/organisations/{id}/": {
+            "get": {
+                "operationId": "organisations_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this organisation.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "organisations"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganisationDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "organisations_partial_update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this organisation.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "organisations"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedOrganisationUpdate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedOrganisationUpdate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedOrganisationUpdate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganisationUpdate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "organisations_destroy",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this organisation.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "organisations"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/organisations/{id}/resend-invitation/": {
+            "post": {
+                "operationId": "organisations_resend_invitation_create",
+                "description": "POST /api/v1/organisations/<pk>/resend-invitation/ — INVT-01.\n\nIsSuperadmin permission applied via get_object() -> permission_classes.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this organisation.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "organisations"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganisationDetail"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganisationDetail"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganisationDetail"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganisationDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/regions/": {
+            "get": {
+                "operationId": "regions_list",
+                "parameters": [
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "regions"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedRegionReadList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/reply-templates/": {
+            "get": {
+                "operationId": "reply_templates_list",
+                "parameters": [
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "reply-templates"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedReplyTemplateReadList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "reply_templates_create",
+                "tags": [
+                    "reply-templates"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReplyTemplateCreate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReplyTemplateCreate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReplyTemplateCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReplyTemplateCreate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/reply-templates/{id}/": {
+            "patch": {
+                "operationId": "reply_templates_partial_update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this reply template.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "reply-templates"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedReplyTemplateUpdate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedReplyTemplateUpdate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedReplyTemplateUpdate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReplyTemplateUpdate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "reply_templates_destroy",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this reply template.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "reply-templates"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/reviews/": {
+            "get": {
+                "operationId": "reviews_list",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "from_date",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "has_comment",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "is_replied",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "rating",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "search",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "sentiment",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "shop",
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "to_date",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "tags": [
+                    "reviews"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedReviewReadList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/reviews/{id}/": {
+            "get": {
+                "operationId": "reviews_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this review.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "reviews"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReviewRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/reviews/{id}/reply/": {
+            "post": {
+                "operationId": "reviews_reply_create",
+                "description": "POST: submit reply to Google. DELETE: remove reply from Google.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this review.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "reviews"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReviewRead"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReviewRead"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReviewRead"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReviewRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "reviews_reply_destroy",
+                "description": "POST: submit reply to Google. DELETE: remove reply from Google.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this review.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "reviews"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/reviews/stats/": {
+            "get": {
+                "operationId": "reviews_stats_retrieve",
+                "description": "Aggregate stats for the reviews list header cards.",
+                "tags": [
+                    "reviews"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReviewRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/schema/scalar/": {
+            "get": {
+                "operationId": "schema_scalar_retrieve",
+                "description": "Interactive API documentation (Scalar) — Superadmin only.",
+                "tags": [
+                    "schema"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/shops/": {
+            "get": {
+                "operationId": "shops_list",
+                "parameters": [
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "shops"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedShopReadList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/shops/{id}/": {
+            "get": {
+                "operationId": "shops_retrieve",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this shop.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "shops"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ShopRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/shops/oauth_result/": {
+            "get": {
+                "operationId": "shops_oauth_result_retrieve",
+                "tags": [
+                    "shops"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ShopRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/shops/syncing/": {
+            "get": {
+                "operationId": "shops_syncing_retrieve",
+                "description": "Return shops with active progress snapshots (for topbar indicator).",
+                "tags": [
+                    "shops"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ShopRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/team/": {
+            "get": {
+                "operationId": "team_list",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "parameters": [
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "team"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedTeamMemberReadList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "team_create",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "tags": [
+                    "team"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberCreate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberCreate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberCreate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamMemberCreate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/team/{id}/": {
+            "get": {
+                "operationId": "team_retrieve",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "team"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamMemberRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "put": {
+                "operationId": "team_update",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "team"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberUpdate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberUpdate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberUpdate"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamMemberUpdate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "team_partial_update",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "team"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedTeamMemberUpdate"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedTeamMemberUpdate"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedTeamMemberUpdate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamMemberUpdate"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "team_destroy",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "team"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/team/{id}/disable/": {
+            "post": {
+                "operationId": "team_disable_create",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "team"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamMemberRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/team/{id}/enable/": {
+            "post": {
+                "operationId": "team_enable_create",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "team"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamMemberRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/team/{id}/resend/": {
+            "post": {
+                "operationId": "team_resend_create",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "team"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        },
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        },
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TeamMemberRead"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamMemberRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/team/stats/": {
+            "get": {
+                "operationId": "team_stats_retrieve",
+                "description": "Team management API: list/create/update/destroy + disable/enable/resend/stats.\n\nScoped to the authenticated user's organisation via TenantScopedViewSet.\nOnly ORG_ADMIN users may access this viewset (IsOrgAdmin).",
+                "tags": [
+                    "team"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "jwtAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TeamMemberRead"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ActionItemCreate": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "minLength": 5
+                    },
+                    "scope": {
+                        "$ref": "#/components/schemas/ScopeEnum"
+                    },
+                    "priority": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PriorityEnum"
+                            }
+                        ],
+                        "default": "MEDIUM"
+                    },
+                    "shop": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "assignee": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "initial_note": {
+                        "type": "string",
+                        "maxLength": 2000
+                    }
+                },
+                "required": [
+                    "scope",
+                    "title"
+                ]
+            },
+            "ActionItemList": {
+                "type": "object",
+                "description": "List endpoint payload — excludes nested notes/source_review for tight query budget.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Status793Enum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "scope": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ScopeEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "priority": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PriorityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "source": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SourceEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "shop_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "shop_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "assignee_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "assignee_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "source_review_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "assignee_id",
+                    "assignee_name",
+                    "created_at",
+                    "due_date",
+                    "id",
+                    "priority",
+                    "scope",
+                    "shop_id",
+                    "shop_name",
+                    "source",
+                    "source_review_id",
+                    "status",
+                    "title",
+                    "updated_at"
+                ]
+            },
+            "ActionItemNote": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "body": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "author_id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "author_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "author_id",
+                    "author_name",
+                    "body",
+                    "created_at",
+                    "id"
+                ]
+            },
+            "ActionItemRead": {
+                "type": "object",
+                "description": "Detail endpoint payload — includes nested notes (oldest-first) and source_review.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Status793Enum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "scope": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ScopeEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "priority": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PriorityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "source": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SourceEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "shop_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "shop_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "assignee_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "assignee_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "source_review_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "notes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ActionItemNote"
+                        },
+                        "readOnly": true
+                    },
+                    "source_review": {
+                        "type": "object",
+                        "additionalProperties": {},
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "assignee_id",
+                    "assignee_name",
+                    "created_at",
+                    "due_date",
+                    "id",
+                    "notes",
+                    "priority",
+                    "scope",
+                    "shop_id",
+                    "shop_name",
+                    "source",
+                    "source_review",
+                    "source_review_id",
+                    "status",
+                    "title",
+                    "updated_at"
+                ]
+            },
+            "ActionItemUpdate": {
+                "type": "object",
+                "description": "ACTN-07: Title, Priority, Due Date, Assignee are editable. Scope/Shop are NOT.\n\nOmitting scope and shop from Meta.fields means PATCH/PUT silently ignores\nthem in the payload (DRF validates incoming data only against declared\nfields).",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "minLength": 5
+                    },
+                    "priority": {
+                        "$ref": "#/components/schemas/PriorityEnum"
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "assignee": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                }
+            },
+            "ConnectionMethodEnum": {
+                "enum": [
+                    "GOOGLE_OAUTH",
+                    "NOT_CONNECTED"
+                ],
+                "type": "string",
+                "description": "* `GOOGLE_OAUTH` - Google OAuth\n* `NOT_CONNECTED` - Not Connected"
+            },
+            "ConnectionStatusEnum": {
+                "enum": [
+                    "CONNECTED",
+                    "EXPIRED",
+                    "ERROR",
+                    "QUOTA_EXCEEDED",
+                    "NOT_CONNECTED"
+                ],
+                "type": "string",
+                "description": "* `CONNECTED` - Connected\n* `EXPIRED` - Connection Expired\n* `ERROR` - Connection Error\n* `QUOTA_EXCEEDED` - Quota Exceeded\n* `NOT_CONNECTED` - Not Connected"
+            },
+            "EnrichmentStatusEnum": {
+                "enum": [
+                    "PENDING",
+                    "IN_PROGRESS",
+                    "SUCCESS",
+                    "FAILED"
+                ],
+                "type": "string",
+                "description": "* `PENDING` - Pending\n* `IN_PROGRESS` - In Progress\n* `SUCCESS` - Success\n* `FAILED` - Failed"
+            },
+            "InvitedForRoleEnum": {
+                "enum": [
+                    "ORG_ADMIN",
+                    "STAFF_ADMIN"
+                ],
+                "type": "string",
+                "description": "* `ORG_ADMIN` - Manager\n* `STAFF_ADMIN` - Staff"
+            },
+            "MobileTokenObtainPair": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "writeOnly": true
+                    },
+                    "password": {
+                        "type": "string",
+                        "writeOnly": true
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ]
+            },
+            "NotificationRead": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "notification_type": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/NotificationTypeEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "target_url": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "is_read": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "shop_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "shop_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "action_item_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "review_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "action_item_id",
+                    "created_at",
+                    "id",
+                    "is_read",
+                    "notification_type",
+                    "review_id",
+                    "shop_id",
+                    "shop_name",
+                    "target_url",
+                    "title"
+                ]
+            },
+            "NotificationTypeEnum": {
+                "enum": [
+                    "new_review",
+                    "new_action_item",
+                    "action_item_assigned"
+                ],
+                "type": "string",
+                "description": "* `new_review` - New Review\n* `new_action_item` - New Action Item\n* `action_item_assigned` - Action Item Assigned"
+            },
+            "OrgTypeEnum": {
+                "enum": [
+                    "RETAIL",
+                    "RESTAURANT",
+                    "PHARMACY",
+                    "SUPERMARKET"
+                ],
+                "type": "string",
+                "description": "* `RETAIL` - Retail\n* `RESTAURANT` - Restaurant\n* `PHARMACY` - Pharmacy\n* `SUPERMARKET` - Supermarket"
+            },
+            "OrganisationCreate": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 2
+                    },
+                    "org_type": {
+                        "$ref": "#/components/schemas/OrgTypeEnum"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "address": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 500
+                    },
+                    "number_of_stores": {
+                        "type": "integer",
+                        "maximum": 1000,
+                        "minimum": 1
+                    }
+                },
+                "required": [
+                    "email",
+                    "name",
+                    "number_of_stores",
+                    "org_type"
+                ]
+            },
+            "OrganisationDetail": {
+                "type": "object",
+                "description": "Same fields as list — retrieve returns richer attributes later if needed.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "org_type": {
+                        "$ref": "#/components/schemas/OrgTypeEnum"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 254
+                    },
+                    "address": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "number_of_stores": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/StatusC9fEnum"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "total_stores": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "active_stores": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "activation_status": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "last_invited_at": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "activation_status",
+                    "active_stores",
+                    "created_at",
+                    "email",
+                    "id",
+                    "last_invited_at",
+                    "name",
+                    "number_of_stores",
+                    "org_type",
+                    "total_stores"
+                ]
+            },
+            "OrganisationList": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "org_type": {
+                        "$ref": "#/components/schemas/OrgTypeEnum"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 254
+                    },
+                    "address": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "number_of_stores": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/StatusC9fEnum"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "total_stores": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "active_stores": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "activation_status": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "last_invited_at": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "activation_status",
+                    "active_stores",
+                    "created_at",
+                    "email",
+                    "id",
+                    "last_invited_at",
+                    "name",
+                    "number_of_stores",
+                    "org_type",
+                    "total_stores"
+                ]
+            },
+            "OrganisationUpdate": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 2
+                    },
+                    "org_type": {
+                        "$ref": "#/components/schemas/OrgTypeEnum"
+                    },
+                    "address": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "number_of_stores": {
+                        "type": "integer",
+                        "maximum": 1000,
+                        "minimum": 1
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/OrganisationUpdateStatusEnum"
+                    }
+                }
+            },
+            "OrganisationUpdateStatusEnum": {
+                "enum": [
+                    "ACTIVE",
+                    "DISABLED"
+                ],
+                "type": "string",
+                "description": "* `ACTIVE` - Active\n* `DISABLED` - Disabled"
+            },
+            "PaginatedActionItemListList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ActionItemList"
+                        }
+                    }
+                }
+            },
+            "PaginatedOrganisationListList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrganisationList"
+                        }
+                    }
+                }
+            },
+            "PaginatedRegionReadList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RegionRead"
+                        }
+                    }
+                }
+            },
+            "PaginatedReplyTemplateReadList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReplyTemplateRead"
+                        }
+                    }
+                }
+            },
+            "PaginatedReviewReadList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReviewRead"
+                        }
+                    }
+                }
+            },
+            "PaginatedShopReadList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ShopRead"
+                        }
+                    }
+                }
+            },
+            "PaginatedTeamMemberReadList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TeamMemberRead"
+                        }
+                    }
+                }
+            },
+            "PatchedActionItemUpdate": {
+                "type": "object",
+                "description": "ACTN-07: Title, Priority, Due Date, Assignee are editable. Scope/Shop are NOT.\n\nOmitting scope and shop from Meta.fields means PATCH/PUT silently ignores\nthem in the payload (DRF validates incoming data only against declared\nfields).",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "minLength": 5
+                    },
+                    "priority": {
+                        "$ref": "#/components/schemas/PriorityEnum"
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "assignee": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                }
+            },
+            "PatchedOrganisationUpdate": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 2
+                    },
+                    "org_type": {
+                        "$ref": "#/components/schemas/OrgTypeEnum"
+                    },
+                    "address": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "number_of_stores": {
+                        "type": "integer",
+                        "maximum": 1000,
+                        "minimum": 1
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/OrganisationUpdateStatusEnum"
+                    }
+                }
+            },
+            "PatchedReplyTemplateUpdate": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 1
+                    },
+                    "content": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "PatchedTeamMemberUpdate": {
+                "type": "object",
+                "properties": {
+                    "full_name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 2
+                    },
+                    "role": {
+                        "$ref": "#/components/schemas/RoleC97Enum"
+                    },
+                    "region_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "shop_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            },
+            "PriorityEnum": {
+                "enum": [
+                    "HIGH",
+                    "MEDIUM",
+                    "LOW"
+                ],
+                "type": "string",
+                "description": "* `HIGH` - High\n* `MEDIUM` - Medium\n* `LOW` - Low"
+            },
+            "RegionRead": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "region_id": {
+                        "type": "string",
+                        "maxLength": 20
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "created_at",
+                    "id",
+                    "name",
+                    "region_id"
+                ]
+            },
+            "ReplyTemplateCreate": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 1
+                    },
+                    "content": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "required": [
+                    "content",
+                    "name"
+                ]
+            },
+            "ReplyTemplateRead": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "content",
+                    "created_at",
+                    "id",
+                    "name"
+                ]
+            },
+            "ReplyTemplateUpdate": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 1
+                    },
+                    "content": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "ReviewRead": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "shop_id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "shop_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "shop_region_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "region_id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "google_review_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "star_rating": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/StarRatingEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "reviewer_display_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "reviewer_photo_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "readOnly": true
+                    },
+                    "reviewer_is_anonymous": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "comment": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "review_create_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "review_update_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "reply_comment": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "reply_update_time": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "is_replied": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "replied_by_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "enrichment_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EnrichmentStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "sentiment": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "tags": {
+                        "readOnly": true
+                    },
+                    "extracted_action_items": {
+                        "readOnly": true
+                    },
+                    "has_action_items": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "comment",
+                    "created_at",
+                    "enrichment_status",
+                    "extracted_action_items",
+                    "google_review_id",
+                    "has_action_items",
+                    "id",
+                    "is_replied",
+                    "region_id",
+                    "replied_by_name",
+                    "reply_comment",
+                    "reply_update_time",
+                    "review_create_time",
+                    "review_update_time",
+                    "reviewer_display_name",
+                    "reviewer_is_anonymous",
+                    "reviewer_photo_url",
+                    "sentiment",
+                    "shop_id",
+                    "shop_name",
+                    "shop_region_name",
+                    "star_rating",
+                    "tags",
+                    "updated_at"
+                ]
+            },
+            "RoleC97Enum": {
+                "enum": [
+                    "ORG_ADMIN",
+                    "STAFF_ADMIN"
+                ],
+                "type": "string",
+                "description": "* `ORG_ADMIN` - Manager\n* `STAFF_ADMIN` - Staff"
+            },
+            "ScopeEnum": {
+                "enum": [
+                    "SHOP",
+                    "BRAND"
+                ],
+                "type": "string",
+                "description": "* `SHOP` - Shop\n* `BRAND` - Brand"
+            },
+            "ShopRead": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 200
+                    },
+                    "phone": {
+                        "type": "string",
+                        "maxLength": 20
+                    },
+                    "street_address": {
+                        "type": "string",
+                        "maxLength": 300
+                    },
+                    "place_id": {
+                        "type": "string",
+                        "maxLength": 300
+                    },
+                    "connection_method": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ConnectionMethodEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "connection_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ConnectionStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "is_active": {
+                        "type": "boolean"
+                    },
+                    "region": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "region_name": {
+                        "type": "string",
+                        "readOnly": true,
+                        "default": ""
+                    },
+                    "region_region_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "default": ""
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "connection_method",
+                    "connection_status",
+                    "created_at",
+                    "id",
+                    "name",
+                    "region_name",
+                    "region_region_id",
+                    "updated_at"
+                ]
+            },
+            "SourceEnum": {
+                "enum": [
+                    "AI",
+                    "MANUAL"
+                ],
+                "type": "string",
+                "description": "* `AI` - AI Extracted\n* `MANUAL` - Manual"
+            },
+            "StarRatingEnum": {
+                "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                ],
+                "type": "integer",
+                "description": "* `1` - One\n* `2` - Two\n* `3` - Three\n* `4` - Four\n* `5` - Five"
+            },
+            "Status793Enum": {
+                "enum": [
+                    "TODO",
+                    "IN_PROGRESS",
+                    "COMPLETE",
+                    "WONT_DO"
+                ],
+                "type": "string",
+                "description": "* `TODO` - To Do\n* `IN_PROGRESS` - In Progress\n* `COMPLETE` - Complete\n* `WONT_DO` - Won't Do"
+            },
+            "StatusC9fEnum": {
+                "enum": [
+                    "ACTIVE",
+                    "DISABLED",
+                    "DELETED"
+                ],
+                "type": "string",
+                "description": "* `ACTIVE` - Active\n* `DISABLED` - Disabled\n* `DELETED` - Deleted"
+            },
+            "TeamMemberCreate": {
+                "type": "object",
+                "properties": {
+                    "full_name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 2
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "invited_for_role": {
+                        "$ref": "#/components/schemas/InvitedForRoleEnum"
+                    },
+                    "region_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "shop_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "required": [
+                    "email",
+                    "full_name",
+                    "invited_for_role"
+                ]
+            },
+            "TeamMemberRead": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "readOnly": true
+                    },
+                    "role": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TeamMemberReadRoleEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "invited_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "accepted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "ACTIVE: is_active=True. PENDING: inactive with no accepted_at. DISABLED: inactive + accepted_at set.",
+                        "readOnly": true
+                    },
+                    "access_scopes": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        },
+                        "description": "CRITICAL: read prefetched_scopes (to_attr) to avoid N+1.\n\nFallback for instances loaded without prefetch.",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "accepted_at",
+                    "access_scopes",
+                    "email",
+                    "full_name",
+                    "id",
+                    "invited_at",
+                    "is_active",
+                    "role",
+                    "status"
+                ]
+            },
+            "TeamMemberReadRoleEnum": {
+                "enum": [
+                    "SUPERADMIN",
+                    "ORG_ADMIN",
+                    "STAFF_ADMIN"
+                ],
+                "type": "string",
+                "description": "* `SUPERADMIN` - Superadmin\n* `ORG_ADMIN` - Org Admin\n* `STAFF_ADMIN` - Staff Admin"
+            },
+            "TeamMemberUpdate": {
+                "type": "object",
+                "properties": {
+                    "full_name": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 2
+                    },
+                    "role": {
+                        "$ref": "#/components/schemas/RoleC97Enum"
+                    },
+                    "region_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
+                    "shop_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "required": [
+                    "full_name",
+                    "role"
+                ]
+            },
+            "TokenRefresh": {
+                "type": "object",
+                "properties": {
+                    "access": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "refresh": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "access",
+                    "refresh"
+                ]
+            }
+        },
+        "securitySchemes": {
+            "cookieAuth": {
+                "type": "apiKey",
+                "in": "cookie",
+                "name": "sessionid"
+            },
+            "jwtAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    }
+}
