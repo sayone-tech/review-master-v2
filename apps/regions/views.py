@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import cast
-
 from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.http import HttpRequest
@@ -86,7 +84,8 @@ class RegionViewSet(
     def get_permissions(self) -> list[BasePermission]:
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [RequiresSessionAuth(), IsOrgAdmin(), IsOrgScoped()]
-        return cast(list[BasePermission], super().get_permissions())
+        # Read actions (list, retrieve) are open to both ORG_ADMIN and STAFF_ADMIN.
+        return [IsOrgScoped()]
 
     def get_serializer_class(self) -> type[serializers.BaseSerializer[Region]]:
         if self.action == "create":

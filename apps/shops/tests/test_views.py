@@ -847,3 +847,15 @@ class TestShopMobileScoping:
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         resp = client.patch(f"/api/v1/shops/{shop.pk}/", {"name": "Hacked"})
         assert resp.status_code == 403
+
+    def test_staff_admin_jwt_can_list_shops(self, db):
+        """GET /api/v1/shops/ is allowed for JWT-authenticated staff admins (read-only)."""
+        from apps.accounts.tests.factories import StaffAdminFactory
+
+        org = OrganisationFactory(number_of_stores=5)
+        staff = StaffAdminFactory(organisation=org)
+        token = _obtain_jwt_token(staff)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.get("/api/v1/shops/")
+        assert resp.status_code == 200

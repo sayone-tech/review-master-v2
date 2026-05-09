@@ -4,7 +4,7 @@ import contextlib
 import json
 import logging
 import secrets
-from typing import Any, cast
+from typing import Any
 
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponseRedirect
@@ -137,7 +137,8 @@ class ShopViewSet(
     def get_permissions(self) -> list[BasePermission]:
         if self.action in ("create", "update", "partial_update"):
             return [RequiresSessionAuth(), IsOrgAdmin(), IsOrgScoped()]
-        return cast(list[BasePermission], super().get_permissions())
+        # Read actions (list, retrieve) are open to both ORG_ADMIN and STAFF_ADMIN.
+        return [IsOrgScoped()]
 
     def get_serializer_class(self) -> type[drf_serializers.BaseSerializer[Any]]:
         if self.action == "create":

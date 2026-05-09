@@ -314,10 +314,8 @@ class TestRegionMobileScoping:
         from apps.accounts.tests.factories import StaffAdminFactory
 
         org = OrganisationFactory()
-        StaffAdminFactory(organisation=org)
-        # Use an org admin to list (staff might have scoping issues)
-        admin = UserFactory(role="ORG_ADMIN", organisation=org)
-        token = _obtain_jwt_token(admin)
+        staff = StaffAdminFactory(organisation=org)
+        token = _obtain_jwt_token(staff)
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         resp = client.get("/api/v1/regions/")
