@@ -243,4 +243,4 @@ function mount() {
   }
 }
 
-mount();
+document.addEventListener("turbo:load", mount);
