@@ -97,6 +97,7 @@ def shop_list(request):  # type: ignore[no-untyped-def]
     shops_data = list(ShopReadSerializer(list(page_obj.object_list), many=True).data)
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
+    user = request.user
     return render(
         request,
         "shops/shop_list.html",
@@ -111,6 +112,7 @@ def shop_list(request):  # type: ignore[no-untyped-def]
             "per_page_options": list(_SHOP_PER_PAGE_OPTIONS),
             "page_url_params": _shop_page_url_params(request, per_page),
             "page_title": "Shops",
+            "is_org_admin": user.role == User.Role.ORG_ADMIN,
         },
     )
 

@@ -60,9 +60,15 @@ interface ShopModalsProps {
   allocation: AllocationStatus;
   regions: RegionLite[];
   initialPlaceIds?: string[];
+  isOrgAdmin?: boolean;
 }
 
-export function ShopModals({ allocation, regions, initialPlaceIds = [] }: ShopModalsProps) {
+export function ShopModals({
+  allocation,
+  regions,
+  initialPlaceIds = [],
+  isOrgAdmin = false,
+}: ShopModalsProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [takenPlaceIds, setTakenPlaceIds] = useState<Set<string>>(new Set(initialPlaceIds));
   const [selected, setSelected] = useState<ShopRow | null>(null);
@@ -207,6 +213,7 @@ export function ShopModals({ allocation, regions, initialPlaceIds = [] }: ShopMo
       <ShopDetailsModal
         open={detailsOpen}
         shop={selected}
+        isOrgAdmin={isOrgAdmin}
         onClose={() => {
           setDetailsOpen(false);
           setSelected(null);

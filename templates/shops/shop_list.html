@@ -20,7 +20,7 @@
     </button>
   </div>
 
-  <div id="shop-modals-root"></div>
+  <div id="shop-modals-root" data-is-org-admin="{{ is_org_admin|yesno:'true,false' }}"></div>
 
   {% if shops_count > 0 %}
     {{ shops_json|json_script:"shop-data" }}
