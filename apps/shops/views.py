@@ -37,9 +37,13 @@ from apps.regions.selectors.regions import list_regions
 from apps.regions.serializers import RegionReadSerializer
 from apps.reviews.tasks import initial_backfill_task
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
-from apps.shops.models import Shop
+from apps.shops.models import ReviewTarget, Shop
 from apps.shops.selectors.shops import get_allocation_status, get_has_regions, list_shops
+from apps.shops.selectors.targets import list_targets_for_shop
 from apps.shops.serializers import (
+    ReviewTargetCreateSerializer,
+    ReviewTargetReadSerializer,
+    ReviewTargetUpdateSerializer,
     ShopCreateSerializer,
     ShopReadSerializer,
     ShopUpdateSerializer,
@@ -50,6 +54,11 @@ from apps.shops.services.shops import (
     deactivate_shop,
     reconnect_oauth,
     update_shop,
+)
+from apps.shops.services.targets import (
+    create_target,
+    delete_target,
+    update_target,
 )
 
 logger = logging.getLogger(__name__)
@@ -502,3 +511,106 @@ class GoogleOAuthCallbackView(View):
         )
         response["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
         return response
+
+
+# ---------------------------------------------------------------------------
+# ReviewTarget ViewSet — nested under /api/v1/shops/{shop_pk}/targets/
+# ---------------------------------------------------------------------------
+
+
+class ReviewTargetViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    TenantScopedViewSet,
+):
+    queryset = ReviewTarget.objects.all()
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]  # noqa: RUF012
+
+    def get_permissions(self) -> list[BasePermission]:
+        if self.action in ("create", "partial_update", "update", "destroy"):
+            return [RequiresSessionAuth(), IsOrgAdmin(), IsOrgScoped()]
+        return [IsOrgScoped()]
+
+    def _get_shop_pk(self) -> int:
+        return int(self.kwargs["shop_pk"])
+
+    def _get_org_id(self) -> int:
+        user = self.request.user
+        if not isinstance(user, User) or user.organisation is None:
+            raise drf_serializers.ValidationError({"detail": ["Organisation not found."]})
+        return int(user.organisation_id)  # type: ignore[arg-type]
+
+    def _verify_shop_org(self, shop_pk: int, org_id: int) -> None:
+        """Raise 403 if shop does not belong to the requesting user's organisation."""
+        from rest_framework.exceptions import PermissionDenied
+
+        if not Shop.objects.filter(pk=shop_pk, organisation_id=org_id).exists():
+            raise PermissionDenied()
+
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        org_id = self._get_org_id()
+        shop_pk = self._get_shop_pk()
+        self._verify_shop_org(shop_pk, org_id)
+        results = list_targets_for_shop(
+            shop_id=shop_pk,
+            org_id=org_id,
+        )
+        return Response(ReviewTargetReadSerializer(results, many=True).data)
+
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        serializer = ReviewTargetCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        if not isinstance(user, User):
+            raise drf_serializers.ValidationError({"detail": ["Authentication required."]})
+        try:
+            target = create_target(
+                shop_id=self._get_shop_pk(),
+                org_id=self._get_org_id(),
+                period_type=serializer.validated_data["period_type"],
+                period_start=serializer.validated_data["period_start"],
+                target_count=serializer.validated_data["target_count"],
+                created_by=user,
+            )
+        except ReviewTarget.DoesNotExist:
+            return Response({"detail": "Shop not found."}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            raise drf_serializers.ValidationError({"non_field_errors": [str(exc)]}) from exc
+        results = list_targets_for_shop(
+            shop_id=self._get_shop_pk(),
+            org_id=self._get_org_id(),
+        )
+        row = next((r for r in results if r["id"] == target.pk), None)
+        return Response(ReviewTargetReadSerializer(row).data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        serializer = ReviewTargetUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            update_target(
+                target_id=int(kwargs["pk"]),
+                org_id=self._get_org_id(),
+                target_count=serializer.validated_data["target_count"],
+            )
+        except ReviewTarget.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            raise drf_serializers.ValidationError({"non_field_errors": [str(exc)]}) from exc
+        results = list_targets_for_shop(
+            shop_id=self._get_shop_pk(),
+            org_id=self._get_org_id(),
+        )
+        row = next((r for r in results if r["id"] == int(kwargs["pk"])), None)
+        return Response(ReviewTargetReadSerializer(row).data)
+
+    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        try:
+            delete_target(
+                target_id=int(kwargs["pk"]),
+                org_id=self._get_org_id(),
+            )
+        except ReviewTarget.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
