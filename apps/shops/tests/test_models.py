@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-import pytest
+from datetime import date
 
-from apps.shops.models import Shop, ShopAuditLog
-from apps.shops.tests.factories import ShopAuditLogFactory, ShopFactory
+import pytest
+from django.db import IntegrityError
+
+from apps.shops.models import ReviewTarget, Shop, ShopAuditLog
+from apps.shops.tests.factories import ReviewTargetFactory, ShopAuditLogFactory, ShopFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -48,3 +51,41 @@ class TestShopAuditLog:
         User.objects.get(pk=actor_pk).delete()
         log.refresh_from_db()
         assert log.actor_id is None
+
+
+@pytest.mark.django_db
+class TestReviewTargetModel:
+    def test_creates_with_valid_data(self):
+        t = ReviewTargetFactory()
+        assert t.pk is not None
+        assert t.target_count >= 1
+
+    def test_unique_constraint_prevents_duplicate_period(self):
+        shop = ShopFactory()
+        ReviewTargetFactory(
+            shop=shop,
+            period_type=ReviewTarget.PeriodType.MONTH,
+            period_start=date(2026, 5, 1),
+            target_count=100,
+        )
+        with pytest.raises(IntegrityError):
+            ReviewTargetFactory(
+                shop=shop,
+                period_type=ReviewTarget.PeriodType.MONTH,
+                period_start=date(2026, 5, 1),
+                target_count=200,
+            )
+
+    def test_different_period_type_same_start_allowed(self):
+        shop = ShopFactory()
+        ReviewTargetFactory(
+            shop=shop,
+            period_type=ReviewTarget.PeriodType.MONTH,
+            period_start=date(2026, 5, 1),
+        )
+        t2 = ReviewTargetFactory(
+            shop=shop,
+            period_type=ReviewTarget.PeriodType.WEEK,
+            period_start=date(2026, 5, 4),
+        )
+        assert t2.pk is not None
