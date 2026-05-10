@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Modal } from "../modal/Modal";
 import { ConnectionStatusPill } from "./ConnectionStatusPill";
 import { SetTargetModal } from "./SetTargetModal";
@@ -20,7 +20,7 @@ interface Props {
 const dtCls = "text-[11.5px] font-semibold text-subtle tracking-[0.05em] uppercase mb-0.5";
 const ddCls = "text-[13.5px] text-ink";
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <dt className={dtCls}>{label}</dt>
