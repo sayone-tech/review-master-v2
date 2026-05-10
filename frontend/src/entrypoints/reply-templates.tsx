@@ -13,22 +13,26 @@ function parseInitialData() {
   }
 }
 
-const initialRows = parseInitialData();
+function mount() {
+  const initialRows = parseInitialData();
 
-const modalsRoot = document.getElementById("template-modals-root");
-if (modalsRoot) {
-  createRoot(modalsRoot).render(
-    <StrictMode>
-      <TemplateModals initialRows={initialRows} />
-    </StrictMode>,
-  );
+  const modalsRoot = document.getElementById("template-modals-root");
+  if (modalsRoot) {
+    createRoot(modalsRoot).render(
+      <StrictMode>
+        <TemplateModals initialRows={initialRows} />
+      </StrictMode>,
+    );
+  }
+
+  const tableRoot = document.getElementById("template-table-root");
+  if (tableRoot) {
+    createRoot(tableRoot).render(
+      <StrictMode>
+        <TemplateTableWidget initialRows={initialRows} />
+      </StrictMode>,
+    );
+  }
 }
 
-const tableRoot = document.getElementById("template-table-root");
-if (tableRoot) {
-  createRoot(tableRoot).render(
-    <StrictMode>
-      <TemplateTableWidget initialRows={initialRows} />
-    </StrictMode>,
-  );
-}
+document.addEventListener("turbo:load", mount);

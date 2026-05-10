@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import { ActionItemManagementWidget } from "../widgets/action-items/ActionItemManagementWidget";
 import type { ShopOption, TeamMember, UserRole } from "../widgets/action-items/types";
 
-const root = document.getElementById("action-items-management-root");
-if (root) {
+function mount() {
+  const root = document.getElementById("action-items-management-root");
+  if (!root) return;
   const userRole = (root.dataset.userRole ?? "STAFF_ADMIN") as UserRole;
   const userId = Number(root.dataset.userId ?? "0");
   const shops = JSON.parse(root.dataset.shops ?? "[]") as ShopOption[];
@@ -20,3 +21,5 @@ if (root) {
     </StrictMode>,
   );
 }
+
+document.addEventListener("turbo:load", mount);

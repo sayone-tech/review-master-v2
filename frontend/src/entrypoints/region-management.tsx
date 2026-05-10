@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import { RegionModals } from "../widgets/region-management/RegionModals";
 import { RegionTableWidget } from "../widgets/region-management/RegionTable";
 
-// Parse initial data seeded by Django json_script
 function parseInitialData() {
   const el = document.getElementById("region-data");
   if (!el) return [];
@@ -14,22 +13,26 @@ function parseInitialData() {
   }
 }
 
-const initialRows = parseInitialData();
+function mount() {
+  const initialRows = parseInitialData();
 
-const modalsRoot = document.getElementById("region-modals-root");
-if (modalsRoot) {
-  createRoot(modalsRoot).render(
-    <StrictMode>
-      <RegionModals initialRows={initialRows} />
-    </StrictMode>,
-  );
+  const modalsRoot = document.getElementById("region-modals-root");
+  if (modalsRoot) {
+    createRoot(modalsRoot).render(
+      <StrictMode>
+        <RegionModals initialRows={initialRows} />
+      </StrictMode>,
+    );
+  }
+
+  const tableRoot = document.getElementById("region-table-root");
+  if (tableRoot) {
+    createRoot(tableRoot).render(
+      <StrictMode>
+        <RegionTableWidget initialRows={initialRows} />
+      </StrictMode>,
+    );
+  }
 }
 
-const tableRoot = document.getElementById("region-table-root");
-if (tableRoot) {
-  createRoot(tableRoot).render(
-    <StrictMode>
-      <RegionTableWidget initialRows={initialRows} />
-    </StrictMode>,
-  );
-}
+document.addEventListener("turbo:load", mount);
