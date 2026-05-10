@@ -153,11 +153,11 @@ export function ReviewTable({
         return (
           <div className="max-w-[360px]">
             {!expanded && isLong ? (
-              <span className="text-[13.5px] text-text leading-snug line-clamp-2">
+              <span className="text-[13.5px] text-text leading-snug line-clamp-2 whitespace-pre-wrap">
                 {r.comment}
               </span>
             ) : (
-              <span className="text-[13.5px] text-text leading-snug block">
+              <span className="text-[13.5px] text-text leading-snug block whitespace-pre-wrap">
                 {r.comment}
               </span>
             )}
