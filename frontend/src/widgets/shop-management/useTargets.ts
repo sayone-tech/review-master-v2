@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { createTarget, deleteTarget, listTargets, patchTarget } from "./targetsApi";
+import { ApiError, createTarget, deleteTarget, listTargets, patchTarget } from "./targetsApi";
 import type { TargetCreatePayload, TargetRow, TargetUpdatePayload } from "./types";
 
 interface UseTargetsState {
@@ -36,12 +36,10 @@ export function useTargets(shopId: number | null) {
         setState((s) => ({ ...s, rows }));
         return null;
       } catch (err: unknown) {
-        if (err && typeof err === "object" && "data" in err) {
-          const data = (err as { data: unknown }).data;
-          if (data && typeof data === "object" && "non_field_errors" in data) {
-            const nfe = (data as { non_field_errors: string[] }).non_field_errors;
-            return nfe[0] ?? "Failed to save target.";
-          }
+        if (err instanceof ApiError && err.data && typeof err.data === "object"
+            && "non_field_errors" in err.data) {
+          const nfe = (err.data as { non_field_errors: string[] }).non_field_errors;
+          return nfe[0] ?? "Failed to save target.";
         }
         return "Failed to save target.";
       }
@@ -59,7 +57,8 @@ export function useTargets(shopId: number | null) {
           rows: s.rows.map((r) => (r.id === targetId ? updated : r)),
         }));
         return null;
-      } catch {
+      } catch (err) {
+        console.error("editTarget failed:", err);
         return "Failed to update target.";
       }
     },
@@ -73,7 +72,8 @@ export function useTargets(shopId: number | null) {
         await deleteTarget(shopId, targetId);
         setState((s) => ({ ...s, rows: s.rows.filter((r) => r.id !== targetId) }));
         return null;
-      } catch {
+      } catch (err) {
+        console.error("removeTarget failed:", err);
         return "Failed to delete target.";
       }
     },
