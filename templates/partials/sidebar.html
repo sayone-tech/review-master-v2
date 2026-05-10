@@ -27,6 +27,7 @@
         {% if user.role == 'SUPERADMIN' %}
           {% include "partials/_nav_item.html" with href="/" icon="layout-dashboard" label="Dashboard" %}
           {% include "partials/_nav_item.html" with href="/admin/organisations/" icon="building-2" label="Organisations" %}
+          {% include "partials/_nav_item.html" with href="/api/v1/schema/scalar/" icon="file-code" label="API Docs" %}
         {% elif user.role == 'ORG_ADMIN' %}
           {% include "partials/_nav_item.html" with href="/" icon="layout-dashboard" label="Dashboard" %}
           {% include "partials/_nav_item.html" with href="/admin/org/shops/" icon="store" label="Shops" %}

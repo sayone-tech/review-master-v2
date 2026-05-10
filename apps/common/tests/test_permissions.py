@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
+from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from apps.accounts.models import User
 from apps.accounts.tests.factories import UserFactory
-from apps.common.permissions import IsOrgScoped
+from apps.common.permissions import IsOrgScoped, RequiresSessionAuth
 from apps.organisations.tests.factories import OrganisationFactory
 
 pytestmark = pytest.mark.django_db
@@ -62,3 +65,39 @@ def test_is_org_scoped_object_permission_rejects_object_without_org() -> None:
     user = UserFactory(role=User.Role.ORG_ADMIN, organisation=org)
     obj = SimpleNamespace()  # no organisation_id attribute
     assert IsOrgScoped().has_object_permission(_req(user), None, obj) is False
+
+
+# ---------------------------------------------------------------------------
+# RequiresSessionAuth tests
+# ---------------------------------------------------------------------------
+
+
+def _mock_request(authenticator) -> MagicMock:
+    """Build a minimal mock request with a controlled successful_authenticator."""
+    request = MagicMock()
+    request.successful_authenticator = authenticator
+    return request
+
+
+def test_requires_session_auth_allows_session_authenticated() -> None:
+    """A request authenticated via SessionAuthentication must be granted access."""
+    request = _mock_request(SessionAuthentication())
+    assert RequiresSessionAuth().has_permission(request, None) is True
+
+
+def test_requires_session_auth_rejects_jwt_authenticated() -> None:
+    """A request authenticated via JWTAuthentication (mobile) must be denied."""
+    request = _mock_request(JWTAuthentication())
+    assert RequiresSessionAuth().has_permission(request, None) is False
+
+
+def test_requires_session_auth_rejects_unauthenticated() -> None:
+    """An unauthenticated request (no authenticator) must be denied."""
+    request = _mock_request(None)
+    assert RequiresSessionAuth().has_permission(request, None) is False
+
+
+def test_requires_session_auth_message() -> None:
+    """The permission must carry the correct user-facing message."""
+    perm = RequiresSessionAuth()
+    assert perm.message == "This action is only available via the web application."

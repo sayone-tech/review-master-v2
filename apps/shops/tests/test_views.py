@@ -35,6 +35,18 @@ def org_and_admin(db):
     return org, admin, client
 
 
+@pytest.fixture
+def bypass_session_auth():
+    """Patch RequiresSessionAuth to always grant permission.
+
+    Use this fixture on test classes/functions that test shop/region logic
+    via force_authenticate (not real session auth).  The JWT-blocking behaviour
+    is separately covered by TestShopMobileScoping.
+    """
+    with patch("apps.common.permissions.RequiresSessionAuth.has_permission", return_value=True):
+        yield
+
+
 def _seed_session(client: APIClient, key: str, value: object) -> None:
     """Seed a session key for an APIClient (DRF test client)."""
     session = client.session  # type: ignore[attr-defined]
@@ -93,7 +105,7 @@ class TestShopsListAllocation:
 
 @pytest.mark.django_db
 class TestShopsApiCreate:
-    def test_create_with_region_succeeds(self, org_and_admin):
+    def test_create_with_region_succeeds(self, org_and_admin, bypass_session_auth):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         resp = client.post(
@@ -108,7 +120,7 @@ class TestShopsApiCreate:
         assert resp.data["name"] == "Test Shop"
         assert "id" in resp.data
 
-    def test_create_without_region_fails(self, org_and_admin):
+    def test_create_without_region_fails(self, org_and_admin, bypass_session_auth):
         _, _, client = org_and_admin
         resp = client.post(
             "/api/v1/shops/",
@@ -117,7 +129,9 @@ class TestShopsApiCreate:
         assert resp.status_code == 400
         assert "region" in resp.data
 
-    def test_create_with_other_org_region_returns_400(self, db, two_orgs_two_admins):
+    def test_create_with_other_org_region_returns_400(
+        self, db, two_orgs_two_admins, bypass_session_auth
+    ):
         d = two_orgs_two_admins
         region_b = RegionFactory(organisation=d["org_b"])
         client_a = APIClient()
@@ -132,7 +146,9 @@ class TestShopsApiCreate:
         )
         assert resp.status_code == 400
 
-    def test_create_duplicate_place_id_same_org_returns_400(self, org_and_admin):
+    def test_create_duplicate_place_id_same_org_returns_400(
+        self, org_and_admin, bypass_session_auth
+    ):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         ShopFactory(
@@ -171,7 +187,7 @@ class TestShopsApiCreate:
         )
         assert shop_b.pk is not None
 
-    def test_create_at_limit_returns_400(self, db):
+    def test_create_at_limit_returns_400(self, db, bypass_session_auth):
         org = OrganisationFactory(number_of_stores=1)
         admin = UserFactory(role="ORG_ADMIN", organisation=org)
         region = RegionFactory(organisation=org)
@@ -202,7 +218,7 @@ class TestShopsApiCreate:
 class TestShopsApiCreateOAuthStateResolution:
     @patch("apps.shops.views.create_shop")
     def test_oauth_create_resolves_refresh_token_from_session(
-        self, mock_create_shop, org_and_admin
+        self, mock_create_shop, org_and_admin, bypass_session_auth
     ):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
@@ -252,7 +268,9 @@ class TestShopsApiCreateOAuthStateResolution:
         assert call_kwargs["google_location_name"] == "accounts/111/locations/222"
 
     @patch("apps.shops.views.create_shop")
-    def test_oauth_create_consumes_session_token_after_use(self, mock_create_shop, org_and_admin):
+    def test_oauth_create_consumes_session_token_after_use(
+        self, mock_create_shop, org_and_admin, bypass_session_auth
+    ):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
 
@@ -292,7 +310,9 @@ class TestShopsApiCreateOAuthStateResolution:
         session = client.session  # type: ignore[attr-defined]
         assert session.get("oauth_token:STATE-XYZ") is None
 
-    def test_oauth_create_with_missing_session_state_returns_400(self, org_and_admin):
+    def test_oauth_create_with_missing_session_state_returns_400(
+        self, org_and_admin, bypass_session_auth
+    ):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
 
@@ -318,7 +338,7 @@ class TestShopsApiCreateOAuthStateResolution:
 
 @pytest.mark.django_db
 class TestShopsApiUpdate:
-    def test_patch_name_succeeds(self, org_and_admin):
+    def test_patch_name_succeeds(self, org_and_admin, bypass_session_auth):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         shop = ShopFactory(organisation=org, region=region, name="Old Name")
@@ -326,7 +346,7 @@ class TestShopsApiUpdate:
         assert resp.status_code == 200
         assert resp.data["name"] == "New Name"
 
-    def test_patch_connection_method_rejected(self, org_and_admin):
+    def test_patch_connection_method_rejected(self, org_and_admin, bypass_session_auth):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         shop = ShopFactory(organisation=org, region=region)
@@ -335,7 +355,7 @@ class TestShopsApiUpdate:
         assert "connection_method" in resp.data
         assert "cannot be modified" in str(resp.data["connection_method"][0]).lower()
 
-    def test_patch_place_id_rejected(self, org_and_admin):
+    def test_patch_place_id_rejected(self, org_and_admin, bypass_session_auth):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         shop = ShopFactory(organisation=org, region=region)
@@ -351,7 +371,7 @@ class TestShopsApiUpdate:
 
 @pytest.mark.django_db
 class TestShopsApiActions:
-    def test_deactivate_action_returns_200(self, org_and_admin):
+    def test_deactivate_action_returns_200(self, org_and_admin, bypass_session_auth):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         shop = ShopFactory(organisation=org, region=region, is_active=True)
@@ -361,7 +381,7 @@ class TestShopsApiActions:
         shop.refresh_from_db()
         assert shop.is_active is False
 
-    def test_activate_action_returns_200(self, org_and_admin):
+    def test_activate_action_returns_200(self, org_and_admin, bypass_session_auth):
         org, _, client = org_and_admin
         region = RegionFactory(organisation=org)
         shop = ShopFactory(organisation=org, region=region, is_active=False)
@@ -416,7 +436,7 @@ class TestShopsCrossTenantIsolation:
         resp = client_a.get(f"/api/v1/shops/{shop_b.pk}/")
         assert resp.status_code == 404
 
-    def test_admin_a_patch_org_b_shop_returns_404(self, two_orgs_two_admins):
+    def test_admin_a_patch_org_b_shop_returns_404(self, two_orgs_two_admins, bypass_session_auth):
         d = two_orgs_two_admins
         shop_b = ShopFactory(organisation=d["org_b"])
         client_a = APIClient()
@@ -424,7 +444,9 @@ class TestShopsCrossTenantIsolation:
         resp = client_a.patch(f"/api/v1/shops/{shop_b.pk}/", {"name": "Hacked"})
         assert resp.status_code == 404
 
-    def test_admin_a_deactivate_org_b_shop_returns_404(self, two_orgs_two_admins):
+    def test_admin_a_deactivate_org_b_shop_returns_404(
+        self, two_orgs_two_admins, bypass_session_auth
+    ):
         d = two_orgs_two_admins
         shop_b = ShopFactory(organisation=d["org_b"])
         client_a = APIClient()
@@ -653,7 +675,7 @@ class TestShopsListPagination:
 
 @pytest.mark.django_db
 class TestPhase11BackfillDispatchAndSyncing:
-    def test_create_shop_dispatches_initial_backfill_task(self, org_and_admin):
+    def test_create_shop_dispatches_initial_backfill_task(self, org_and_admin, bypass_session_auth):
         """SYNC-01 + PROG-01: shop create -> task dispatched + open_progress_shop_id in response."""
         from unittest.mock import patch
 
@@ -712,6 +734,7 @@ class TestPhase11BackfillDispatchAndSyncing:
         assert resp.data["shops"][0]["shop_id"] == s1.pk
 
     def test_shops_syncing_staff_filters_to_accessible_shops(self, db):
+
         from unittest.mock import MagicMock, patch
 
         from apps.accounts.models import StaffAccessScope
@@ -739,3 +762,135 @@ class TestPhase11BackfillDispatchAndSyncing:
         shop_ids = [s["shop_id"] for s in resp.data["shops"]]
         assert s1.pk in shop_ids
         assert s2.pk not in shop_ids
+
+
+# ---------------------------------------------------------------------------
+# TestShopMobileScoping — JWT clients cannot mutate shops (Task 4)
+# ---------------------------------------------------------------------------
+
+
+def _obtain_jwt_token(user: object, password: str = "testpass1234") -> str:  # noqa: S107
+    """Issue a real JWT token for the given user via the token endpoint.
+
+    This exercises the full JWT authentication path so that
+    request.successful_authenticator is a JWTAuthentication instance,
+    which is what RequiresSessionAuth checks.
+    """
+    from django.test import Client as DjClient
+
+    c = DjClient()
+    resp = c.post(
+        "/api/v1/auth/token/",
+        {"email": getattr(user, "email", ""), "password": password},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200, f"JWT login failed: {resp.content}"
+    import json as _json
+
+    return _json.loads(resp.content)["access"]
+
+
+@pytest.mark.django_db
+class TestShopMobileScoping:
+    """JWT-authenticated (mobile) clients may read shops but not mutate them.
+
+    The 'web still works' path (session auth → 201/200) is not re-tested here
+    because all existing ShopViewSet tests use force_authenticate which is
+    incompatible with RequiresSessionAuth.  That permission is already covered
+    in isolation by its own unit tests (Task 2).  The important new behaviour
+    tested here is that JWT tokens are blocked on mutating actions.
+    """
+
+    def test_org_admin_jwt_can_list_shops(self, db):
+        """GET /api/v1/shops/ is allowed for JWT-authenticated org admins (read-only)."""
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.get("/api/v1/shops/")
+        assert resp.status_code == 200
+
+    def test_staff_jwt_cannot_create_shop(self, db):
+        from apps.accounts.tests.factories import StaffAdminFactory
+
+        org = OrganisationFactory(number_of_stores=5)
+        staff = StaffAdminFactory(organisation=org)
+        region = RegionFactory(organisation=org)
+        token = _obtain_jwt_token(staff)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.post(
+            "/api/v1/shops/",
+            {"name": "Mobile Shop", "connection_method": "NOT_CONNECTED", "region": region.pk},
+        )
+        assert resp.status_code == 403
+
+    def test_org_admin_jwt_cannot_create_shop(self, db):
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        region = RegionFactory(organisation=org)
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.post(
+            "/api/v1/shops/",
+            {"name": "Mobile Shop", "connection_method": "NOT_CONNECTED", "region": region.pk},
+        )
+        assert resp.status_code == 403
+
+    def test_org_admin_jwt_cannot_patch_shop(self, db):
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region, name="Old Name")
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.patch(f"/api/v1/shops/{shop.pk}/", {"name": "Hacked"})
+        assert resp.status_code == 403
+
+    def test_staff_admin_jwt_can_list_shops(self, db):
+        """GET /api/v1/shops/ is allowed for JWT-authenticated staff admins (read-only)."""
+        from apps.accounts.tests.factories import StaffAdminFactory
+
+        org = OrganisationFactory(number_of_stores=5)
+        staff = StaffAdminFactory(organisation=org)
+        token = _obtain_jwt_token(staff)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.get("/api/v1/shops/")
+        assert resp.status_code == 200
+
+    def test_org_admin_jwt_cannot_activate_shop(self, db):
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region)
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.post(f"/api/v1/shops/{shop.pk}/activate/")
+        assert resp.status_code == 403
+
+    def test_org_admin_jwt_cannot_deactivate_shop(self, db):
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region)
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.post(f"/api/v1/shops/{shop.pk}/deactivate/")
+        assert resp.status_code == 403
+
+    def test_org_admin_jwt_cannot_reconnect_shop(self, db):
+        org = OrganisationFactory(number_of_stores=5)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region)
+        token = _obtain_jwt_token(admin)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp = client.post(f"/api/v1/shops/{shop.pk}/reconnect/", {"state": "invalid"})
+        assert resp.status_code == 403

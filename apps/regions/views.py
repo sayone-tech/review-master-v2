@@ -4,13 +4,15 @@ from django.core.paginator import Paginator
 from django.db import IntegrityError
 from django.http import HttpRequest
 from django.shortcuts import render
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, serializers, status
+from rest_framework.permissions import BasePermission
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsOrgAdmin, org_admin_required
-from apps.common.permissions import IsOrgScoped
+from apps.common.permissions import IsOrgScoped, RequiresSessionAuth
 from apps.common.viewsets import TenantScopedViewSet
 from apps.regions.exceptions import RegionHasShopsError
 from apps.regions.models import Region
@@ -79,6 +81,12 @@ class RegionViewSet(
     queryset = Region.objects.all()
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]  # noqa: RUF012
 
+    def get_permissions(self) -> list[BasePermission]:
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [RequiresSessionAuth(), IsOrgAdmin(), IsOrgScoped()]
+        # Read actions (list, retrieve) are open to both ORG_ADMIN and STAFF_ADMIN.
+        return [IsOrgScoped()]
+
     def get_serializer_class(self) -> type[serializers.BaseSerializer[Region]]:
         if self.action == "create":
             return RegionCreateSerializer
@@ -86,6 +94,7 @@ class RegionViewSet(
             return RegionUpdateSerializer
         return RegionReadSerializer
 
+    @extend_schema(exclude=True)
     def create(self, request: Request, *args: object, **kwargs: object) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -110,10 +119,12 @@ class RegionViewSet(
                 {"region_id": ["This Region ID is already in use."]}
             ) from exc
 
+    @extend_schema(exclude=True)
     def partial_update(self, request: Request, *args: object, **kwargs: object) -> Response:
         kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
 
+    @extend_schema(exclude=True)
     def update(self, request: Request, *args: object, **kwargs: object) -> Response:
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
@@ -136,6 +147,7 @@ class RegionViewSet(
                 {"region_id": ["This Region ID is already in use."]}
             ) from exc
 
+    @extend_schema(exclude=True)
     def destroy(self, request: Request, *args: object, **kwargs: object) -> Response:
         region = self.get_object()
         try:
