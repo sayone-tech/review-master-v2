@@ -129,7 +129,7 @@ class ReviewTarget(TimeStampedModel):
     shop = models.ForeignKey(
         "shops.Shop",
         on_delete=models.CASCADE,
-        related_name="targets",
+        related_name="review_targets",
     )
     period_type = models.CharField(
         max_length=5,
@@ -148,6 +148,7 @@ class ReviewTarget(TimeStampedModel):
 
     class Meta:
         db_table = "shops_reviewtarget"
+        ordering: ClassVar[list[str]] = ["period_start"]
         constraints: ClassVar[list[models.BaseConstraint]] = [
             models.UniqueConstraint(
                 fields=["shop", "period_type", "period_start"],

@@ -53,12 +53,12 @@ class TestShopAuditLog:
         assert log.actor_id is None
 
 
-@pytest.mark.django_db
 class TestReviewTargetModel:
     def test_creates_with_valid_data(self):
         t = ReviewTargetFactory()
         assert t.pk is not None
-        assert t.target_count >= 1
+        assert t.target_count == 100
+        assert t.organisation == t.shop.organisation
 
     def test_unique_constraint_prevents_duplicate_period(self):
         shop = ShopFactory()

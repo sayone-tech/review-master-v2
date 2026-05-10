@@ -38,6 +38,6 @@ class ReviewTargetFactory(DjangoModelFactory):
     organisation = factory.LazyAttribute(lambda o: o.shop.organisation)
     shop = factory.SubFactory("apps.shops.tests.factories.ShopFactory")
     period_type = ReviewTarget.PeriodType.MONTH
-    period_start = datetime.date(2026, 5, 1)
+    period_start = factory.LazyFunction(lambda: datetime.date.today().replace(day=1))
     target_count = 100
     created_by = None
