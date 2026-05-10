@@ -4,7 +4,7 @@ from typing import Any, ClassVar
 
 from rest_framework import serializers
 
-from apps.shops.models import Shop
+from apps.shops.models import ReviewTarget, Shop
 
 
 class ShopReadSerializer(serializers.ModelSerializer[Shop]):
@@ -131,3 +131,29 @@ class ShopUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
                 }
             )
         return attrs
+
+
+class ReviewTargetReadSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    id = serializers.IntegerField()
+    period_type = serializers.CharField()
+    period_start = serializers.DateField()
+    period_end = serializers.DateField()
+    target_count = serializers.IntegerField()
+    received_count = serializers.IntegerField()
+    pct = serializers.IntegerField()
+    days_remaining = serializers.IntegerField()
+
+
+class ReviewTargetCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    period_type = serializers.ChoiceField(choices=ReviewTarget.PeriodType.choices)
+    period_start = serializers.DateField()
+    target_count = serializers.IntegerField(min_value=1)
+
+    def validate_target_count(self, value: int) -> int:
+        if value < 1:
+            raise serializers.ValidationError("Target must be at least 1 review.")
+        return value
+
+
+class ReviewTargetUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    target_count = serializers.IntegerField(min_value=1)
