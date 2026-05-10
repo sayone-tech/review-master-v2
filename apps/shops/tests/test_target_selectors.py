@@ -3,6 +3,8 @@ from __future__ import annotations
 import datetime
 
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.reviews.tests.factories import ReviewFactory
@@ -108,9 +110,61 @@ class TestListTargetsForShop:
         org_b = OrganisationFactory()
         shop_a = ShopFactory(organisation=org_a)
         shop_b = ShopFactory(organisation=org_b)
-        ReviewTargetFactory(shop=shop_b, organisation=org_b)
+        ReviewTargetFactory(shop=shop_b)  # organisation is derived via LazyAttribute
         result = list_targets_for_shop(shop_id=shop_a.pk, org_id=org_a.pk)
         assert result == []
+
+    def test_org_isolation_cross_tenant_cannot_see_other_org_targets(self):
+        org_a = OrganisationFactory()
+        org_b = OrganisationFactory()
+        shop_b = ShopFactory(organisation=org_b)
+        ReviewTargetFactory(shop=shop_b)  # org_b target
+        # Attacker knows shop_b.pk but provides their own org_id
+        result = list_targets_for_shop(shop_id=shop_b.pk, org_id=org_a.pk)
+        assert result == []
+
+    def test_query_count_is_fixed_regardless_of_target_count(self):
+        shop = ShopFactory()
+        # Create 5 targets with distinct period_start dates to satisfy the unique constraint
+        for i in range(5):
+            ReviewTargetFactory(
+                shop=shop,
+                period_type=ReviewTarget.PeriodType.MONTH,
+                period_start=datetime.date(2025, i + 1, 1),
+            )
+        with CaptureQueriesContext(connection) as ctx:
+            list_targets_for_shop(shop_id=shop.pk, org_id=shop.organisation_id)
+        # 2 queries: one for ReviewTarget rows, one for Review dates
+        assert len(ctx.captured_queries) <= 3
+
+    def test_ordering_current_future_past(self):
+        shop = ShopFactory()
+        today = datetime.date.today()
+        # Past: last month
+        past_start = (today.replace(day=1) - datetime.timedelta(days=1)).replace(day=1)
+        # Current: this month
+        current_start = today.replace(day=1)
+        # Future: next month
+        if today.month == 12:
+            future_start = datetime.date(today.year + 1, 1, 1)
+        else:
+            future_start = datetime.date(today.year, today.month + 1, 1)
+
+        ReviewTargetFactory(
+            shop=shop, period_type=ReviewTarget.PeriodType.MONTH, period_start=past_start
+        )
+        ReviewTargetFactory(
+            shop=shop, period_type=ReviewTarget.PeriodType.MONTH, period_start=future_start
+        )
+        ReviewTargetFactory(
+            shop=shop, period_type=ReviewTarget.PeriodType.MONTH, period_start=current_start
+        )
+
+        result = list_targets_for_shop(shop_id=shop.pk, org_id=shop.organisation_id)
+        assert len(result) == 3
+        assert result[0]["period_start"] == current_start  # current first
+        assert result[1]["period_start"] == future_start  # future second
+        assert result[2]["period_start"] == past_start  # past last
 
     def test_week_period_end_is_sunday(self):
         shop = ShopFactory()
