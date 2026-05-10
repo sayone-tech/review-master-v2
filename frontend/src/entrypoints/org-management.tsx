@@ -224,7 +224,8 @@ function OrgTableWidget() {
 function mount() {
   // Mount modals root — always present regardless of row count
   const modalsRoot = document.getElementById("org-modals-root");
-  if (modalsRoot) {
+  if (modalsRoot && !modalsRoot.dataset.mounted) {
+    modalsRoot.dataset.mounted = "1";
     createRoot(modalsRoot).render(
       <StrictMode>
         <OrgModals />
@@ -234,7 +235,8 @@ function mount() {
 
   // Mount table root — only present when paginator.count > 0
   const tableRoot = document.getElementById("org-table-root");
-  if (tableRoot) {
+  if (tableRoot && !tableRoot.dataset.mounted) {
+    tableRoot.dataset.mounted = "1";
     createRoot(tableRoot).render(
       <StrictMode>
         <OrgTableWidget />
@@ -243,4 +245,5 @@ function mount() {
   }
 }
 
+mount();
 document.addEventListener("turbo:load", mount);

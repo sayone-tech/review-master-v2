@@ -5,7 +5,8 @@ import type { ShopOption, TeamMember, UserRole } from "../widgets/action-items/t
 
 function mount() {
   const root = document.getElementById("action-items-management-root");
-  if (!root) return;
+  if (!root || root.dataset.mounted) return;
+  root.dataset.mounted = "1";
   const userRole = (root.dataset.userRole ?? "STAFF_ADMIN") as UserRole;
   const userId = Number(root.dataset.userId ?? "0");
   const shops = JSON.parse(root.dataset.shops ?? "[]") as ShopOption[];
@@ -22,4 +23,5 @@ function mount() {
   );
 }
 
+mount();
 document.addEventListener("turbo:load", mount);

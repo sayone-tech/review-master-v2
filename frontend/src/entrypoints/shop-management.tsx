@@ -37,7 +37,8 @@ function mount() {
   );
 
   const tableRoot = document.getElementById("shop-table-root");
-  if (tableRoot) {
+  if (tableRoot && !tableRoot.dataset.mounted) {
+    tableRoot.dataset.mounted = "1";
     createRoot(tableRoot).render(
       <StrictMode>
         <ShopTableWidget
@@ -53,7 +54,8 @@ function mount() {
   }
 
   const modalsRoot = document.getElementById("shop-modals-root");
-  if (modalsRoot) {
+  if (modalsRoot && !modalsRoot.dataset.mounted) {
+    modalsRoot.dataset.mounted = "1";
     const initialPlaceIds = initialRows.map((r) => r.place_id).filter(Boolean);
     const isOrgAdmin = modalsRoot.dataset.isOrgAdmin === "true";
     createRoot(modalsRoot).render(
@@ -69,4 +71,5 @@ function mount() {
   }
 }
 
+mount();
 document.addEventListener("turbo:load", mount);

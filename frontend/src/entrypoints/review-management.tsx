@@ -4,7 +4,8 @@ import { ReviewManagementWidget } from "../widgets/review-management/ReviewManag
 
 function mount() {
   const root = document.getElementById("review-management-root");
-  if (!root) return;
+  if (!root || root.dataset.mounted) return;
+  root.dataset.mounted = "1";
   const userRole = root.dataset.currentUserRole ?? "";
   const openProgressShopId = root.dataset.openProgressShopId ?? "";
   createRoot(root).render(
@@ -17,4 +18,5 @@ function mount() {
   );
 }
 
+mount();
 document.addEventListener("turbo:load", mount);

@@ -25,7 +25,8 @@ function mount() {
   });
 
   const tableRoot = document.getElementById("team-table-root");
-  if (tableRoot) {
+  if (tableRoot && !tableRoot.dataset.mounted) {
+    tableRoot.dataset.mounted = "1";
     const currentUserId = Number(tableRoot.dataset.currentUserId ?? 0);
     createRoot(tableRoot).render(
       <StrictMode>
@@ -40,7 +41,8 @@ function mount() {
   }
 
   const modalsRoot = document.getElementById("team-modals-root");
-  if (modalsRoot) {
+  if (modalsRoot && !modalsRoot.dataset.mounted) {
+    modalsRoot.dataset.mounted = "1";
     const currentUserId = Number(modalsRoot.dataset.currentUserId ?? 0);
     const managerCount = Number(modalsRoot.dataset.managerCount ?? 0);
     createRoot(modalsRoot).render(
@@ -56,4 +58,5 @@ function mount() {
   }
 }
 
+mount();
 document.addEventListener("turbo:load", mount);

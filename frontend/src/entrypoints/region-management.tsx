@@ -17,7 +17,8 @@ function mount() {
   const initialRows = parseInitialData();
 
   const modalsRoot = document.getElementById("region-modals-root");
-  if (modalsRoot) {
+  if (modalsRoot && !modalsRoot.dataset.mounted) {
+    modalsRoot.dataset.mounted = "1";
     createRoot(modalsRoot).render(
       <StrictMode>
         <RegionModals initialRows={initialRows} />
@@ -26,7 +27,8 @@ function mount() {
   }
 
   const tableRoot = document.getElementById("region-table-root");
-  if (tableRoot) {
+  if (tableRoot && !tableRoot.dataset.mounted) {
+    tableRoot.dataset.mounted = "1";
     createRoot(tableRoot).render(
       <StrictMode>
         <RegionTableWidget initialRows={initialRows} />
@@ -35,4 +37,5 @@ function mount() {
   }
 }
 
+mount();
 document.addEventListener("turbo:load", mount);
