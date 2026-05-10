@@ -4,6 +4,7 @@ import { ActionItemFilters } from "./ActionItemFilters";
 import { ActionItemTable } from "./ActionItemTable";
 import { ActionItemModal } from "./ActionItemModal";
 import { AssignModal } from "./AssignModal";
+import { ShopTargetsModal } from "./ShopTargetsModal";
 import { transitionStatus } from "./api";
 import { useActionItems } from "./useActionItems";
 import { emitToast } from "../../lib/toast";
@@ -110,6 +111,9 @@ export function ActionItemManagementWidget({
 
   const [openModalId, setOpenModalId] = useState<number | null>(null);
   const [assignRow, setAssignRow] = useState<ActionItemListRow | null>(null);
+  const [targetsShop, setTargetsShop] = useState<{ id: number; name: string } | null>(null);
+
+  const isOrgAdmin = userRole === "ORG_ADMIN";
 
   // Deep-link support: ?id={N} opens the detail modal on mount, then strips
   // the param so refresh doesn't re-open.
@@ -197,6 +201,7 @@ export function ActionItemManagementWidget({
           onOpenModal={setOpenModalId}
           onTransitionStatus={handleTransition}
           onAssign={setAssignRow}
+          onViewTargets={(shopId, shopName) => setTargetsShop({ id: shopId, name: shopName })}
         />
         <nav
           className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
@@ -330,6 +335,14 @@ export function ActionItemManagementWidget({
         teamMembers={teamMembers}
         onClose={() => setAssignRow(null)}
         onAssigned={() => void refetch()}
+      />
+
+      <ShopTargetsModal
+        open={targetsShop !== null}
+        shopId={targetsShop?.id ?? null}
+        shopName={targetsShop?.name ?? ""}
+        isOrgAdmin={isOrgAdmin}
+        onClose={() => setTargetsShop(null)}
       />
     </div>
   );
