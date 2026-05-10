@@ -60,7 +60,10 @@ function getWeekOptions(existing: TargetRow[]): { label: string; value: string }
 
 export function SetTargetModal({ open, shopId: _shopId, existingTargets, onSave, onClose }: Props) {
   const [periodType, setPeriodType] = useState<"MONTH" | "WEEK">("MONTH");
-  const [periodStart, setPeriodStart] = useState("");
+  const [periodStart, setPeriodStart] = useState(() => {
+    const opts = getMonthOptions(existingTargets);
+    return opts[0]?.value ?? "";
+  });
   const [targetCount, setTargetCount] = useState("100");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,10 +79,6 @@ export function SetTargetModal({ open, shopId: _shopId, existingTargets, onSave,
     setPeriodStart(opts[0]?.value ?? "");
     setError(null);
   };
-
-  if (!periodStart && options.length > 0) {
-    setPeriodStart(options[0].value);
-  }
 
   const handleSave = async () => {
     if (!periodStart) {

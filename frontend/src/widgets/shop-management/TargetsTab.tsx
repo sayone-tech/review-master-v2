@@ -31,6 +31,13 @@ function isFuture(row: TargetRow): boolean {
   return new Date(row.period_start + "T00:00:00") > new Date();
 }
 
+function daysUntilStart(periodStart: string): number {
+  const start = new Date(periodStart + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((start.getTime() - today.getTime()) / 86400000));
+}
+
 interface EditRowProps {
   row: TargetRow;
   onSave: (count: number) => void;
@@ -40,6 +47,11 @@ interface EditRowProps {
 function EditRow({ row, onSave, onCancel }: EditRowProps) {
   const [value, setValue] = useState(String(row.target_count));
 
+  const trySubmit = () => {
+    const count = parseInt(value, 10);
+    if (!isNaN(count) && count >= 1) onSave(count);
+  };
+
   return (
     <div className="flex items-center gap-2">
       <input
@@ -48,7 +60,7 @@ function EditRow({ row, onSave, onCancel }: EditRowProps) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") onSave(parseInt(value, 10));
+          if (e.key === "Enter") trySubmit();
           if (e.key === "Escape") onCancel();
         }}
         className="w-24 border border-line rounded px-2 py-1 text-[13px] font-semibold"
@@ -57,7 +69,7 @@ function EditRow({ row, onSave, onCancel }: EditRowProps) {
       <span className="text-[11.5px] text-subtle">reviews</span>
       <button
         type="button"
-        onClick={() => onSave(parseInt(value, 10))}
+        onClick={trySubmit}
         className="text-[11.5px] text-green-700 font-medium hover:underline"
       >
         Save
@@ -176,7 +188,7 @@ export function TargetsTab({ shopId: _shopId, isOrgAdmin, targets, onAddTarget }
                   <div className="text-[10.5px] text-subtle mt-0.5">
                     {row.period_type === "MONTH" ? "Monthly" : "Weekly"} ·{" "}
                     {future
-                      ? `starts in ${row.days_remaining} days`
+                      ? `starts in ${daysUntilStart(row.period_start)} days`
                       : `${row.days_remaining} days left`}
                   </div>
                 </div>
@@ -247,7 +259,7 @@ export function TargetsTab({ shopId: _shopId, isOrgAdmin, targets, onAddTarget }
                   <div className="bg-gray-100 rounded h-1.5 overflow-hidden">
                     <div
                       className="h-full rounded"
-                      style={{ width: `${row.pct}%`, backgroundColor: color }}
+                      style={{ width: `${Math.min(100, row.pct)}%`, backgroundColor: color }}
                     />
                   </div>
                   <div className="flex justify-between mt-1.5">
