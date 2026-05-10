@@ -73,6 +73,7 @@ export function ShopModals({
   const [takenPlaceIds, setTakenPlaceIds] = useState<Set<string>>(new Set(initialPlaceIds));
   const [selected, setSelected] = useState<ShopRow | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsInitialTab, setDetailsInitialTab] = useState<"details" | "targets">("details");
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [activateOpen, setActivateOpen] = useState(false);
@@ -87,6 +88,15 @@ export function ShopModals({
         "shop:open-details",
         (e) => {
           setSelected((e as CustomEvent<ShopRow>).detail);
+          setDetailsInitialTab("details");
+          setDetailsOpen(true);
+        },
+      ],
+      [
+        "shop:open-targets",
+        (e) => {
+          setSelected((e as CustomEvent<ShopRow>).detail);
+          setDetailsInitialTab("targets");
           setDetailsOpen(true);
         },
       ],
@@ -214,9 +224,11 @@ export function ShopModals({
         open={detailsOpen}
         shop={selected}
         isOrgAdmin={isOrgAdmin}
+        initialTab={detailsInitialTab}
         onClose={() => {
           setDetailsOpen(false);
           setSelected(null);
+          setDetailsInitialTab("details");
         }}
         onEdit={() => {
           setDetailsOpen(false);

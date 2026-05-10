@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Modal } from "../modal/Modal";
 import { ConnectionStatusPill } from "./ConnectionStatusPill";
 import { SetTargetModal } from "./SetTargetModal";
@@ -10,6 +10,7 @@ interface Props {
   open: boolean;
   shop: ShopRow | null;
   isOrgAdmin: boolean;
+  initialTab?: "details" | "targets";
   onClose: () => void;
   onEdit: () => void;
   onActivate: () => void;
@@ -48,14 +49,19 @@ export function ShopDetailsModal({
   open,
   shop,
   isOrgAdmin,
+  initialTab = "details",
   onClose,
   onEdit,
   onActivate,
   onDeactivate,
   onReconnect,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>("details");
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [showSetTarget, setShowSetTarget] = useState(false);
+
+  useEffect(() => {
+    if (open) setActiveTab(initialTab);
+  }, [open, initialTab]);
 
   const showReconnect =
     shop?.connection_method === "GOOGLE_OAUTH" &&
@@ -64,7 +70,7 @@ export function ShopDetailsModal({
   const targets = useTargets(shop?.id ?? null);
 
   const handleModalClose = () => {
-    setActiveTab("details");
+    setActiveTab(initialTab);
     onClose();
   };
 
