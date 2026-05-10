@@ -10,6 +10,13 @@ interface Props {
   onClose: () => void;
 }
 
+function localIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function getMonthOptions(existing: TargetRow[]): { label: string; value: string }[] {
   const existingKeys = new Set(
     existing
@@ -20,7 +27,7 @@ function getMonthOptions(existing: TargetRow[]): { label: string; value: string 
   const today = new Date();
   for (let i = 0; i < 12; i++) {
     const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
-    const iso = d.toISOString().split("T")[0];
+    const iso = localIso(d);
     if (existingKeys.has(iso)) continue;
     const label =
       d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) +
@@ -48,7 +55,7 @@ function getWeekOptions(existing: TargetRow[]): { label: string; value: string }
     monday.setDate(currentMonday.getDate() + i * 7);
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    const iso = monday.toISOString().split("T")[0];
+    const iso = localIso(monday);
     if (existingKeys.has(iso)) continue;
     const fmt = (d: Date) =>
       d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
