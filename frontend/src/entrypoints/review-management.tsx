@@ -17,4 +17,4 @@ function mount() {
   );
 }
 
-document.addEventListener("turbo:load", mount);
+mount();
