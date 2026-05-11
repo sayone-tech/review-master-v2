@@ -271,7 +271,7 @@ UNFOLD = {
                 "items": [
                     {
                         "title": "Organisations",
-                        "icon": "building_2",
+                        "icon": "domain",
                         "link": "/django-admin/organisations/organisation/",
                     },
                     {

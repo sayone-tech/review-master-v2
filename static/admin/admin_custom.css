@@ -1,48 +1,72 @@
-/* Dark sidebar to match the main app's design */
-#nav-sidebar,
-aside[class*="sidebar"],
-.unfold-sidebar,
-aside {
+/* Unfold admin — dark sidebar + white content area
+ *
+ * Unfold's sidebar is div.fixed.border-r > nav, not <aside>.
+ * Body and sidebar both use bg-base-50 (yellow) — we override both.
+ */
+
+/* ── Body / main content: white instead of yellow ── */
+body {
+    background-color: #fafafa !important;
+}
+
+/* ── Sidebar wrapper ── */
+div.fixed.border-r {
     background-color: #000 !important;
     border-right-color: #27272a !important;
 }
 
-/* Sidebar section labels */
-aside .text-gray-400,
-aside [class*="text-primary-400"],
-aside [class*="text-primary-500"],
-aside span[class*="text-xs"] {
-    color: #52525b !important;
+/* ── Sidebar nav ── */
+div.fixed.border-r nav {
+    background-color: #000 !important;
 }
 
-/* Nav links */
-aside a,
-aside button {
+/* ── Section headings ("Admin", "System") ── */
+div.fixed.border-r p,
+div.fixed.border-r span[class*="text-xs"],
+div.fixed.border-r [class*="uppercase"] {
+    color: #71717a !important;
+}
+
+/* ── Nav links ── */
+div.fixed.border-r a {
     color: #d4d4d8 !important;
 }
 
-aside a:hover,
-aside button:hover {
-    background-color: rgba(255,255,255,0.06) !important;
+div.fixed.border-r a:hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
     color: #facc15 !important;
 }
 
-/* Active nav item */
-aside a[class*="is-active"],
-aside a[aria-current],
-aside a.active {
-    background-color: rgba(255,255,255,0.08) !important;
+/* ── Active/current nav link ── */
+div.fixed.border-r a[class*="bg-base"],
+div.fixed.border-r a[class*="bg-primary"],
+div.fixed.border-r a[class*="font-medium"][class*="text-primary"] {
+    background-color: rgba(250, 204, 21, 0.12) !important;
     color: #facc15 !important;
 }
 
-/* User info area at bottom of sidebar */
-aside .border-t,
-aside [class*="border-t"] {
+/* ── Material icons in sidebar ── */
+div.fixed.border-r span[class*="material"] {
+    color: inherit !important;
+}
+
+/* ── User info at bottom ── */
+div.fixed.border-r div[class*="border-t"] {
     border-color: #27272a !important;
 }
 
-/* Site logo area */
-aside [class*="logo"],
-aside header {
+div.fixed.border-r div[class*="border-t"] * {
+    color: #d4d4d8 !important;
+}
+
+/* ── Logo area ── */
+div.fixed.border-r header {
     background-color: #000 !important;
+}
+
+/* ── Topbar: white not yellow ── */
+header.sticky,
+header[class*="sticky"] {
+    background-color: #fff !important;
+    border-bottom-color: #e4e4e7 !important;
 }
