@@ -1,6 +1,26 @@
+import { AlertCircle, Check, ChevronDown, ChevronUp, Target, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, deleteTarget, listTargets, setTarget } from "./api";
-import type { TargetRow } from "./types";
+import { ApiError, deleteTarget, fetchTargetHistory, listTargets, setTarget } from "./api";
+import type { TargetHistoryRow, TargetRow } from "./types";
+
+// ─── Design-system class constants ───────────────────────────────────────────
+const BTN_BASE =
+  "inline-flex items-center justify-center gap-1.5 font-medium border transition-[background,border-color,color] duration-[120ms] focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+const BTN_MD = "px-3.5 py-2 text-[13.5px] rounded-md";
+const BTN_SM = "px-2.5 py-[5px] text-[12.5px] rounded-sm";
+const BTN_PRIMARY = "bg-yellow text-black border-yellow-hover hover:bg-yellow-hover";
+const BTN_SECONDARY = "bg-white text-ink border-line hover:bg-line-soft hover:border-[#D4D4D8]";
+const BTN_DANGER = "bg-red text-white border-transparent hover:bg-[#B91C1C]";
+
+const INPUT_BASE =
+  "w-full px-3 py-[9px] text-[13.5px] bg-white border rounded-md text-text placeholder:text-faint focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
+const LABEL_BASE = "block text-[13px] font-medium text-ink mb-1.5";
+
+function barColor(pct: number): string {
+  if (pct >= 70) return "bg-green";
+  if (pct >= 40) return "bg-amber";
+  return "bg-red";
+}
 
 interface Props {
   shopId: number;
@@ -8,10 +28,98 @@ interface Props {
   isOrgAdmin: boolean;
 }
 
-function barColor(pct: number): string {
-  if (pct >= 70) return "bg-green";
-  if (pct >= 40) return "bg-amber";
-  return "bg-red";
+function HistorySection({
+  shopId,
+  periodType,
+}: {
+  shopId: number;
+  periodType: "WEEK" | "MONTH";
+}) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<TargetHistoryRow[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (rows !== null) return; // already loaded
+    setLoading(true);
+    setError(null);
+    try {
+      setRows(await fetchTargetHistory(shopId, periodType));
+    } catch {
+      setError("Could not load history.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="border-t border-line-soft pt-3">
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        className="flex items-center gap-1 text-[12.5px] text-muted hover:text-ink transition-colors"
+      >
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        Past periods
+      </button>
+
+      {open && (
+        <div className="mt-3">
+          {loading && <p className="text-[12px] text-muted">Loading…</p>}
+          {error && (
+            <p className="text-[12px] text-red flex items-center gap-1">
+              <AlertCircle size={12} />
+              {error}
+            </p>
+          )}
+          {rows && rows.length === 0 && (
+            <p className="text-[12px] text-muted">No previous periods found.</p>
+          )}
+          {rows && rows.length > 0 && (
+            <table className="w-full text-[12.5px]">
+              <thead>
+                <tr className="text-left text-subtle border-b border-line-soft">
+                  <th className="pb-1.5 font-medium">Period</th>
+                  <th className="pb-1.5 font-medium text-right">Reviews</th>
+                  <th className="pb-1.5 font-medium text-right w-12">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.period_start} className="border-b border-line-soft last:border-0">
+                    <td className="py-1.5 text-muted">{r.period_label}</td>
+                    <td className="py-1.5 text-right tabular-nums text-ink">
+                      {r.received_count}
+                      <span className="text-subtle"> / {r.target_count}</span>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      <span
+                        className={
+                          r.pct >= 70
+                            ? "text-green"
+                            : r.pct >= 40
+                              ? "text-amber"
+                              : "text-red"
+                        }
+                      >
+                        {r.pct}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface CardProps {
@@ -35,6 +143,7 @@ function TargetCard({ periodType, row, isOrgAdmin, shopId, onChanged }: CardProp
   function startEdit() {
     setInputValue(row ? String(row.target_count) : "");
     setEditing(true);
+    setError(null);
   }
 
   function cancelEdit() {
@@ -45,7 +154,7 @@ function TargetCard({ periodType, row, isOrgAdmin, shopId, onChanged }: CardProp
   async function handleSave() {
     const count = parseInt(inputValue, 10);
     if (Number.isNaN(count) || count < 1) {
-      setError("Enter a whole number ≥ 1");
+      setError("Enter a whole number ≥ 1.");
       return;
     }
     setSaving(true);
@@ -76,147 +185,207 @@ function TargetCard({ periodType, row, isOrgAdmin, shopId, onChanged }: CardProp
     }
   }
 
-  return (
-    <div className="bg-white border border-line rounded-card p-5 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <span className="text-[14px] font-semibold text-ink">{label}</span>
-        {row && <span className="text-[12px] text-muted">{row.period_label}</span>}
-      </div>
+  // ── Empty state (no target set) ──────────────────────────────────────────
+  if (!row) {
+    return (
+      <div className="bg-white border border-line rounded-card p-6 flex flex-col gap-5">
+        <h3 className="text-[14px] font-semibold text-ink">{label} Target</h3>
 
-      {row ? (
-        <>
-          <div>
-            <div className="h-2 bg-line-soft rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${barColor(row.pct)}`}
-                style={{ width: `${Math.min(row.pct, 100)}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-1.5">
-              <span className="text-[13px] text-ink">
-                {row.received_count} / {row.target_count} reviews
-              </span>
-              <span className="text-[12px] text-muted">{row.pct}%</span>
-            </div>
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <div className="w-10 h-10 rounded-full bg-line-soft flex items-center justify-center text-muted">
+            <Target size={20} strokeWidth={1.5} />
           </div>
+          <p className="text-[13.5px] font-medium text-ink">No target set</p>
+          <p className="text-[12.5px] text-subtle">
+            Set a goal to track how many reviews this shop receives.
+          </p>
+        </div>
 
-          <span className="text-[12px] text-subtle">
-            {row.days_remaining === 0
-              ? "Last day of period"
-              : `${row.days_remaining} day${row.days_remaining !== 1 ? "s" : ""} remaining`}
-          </span>
+        {error && (
+          <p className="text-[12px] text-red flex items-center gap-1" role="alert">
+            <AlertCircle size={12} />
+            {error}
+          </p>
+        )}
 
-          {error && <p className="text-[12px] text-red">{error}</p>}
-
-          {isOrgAdmin && (
-            <>
-              {editing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    className="w-20 border border-line rounded px-2 py-1 text-[13px] focus:outline-none focus:ring-1 focus:ring-yellow"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void handleSave()}
-                    disabled={saving}
-                    className="px-3 py-1 bg-yellow text-black text-[13px] font-semibold rounded hover:bg-yellow-hover disabled:opacity-50"
-                  >
-                    {saving ? "Saving…" : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="px-3 py-1 text-[13px] text-muted border border-line rounded hover:bg-bg"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : confirmDelete ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] text-ink">Remove this target?</span>
-                  <button
-                    type="button"
-                    onClick={() => void handleDelete()}
-                    disabled={deleting}
-                    className="px-3 py-1 text-[13px] text-red border border-line rounded hover:bg-red-tint disabled:opacity-50"
-                  >
-                    {deleting ? "Deleting…" : "Delete"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(false)}
-                    className="px-3 py-1 text-[13px] text-muted border border-line rounded hover:bg-bg"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={startEdit}
-                    className="px-3 py-1 text-[13px] text-muted border border-line rounded hover:bg-bg"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(true)}
-                    className="px-3 py-1 text-[13px] text-red border border-line rounded hover:bg-red-tint"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </>
-      ) : (
-        <>
-          <p className="text-[13px] text-muted">No target set.</p>
-          {error && <p className="text-[12px] text-red">{error}</p>}
-          {isOrgAdmin &&
-            (editing ? (
-              <div className="flex items-center gap-2">
+        {isOrgAdmin &&
+          (editing ? (
+            <div className="flex flex-col gap-2">
+              <div>
+                <label htmlFor={`target-input-${periodType}`} className={LABEL_BASE}>
+                  Target (reviews)
+                </label>
                 <input
+                  id={`target-input-${periodType}`}
                   type="number"
                   min={1}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  className="w-20 border border-line rounded px-2 py-1 text-[13px] focus:outline-none focus:ring-1 focus:ring-yellow"
+                  className={`${INPUT_BASE} ${error ? "border-red" : "border-line"} w-28`}
                   autoFocus
                 />
+              </div>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => void handleSave()}
                   disabled={saving}
-                  className="px-3 py-1 bg-yellow text-black text-[13px] font-semibold rounded hover:bg-yellow-hover disabled:opacity-50"
+                  className={`${BTN_BASE} ${BTN_MD} ${BTN_PRIMARY}`}
                 >
+                  <Check size={14} />
                   {saving ? "Saving…" : "Save"}
                 </button>
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="px-3 py-1 text-[13px] text-muted border border-line rounded hover:bg-bg"
+                  className={`${BTN_BASE} ${BTN_MD} ${BTN_SECONDARY}`}
                 >
                   Cancel
                 </button>
               </div>
-            ) : (
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={startEdit}
+              className={`${BTN_BASE} ${BTN_MD} ${BTN_PRIMARY} self-center`}
+            >
+              + Set Target
+            </button>
+          ))}
+      </div>
+    );
+  }
+
+  // ── Card with target set ─────────────────────────────────────────────────
+  return (
+    <div className="bg-white border border-line rounded-card p-6 flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[14px] font-semibold text-ink">{label} Target</h3>
+        <span className="text-[12px] text-subtle bg-line-soft rounded px-2 py-0.5">
+          {row.period_label}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-end justify-between">
+          <span className="text-[28px] font-bold text-ink leading-none tabular-nums">
+            {row.received_count}
+            <span className="text-[15px] font-normal text-muted"> / {row.target_count}</span>
+          </span>
+          <span
+            className={`text-[12.5px] font-semibold px-2 py-0.5 rounded-full ${
+              row.pct >= 70
+                ? "text-green bg-green/10"
+                : row.pct >= 40
+                  ? "text-amber bg-amber/10"
+                  : "text-red bg-red/10"
+            }`}
+          >
+            {row.pct}%
+          </span>
+        </div>
+
+        <div className="h-1.5 bg-line-soft rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-[width] duration-500 ${barColor(row.pct)}`}
+            style={{ width: `${Math.min(row.pct, 100)}%` }}
+          />
+        </div>
+
+        <p className="text-[12px] text-subtle">
+          {row.days_remaining === 0
+            ? "Last day of this period"
+            : `${row.days_remaining} day${row.days_remaining !== 1 ? "s" : ""} remaining`}
+        </p>
+      </div>
+
+      {error && (
+        <p className="text-[12px] text-red flex items-center gap-1" role="alert">
+          <AlertCircle size={12} />
+          {error}
+        </p>
+      )}
+
+      <HistorySection shopId={shopId} periodType={periodType} />
+
+      {isOrgAdmin && (
+        <div className="border-t border-line-soft pt-4">
+          {editing ? (
+            <div className="flex flex-col gap-2">
+              <div>
+                <label htmlFor={`target-input-${periodType}`} className={LABEL_BASE}>
+                  New target (reviews)
+                </label>
+                <input
+                  id={`target-input-${periodType}`}
+                  type="number"
+                  min={1}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  className={`${INPUT_BASE} ${error ? "border-red" : "border-line"} w-28`}
+                  autoFocus
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleSave()}
+                  disabled={saving}
+                  className={`${BTN_BASE} ${BTN_MD} ${BTN_PRIMARY}`}
+                >
+                  <Check size={14} />
+                  {saving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className={`${BTN_BASE} ${BTN_MD} ${BTN_SECONDARY}`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : confirmDelete ? (
+            <div className="flex items-center gap-3">
+              <p className="text-[13px] text-ink flex-1">Remove this target?</p>
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={deleting}
+                className={`${BTN_BASE} ${BTN_SM} ${BTN_DANGER}`}
+              >
+                <Trash2 size={12} />
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className={`${BTN_BASE} ${BTN_SM} ${BTN_SECONDARY}`}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={startEdit}
-                className="self-start px-3 py-1.5 text-[13px] font-medium text-muted border border-line rounded hover:bg-bg"
+                className={`${BTN_BASE} ${BTN_SM} ${BTN_SECONDARY}`}
               >
-                + Set Target
+                Edit target
               </button>
-            ))}
-        </>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className={`${BTN_BASE} ${BTN_SM} ${BTN_DANGER}`}
+              >
+                <Trash2 size={12} />
+                Remove
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -258,12 +427,20 @@ export function ShopTargetsWidget({ shopId, shopName, isOrgAdmin }: Props) {
         <span className="text-ink font-medium">Review Targets</span>
       </nav>
 
-      <h1 className="text-[18px] font-semibold text-ink mb-6">Review Targets</h1>
+      <h1 className="text-[22px] font-semibold text-ink tracking-[-0.02em] mb-1">
+        Review Targets
+      </h1>
+      <p className="text-[14px] text-muted mb-6">
+        Track how many reviews this shop receives each week and month.
+      </p>
 
       {loading ? (
         <p className="text-[13px] text-muted">Loading…</p>
       ) : loadError ? (
-        <p className="text-[13px] text-red">{loadError}</p>
+        <p className="text-[12px] text-red flex items-center gap-1" role="alert">
+          <AlertCircle size={12} />
+          {loadError}
+        </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <TargetCard

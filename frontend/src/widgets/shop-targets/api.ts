@@ -1,4 +1,4 @@
-import type { TargetRow, SetTargetPayload } from "./types";
+import type { TargetRow, SetTargetPayload, TargetHistoryRow } from "./types";
 
 function getCsrfToken(): string {
   const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
@@ -55,4 +55,15 @@ export async function deleteTarget(shopId: number, targetId: number): Promise<vo
     headers: reqHeaders("DELETE"),
   });
   return handle<void>(resp);
+}
+
+export async function fetchTargetHistory(
+  shopId: number,
+  periodType: "WEEK" | "MONTH",
+): Promise<TargetHistoryRow[]> {
+  const resp = await fetch(
+    `/api/v1/shops/${shopId}/targets/history/?period_type=${periodType}`,
+    { credentials: "same-origin", headers: reqHeaders("GET") },
+  );
+  return handle<TargetHistoryRow[]>(resp);
 }

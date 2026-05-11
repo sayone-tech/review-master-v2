@@ -40,8 +40,9 @@ from apps.reviews.tasks import initial_backfill_task
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
 from apps.shops.models import ReviewTarget, Shop
 from apps.shops.selectors.shops import get_allocation_status, get_has_regions, list_shops
-from apps.shops.selectors.targets import list_targets_for_shop
+from apps.shops.selectors.targets import list_target_history, list_targets_for_shop
 from apps.shops.serializers import (
+    ReviewTargetHistorySerializer,
     ReviewTargetReadSerializer,
     ReviewTargetWriteSerializer,
     ShopCreateSerializer,
@@ -591,6 +592,20 @@ class ReviewTargetViewSet(
         except ReviewTarget.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"], url_path="history")
+    def history(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        period_type = request.query_params.get("period_type", "")
+        if period_type not in (ReviewTarget.PeriodType.WEEK, ReviewTarget.PeriodType.MONTH):
+            return Response(
+                {"detail": "period_type must be WEEK or MONTH."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        org_id = self._get_org_id()
+        shop_pk = self._get_shop_pk()
+        self._verify_shop_org(shop_pk, org_id)
+        results = list_target_history(shop_id=shop_pk, org_id=org_id, period_type=period_type)
+        return Response(ReviewTargetHistorySerializer(results, many=True).data)
 
 
 # ---------------------------------------------------------------------------

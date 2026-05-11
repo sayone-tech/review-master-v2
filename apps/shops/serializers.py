@@ -146,3 +146,12 @@ class ReviewTargetReadSerializer(serializers.Serializer):  # type: ignore[type-a
 class ReviewTargetWriteSerializer(serializers.Serializer):  # type: ignore[type-arg]
     period_type = serializers.ChoiceField(choices=ReviewTarget.PeriodType.choices)
     target_count = serializers.IntegerField(min_value=1)
+
+
+class ReviewTargetHistorySerializer(serializers.Serializer):  # type: ignore[type-arg]
+    period_label = serializers.CharField()
+    period_start = serializers.CharField()
+    period_end = serializers.CharField()
+    target_count = serializers.IntegerField()
+    received_count = serializers.IntegerField()
+    pct = serializers.IntegerField()
