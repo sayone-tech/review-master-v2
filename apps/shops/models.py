@@ -157,7 +157,7 @@ class ReviewTarget(TimeStampedModel):
         indexes: ClassVar[list[models.Index]] = [
             models.Index(
                 fields=["organisation", "shop", "period_type"],
-                name="target_org_shop_period_type_idx",
+                name="tgt_org_shop_period_idx",
             ),
         ]
 

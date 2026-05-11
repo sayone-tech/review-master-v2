@@ -43,7 +43,7 @@ class Migration(migrations.Migration):
             model_name="reviewtarget",
             index=models.Index(
                 fields=["organisation", "shop", "period_type"],
-                name="target_org_shop_period_type_idx",
+                name="tgt_org_shop_period_idx",
             ),
         ),
         # 7. Update ordering (remove period_start from ordering)
