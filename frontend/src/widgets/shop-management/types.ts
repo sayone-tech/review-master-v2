@@ -63,24 +63,3 @@ export interface ShopFilterParams {
   page?: number;
   page_size?: number;
 }
-
-export interface TargetRow {
-  id: number;
-  period_type: "MONTH" | "WEEK";
-  period_start: string; // ISO date string e.g. "2026-05-01"
-  period_end: string;   // ISO date string
-  target_count: number;
-  received_count: number;
-  pct: number;
-  days_remaining: number;
-}
-
-export interface TargetCreatePayload {
-  period_type: "MONTH" | "WEEK";
-  period_start: string;
-  target_count: number;
-}
-
-export interface TargetUpdatePayload {
-  target_count: number;
-}
