@@ -221,22 +221,29 @@ function OrgTableWidget() {
   );
 }
 
-// Mount modals root — always present regardless of row count
-const modalsRoot = document.getElementById("org-modals-root");
-if (modalsRoot) {
-  createRoot(modalsRoot).render(
-    <StrictMode>
-      <OrgModals />
-    </StrictMode>,
-  );
+function mount() {
+  // Mount modals root — always present regardless of row count
+  const modalsRoot = document.getElementById("org-modals-root");
+  if (modalsRoot && !modalsRoot.dataset.mounted) {
+    modalsRoot.dataset.mounted = "1";
+    createRoot(modalsRoot).render(
+      <StrictMode>
+        <OrgModals />
+      </StrictMode>,
+    );
+  }
+
+  // Mount table root — only present when paginator.count > 0
+  const tableRoot = document.getElementById("org-table-root");
+  if (tableRoot && !tableRoot.dataset.mounted) {
+    tableRoot.dataset.mounted = "1";
+    createRoot(tableRoot).render(
+      <StrictMode>
+        <OrgTableWidget />
+      </StrictMode>,
+    );
+  }
 }
 
-// Mount table root — only present when paginator.count > 0
-const tableRoot = document.getElementById("org-table-root");
-if (tableRoot) {
-  createRoot(tableRoot).render(
-    <StrictMode>
-      <OrgTableWidget />
-    </StrictMode>,
-  );
-}
+mount();
+document.addEventListener("turbo:load", mount);

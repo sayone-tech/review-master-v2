@@ -13,6 +13,7 @@
     "css:build": "tailwindcss -i src/styles/tailwind.css -o ../static/css/tailwind.css --minify"
   },
   "dependencies": {
+    "@hotwired/turbo": "^8.0.23",
     "@parcel/watcher": "^2.5.6",
     "@tanstack/react-query": "^5.100.9",
     "alpinejs": "3.15.11",

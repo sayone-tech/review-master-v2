@@ -6,7 +6,7 @@
   <body class="overflow-hidden bg-bg font-sans text-text antialiased">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-yellow focus:text-black focus:rounded-md">Skip to main content</a>
     {% include "partials/shell_org_open.html" %}
-    <main id="main-content" data-testid="main-content" class="flex-1 overflow-y-auto bg-bg p-4 md:p-8" tabindex="-1">
+    <main id="main-content" data-testid="main-content" data-page-title="{{ page_title|default:'Dashboard' }}" class="flex-1 overflow-y-auto bg-bg p-4 md:p-8" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
     {% block extra_js %}{% endblock %}

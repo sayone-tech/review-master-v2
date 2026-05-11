@@ -4,7 +4,7 @@ from typing import Any, ClassVar
 
 from rest_framework import serializers
 
-from apps.shops.models import Shop
+from apps.shops.models import ReviewTarget, Shop
 
 
 class ShopReadSerializer(serializers.ModelSerializer[Shop]):
@@ -131,3 +131,27 @@ class ShopUpdateSerializer(serializers.Serializer):  # type: ignore[type-arg]
                 }
             )
         return attrs
+
+
+class ReviewTargetReadSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    id = serializers.IntegerField()
+    period_type = serializers.CharField()
+    target_count = serializers.IntegerField()
+    received_count = serializers.IntegerField()
+    pct = serializers.IntegerField()
+    period_label = serializers.CharField()
+    days_remaining = serializers.IntegerField()
+
+
+class ReviewTargetWriteSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    period_type = serializers.ChoiceField(choices=ReviewTarget.PeriodType.choices)
+    target_count = serializers.IntegerField(min_value=1)
+
+
+class ReviewTargetHistorySerializer(serializers.Serializer):  # type: ignore[type-arg]
+    period_label = serializers.CharField()
+    period_start = serializers.CharField()
+    period_end = serializers.CharField()
+    target_count = serializers.IntegerField()
+    received_count = serializers.IntegerField()
+    pct = serializers.IntegerField()

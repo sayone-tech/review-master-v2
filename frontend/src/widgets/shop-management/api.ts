@@ -6,12 +6,12 @@ import type {
   ShopsListResponse,
 } from "./types";
 
-function getCsrfToken(): string {
+export function getCsrfToken(): string {
   const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : "";
 }
 
-function headers(method: string): HeadersInit {
+export function headers(method: string): HeadersInit {
   const h: Record<string, string> = { "Content-Type": "application/json" };
   if (method !== "GET" && method !== "HEAD") {
     h["X-CSRFToken"] = getCsrfToken();
@@ -28,13 +28,13 @@ export class ApiError extends Error {
   }
 }
 
-async function handle(resp: Response): Promise<unknown> {
+export async function handle<T>(resp: Response): Promise<T> {
   if (!resp.ok) {
     const data = await resp.json().catch(() => null);
     throw new ApiError(resp.status, data);
   }
-  if (resp.status === 204) return null;
-  return resp.json();
+  if (resp.status === 204) return null as T;
+  return resp.json() as Promise<T>;
 }
 
 function buildQs(params: ShopFilterParams): string {
@@ -53,7 +53,7 @@ export async function listShops(params: ShopFilterParams = {}): Promise<ShopsLis
     credentials: "same-origin",
     headers: headers("GET"),
   });
-  return (await handle(resp)) as ShopsListResponse;
+  return handle<ShopsListResponse>(resp);
 }
 
 export async function createShop(payload: ShopCreatePayload): Promise<ShopRow> {
@@ -63,7 +63,7 @@ export async function createShop(payload: ShopCreatePayload): Promise<ShopRow> {
     headers: headers("POST"),
     body: JSON.stringify(payload),
   });
-  return (await handle(resp)) as ShopRow;
+  return handle<ShopRow>(resp);
 }
 
 export async function updateShop(id: number, payload: ShopUpdatePayload): Promise<ShopRow> {
@@ -73,7 +73,7 @@ export async function updateShop(id: number, payload: ShopUpdatePayload): Promis
     headers: headers("PATCH"),
     body: JSON.stringify(payload),
   });
-  return (await handle(resp)) as ShopRow;
+  return handle<ShopRow>(resp);
 }
 
 export async function activateShop(id: number): Promise<ShopRow> {
@@ -82,7 +82,7 @@ export async function activateShop(id: number): Promise<ShopRow> {
     credentials: "same-origin",
     headers: headers("POST"),
   });
-  return (await handle(resp)) as ShopRow;
+  return handle<ShopRow>(resp);
 }
 
 export async function deactivateShop(id: number): Promise<ShopRow> {
@@ -91,7 +91,7 @@ export async function deactivateShop(id: number): Promise<ShopRow> {
     credentials: "same-origin",
     headers: headers("POST"),
   });
-  return (await handle(resp)) as ShopRow;
+  return handle<ShopRow>(resp);
 }
 
 export async function reconnectShop(id: number, state: string): Promise<ShopRow> {
@@ -101,7 +101,7 @@ export async function reconnectShop(id: number, state: string): Promise<ShopRow>
     headers: headers("POST"),
     body: JSON.stringify({ state }),
   });
-  return (await handle(resp)) as ShopRow;
+  return handle<ShopRow>(resp);
 }
 
 export async function getOAuthResult(
@@ -115,5 +115,5 @@ export async function getOAuthResult(
     },
   );
   if (resp.status === 204) return null;
-  return (await handle(resp)) as { listings: unknown[] };
+  return handle<{ listings: unknown[] }>(resp);
 }

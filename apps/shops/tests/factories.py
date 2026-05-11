@@ -3,7 +3,7 @@ from __future__ import annotations
 import factory
 from factory.django import DjangoModelFactory
 
-from apps.shops.models import Shop, ShopAuditLog
+from apps.shops.models import ReviewTarget, Shop, ShopAuditLog
 
 
 class ShopFactory(DjangoModelFactory):
@@ -27,3 +27,14 @@ class ShopAuditLogFactory(DjangoModelFactory):
     shop = factory.SubFactory("apps.shops.tests.factories.ShopFactory")
     actor = factory.SubFactory("apps.accounts.tests.factories.UserFactory")
     action = ShopAuditLog.Action.API_KEY_REVEALED
+
+
+class ReviewTargetFactory(DjangoModelFactory):
+    class Meta:
+        model = ReviewTarget
+
+    organisation = factory.LazyAttribute(lambda o: o.shop.organisation)
+    shop = factory.SubFactory("apps.shops.tests.factories.ShopFactory")
+    period_type = ReviewTarget.PeriodType.MONTH
+    target_count = 100
+    created_by = None

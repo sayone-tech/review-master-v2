@@ -84,6 +84,20 @@ def test_upsert_no_duplicates_on_repeat(patched_dependencies) -> None:
     assert Review.objects.filter(shop=shop).count() == 2
 
 
+def test_incremental_sync_fetched_count_excludes_existing(patched_dependencies) -> None:
+    # Regression: incremental sync was reporting len(api_rows) as "fetched"
+    # even for reviews already in the DB — so re-syncing 2 existing reviews
+    # showed "2 synced" instead of "0 new".
+    shop = _make_shop()
+    page = {"reviews": [_api_review("g-1"), _api_review("g-2")], "totalReviewCount": 2}
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.run_initial_backfill(shop_id=shop.pk)
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        result = sync_mod.run_incremental_sync(shop_id=shop.pk)
+    assert result["fetched"] == 0, "re-syncing existing reviews must not inflate the fetched count"
+    assert Review.objects.filter(shop=shop).count() == 2
+
+
 def test_changed_review_resets_enrichment(patched_dependencies) -> None:
     shop = _make_shop()
     page1 = {"reviews": [_api_review("g-1", comment="Old")], "totalReviewCount": 1}

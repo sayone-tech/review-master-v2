@@ -111,6 +111,8 @@ export function ActionItemManagementWidget({
   const [openModalId, setOpenModalId] = useState<number | null>(null);
   const [assignRow, setAssignRow] = useState<ActionItemListRow | null>(null);
 
+  const isOrgAdmin = userRole === "ORG_ADMIN";
+
   // Deep-link support: ?id={N} opens the detail modal on mount, then strips
   // the param so refresh doesn't re-open.
   useEffect(() => {
@@ -197,6 +199,7 @@ export function ActionItemManagementWidget({
           onOpenModal={setOpenModalId}
           onTransitionStatus={handleTransition}
           onAssign={setAssignRow}
+          onViewTargets={(shopId) => { window.location.href = `/admin/org/shops/${shopId}/targets/`; }}
         />
         <nav
           className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
@@ -331,6 +334,7 @@ export function ActionItemManagementWidget({
         onClose={() => setAssignRow(null)}
         onAssigned={() => void refetch()}
       />
+
     </div>
   );
 }

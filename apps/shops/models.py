@@ -114,3 +114,52 @@ class ShopAuditLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.shop_id}:{self.action}"
+
+
+class ReviewTarget(TimeStampedModel):
+    class PeriodType(models.TextChoices):
+        WEEK = "WEEK", "Weekly"
+        MONTH = "MONTH", "Monthly"
+
+    organisation = models.ForeignKey(
+        "organisations.Organisation",
+        on_delete=models.CASCADE,
+        related_name="review_targets",
+    )
+    shop = models.ForeignKey(
+        "shops.Shop",
+        on_delete=models.CASCADE,
+        related_name="review_targets",
+    )
+    period_type = models.CharField(
+        max_length=5,
+        choices=PeriodType.choices,
+        db_index=True,
+    )
+    target_count = models.PositiveIntegerField()
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_targets",
+    )
+
+    class Meta:
+        db_table = "shops_reviewtarget"
+        ordering: ClassVar[list[str]] = ["period_type"]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(
+                fields=["shop", "period_type"],
+                name="target_unique_per_shop_period_type",
+            ),
+        ]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(
+                fields=["organisation", "shop", "period_type"],
+                name="target_org_shop_period_type_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"ReviewTarget({self.shop_id} {self.period_type})"

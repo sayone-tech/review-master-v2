@@ -2,8 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ReviewManagementWidget } from "../widgets/review-management/ReviewManagementWidget";
 
-const root = document.getElementById("review-management-root");
-if (root) {
+function mount() {
+  const root = document.getElementById("review-management-root");
+  if (!root || root.dataset.mounted) return;
+  root.dataset.mounted = "1";
   const userRole = root.dataset.currentUserRole ?? "";
   const openProgressShopId = root.dataset.openProgressShopId ?? "";
   createRoot(root).render(
@@ -15,3 +17,6 @@ if (root) {
     </StrictMode>,
   );
 }
+
+mount();
+document.addEventListener("turbo:load", mount);

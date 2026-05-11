@@ -6,9 +6,10 @@ import logging
 import secrets
 from typing import Any
 
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponseRedirect
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.views import View
 from django_redis import get_redis_connection
 from drf_spectacular.utils import extend_schema
@@ -37,9 +38,13 @@ from apps.regions.selectors.regions import list_regions
 from apps.regions.serializers import RegionReadSerializer
 from apps.reviews.tasks import initial_backfill_task
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
-from apps.shops.models import Shop
+from apps.shops.models import ReviewTarget, Shop
 from apps.shops.selectors.shops import get_allocation_status, get_has_regions, list_shops
+from apps.shops.selectors.targets import list_target_history, list_targets_for_shop
 from apps.shops.serializers import (
+    ReviewTargetHistorySerializer,
+    ReviewTargetReadSerializer,
+    ReviewTargetWriteSerializer,
     ShopCreateSerializer,
     ShopReadSerializer,
     ShopUpdateSerializer,
@@ -50,6 +55,10 @@ from apps.shops.services.shops import (
     deactivate_shop,
     reconnect_oauth,
     update_shop,
+)
+from apps.shops.services.targets import (
+    delete_target,
+    set_target,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,6 +97,7 @@ def shop_list(request):  # type: ignore[no-untyped-def]
     shops_data = list(ShopReadSerializer(list(page_obj.object_list), many=True).data)
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
+    user = request.user
     return render(
         request,
         "shops/shop_list.html",
@@ -102,6 +112,7 @@ def shop_list(request):  # type: ignore[no-untyped-def]
             "per_page_options": list(_SHOP_PER_PAGE_OPTIONS),
             "page_url_params": _shop_page_url_params(request, per_page),
             "page_title": "Shops",
+            "is_org_admin": user.role == User.Role.ORG_ADMIN,
         },
     )
 
@@ -502,3 +513,120 @@ class GoogleOAuthCallbackView(View):
         )
         response["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
         return response
+
+
+# ---------------------------------------------------------------------------
+# ReviewTarget ViewSet — nested under /api/v1/shops/{shop_pk}/targets/
+# ---------------------------------------------------------------------------
+
+
+class ReviewTargetViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    TenantScopedViewSet,
+):
+    queryset = ReviewTarget.objects.all()
+    http_method_names = ["get", "post", "delete", "head", "options"]  # noqa: RUF012
+
+    def get_permissions(self) -> list[BasePermission]:
+        if self.action in ("create", "destroy"):
+            return [RequiresSessionAuth(), IsOrgAdmin(), IsOrgScoped()]
+        return [IsOrgScoped()]
+
+    def _get_shop_pk(self) -> int:
+        return int(self.kwargs["shop_pk"])
+
+    def _get_org_id(self) -> int:
+        user = self.request.user
+        if not isinstance(user, User) or user.organisation is None:
+            raise drf_serializers.ValidationError({"detail": ["Organisation not found."]})
+        return int(user.organisation_id)  # type: ignore[arg-type]
+
+    def _verify_shop_org(self, shop_pk: int, org_id: int) -> None:
+        from rest_framework.exceptions import PermissionDenied
+
+        if not Shop.objects.filter(pk=shop_pk, organisation_id=org_id).exists():
+            raise PermissionDenied()
+
+    def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        org_id = self._get_org_id()
+        shop_pk = self._get_shop_pk()
+        self._verify_shop_org(shop_pk, org_id)
+        results = list_targets_for_shop(shop_id=shop_pk, org_id=org_id)
+        return Response(ReviewTargetReadSerializer(results, many=True).data)
+
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        serializer = ReviewTargetWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        if not isinstance(user, User):
+            raise drf_serializers.ValidationError({"detail": ["Authentication required."]})
+        shop_pk = self._get_shop_pk()
+        org_id = self._get_org_id()
+        try:
+            set_target(
+                shop_id=shop_pk,
+                org_id=org_id,
+                period_type=serializer.validated_data["period_type"],
+                target_count=serializer.validated_data["target_count"],
+                created_by=user,
+            )
+        except ReviewTarget.DoesNotExist:
+            return Response({"detail": "Shop not found."}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            raise drf_serializers.ValidationError({"non_field_errors": [str(exc)]}) from exc
+        results = list_targets_for_shop(shop_id=shop_pk, org_id=org_id)
+        return Response(
+            ReviewTargetReadSerializer(results, many=True).data, status=status.HTTP_200_OK
+        )
+
+    def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        org_id = self._get_org_id()
+        self._verify_shop_org(self._get_shop_pk(), org_id)
+        try:
+            delete_target(
+                target_id=int(kwargs["pk"]),
+                org_id=org_id,
+            )
+        except ReviewTarget.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"], url_path="history")
+    def history(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        period_type = request.query_params.get("period_type", "")
+        if period_type not in (ReviewTarget.PeriodType.WEEK, ReviewTarget.PeriodType.MONTH):
+            return Response(
+                {"detail": "period_type must be WEEK or MONTH."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        org_id = self._get_org_id()
+        shop_pk = self._get_shop_pk()
+        self._verify_shop_org(shop_pk, org_id)
+        results = list_target_history(shop_id=shop_pk, org_id=org_id, period_type=period_type)
+        return Response(ReviewTargetHistorySerializer(results, many=True).data)
+
+
+# ---------------------------------------------------------------------------
+# Shop Targets — dedicated page view
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def shop_targets_view(request: Any, shop_id: int) -> Any:
+    user = request.user
+    if not isinstance(user, User) or user.organisation is None:
+        from django.http import HttpResponseForbidden
+
+        return HttpResponseForbidden()
+    shop = get_object_or_404(Shop, pk=shop_id, organisation=user.organisation)
+    return render(
+        request,
+        "shops/shop_targets.html",
+        {
+            "shop_id": shop.pk,
+            "shop_name": shop.name,
+            "is_org_admin": user.role == User.Role.ORG_ADMIN,
+        },
+    )

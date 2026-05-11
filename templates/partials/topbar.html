@@ -1,5 +1,7 @@
 {% load django_vite %}
 <header
+  id="main-topbar"
+  data-turbo-permanent
   class="
          sticky top-0 z-20
          bg-white border-b border-line
@@ -23,7 +25,7 @@
 
     <div class="text-[15px] font-medium text-muted truncate" data-testid="topbar-title">
       {% block breadcrumb %}
-        <strong class="text-ink font-semibold">{{ page_title|default:"Dashboard" }}</strong>
+        <strong id="topbar-breadcrumb" class="text-ink font-semibold">{{ page_title|default:"Dashboard" }}</strong>
       {% endblock %}
     </div>
   </div>

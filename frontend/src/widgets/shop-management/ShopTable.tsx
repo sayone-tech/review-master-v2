@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Eye, Edit2, Power, PowerOff, RefreshCcw } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Eye, Edit2, Power, PowerOff, RefreshCcw, BarChart2 } from "lucide-react";
 import { DataTable } from "../data-table/DataTable";
 import { ShopsEmptyStateA } from "./ShopsEmptyStateA";
 import { ShopsEmptyStateB } from "./ShopsEmptyStateB";
@@ -24,6 +24,14 @@ const SHOP_ACTIONS: RowAction[] = [
     label: "Edit",
     icon: <Edit2 size={14} />,
     onSelect: (r) => dispatchShopEvent("shop:open-edit", r),
+  },
+  {
+    key: "targets",
+    label: "Review Targets",
+    icon: <BarChart2 size={14} />,
+    onSelect: (r) => {
+      window.location.href = `/admin/org/shops/${r.id}/targets/`;
+    },
   },
   {
     key: "deactivate",

@@ -171,6 +171,7 @@ interface Props {
   onOpenModal: (id: number) => void;
   onTransitionStatus: (id: number, status: ActionItemStatus) => void;
   onAssign: (row: ActionItemListRow) => void;
+  onViewTargets: (shopId: number, shopName: string) => void;
 }
 
 export function ActionItemTable({
@@ -180,6 +181,7 @@ export function ActionItemTable({
   onOpenModal,
   onTransitionStatus,
   onAssign,
+  onViewTargets,
 }: Props) {
   const columns: DataTableColumn<ActionItemListRow>[] = [
     {
@@ -213,9 +215,19 @@ export function ActionItemTable({
       key: "shop",
       label: "SHOP",
       skeletonWidth: "120px",
-      accessor: (r) => (
-        <span className="text-[14px] text-ink">{r.shop_name ?? "—"}</span>
-      ),
+      accessor: (r) =>
+        r.shop_id !== null && r.shop_name ? (
+          <button
+            type="button"
+            onClick={() => onViewTargets(r.shop_id!, r.shop_name!)}
+            className="text-[14px] text-ink hover:underline cursor-pointer text-left"
+            aria-label={`View review targets for ${r.shop_name}`}
+          >
+            {r.shop_name}
+          </button>
+        ) : (
+          <span className="text-[14px] text-muted">—</span>
+        ),
     },
     {
       key: "assignee",
