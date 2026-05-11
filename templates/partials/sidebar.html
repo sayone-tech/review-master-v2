@@ -19,7 +19,7 @@
   </div>
 
   {% if user.is_authenticated %}
-    <nav class="flex-1 overflow-y-auto" aria-label="Primary">
+    <nav class="flex-1 min-h-0 overflow-y-auto" aria-label="Primary">
       <span class="md:hidden lg:block px-5 pb-2 text-[11px] font-medium text-[#52525B] uppercase tracking-[0.08em]">
         Manage
       </span>
@@ -27,6 +27,7 @@
         {% if user.role == 'SUPERADMIN' %}
           {% include "partials/_nav_item.html" with href="/" icon="layout-dashboard" label="Dashboard" %}
           {% include "partials/_nav_item.html" with href="/admin/organisations/" icon="building-2" label="Organisations" %}
+          {% include "partials/_nav_item.html" with href="/django-admin/" icon="shield" label="Django Admin" %}
           {% include "partials/_nav_item.html" with href="/api/v1/schema/scalar/" icon="file-code" label="API Docs" %}
         {% elif user.role == 'ORG_ADMIN' %}
           {% include "partials/_nav_item.html" with href="/" icon="layout-dashboard" label="Dashboard" %}
