@@ -1,11 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from unfold.admin import ModelAdmin
 
 from apps.accounts.models import InvitationToken, User
 
 
 @admin.register(User)
-class UserAdmin(BaseUserAdmin):  # type: ignore[type-arg]
+class UserAdmin(ModelAdmin, BaseUserAdmin):  # type: ignore[misc, type-arg]
     list_display = (
         "email",
         "full_name",
@@ -49,7 +50,7 @@ class UserAdmin(BaseUserAdmin):  # type: ignore[type-arg]
 
 
 @admin.register(InvitationToken)
-class InvitationTokenAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+class InvitationTokenAdmin(ModelAdmin):  # type: ignore[misc]
     list_display = ("organisation", "invited_user", "is_used", "expires_at", "created_at")
     list_filter = ("is_used",)
     search_fields = ("organisation__name", "invited_user__email")

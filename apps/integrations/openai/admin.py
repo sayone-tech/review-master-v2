@@ -8,12 +8,13 @@ be edited (ENRCH-09).
 from __future__ import annotations
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from apps.integrations.openai.models import AiPricing, AiUsageLog
 
 
 @admin.register(AiPricing)
-class AiPricingAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+class AiPricingAdmin(ModelAdmin):  # type: ignore[misc]
     list_display = (
         "model",
         "input_token_price_per_1m",
@@ -27,7 +28,7 @@ class AiPricingAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
 
 
 @admin.register(AiUsageLog)
-class AiUsageLogAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+class AiUsageLogAdmin(ModelAdmin):  # type: ignore[misc]
     list_display = (
         "created_at",
         "organisation",
