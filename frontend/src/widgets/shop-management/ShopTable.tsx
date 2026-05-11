@@ -29,7 +29,9 @@ const SHOP_ACTIONS: RowAction[] = [
     key: "targets",
     label: "Review Targets",
     icon: <BarChart2 size={14} />,
-    onSelect: (r) => dispatchShopEvent("shop:open-targets", r),
+    onSelect: (r) => {
+      window.location.href = `/admin/org/shops/${r.id}/targets/`;
+    },
   },
   {
     key: "deactivate",

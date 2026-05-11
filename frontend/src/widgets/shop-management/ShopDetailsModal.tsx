@@ -1,16 +1,12 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode } from "react";
 import { Modal } from "../modal/Modal";
 import { ConnectionStatusPill } from "./ConnectionStatusPill";
-import { SetTargetModal } from "./SetTargetModal";
-import { TargetsTab } from "./TargetsTab";
-import { useTargets } from "./useTargets";
 import type { ShopRow } from "./types";
 
 interface Props {
   open: boolean;
   shop: ShopRow | null;
   isOrgAdmin: boolean;
-  initialTab?: "details" | "targets";
   onClose: () => void;
   onEdit: () => void;
   onActivate: () => void;
@@ -43,45 +39,26 @@ function formatDate(iso: string): string {
   }
 }
 
-type TabId = "details" | "targets";
-
 export function ShopDetailsModal({
   open,
   shop,
-  isOrgAdmin,
-  initialTab = "details",
+  isOrgAdmin: _isOrgAdmin,
   onClose,
   onEdit,
   onActivate,
   onDeactivate,
   onReconnect,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
-  const [showSetTarget, setShowSetTarget] = useState(false);
-
-  useEffect(() => {
-    if (open) setActiveTab(initialTab);
-  }, [open, initialTab]);
-
   const showReconnect =
     shop?.connection_method === "GOOGLE_OAUTH" &&
     (shop.connection_status === "ERROR" || shop.connection_status === "EXPIRED");
 
-  const targets = useTargets(shop?.id ?? null);
-
   const handleModalClose = () => {
-    setActiveTab(initialTab);
     onClose();
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "details", label: "Details" },
-    { id: "targets", label: "Review Targets" },
-  ];
-
   return (
-    <>
-      <Modal
+    <Modal
         open={open}
         title="Shop Details"
         size="lg"
@@ -131,94 +108,56 @@ export function ShopDetailsModal({
           </>
         }
       >
-        {/* Tab switcher */}
-        <div className="flex border-b border-line mb-4 -mt-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-[12.5px] font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? "border-yellow text-ink font-semibold"
-                  : "border-transparent text-subtle hover:text-ink"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
         {shop ? (
-          activeTab === "details" ? (
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-              <Row label="Shop Name">{shop.name}</Row>
-              <Row label="Phone">{shop.phone || "—"}</Row>
-              <Row label="Region">
-                {shop.region_region_id ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span
-                      className="rounded px-1.5 py-0.5 text-[11px] font-semibold"
-                      style={{ backgroundColor: "#F3F4F6", color: "#374151" }}
-                    >
-                      {shop.region_region_id}
-                    </span>
-                    {shop.region_name}
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <Row label="Shop Name">{shop.name}</Row>
+            <Row label="Phone">{shop.phone || "—"}</Row>
+            <Row label="Region">
+              {shop.region_region_id ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[11px] font-semibold"
+                    style={{ backgroundColor: "#F3F4F6", color: "#374151" }}
+                  >
+                    {shop.region_region_id}
                   </span>
-                ) : (
-                  "—"
-                )}
-              </Row>
-              <Row label="Status">
-                <span
-                  className="inline-flex items-center rounded-full px-2 py-[3px] text-[12px] font-medium"
-                  style={
-                    shop.is_active
-                      ? { backgroundColor: "#F0FDF4", color: "#16A34A" }
-                      : { backgroundColor: "#F9FAFB", color: "#6B7280" }
-                  }
-                >
-                  {shop.is_active ? "Active" : "Inactive"}
+                  {shop.region_name}
                 </span>
-              </Row>
-              <Row label="Street Address">{shop.street_address || "—"}</Row>
-              <Row label="Place ID">
-                <code className="font-mono text-[12.5px]">{shop.place_id || "—"}</code>
-              </Row>
-              <Row label="Connection Method">
-                {shop.connection_method === "GOOGLE_OAUTH" ? "Google OAuth" : "Not connected"}
-              </Row>
-              <Row label="Connection Status">
-                <ConnectionStatusPill
-                  method={shop.connection_method}
-                  status={shop.connection_status}
-                />
-              </Row>
-              <Row label="Created">{formatDate(shop.created_at)}</Row>
-              <Row label="Updated">{formatDate(shop.updated_at)}</Row>
-            </dl>
-          ) : (
-            <TargetsTab
-              shopId={shop.id}
-              isOrgAdmin={isOrgAdmin}
-              targets={targets}
-              onAddTarget={() => setShowSetTarget(true)}
-            />
-          )
+              ) : (
+                "—"
+              )}
+            </Row>
+            <Row label="Status">
+              <span
+                className="inline-flex items-center rounded-full px-2 py-[3px] text-[12px] font-medium"
+                style={
+                  shop.is_active
+                    ? { backgroundColor: "#F0FDF4", color: "#16A34A" }
+                    : { backgroundColor: "#F9FAFB", color: "#6B7280" }
+                }
+              >
+                {shop.is_active ? "Active" : "Inactive"}
+              </span>
+            </Row>
+            <Row label="Street Address">{shop.street_address || "—"}</Row>
+            <Row label="Place ID">
+              <code className="font-mono text-[12.5px]">{shop.place_id || "—"}</code>
+            </Row>
+            <Row label="Connection Method">
+              {shop.connection_method === "GOOGLE_OAUTH" ? "Google OAuth" : "Not connected"}
+            </Row>
+            <Row label="Connection Status">
+              <ConnectionStatusPill
+                method={shop.connection_method}
+                status={shop.connection_status}
+              />
+            </Row>
+            <Row label="Created">{formatDate(shop.created_at)}</Row>
+            <Row label="Updated">{formatDate(shop.updated_at)}</Row>
+          </dl>
         ) : (
           <p className="text-[13.5px] text-muted">No shop selected.</p>
         )}
-      </Modal>
-
-      {shop && (
-        <SetTargetModal
-          open={showSetTarget}
-          shopId={shop.id}
-          existingTargets={targets.rows}
-          onSave={targets.addTarget}
-          onClose={() => setShowSetTarget(false)}
-        />
-      )}
-    </>
+    </Modal>
   );
 }
