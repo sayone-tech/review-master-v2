@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-
 import pytest
 from django.db import IntegrityError
 
@@ -65,27 +63,23 @@ class TestReviewTargetModel:
         ReviewTargetFactory(
             shop=shop,
             period_type=ReviewTarget.PeriodType.MONTH,
-            period_start=date(2026, 5, 1),
             target_count=100,
         )
         with pytest.raises(IntegrityError):
             ReviewTargetFactory(
                 shop=shop,
                 period_type=ReviewTarget.PeriodType.MONTH,
-                period_start=date(2026, 5, 1),
                 target_count=200,
             )
 
-    def test_different_period_type_same_start_allowed(self):
+    def test_different_period_type_same_shop_allowed(self):
         shop = ShopFactory()
         ReviewTargetFactory(
             shop=shop,
             period_type=ReviewTarget.PeriodType.MONTH,
-            period_start=date(2026, 5, 1),
         )
         t2 = ReviewTargetFactory(
             shop=shop,
             period_type=ReviewTarget.PeriodType.WEEK,
-            period_start=date(2026, 5, 4),
         )
         assert t2.pk is not None
