@@ -184,7 +184,7 @@ def _persist_page(
             sentiment="",
         )
 
-    return len(rows), rev_ids, new_google_review_ids
+    return len(new_google_review_ids), rev_ids, new_google_review_ids
 
 
 def _schedule_new_review_dispatch(*, shop: Shop, new_google_review_ids: set[str]) -> None:
