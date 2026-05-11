@@ -2,82 +2,82 @@ from __future__ import annotations
 
 import datetime
 from math import floor
-from typing import cast
 
 from apps.reviews.models import Review
 from apps.shops.models import ReviewTarget
 
 
-def _period_end(period_type: str, period_start: datetime.date) -> datetime.date:
+def _current_period_bounds(period_type: str) -> tuple[datetime.date, datetime.date]:
+    today = datetime.date.today()
     if period_type == ReviewTarget.PeriodType.WEEK:
-        return period_start + datetime.timedelta(days=6)  # Sunday
-    if period_type == ReviewTarget.PeriodType.MONTH:
-        if period_start.month == 12:
-            return datetime.date(period_start.year + 1, 1, 1) - datetime.timedelta(days=1)
-        return datetime.date(period_start.year, period_start.month + 1, 1) - datetime.timedelta(
-            days=1
-        )
-    raise ValueError(f"Unknown period_type: {period_type!r}")
+        start = today - datetime.timedelta(days=today.weekday())  # Monday
+        end = start + datetime.timedelta(days=6)  # Sunday
+        return start, end
+    # MONTH
+    start = today.replace(day=1)
+    if today.month == 12:
+        end = datetime.date(today.year + 1, 1, 1) - datetime.timedelta(days=1)
+    else:
+        end = datetime.date(today.year, today.month + 1, 1) - datetime.timedelta(days=1)
+    return start, end
+
+
+def _period_label(period_type: str, start: datetime.date, end: datetime.date) -> str:
+    if period_type == ReviewTarget.PeriodType.WEEK:
+        if start.month == end.month:
+            return f"Week of {start.strftime('%b')} {start.day}-{end.day}"
+        return f"Week of {start.strftime('%b')} {start.day} - {end.strftime('%b')} {end.day}"
+    return start.strftime("%B %Y")
 
 
 def list_targets_for_shop(*, shop_id: int, org_id: int) -> list[dict[str, object]]:
-    """Return targets with live progress. Ordered: current first, future next, past last."""
     targets = list(ReviewTarget.objects.filter(shop_id=shop_id, organisation_id=org_id))
     if not targets:
         return []
 
     today = datetime.date.today()
 
-    # Build period boundaries once per target
-    boundaries: dict[int, datetime.date] = {
-        t.pk: _period_end(t.period_type, t.period_start) for t in targets
+    # Compute period bounds once per period_type (max 2)
+    bounds: dict[str, tuple[datetime.date, datetime.date]] = {
+        t.period_type: _current_period_bounds(t.period_type) for t in targets
     }
 
-    # Single aggregation: query all reviews for this shop that fall within ANY of the
-    # target periods — one DB round trip for reviews (2 total: targets + reviews).
-    min_start = min(t.period_start for t in targets)
-    max_end = max(boundaries[t.pk] for t in targets)
+    # Single review query covering the union of all period ranges
+    min_start = min(b[0] for b in bounds.values())
+    max_end = max(b[1] for b in bounds.values())
 
-    reviews_qs = Review.objects.filter(
-        shop_id=shop_id,
-        review_create_time__date__gte=min_start,
-        review_create_time__date__lte=max_end,
-        deleted_at__isnull=True,
-    ).values_list("review_create_time", flat=True)
+    raw_datetimes = list(
+        Review.objects.filter(
+            shop_id=shop_id,
+            review_create_time__date__gte=min_start,
+            review_create_time__date__lte=max_end,
+            deleted_at__isnull=True,
+        ).values_list("review_create_time", flat=True)
+    )
 
-    # Partition review dates into each period in Python (O(reviews * targets), negligible scale)
-    review_dates = [dt.date() for dt in reviews_qs]
-
-    received_map: dict[int, int] = {}
-    for t in targets:
-        period_end = boundaries[t.pk]
-        received_map[t.pk] = sum(1 for d in review_dates if t.period_start <= d <= period_end)
+    # Bucket each review date into the right period_type
+    counts: dict[str, int] = dict.fromkeys(bounds, 0)
+    for dt in raw_datetimes:
+        d = dt.date() if hasattr(dt, "date") else dt
+        for pt, (start, end) in bounds.items():
+            if start <= d <= end:
+                counts[pt] += 1
 
     results = []
     for t in targets:
-        period_end = boundaries[t.pk]
-        received = received_map[t.pk]
+        start, end = bounds[t.period_type]
+        received = counts[t.period_type]
         pct = min(100, floor(received / t.target_count * 100)) if t.target_count > 0 else 0
-        days_remaining = max(0, (period_end - today).days)
         results.append(
             {
                 "id": t.pk,
                 "period_type": t.period_type,
-                "period_start": t.period_start,
-                "period_end": period_end,
                 "target_count": t.target_count,
                 "received_count": received,
                 "pct": pct,
-                "days_remaining": days_remaining,
+                "period_label": _period_label(t.period_type, start, end),
+                "days_remaining": max(0, (end - today).days),
             }
         )
 
-    def _sort_key(row: dict[str, object]) -> tuple[bool, bool, datetime.date]:
-        period_end = cast(datetime.date, row["period_end"])
-        period_start = cast(datetime.date, row["period_start"])
-        is_past = period_end < today
-        is_future = period_start > today
-        return (is_past, is_future, period_start)
-
-    results.sort(key=_sort_key)
     return results
