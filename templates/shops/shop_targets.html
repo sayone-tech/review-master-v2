@@ -1,0 +1,15 @@
+{% extends "base_org.html" %}
+{% load static django_vite %}
+
+{% block content %}
+  <div
+    id="shop-targets-root"
+    data-shop-id="{{ shop_id }}"
+    data-shop-name="{{ shop_name|escapejs }}"
+    data-is-org-admin="{{ is_org_admin|yesno:'true,false' }}"
+  ></div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/shop-targets.tsx' %}
+{% endblock %}

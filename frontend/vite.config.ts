@@ -30,6 +30,7 @@ export default defineConfig({
         "notif-bell": resolve(__dirname, "src/entrypoints/notif-bell.tsx"),
         dashboard: resolve(__dirname, "src/entrypoints/dashboard.tsx"),
         "reply-templates": resolve(__dirname, "src/entrypoints/reply-templates.tsx"),
+        "shop-targets": resolve(__dirname, "src/entrypoints/shop-targets.tsx"),
       },
     },
   },
