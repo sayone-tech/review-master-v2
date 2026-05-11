@@ -46,7 +46,7 @@ function HistorySection({
       return;
     }
     setOpen(true);
-    if (rows !== null) return; // already loaded
+    if (rows !== null) return;
     setLoading(true);
     setError(null);
     try {
@@ -63,7 +63,7 @@ function HistorySection({
       <button
         type="button"
         onClick={() => void toggle()}
-        className="flex items-center gap-1 text-[12.5px] text-muted hover:text-ink transition-colors"
+        className="flex items-center gap-1 text-[12.5px] text-subtle hover:text-ink transition-colors focus:outline-none"
       >
         {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         Past periods
@@ -82,30 +82,32 @@ function HistorySection({
             <p className="text-[12px] text-muted">No previous periods found.</p>
           )}
           {rows && rows.length > 0 && (
-            <table className="w-full text-[12.5px]">
+            <table className="w-full">
               <thead>
-                <tr className="text-left text-subtle border-b border-line-soft">
-                  <th className="pb-1.5 font-medium">Period</th>
-                  <th className="pb-1.5 font-medium text-right">Reviews</th>
-                  <th className="pb-1.5 font-medium text-right w-12">%</th>
+                <tr className="border-b border-line-soft">
+                  <th className="pb-2 text-left text-[11px] font-semibold uppercase tracking-wide text-subtle">
+                    Period
+                  </th>
+                  <th className="pb-2 text-right text-[11px] font-semibold uppercase tracking-wide text-subtle">
+                    Reviews
+                  </th>
+                  <th className="pb-2 w-14 text-right text-[11px] font-semibold uppercase tracking-wide text-subtle">
+                    %
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.period_start} className="border-b border-line-soft last:border-0">
-                    <td className="py-1.5 text-muted">{r.period_label}</td>
-                    <td className="py-1.5 text-right tabular-nums text-ink">
+                    <td className="py-2 text-[13px] text-muted">{r.period_label}</td>
+                    <td className="py-2 text-right text-[13px] tabular-nums text-ink">
                       {r.received_count}
                       <span className="text-subtle"> / {r.target_count}</span>
                     </td>
-                    <td className="py-1.5 text-right tabular-nums">
+                    <td className="py-2 text-right text-[13px] tabular-nums font-medium">
                       <span
                         className={
-                          r.pct >= 70
-                            ? "text-green"
-                            : r.pct >= 40
-                              ? "text-amber"
-                              : "text-red"
+                          r.pct >= 70 ? "text-green" : r.pct >= 40 ? "text-amber" : "text-red"
                         }
                       >
                         {r.pct}%
