@@ -1,126 +1,96 @@
 from __future__ import annotations
 
-import datetime
-
 import pytest
 
 from apps.accounts.tests.factories import UserFactory
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.shops.models import ReviewTarget
-from apps.shops.services.targets import create_target, delete_target, update_target
+from apps.shops.services.targets import delete_target, set_target
 from apps.shops.tests.factories import ReviewTargetFactory, ShopFactory
 
 
 @pytest.mark.django_db
-class TestCreateTarget:
-    def test_creates_with_month_anchor(self):
+class TestSetTarget:
+    def test_creates_when_no_target_exists(self):
         shop = ShopFactory()
         admin = UserFactory(role="ORG_ADMIN", organisation=shop.organisation)
-        t = create_target(
+        t = set_target(
             shop_id=shop.pk,
             org_id=shop.organisation_id,
             period_type=ReviewTarget.PeriodType.MONTH,
-            period_start=datetime.date(2026, 5, 15),  # mid-month, should normalise to 1st
             target_count=100,
             created_by=admin,
         )
-        assert t.period_start == datetime.date(2026, 5, 1)
+        assert t.pk is not None
         assert t.target_count == 100
-        assert t.organisation_id == shop.organisation_id
+        assert t.period_type == "MONTH"
+        assert ReviewTarget.objects.filter(shop=shop, period_type="MONTH").count() == 1
 
-    def test_creates_with_week_anchor(self):
+    def test_updates_when_target_exists(self):
         shop = ShopFactory()
         admin = UserFactory(role="ORG_ADMIN", organisation=shop.organisation)
-        # Wednesday 2026-05-13 should normalise to Monday 2026-05-11
-        t = create_target(
+        t1 = set_target(
             shop_id=shop.pk,
             org_id=shop.organisation_id,
-            period_type=ReviewTarget.PeriodType.WEEK,
-            period_start=datetime.date(2026, 5, 13),
+            period_type=ReviewTarget.PeriodType.MONTH,
             target_count=50,
             created_by=admin,
         )
-        assert t.period_start == datetime.date(2026, 5, 11)
+        t2 = set_target(
+            shop_id=shop.pk,
+            org_id=shop.organisation_id,
+            period_type=ReviewTarget.PeriodType.MONTH,
+            target_count=200,
+            created_by=admin,
+        )
+        assert t1.pk == t2.pk  # same row updated
+        assert ReviewTarget.objects.filter(shop=shop, period_type="MONTH").count() == 1
+        t2.refresh_from_db()
+        assert t2.target_count == 200
 
-    def test_rejects_past_month_period(self):
+    def test_week_and_month_are_independent(self):
         shop = ShopFactory()
         admin = UserFactory(role="ORG_ADMIN", organisation=shop.organisation)
-        with pytest.raises(ValueError, match=r"Cannot set targets for past periods\."):
-            create_target(
-                shop_id=shop.pk,
-                org_id=shop.organisation_id,
-                period_type=ReviewTarget.PeriodType.MONTH,
-                period_start=datetime.date(2026, 4, 1),  # April — past
-                target_count=100,
-                created_by=admin,
-            )
+        set_target(
+            shop_id=shop.pk,
+            org_id=shop.organisation_id,
+            period_type=ReviewTarget.PeriodType.WEEK,
+            target_count=10,
+            created_by=admin,
+        )
+        set_target(
+            shop_id=shop.pk,
+            org_id=shop.organisation_id,
+            period_type=ReviewTarget.PeriodType.MONTH,
+            target_count=40,
+            created_by=admin,
+        )
+        assert ReviewTarget.objects.filter(shop=shop).count() == 2
 
     def test_rejects_target_count_zero(self):
         shop = ShopFactory()
         admin = UserFactory(role="ORG_ADMIN", organisation=shop.organisation)
         with pytest.raises(ValueError, match=r"Target must be at least 1 review\."):
-            create_target(
+            set_target(
                 shop_id=shop.pk,
                 org_id=shop.organisation_id,
                 period_type=ReviewTarget.PeriodType.MONTH,
-                period_start=datetime.date(2026, 5, 1),
                 target_count=0,
                 created_by=admin,
             )
 
-    def test_rejects_duplicate_period(self):
-        shop = ShopFactory()
-        admin = UserFactory(role="ORG_ADMIN", organisation=shop.organisation)
-        create_target(
-            shop_id=shop.pk,
-            org_id=shop.organisation_id,
-            period_type=ReviewTarget.PeriodType.MONTH,
-            period_start=datetime.date(2026, 5, 1),
-            target_count=100,
-            created_by=admin,
-        )
-        with pytest.raises(ValueError, match=r"A target for this period already exists\."):
-            create_target(
-                shop_id=shop.pk,
-                org_id=shop.organisation_id,
-                period_type=ReviewTarget.PeriodType.MONTH,
-                period_start=datetime.date(2026, 5, 1),
-                target_count=200,
-                created_by=admin,
-            )
-
-    def test_org_mismatch_raises(self):
+    def test_rejects_shop_from_another_org(self):
         shop = ShopFactory()
         other_org = OrganisationFactory()
         admin = UserFactory(role="ORG_ADMIN", organisation=other_org)
         with pytest.raises(ReviewTarget.DoesNotExist):
-            create_target(
+            set_target(
                 shop_id=shop.pk,
                 org_id=other_org.pk,
                 period_type=ReviewTarget.PeriodType.MONTH,
-                period_start=datetime.date(2026, 5, 1),
                 target_count=100,
                 created_by=admin,
             )
-
-
-@pytest.mark.django_db
-class TestUpdateTarget:
-    def test_updates_target_count(self):
-        t = ReviewTargetFactory(target_count=100)
-        updated = update_target(target_id=t.pk, org_id=t.organisation_id, target_count=200)
-        assert updated.target_count == 200
-
-    def test_rejects_count_zero(self):
-        t = ReviewTargetFactory()
-        with pytest.raises(ValueError, match=r"Target must be at least 1 review\."):
-            update_target(target_id=t.pk, org_id=t.organisation_id, target_count=0)
-
-    def test_org_isolation(self):
-        t = ReviewTargetFactory()
-        other_org = OrganisationFactory()
-        with pytest.raises(ReviewTarget.DoesNotExist):
-            update_target(target_id=t.pk, org_id=other_org.pk, target_count=50)
 
 
 @pytest.mark.django_db
