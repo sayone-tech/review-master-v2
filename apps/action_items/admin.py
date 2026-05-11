@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from apps.action_items.models import ActionItem, ActionItemNote
 
 
 @admin.register(ActionItem)
-class ActionItemAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+class ActionItemAdmin(ModelAdmin):  # type: ignore[misc]
     list_display = (
         "id",
         "title",
@@ -25,7 +26,7 @@ class ActionItemAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
 
 
 @admin.register(ActionItemNote)
-class ActionItemNoteAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+class ActionItemNoteAdmin(ModelAdmin):  # type: ignore[misc]
     list_display = ("id", "action_item", "author", "created_at")
     readonly_fields = ("action_item", "author", "body")
     raw_id_fields = ("action_item", "author")

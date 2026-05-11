@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from apps.notifications.models import Notification
 
 
 @admin.register(Notification)
-class NotificationAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+class NotificationAdmin(ModelAdmin):  # type: ignore[misc]
     list_display = (
         "id",
         "recipient",

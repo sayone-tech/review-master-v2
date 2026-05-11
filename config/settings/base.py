@@ -19,6 +19,9 @@ GOOGLE_OAUTH_REDIRECT_URI = env(
 
 INSTALLED_APPS = [
     "daphne",  # MUST be first — overrides runserver for ASGI (RESEARCH.md Pitfall 2)
+    "unfold",
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -207,6 +210,100 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static", BASE_DIR / "logo"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ---------------------------------------------------------------------------
+# Django Unfold — admin theme
+# ---------------------------------------------------------------------------
+from django.templatetags.static import static  # noqa: E402
+
+
+def _logo(request: object) -> str:
+    return static("dashboard_logo.png")
+
+
+def _icon(request: object) -> str:
+    return static("mobile_logo.png")
+
+
+UNFOLD = {
+    "SITE_TITLE": "Review Master",
+    "SITE_HEADER": "Review Master",
+    "SITE_URL": "/admin/organisations/",
+    "SITE_ICON": {"light": _icon, "dark": _icon},
+    "SITE_LOGO": {"light": _logo, "dark": _logo},
+    "SITE_FAVICONS": [
+        {"rel": "icon", "sizes": "32x32", "href": lambda r: static("favicon.ico")},
+    ],
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": False,
+    "STYLES": [
+        lambda r: static("admin/admin_custom.css"),
+    ],
+    "COLORS": {
+        "base": {
+            "50": "255 253 231",
+            "100": "254 249 195",
+            "200": "254 240 138",
+            "300": "253 224 71",
+            "400": "250 204 21",  # #FACC15 — brand yellow
+            "500": "234 179 8",  # yellow-hover
+            "600": "202 138 4",
+            "700": "161 98 7",
+            "800": "133 77 14",
+            "900": "113 63 18",
+            "950": "66 32 6",
+        },
+        "font": {
+            "subtle-light": "107 114 128",
+            "subtle-dark": "156 163 175",
+            "default-light": "17 24 39",
+            "default-dark": "243 244 246",
+            "important-light": "0 0 0",
+            "important-dark": "255 255 255",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": False,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "Admin",
+                "items": [
+                    {
+                        "title": "Organisations",
+                        "icon": "building_2",
+                        "link": "/django-admin/organisations/organisation/",
+                    },
+                    {
+                        "title": "Users",
+                        "icon": "person",
+                        "link": "/django-admin/accounts/user/",
+                    },
+                    {
+                        "title": "Shops",
+                        "icon": "store",
+                        "link": "/django-admin/shops/shop/",
+                    },
+                ],
+            },
+            {
+                "title": "System",
+                "items": [
+                    {
+                        "title": "Celery Beat",
+                        "icon": "schedule",
+                        "link": "/django-admin/django_celery_beat/periodictask/",
+                    },
+                    {
+                        "title": "AI Pricing",
+                        "icon": "payments",
+                        "link": "/django-admin/openai/aipricing/",
+                    },
+                ],
+            },
+        ],
+    },
+}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

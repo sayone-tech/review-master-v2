@@ -1,0 +1,48 @@
+/* Dark sidebar to match the main app's design */
+#nav-sidebar,
+aside[class*="sidebar"],
+.unfold-sidebar,
+aside {
+    background-color: #000 !important;
+    border-right-color: #27272a !important;
+}
+
+/* Sidebar section labels */
+aside .text-gray-400,
+aside [class*="text-primary-400"],
+aside [class*="text-primary-500"],
+aside span[class*="text-xs"] {
+    color: #52525b !important;
+}
+
+/* Nav links */
+aside a,
+aside button {
+    color: #d4d4d8 !important;
+}
+
+aside a:hover,
+aside button:hover {
+    background-color: rgba(255,255,255,0.06) !important;
+    color: #facc15 !important;
+}
+
+/* Active nav item */
+aside a[class*="is-active"],
+aside a[aria-current],
+aside a.active {
+    background-color: rgba(255,255,255,0.08) !important;
+    color: #facc15 !important;
+}
+
+/* User info area at bottom of sidebar */
+aside .border-t,
+aside [class*="border-t"] {
+    border-color: #27272a !important;
+}
+
+/* Site logo area */
+aside [class*="logo"],
+aside header {
+    background-color: #000 !important;
+}
