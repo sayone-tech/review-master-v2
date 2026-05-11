@@ -20,13 +20,18 @@ def set_target(
     from apps.shops.models import Shop
 
     if not Shop.objects.filter(pk=shop_id, organisation_id=org_id).exists():
-        raise ReviewTarget.DoesNotExist
+        raise ReviewTarget.DoesNotExist(
+            f"Shop {shop_id} does not exist or does not belong to org {org_id}."
+        )
 
     target, _ = ReviewTarget.objects.update_or_create(
         shop_id=shop_id,
-        organisation_id=org_id,
         period_type=period_type,
-        defaults={"target_count": target_count, "created_by": created_by},
+        defaults={
+            "organisation_id": org_id,
+            "target_count": target_count,
+            "created_by": created_by,
+        },
     )
     return target
 
@@ -65,5 +70,5 @@ def update_target(*, target_id: int, org_id: int, target_count: int) -> ReviewTa
         raise ValueError("Target must be at least 1 review.")
     target = ReviewTarget.objects.get(pk=target_id, organisation_id=org_id)
     target.target_count = target_count
-    target.save(update_fields=["target_count", "updated_at"])
+    target.save()
     return target
