@@ -561,10 +561,12 @@ class ReviewTargetViewSet(
         user = request.user
         if not isinstance(user, User):
             raise drf_serializers.ValidationError({"detail": ["Authentication required."]})
+        shop_pk = self._get_shop_pk()
+        org_id = self._get_org_id()
         try:
             set_target(
-                shop_id=self._get_shop_pk(),
-                org_id=self._get_org_id(),
+                shop_id=shop_pk,
+                org_id=org_id,
                 period_type=serializer.validated_data["period_type"],
                 target_count=serializer.validated_data["target_count"],
                 created_by=user,
@@ -573,19 +575,18 @@ class ReviewTargetViewSet(
             return Response({"detail": "Shop not found."}, status=status.HTTP_404_NOT_FOUND)
         except ValueError as exc:
             raise drf_serializers.ValidationError({"non_field_errors": [str(exc)]}) from exc
-        results = list_targets_for_shop(
-            shop_id=self._get_shop_pk(),
-            org_id=self._get_org_id(),
-        )
+        results = list_targets_for_shop(shop_id=shop_pk, org_id=org_id)
         return Response(
             ReviewTargetReadSerializer(results, many=True).data, status=status.HTTP_200_OK
         )
 
     def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        org_id = self._get_org_id()
+        self._verify_shop_org(self._get_shop_pk(), org_id)
         try:
             delete_target(
                 target_id=int(kwargs["pk"]),
-                org_id=self._get_org_id(),
+                org_id=org_id,
             )
         except ReviewTarget.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
