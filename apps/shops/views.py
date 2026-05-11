@@ -607,7 +607,7 @@ def shop_targets_view(request: Any, shop_id: int) -> Any:
     shop = get_object_or_404(Shop, pk=shop_id, organisation=user.organisation)
     return render(
         request,
-        "org/shop_targets.html",
+        "shops/shop_targets.html",
         {
             "shop_id": shop.pk,
             "shop_name": shop.name,
