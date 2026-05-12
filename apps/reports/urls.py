@@ -1,3 +1,5 @@
 from __future__ import annotations
 
-urlpatterns: list[str] = []
+from django.urls import URLPattern, URLResolver
+
+urlpatterns: list[URLPattern | URLResolver] = []
