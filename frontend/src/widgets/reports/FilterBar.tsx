@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DateRangePreset, ReplyStatus, ReportFilters, SentimentFilter } from "./types";
 
 interface Props {
@@ -20,6 +20,10 @@ function validateCustom(from: string, to: string): string | null {
 export function FilterBar({ filters, onApply }: Props) {
   const [draft, setDraft] = useState({ ...filters, from: filters.date_from ?? "", to: filters.date_to ?? "" });
   const [dateError, setDateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft({ ...filters, from: filters.date_from ?? "", to: filters.date_to ?? "" });
+  }, [filters]);
 
   function apply() {
     if (draft.range === "custom") {
