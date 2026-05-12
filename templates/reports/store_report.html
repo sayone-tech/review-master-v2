@@ -1,7 +1,14 @@
 {% extends "base_org.html" %}
+{% load static django_vite %}
 
-{% block title %}Store Report{% endblock %}
+{% block title %}Reports · Review Master{% endblock %}
 
 {% block content %}
-    <div id="store-report-root"></div>
+  <div class="px-6 py-6 bg-bg max-w-[1400px] mx-auto">
+    <div id="reports-root"></div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/reports.tsx' %}
 {% endblock %}
