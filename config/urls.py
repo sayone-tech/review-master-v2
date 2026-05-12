@@ -12,6 +12,7 @@ from apps.notifications.urls import api_urlpatterns as notifications_api_urls
 from apps.organisations.views import OrganisationViewSet
 from apps.regions.views import RegionViewSet
 from apps.reply_templates.views import ReplyTemplateViewSet
+from apps.reports.urls import api_urlpatterns as reports_api_urls
 from apps.reviews.views import ReviewViewSet
 from apps.shops.views import ReviewTargetViewSet, ShopViewSet
 
@@ -35,7 +36,7 @@ urlpatterns = [
     path("api/v1/", include(notifications_api_urls)),
     path("api/v1/", include("apps.accounts.api_urls")),
     path("api/v1/dashboard/", include("apps.dashboard.urls")),
-    path("api/v1/reports/", include("apps.reports.urls")),
+    path("api/v1/reports/", include(reports_api_urls)),
     path("", include("apps.reports.urls")),
     # API documentation — Superadmin only, session auth only (no JWT access to docs)
     path(
