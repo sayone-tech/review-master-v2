@@ -34,6 +34,7 @@
           {% include "partials/_nav_item.html" with href="/admin/org/shops/" icon="store" label="Shops" %}
           {% include "partials/_nav_item.html" with href="/admin/org/reviews/" icon="star" label="Reviews" %}
           {% include "partials/_nav_item.html" with href="/admin/org/action-items/" icon="clipboard-list" label="Action Items" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/reports/" icon="bar-chart-2" label="Reports" %}
         {% elif user.role == 'STAFF_ADMIN' %}
           {% include "partials/_nav_item.html" with href="/admin/org/reviews/" icon="star" label="Reviews" %}
           {% include "partials/_nav_item.html" with href="/admin/org/action-items/" icon="clipboard-list" label="Action Items" %}
