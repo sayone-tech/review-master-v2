@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import cast
 
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -80,7 +79,7 @@ class StoreReportApiView(APIView):
     permission_classes = [IsOrgAdmin]  # noqa: RUF012
 
     def get(self, request: Request) -> Response:
-        user = cast(User, request.user)
+        user: User = request.user  # type: ignore[assignment]
         params = _validate_params(request)
         rows = list_store_report(org_id=user.organisation_id, params=params)  # type: ignore[arg-type]
         return Response(rows)
