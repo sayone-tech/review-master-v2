@@ -35,6 +35,8 @@ urlpatterns = [
     path("api/v1/", include(notifications_api_urls)),
     path("api/v1/", include("apps.accounts.api_urls")),
     path("api/v1/dashboard/", include("apps.dashboard.urls")),
+    path("api/v1/reports/", include("apps.reports.urls")),
+    path("", include("apps.reports.urls")),
     # API documentation — Superadmin only, session auth only (no JWT access to docs)
     path(
         "api/v1/schema/",

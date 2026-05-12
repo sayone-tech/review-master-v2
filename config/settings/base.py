@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.reply_templates",
     "apps.integrations.openai",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [
