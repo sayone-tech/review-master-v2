@@ -20,23 +20,17 @@ function Inner() {
   const { data, isLoading, error } = useReportData(filters);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-[22px] font-semibold text-ink">Reports</h1>
-          <p className="text-[13.5px] text-muted mt-0.5">Store review performance summary</p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-[20px] font-semibold text-ink">
+          Reports{" "}
+          {data && !isLoading && (
+            <span className="text-[14px] text-muted font-normal">({data.length} stores)</span>
+          )}
+        </h1>
       </div>
 
       <FilterBar filters={filters} onApply={setFilters} />
-
-      {isLoading && (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-12 bg-line-soft rounded animate-pulse" />
-          ))}
-        </div>
-      )}
 
       {error && (
         <div className="text-[13.5px] text-red-600 py-4">
@@ -44,7 +38,7 @@ function Inner() {
         </div>
       )}
 
-      {data && !isLoading && <ReportsTable rows={data} />}
+      <ReportsTable rows={data ?? []} loading={isLoading} />
     </div>
   );
 }
