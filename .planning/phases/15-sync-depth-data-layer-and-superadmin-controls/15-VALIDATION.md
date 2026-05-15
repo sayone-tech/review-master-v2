@@ -19,7 +19,7 @@ created: 2026-05-15
 |----------|-------|
 | **Framework** | pytest + pytest-django |
 | **Config file** | `pyproject.toml` |
-| **Quick run command** | `pytest apps/organisations/tests/ apps/stores/tests/ -x -q` |
+| **Quick run command** | `pytest apps/organisations/tests/ apps/shops/tests/ -x -q` |
 | **Full suite command** | `pytest apps/ -x -q` |
 | **Estimated runtime** | ~30 seconds |
 
@@ -27,7 +27,7 @@ created: 2026-05-15
 
 ## Sampling Rate
 
-- **After every task commit:** Run `pytest apps/organisations/tests/ apps/stores/tests/ -x -q`
+- **After every task commit:** Run `pytest apps/organisations/tests/ apps/shops/tests/ -x -q`
 - **After every plan wave:** Run `pytest apps/ -x -q`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 30 seconds
@@ -40,14 +40,14 @@ created: 2026-05-15
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
 | 15-01-01 | 01 | 1 | SYNC-01 | unit | `pytest apps/organisations/tests/test_models.py -x -q` | ❌ W0 | ⬜ pending |
 | 15-01-02 | 01 | 1 | SYNC-01 | migration | `python manage.py migrate --check` | ✅ | ⬜ pending |
-| 15-01-03 | 01 | 1 | SYNC-02 | unit | `pytest apps/stores/tests/test_models.py -x -q` | ❌ W0 | ⬜ pending |
+| 15-01-03 | 01 | 1 | SYNC-02 | unit | `pytest apps/shops/tests/test_models.py -x -q` | ❌ W0 | ⬜ pending |
 | 15-01-04 | 01 | 1 | SYNC-02 | migration | `python manage.py migrate --check` | ✅ | ⬜ pending |
 | 15-02-01 | 02 | 1 | SYNC-01 | unit | `pytest apps/organisations/tests/test_services.py -x -q` | ❌ W0 | ⬜ pending |
 | 15-02-02 | 02 | 1 | SYNC-01 | unit | `pytest apps/organisations/tests/test_services.py -x -q` | ❌ W0 | ⬜ pending |
-| 15-02-03 | 02 | 1 | SYNC-03 | unit | `pytest apps/stores/tests/test_services.py -x -q` | ❌ W0 | ⬜ pending |
+| 15-02-03 | 02 | 1 | SYNC-03 | unit | `pytest apps/shops/tests/test_services.py -x -q` | ❌ W0 | ⬜ pending |
 | 15-03-01 | 03 | 2 | SDEP-02 | unit | `pytest apps/organisations/tests/test_views.py -x -q` | ❌ W0 | ⬜ pending |
 | 15-03-02 | 03 | 2 | SDEP-02 | unit | `pytest apps/organisations/tests/test_views.py -x -q` | ❌ W0 | ⬜ pending |
-| 15-03-03 | 03 | 2 | SDEP-03 | unit | `pytest apps/stores/tests/test_views.py -x -q` | ❌ W0 | ⬜ pending |
+| 15-03-03 | 03 | 2 | SDEP-03 | unit | `pytest apps/shops/tests/test_views.py -x -q` | ❌ W0 | ⬜ pending |
 | 15-04-01 | 04 | 2 | BKFL-01 | unit | `pytest apps/reviews/tests/test_services.py -k sync_depth -x -q` | ❌ W0 | ⬜ pending |
 | 15-04-02 | 04 | 2 | BKFL-02 | unit | `pytest apps/reviews/tests/test_services.py -k sync_depth -x -q` | ❌ W0 | ⬜ pending |
 | 15-04-03 | 04 | 2 | BKFL-03 | unit | `pytest apps/reviews/tests/test_services.py -k sync_depth -x -q` | ❌ W0 | ⬜ pending |
@@ -59,11 +59,11 @@ created: 2026-05-15
 ## Wave 0 Requirements
 
 - [ ] `apps/organisations/tests/test_models.py` — stubs for SYNC-01 (Organisation.allow_custom_sync_depth field tests)
-- [ ] `apps/stores/tests/test_models.py` — stubs for SYNC-02 (Shop.SyncDepth choices and default tests)
+- [ ] `apps/shops/tests/test_models.py` — stubs for SYNC-02 (Shop.SyncDepth choices and default tests)
 - [ ] `apps/organisations/tests/test_services.py` — stubs for SYNC-01 (create_organisation and update_organisation with allow_custom_sync_depth)
-- [ ] `apps/stores/tests/test_services.py` — stubs for SYNC-03 (create_shop auto-assigns sync_depth based on org flag)
+- [ ] `apps/shops/tests/test_services.py` — stubs for SYNC-03 (create_shop auto-assigns sync_depth based on org flag)
 - [ ] `apps/organisations/tests/test_views.py` — stubs for SDEP-02 (Superadmin create/edit org toggle)
-- [ ] `apps/stores/tests/test_views.py` — stubs for SDEP-03 (shop detail shows sync_depth label)
+- [ ] `apps/shops/tests/test_views.py` — stubs for SDEP-03 (shop detail shows sync_depth label)
 - [ ] `apps/reviews/tests/test_services.py` — stubs for BKFL-01, BKFL-02, BKFL-03 (backfill start_date computation)
 
 *Existing test infrastructure (pytest, factories, conftest) covers the framework — only stub files need to be created.*
