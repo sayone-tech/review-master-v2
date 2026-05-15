@@ -496,3 +496,45 @@ def test_activate_account_atomic_on_create_failure(db, monkeypatch):
 
     token.refresh_from_db()
     assert token.is_used is False, "token must not be marked used if user creation failed (atomic)"
+
+
+# --- Phase 15 Plan 01: allow_custom_sync_depth service tests ---
+
+
+def test_create_organisation_allow_custom_sync_depth_default_false(db, superadmin):
+    from apps.organisations.services.organisations import create_organisation
+
+    org, _ = create_organisation(
+        name="Acme",
+        org_type=Organisation.OrgType.RETAIL,
+        email="acme-default@example.com",
+        address="1 Test St",
+        number_of_stores=1,
+        created_by=superadmin,
+    )
+    assert org.allow_custom_sync_depth is False
+
+
+def test_create_organisation_allow_custom_sync_depth_true(db, superadmin):
+    from apps.organisations.services.organisations import create_organisation
+
+    org, _ = create_organisation(
+        name="Acme",
+        org_type=Organisation.OrgType.RETAIL,
+        email="acme-custom@example.com",
+        address="1 Test St",
+        number_of_stores=1,
+        created_by=superadmin,
+        allow_custom_sync_depth=True,
+    )
+    assert org.allow_custom_sync_depth is True
+
+
+def test_update_organisation_toggles_allow_custom_sync_depth(db):
+    from apps.organisations.services.organisations import update_organisation
+
+    org = OrganisationFactory(allow_custom_sync_depth=False)
+    updated = update_organisation(organisation=org, allow_custom_sync_depth=True)
+    assert updated.allow_custom_sync_depth is True
+    updated = update_organisation(organisation=org, allow_custom_sync_depth=False)
+    assert updated.allow_custom_sync_depth is False

@@ -27,6 +27,7 @@ class OrganisationListSerializer(serializers.ModelSerializer[Organisation]):
             "email",
             "address",
             "number_of_stores",
+            "allow_custom_sync_depth",
             "status",
             "created_at",
             "total_stores",
@@ -63,7 +64,14 @@ class OrganisationCreateSerializer(serializers.ModelSerializer[Organisation]):
 
     class Meta:
         model = Organisation
-        fields: ClassVar[list[str]] = ["name", "org_type", "email", "address", "number_of_stores"]
+        fields: ClassVar[list[str]] = [
+            "name",
+            "org_type",
+            "email",
+            "address",
+            "number_of_stores",
+            "allow_custom_sync_depth",
+        ]
 
 
 class OrganisationUpdateSerializer(serializers.ModelSerializer[Organisation]):
@@ -81,6 +89,13 @@ class OrganisationUpdateSerializer(serializers.ModelSerializer[Organisation]):
 
     class Meta:
         model = Organisation
-        fields: ClassVar[list[str]] = ["name", "org_type", "address", "number_of_stores", "status"]
+        fields: ClassVar[list[str]] = [
+            "name",
+            "org_type",
+            "address",
+            "number_of_stores",
+            "status",
+            "allow_custom_sync_depth",
+        ]
         # Explicitly NO email here (EORG-02). DRF silently drops unknown fields from
         # the input, so a PATCH body containing email is safe but ignored.

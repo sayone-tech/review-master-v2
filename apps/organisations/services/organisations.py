@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 _UPDATABLE_FIELDS: frozenset[str] = frozenset(
-    {"name", "org_type", "address", "number_of_stores", "status"}
+    {"name", "org_type", "address", "number_of_stores", "status", "allow_custom_sync_depth"}
 )
 
 
@@ -37,6 +37,7 @@ def create_organisation(
     address: str = "",
     number_of_stores: int,
     created_by: User,
+    allow_custom_sync_depth: bool = False,
 ) -> tuple[Organisation, str]:
     """Creates org + InvitationToken (48h) + sends invitation email atomically.
     Returns (org, raw_token) so callers can confirm delivery. If email send raises,
@@ -47,6 +48,7 @@ def create_organisation(
         email=email,
         address=address,
         number_of_stores=number_of_stores,
+        allow_custom_sync_depth=allow_custom_sync_depth,
         created_by=created_by,
     )
     raw_token = secrets.token_urlsafe(32)
