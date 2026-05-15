@@ -4,23 +4,31 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current Milestone: v0.4 Dashboard
+## Current Milestone: v0.5 Configurable Sync Depth
 
-**Goal:** Replace the Dashboard placeholder with a functional multi-widget overview page surfacing review-volume metrics, shop performance rankings, and AI-derived sentiment distribution — with a flexible filter bar and Redis caching.
+**Goal:** Let Superadmins enable a per-org "configurable sync depth" flag; when enabled, Org Admins choose how far back the initial review backfill goes (1 year / 2 years / all time) at shop creation time — replacing the hard-coded 2-year default.
 
 **Target features:**
 
-- Filter bar (Region, Store, Date Range, Clear Filters) — cascading dropdowns with URL state and session persistence
-- Top Performing Outlets section — bar chart + Performance Highlights card (multi-shop) or "Your Store" card (single-shop)
-- KPI card row — Total Reviews, Average Rating, Negative Reviews (AI sentiment-based)
-- Overall Sentiment Distribution card — donut chart + summary, enriched reviews only
-- New `apps/dashboard/` app with 5 focused API endpoints, Redis TTL caching, 3 Review table indexes
+- Superadmin org form: "Allow configurable sync depth" toggle (create + edit)
+- Org Admin shop creation: conditional "Review History" selector (1 year / 2 years / all time) shown only when org allows it
+- Shop model: `sync_depth` field storing the chosen depth; shop detail shows current setting
+- Initial backfill task: reads `shop.sync_depth` to compute `start_date` (or no filter for all-time)
 
 ## Current State
 
-**v0.3 shipped 2026-05-05** — Reviews and Action Items module complete. Org Admins and Staff can view, respond to, and action Google Business Profile reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
+**v0.4 shipped 2026-05-07** — Dashboard module complete. Org Admins and Staff can view a multi-widget analytics page with KPI cards, top-performing outlets, sentiment donut, and a filter bar backed by Redis-cached endpoints.
 
-**77/77 requirements delivered. 4 milestones shipped.**
+**115/115 requirements delivered. 5 milestones shipped.**
+
+### What's shipped (v0.4, Phase 14)
+
+- Filter bar (Region, Store, Date Range — 7d/30d/90d/custom) with cascading dropdowns, URL state, session persistence, 403 on out-of-scope params
+- Top Performing Outlets section — bar chart (date-range only) + Performance Highlights card, or "Your Store" single-shop variant
+- KPI card row: Total Reviews, Average Rating, Negative Reviews (AI sentiment, not star rating) with independent loading skeletons
+- Sentiment Distribution donut + summary (enriched reviews only, coverage footer)
+- `apps/dashboard/` with 5 focused endpoints, 5-min Redis TTL cache, 3 Review table composite indexes
+- Branded 404 and 500 error templates wired to Django `handler404`/`handler500`
 
 ### What's shipped (v0.3, Phases 10–13)
 
@@ -71,17 +79,20 @@ A multi-tenant SaaS platform for managing organisations, their stores, and Googl
 - ✓ Action Items — AI promotion, manual creation, brand/shop scoping, status workflow, assignment, notes — v0.3
 - ✓ Notification bell — HTTP polling, CustomEvent bridge, unread count, mark-read lifecycle — v0.3
 - ✓ Topbar sync indicator — WebSocket-per-shop, stage-aware spinner, failure/success states — v0.3
+- ✓ Dashboard filter bar (Region, Store, Date Range) with URL state, session persistence, scope-aware Redis cache — v0.4
+- ✓ Top Performing Outlets bar chart + Performance Highlights card + Your Store single-shop variant — v0.4
+- ✓ KPI card row: Total Reviews, Average Rating, Negative Reviews (AI sentiment-based) — v0.4
+- ✓ Sentiment Distribution donut + summary (enriched reviews only, coverage footer) — v0.4
+- ✓ Branded 404/500 error pages wired to Django handler config — v0.4
 
 ### Active
 
-<!-- v0.4 Dashboard — single Phase 14 -->
+<!-- v0.5 Configurable Sync Depth — Phases 15–16 -->
 
-- [ ] Filter bar (Region, Store, Date Range) with cascading dropdowns, URL state, session persistence, 403 on out-of-scope params
-- [ ] Top Performing Outlets: bar chart (date-range only) + Performance Highlights card, or "Your Store" single-shop variant
-- [ ] KPI card row: Total Reviews, Average Rating, Negative Reviews (AI sentiment, not star rating)
-- [ ] Sentiment Distribution donut + summary (enriched reviews only, coverage footer)
-- [ ] `apps/dashboard/` with 5 focused endpoints, 5-min Redis TTL cache, 3 Review table indexes
-- [ ] CaptureQueriesContext tests on all 5 endpoints; fixed query count regardless of result size
+- [ ] Superadmin can enable/disable "Allow configurable sync depth" per org (create + edit)
+- [ ] Org Admin sees "Review History" selector at shop creation when org allows custom depth
+- [ ] Shop stores `sync_depth` (ONE_YEAR / TWO_YEARS / ALL_TIME); shop detail shows current value
+- [ ] Initial backfill task reads `sync_depth` to compute `start_date`; all-time = no date filter
 
 ### Out of Scope
 
@@ -169,4 +180,4 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 </details>
 
 ---
-Last updated: 2026-05-07 after v0.4-dashboard milestone started
+Last updated: 2026-05-15 after v0.5 milestone started
