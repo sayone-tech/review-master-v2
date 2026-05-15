@@ -5,7 +5,8 @@
 - ✅ **v1.0 — Superadmin Module** — Phases 1–5, 24 plans, 52/52 requirements, shipped 2026-04-27 → [archive](milestones/v1.0-ROADMAP.md)
 - ✅ **v0.2-org-admin — Organisation Admin Module** — Phases 6–9, 20 plans, 57/57 requirements, shipped 2026-04-30 → [archive](milestones/v0.2-org-admin-ROADMAP.md)
 - ✅ **v0.3 — Reviews and Action Items** — Phases 10–13, 37 plans, 77/77 requirements, shipped 2026-05-05 → [archive](milestones/v0.3-ROADMAP.md)
-- 🚧 **v0.4 — Dashboard** — Phase 14, 38 requirements (in progress)
+- ✅ **v0.4 — Dashboard** — Phase 14, 8 plans, 38/38 requirements, shipped 2026-05-07
+- 🚧 **v0.5 — Configurable Sync Depth** — Phases 15–16, 9/9 requirements (in progress)
 
 ## Phases
 
@@ -40,9 +41,19 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 
 </details>
 
-### 🚧 v0.4 — Dashboard (In Progress)
+<details>
+<summary>✅ v0.4 — Dashboard (Phase 14) — SHIPPED 2026-05-07</summary>
 
-**Milestone Goal:** Replace the dashboard placeholder with a functional multi-widget analytics page — filter bar, KPI cards, top performing outlets, sentiment distribution — backed by a new `apps/dashboard/` app with Redis-cached endpoints and composite DB indexes.
+- [x] Phase 14: Dashboard (8/8 plans) — completed 2026-05-07
+
+</details>
+
+### 🚧 v0.5 — Configurable Sync Depth (In Progress)
+
+**Milestone Goal:** Let Superadmins enable a per-org "configurable sync depth" flag; when enabled, Org Admins choose how far back the initial review backfill goes (1 year / 2 years / all time) at shop creation time — replacing the hard-coded 2-year default.
+
+- [ ] **Phase 15: Sync Depth Data Layer and Superadmin Controls** — Model fields, migration, serializer updates, Superadmin org toggle UI, backfill service logic, shop detail display
+- [ ] **Phase 16: Org Admin Shop Creation — Conditional Depth Selector** — Conditional "Review History" dropdown in shop creation form, wired through API to persisted sync_depth
 
 ## Phase Details
 
@@ -61,14 +72,40 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 **Plans**: 8 plans
 
 Plans:
-- [ ] 14-01: Indexes + filter validation foundation (3 composite Review indexes, `DashboardFilterParams`, `validate_filter_params()`, `services/cache.py` with `accessible_shop_ids` hash)
-- [ ] 14-02: Aggregation selectors + query-count tests (`aggregations.py` with 5 selector functions, `CaptureQueriesContext` assertions on all 5)
-- [ ] 14-03: Dashboard views + URL registration (`DashboardApiView` base + 5 concrete views, `apps/dashboard/urls.py`, INSTALLED_APPS, `test_views.py` for 403/400/cache paths)
-- [ ] 14-04: Django template view + bootstrap data (dashboard page view, `dashboard.html` with `#dashboard-root` + `<script type="application/json">` bootstrap tags, npm packages added)
-- [ ] 14-05: React filter bar component (`types.ts`, `api.ts`, `useFilterState.ts`, `FilterBar.tsx` with cascading dropdowns + URL state + sessionStorage)
-- [ ] 14-06: Bar chart + highlights widgets (`TopPerformingSection.tsx` with recharts `BarChart`, threshold coloring, hover tooltip, click navigation; `PerformanceHighlights.tsx`; `YourStore.tsx` single-shop variant)
-- [ ] 14-07: KPI cards + sentiment donut widgets (`KpiCards.tsx` with parallel useQuery hooks; `SentimentDonut.tsx` donut chart + summary bars + coverage footer)
-- [ ] 14-08: Dashboard root + entrypoint + error pages (`DashboardWidget.tsx` with `QueryClientProvider`, `dashboard.tsx` entrypoint, `vite.config.ts` entry, branded 404/500 templates + Django handler config)
+- [x] 14-01: Indexes + filter validation foundation (3 composite Review indexes, `DashboardFilterParams`, `validate_filter_params()`, `services/cache.py` with `accessible_shop_ids` hash)
+- [x] 14-02: Aggregation selectors + query-count tests (`aggregations.py` with 5 selector functions, `CaptureQueriesContext` assertions on all 5)
+- [x] 14-03: Dashboard views + URL registration (`DashboardApiView` base + 5 concrete views, `apps/dashboard/urls.py`, INSTALLED_APPS, `test_views.py` for 403/400/cache paths)
+- [x] 14-04: Django template view + bootstrap data (dashboard page view, `dashboard.html` with `#dashboard-root` + `<script type="application/json">` bootstrap tags, npm packages added)
+- [x] 14-05: React filter bar component (`types.ts`, `api.ts`, `useFilterState.ts`, `FilterBar.tsx` with cascading dropdowns + URL state + sessionStorage)
+- [x] 14-06: Bar chart + highlights widgets (`TopPerformingSection.tsx` with recharts `BarChart`, threshold coloring, hover tooltip, click navigation; `PerformanceHighlights.tsx`; `YourStore.tsx` single-shop variant)
+- [x] 14-07: KPI cards + sentiment donut widgets (`KpiCards.tsx` with parallel useQuery hooks; `SentimentDonut.tsx` donut chart + summary bars + coverage footer)
+- [x] 14-08: Dashboard root + entrypoint + error pages (`DashboardWidget.tsx` with `QueryClientProvider`, `dashboard.tsx` entrypoint, `vite.config.ts` entry, branded 404/500 templates + Django handler config)
+
+### Phase 15: Sync Depth Data Layer and Superadmin Controls
+
+**Goal**: The data model, migration, and service layer for configurable sync depth are in place — Organisation carries an `allow_custom_sync_depth` flag controllable by Superadmin at create and edit time; Shop carries a `sync_depth` field visible on shop detail; and the initial backfill Celery task reads that field to compute the Google API `start_date` (or passes no date filter for all-time).
+**Depends on**: Phase 14
+**Requirements**: SYNC-01, SYNC-02, SYNC-03, SDEP-02, SDEP-03, BKFL-01, BKFL-02, BKFL-03
+**Success Criteria** (what must be TRUE):
+
+  1. Superadmin can check "Allow configurable sync depth" when creating a new organisation, and the setting is persisted and visible on the org detail page
+  2. Superadmin can enable or disable "Allow configurable sync depth" on an existing organisation's edit form, and the change takes effect immediately
+  3. When an org does not allow custom sync depth, any shop created under it is automatically assigned "Last 2 years" as its review history depth, with no selector shown and no API parameter needed from the client
+  4. Shop detail page shows the current review history depth (e.g., "Last 1 year", "Last 2 years", "All time") for every shop
+  5. Initial backfill for a "Last 1 year" shop fetches only reviews from the past 12 months; for a "Last 2 years" shop it fetches the past 24 months; for an "All time" shop no date filter is sent to the Google API
+**Plans**: TBD
+
+### Phase 16: Org Admin Shop Creation — Conditional Depth Selector
+
+**Goal**: Org Admins whose organisation has "Allow configurable sync depth" enabled see a "Review History" dropdown in the shop creation form; selecting a depth persists it to the shop and drives the backfill; Org Admins without the flag enabled never see the dropdown and always get the 2-year default.
+**Depends on**: Phase 15
+**Requirements**: SDEP-01
+**Success Criteria** (what must be TRUE):
+
+  1. Org Admin creating a shop when the parent org has "Allow configurable sync depth" enabled sees a "Review History" dropdown with exactly three options: "Last 1 year", "Last 2 years", "All time"
+  2. Org Admin creating a shop when the parent org does not have the flag enabled sees no dropdown; the shop is silently created with "Last 2 years" and no user action is required
+  3. After shop creation with a custom depth, the shop detail page reflects the chosen depth, confirming the value was stored and returned correctly
+**Plans**: TBD
 
 ## Progress
 
@@ -83,4 +120,6 @@ Plans:
 | 11. Reviews Fetching, Display, Reply | v0.3 | 15/15 | ✅ Complete | 2026-05-02 |
 | 12. AI Enrichment Pipeline | v0.3 | 9/9 | ✅ Complete | 2026-05-03 |
 | 13. Action Items and Notifications | v0.3 | 8/8 | ✅ Complete | 2026-05-04 |
-| 14. Dashboard | 8/8 | Complete   | 2026-05-07 | - |
+| 14. Dashboard | v0.4 | 8/8 | ✅ Complete | 2026-05-07 |
+| 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 0/TBD | Not started | - |
+| 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/TBD | Not started | - |

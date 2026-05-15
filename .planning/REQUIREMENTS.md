@@ -169,9 +169,19 @@ Populated during roadmap creation.
 | ERR-01 | Phase 14 | Complete |
 | ERR-02 | Phase 14 | Complete |
 
+| SYNC-01 | Phase 15 | Pending |
+| SYNC-02 | Phase 15 | Pending |
+| SYNC-03 | Phase 15 | Pending |
+| SDEP-01 | Phase 16 | Pending |
+| SDEP-02 | Phase 15 | Pending |
+| SDEP-03 | Phase 15 | Pending |
+| BKFL-01 | Phase 15 | Pending |
+| BKFL-02 | Phase 15 | Pending |
+| BKFL-03 | Phase 15 | Pending |
+
 **Coverage:**
 - v0.4 requirements: 38 total, mapped to phases: 38, unmapped: 0 ✓
-- v0.5 requirements: 9 total — traceability filled by roadmapper
+- v0.5 requirements: 9 total, mapped to phases: 9, unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-07*

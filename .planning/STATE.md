@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v0.5
 milestone_name: Configurable Sync Depth
-status: defining requirements
-stopped_at: —
+status: roadmap created
+stopped_at: Phase 15 ready to plan
 last_updated: "2026-05-15T00:00:00.000Z"
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,14 +19,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-15)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** v0.5 — Configurable Sync Depth (defining requirements)
+**Current focus:** v0.5 — Configurable Sync Depth (Phase 15 ready to plan)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-05-15 — Milestone v0.5 started
+Phase: 15 of 16 (Sync Depth Data Layer and Superadmin Controls)
+Plan: — of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-05-15 — v0.5 roadmap created (Phases 15–16, 9/9 requirements mapped)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -48,10 +50,10 @@ Last activity: 2026-05-15 — Milestone v0.5 started
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Decisions carried forward from v0.4:
+Decisions carried forward:
 
 - [v0.4]: Cache key MUST include `accessible_shop_ids` hash — cross-user cache isolation (DASH-C1)
-- [v0.4]: `IsOrgScoped` used on APIView directly, not TenantScopedViewSet — for pure-read dashboard views
+- [v0.4]: `IsOrgScoped` used on APIView directly, not TenantScopedViewSet — for pure-read views
 - [v0.4]: handler404/handler500 as module-level string paths in config/urls.py
 
 ### Pending Todos
@@ -65,5 +67,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-05-15
-Stopped at: Milestone v0.5 initialized
+Stopped at: v0.5 roadmap created — Phase 15 ready to plan
 Resume file: None
