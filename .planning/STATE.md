@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.5
 milestone_name: — Configurable Sync Depth
-status: planning
-stopped_at: Phase 15 context gathered
-last_updated: "2026-05-15T09:55:53.125Z"
-last_activity: 2026-05-15 — v0.5 roadmap created (Phases 15–16, 9/9 requirements mapped)
+status: in_progress
+stopped_at: Phase 15 complete — all 4 plans executed
+last_updated: "2026-05-15T16:30:00.000Z"
+last_activity: 2026-05-15 — Phase 15 complete (4/4 plans, SYNC-01/02/03, SDEP-02/03, BKFL-01/02/03)
 progress:
-  total_phases: 3
+  total_phases: 2
   completed_phases: 1
-  total_plans: 8
-  completed_plans: 8
-  percent: 0
+  total_plans: 12
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-15)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** v0.5 — Configurable Sync Depth (Phase 15 ready to plan)
+**Current focus:** v0.5 — Configurable Sync Depth (Phase 16 ready to plan)
 
 ## Current Position
 
-Phase: 15 of 16 (Sync Depth Data Layer and Superadmin Controls)
+Phase: 16 of 16 (Org Admin Shop Creation — Conditional Depth Selector)
 Plan: — of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-05-15 — v0.5 roadmap created (Phases 15–16, 9/9 requirements mapped)
+Last activity: 2026-05-15 — Phase 15 complete (4/4 plans, SYNC-01/02/03, SDEP-02/03, BKFL-01/02/03)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -68,6 +68,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-15T09:55:53.122Z
-Stopped at: Phase 15 context gathered
-Resume file: .planning/phases/15-sync-depth-data-layer-and-superadmin-controls/15-CONTEXT.md
+Last session: 2026-05-15T16:30:00.000Z
+Stopped at: Phase 15 complete — all 4 plans executed
+Resume file: None

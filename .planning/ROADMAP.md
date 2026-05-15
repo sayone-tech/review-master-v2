@@ -52,7 +52,7 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 
 **Milestone Goal:** Let Superadmins enable a per-org "configurable sync depth" flag; when enabled, Org Admins choose how far back the initial review backfill goes (1 year / 2 years / all time) at shop creation time — replacing the hard-coded 2-year default.
 
-- [ ] **Phase 15: Sync Depth Data Layer and Superadmin Controls** — Model fields, migration, serializer updates, Superadmin org toggle UI, backfill service logic, shop detail display
+- [x] **Phase 15: Sync Depth Data Layer and Superadmin Controls** — Model fields, migration, serializer updates, Superadmin org toggle UI, backfill service logic, shop detail display — completed 2026-05-15
 - [ ] **Phase 16: Org Admin Shop Creation — Conditional Depth Selector** — Conditional "Review History" dropdown in shop creation form, wired through API to persisted sync_depth
 
 ## Phase Details
@@ -96,10 +96,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 15-01-PLAN.md — Organisation `allow_custom_sync_depth`: model, migration, service, serializers, tests (SYNC-01/02/03)
-- [ ] 15-02-PLAN.md — Shop `sync_depth` TextChoices field default TWO_YEARS: model, migration, serializer, tests (SDEP-02/03 backend)
-- [ ] 15-03-PLAN.md — Backfill date filter: thread `start_date` through `fetch_and_persist_reviews` and `_persist_page` (BKFL-01/02/03)
-- [ ] 15-04-PLAN.md — Frontend: Superadmin toggle in Create/Edit/View Org modals + 'Review history' row in ShopDetailsModal
+- [x] 15-01-PLAN.md — Organisation `allow_custom_sync_depth`: model, migration, service, serializers, tests (SYNC-01/02/03)
+- [x] 15-02-PLAN.md — Shop `sync_depth` TextChoices field default TWO_YEARS: model, migration, serializer, tests (SDEP-02/03 backend)
+- [x] 15-03-PLAN.md — Backfill date filter: thread `start_date` through `fetch_and_persist_reviews` and `_persist_page` (BKFL-01/02/03)
+- [x] 15-04-PLAN.md — Frontend: Superadmin toggle in Create/Edit/View Org modals + 'Review history' row in ShopDetailsModal
 
 ### Phase 16: Org Admin Shop Creation — Conditional Depth Selector
 
@@ -127,5 +127,5 @@ Plans:
 | 12. AI Enrichment Pipeline | v0.3 | 9/9 | ✅ Complete | 2026-05-03 |
 | 13. Action Items and Notifications | v0.3 | 8/8 | ✅ Complete | 2026-05-04 |
 | 14. Dashboard | v0.4 | 8/8 | ✅ Complete | 2026-05-07 |
-| 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 0/TBD | Not started | - |
+| 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/TBD | Not started | - |
