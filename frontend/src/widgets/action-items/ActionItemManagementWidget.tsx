@@ -8,6 +8,7 @@ import { transitionStatus } from "./api";
 import { useActionItems } from "./useActionItems";
 import { emitToast } from "../../lib/toast";
 import type {
+  ActionItemCategory,
   ActionItemListRow,
   ActionItemScope,
   ActionItemStatus,
@@ -133,6 +134,7 @@ export function ActionItemManagementWidget({
     shop?: number;
     status?: ActionItemStatus;
     scope?: ActionItemScope;
+    category?: ActionItemCategory;
     assignee?: string;
     from_date?: string;
     to_date?: string;
@@ -144,6 +146,7 @@ export function ActionItemManagementWidget({
       shop: draft.shop,
       status: draft.status,
       scope: draft.scope,
+      category: draft.category,
       assignee: draft.assignee,
       from_date: draft.from_date,
       to_date: draft.to_date,

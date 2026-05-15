@@ -36,6 +36,8 @@ class ActionItemNoteSerializer(serializers.ModelSerializer):  # type: ignore[typ
 class _ActionItemBaseRead(serializers.ModelSerializer):  # type: ignore[type-arg]
     shop_name = serializers.SerializerMethodField()
     assignee_name = serializers.SerializerMethodField()
+    category_value = serializers.CharField(source="category", read_only=True)
+    category = serializers.CharField(source="get_category_display", read_only=True)
 
     class Meta:
         model = ActionItem
@@ -54,6 +56,8 @@ class _ActionItemBaseRead(serializers.ModelSerializer):  # type: ignore[type-arg
             "created_at",
             "updated_at",
             "source_review_id",
+            "category_value",
+            "category",
         ]
         read_only_fields: ClassVar[list[str]] = fields
 

@@ -22,6 +22,7 @@ class ActionItem(BaseModel):
     title: str
     scope: Literal["shop", "brand"]
     priority: Literal["high", "medium", "low"]
+    category: Literal["quality", "service", "experience", "operations", "other"]
 
 
 class EnrichmentResult(BaseModel):

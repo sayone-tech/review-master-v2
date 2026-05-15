@@ -2,6 +2,12 @@ export type ActionItemStatus = "TODO" | "IN_PROGRESS" | "COMPLETE" | "WONT_DO";
 export type ActionItemScope = "SHOP" | "BRAND";
 export type ActionItemPriority = "HIGH" | "MEDIUM" | "LOW";
 export type ActionItemSource = "AI" | "MANUAL";
+export type ActionItemCategory =
+  | "QUALITY"
+  | "SERVICE"
+  | "EXPERIENCE"
+  | "OPERATIONS"
+  | "OTHER";
 export type UserRole = "ORG_ADMIN" | "STAFF_ADMIN" | "SUPERADMIN";
 
 export interface ActionItemListRow {
@@ -11,6 +17,8 @@ export interface ActionItemListRow {
   scope: ActionItemScope;
   priority: ActionItemPriority;
   source: ActionItemSource;
+  category_value: ActionItemCategory;
+  category: string;
   shop_id: number | null;
   shop_name: string | null;
   assignee_id: number | null;
@@ -55,6 +63,7 @@ export interface ListParams {
   shop?: number;
   status?: ActionItemStatus;
   scope?: ActionItemScope;
+  category?: ActionItemCategory;
   assignee?: string;
   from_date?: string;
   to_date?: string;

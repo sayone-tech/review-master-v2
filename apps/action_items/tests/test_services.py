@@ -322,3 +322,53 @@ def test_promote_skips_invalid_entries():
     created = promote_action_items_from_review(review=review)
     assert created == 1
     assert ActionItem.objects.filter(source_review=review).count() == 1
+
+
+@pytest.mark.django_db
+def test_promote_maps_category_correctly():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    review = ReviewFactory(
+        organisation=org,
+        shop=shop,
+        extracted_action_items=[
+            {"title": "Fix cold food", "scope": "shop", "priority": "high", "category": "quality"},
+            {"title": "Train staff", "scope": "brand", "priority": "medium", "category": "service"},
+        ],
+    )
+    promote_action_items_from_review(review=review)
+    items = {i.title: i for i in ActionItem.objects.filter(source_review=review)}
+    assert items["Fix cold food"].category == ActionItem.Category.QUALITY
+    assert items["Train staff"].category == ActionItem.Category.SERVICE
+
+
+@pytest.mark.django_db
+def test_promote_category_falls_back_to_other_when_missing():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    review = ReviewFactory(
+        organisation=org,
+        shop=shop,
+        extracted_action_items=[
+            {"title": "Fix entrance sign", "scope": "shop", "priority": "low"},
+        ],
+    )
+    promote_action_items_from_review(review=review)
+    item = ActionItem.objects.get(source_review=review)
+    assert item.category == ActionItem.Category.OTHER
+
+
+@pytest.mark.django_db
+def test_promote_category_falls_back_to_other_on_unknown_value():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    review = ReviewFactory(
+        organisation=org,
+        shop=shop,
+        extracted_action_items=[
+            {"title": "Do something", "scope": "shop", "priority": "low", "category": "invented"},
+        ],
+    )
+    promote_action_items_from_review(review=review)
+    item = ActionItem.objects.get(source_review=review)
+    assert item.category == ActionItem.Category.OTHER

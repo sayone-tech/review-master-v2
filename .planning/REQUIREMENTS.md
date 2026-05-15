@@ -3,6 +3,30 @@
 **Defined:** 2026-05-07
 **Core Value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
 
+## v0.5 Requirements
+
+Requirements for the Configurable Sync Depth milestone (Phases 15–16).
+
+### Superadmin Org Settings (SYNC)
+
+- [ ] **SYNC-01**: Superadmin can enable "Allow configurable sync depth" when creating an organisation
+- [ ] **SYNC-02**: Superadmin can enable/disable "Allow configurable sync depth" when editing an existing organisation
+- [ ] **SYNC-03**: The "Allow configurable sync depth" state is visible on the org detail page
+
+### Shop Sync Depth (SDEP) — set at shop creation only
+
+- [ ] **SDEP-01**: When the parent org has "Allow configurable sync depth" enabled, the Org Admin sees a "Review History" dropdown in the shop creation form with options: "Last 1 year", "Last 2 years", "All time"
+- [ ] **SDEP-02**: When the parent org does not have "Allow configurable sync depth" enabled, no dropdown is shown and the shop is always created with "Last 2 years" (the system default)
+- [ ] **SDEP-03**: The selected review history depth is shown on the shop detail page
+
+### Initial Backfill Behaviour (BKFL)
+
+- [ ] **BKFL-01**: Initial backfill for a shop configured to "Last 1 year" fetches only reviews created within the last 12 months; reviews older than 12 months are not synced
+- [ ] **BKFL-02**: Initial backfill for a shop configured to "Last 2 years" (the default) fetches only reviews created within the last 24 months
+- [ ] **BKFL-03**: Initial backfill for a shop configured to "All time" fetches all available reviews — no date filter is applied to the Google API request
+
+---
+
 ## v0.4 Requirements
 
 Requirements for the Dashboard milestone (Phase 14). One phase.
@@ -145,11 +169,20 @@ Populated during roadmap creation.
 | ERR-01 | Phase 14 | Complete |
 | ERR-02 | Phase 14 | Complete |
 
+| SYNC-01 | Phase 15 | Pending |
+| SYNC-02 | Phase 15 | Pending |
+| SYNC-03 | Phase 15 | Pending |
+| SDEP-01 | Phase 16 | Pending |
+| SDEP-02 | Phase 15 | Pending |
+| SDEP-03 | Phase 15 | Pending |
+| BKFL-01 | Phase 15 | Pending |
+| BKFL-02 | Phase 15 | Pending |
+| BKFL-03 | Phase 15 | Pending |
+
 **Coverage:**
-- v0.4 requirements: 38 total
-- Mapped to phases: 38
-- Unmapped: 0 ✓
+- v0.4 requirements: 38 total, mapped to phases: 38, unmapped: 0 ✓
+- v0.5 requirements: 9 total, mapped to phases: 9, unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-07*
-*Last updated: 2026-05-07 after initial definition*
+*Last updated: 2026-05-15 — v0.5 Configurable Sync Depth requirements added*

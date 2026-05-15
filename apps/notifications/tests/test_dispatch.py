@@ -12,6 +12,7 @@ Covers:
 from __future__ import annotations
 
 import contextlib
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import patch
 
@@ -252,8 +253,10 @@ def test_promote_then_dispatch_via_enrichment_flow():
         sentiment="positive",
         tags=[],
         action_items=[
-            OAIAction(title="Speed up coffee service", scope="shop", priority="high"),
-            OAIAction(title="Refresh brand voice", scope="brand", priority="low"),
+            OAIAction(
+                title="Speed up coffee service", scope="shop", priority="high", category="other"
+            ),
+            OAIAction(title="Refresh brand voice", scope="brand", priority="low", category="other"),
         ],
     )
     # AiPricing is required by enrichment._persist_success.calculate_cost.
@@ -320,12 +323,13 @@ def test_promote_then_dispatch_via_enrichment_flow():
 
 
 def _api_review(rid: str, comment: str = "Great!", rating: str = "FIVE") -> dict[str, Any]:
+    now_iso = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
         "reviewId": rid,
         "starRating": rating,
         "comment": comment,
-        "createTime": "2026-05-01T12:00:00Z",
-        "updateTime": "2026-05-01T12:00:00Z",
+        "createTime": now_iso,
+        "updateTime": now_iso,
         "reviewer": {"displayName": "Jane", "isAnonymous": False},
     }
 

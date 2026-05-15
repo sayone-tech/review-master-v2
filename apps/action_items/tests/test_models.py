@@ -97,3 +97,9 @@ def test_brand_item_allows_null_shop() -> None:
     item.refresh_from_db()
     assert item.shop is None
     assert item.scope == ActionItem.Scope.BRAND
+
+
+@pytest.mark.django_db
+def test_action_item_category_defaults_to_other() -> None:
+    item = ActionItemFactory()
+    assert item.category == ActionItem.Category.OTHER

@@ -49,6 +49,7 @@ function buildQs(params: ListParams): string {
   if (params.shop !== undefined) u.set("shop", String(params.shop));
   if (params.status) u.set("status", params.status);
   if (params.scope) u.set("scope", params.scope);
+  if (params.category) u.set("category", params.category);
   if (params.assignee) u.set("assignee", params.assignee);
   if (params.from_date) u.set("from_date", params.from_date);
   if (params.to_date) u.set("to_date", params.to_date);

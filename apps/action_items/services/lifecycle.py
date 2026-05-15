@@ -34,6 +34,13 @@ _SCOPE_MAP = {
     "shop": ActionItem.Scope.SHOP,
     "brand": ActionItem.Scope.BRAND,
 }
+_CATEGORY_MAP = {
+    "quality": ActionItem.Category.QUALITY,
+    "service": ActionItem.Category.SERVICE,
+    "experience": ActionItem.Category.EXPERIENCE,
+    "operations": ActionItem.Category.OPERATIONS,
+    "other": ActionItem.Category.OTHER,
+}
 
 
 @transaction.atomic
@@ -258,6 +265,9 @@ def promote_action_items_from_review(*, review: Review) -> int:
         priority_val = _PRIORITY_MAP.get(
             (entry.get("priority") or "").lower(), ActionItem.Priority.MEDIUM
         )
+        category_val = _CATEGORY_MAP.get(
+            (entry.get("category") or "").lower(), ActionItem.Category.OTHER
+        )
         title = (entry.get("title") or "").strip()
         if not scope_val or not title:
             continue
@@ -267,6 +277,7 @@ def promote_action_items_from_review(*, review: Review) -> int:
                 title=title[:200],
                 scope=scope_val,
                 priority=priority_val,
+                category=category_val,
                 source=ActionItem.Source.AI,
                 shop_id=review.shop_id if scope_val == ActionItem.Scope.SHOP else None,
                 source_review=review,
