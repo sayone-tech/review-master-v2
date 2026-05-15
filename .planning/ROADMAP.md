@@ -93,7 +93,13 @@ Plans:
   3. When an org does not allow custom sync depth, any shop created under it is automatically assigned "Last 2 years" as its review history depth, with no selector shown and no API parameter needed from the client
   4. Shop detail page shows the current review history depth (e.g., "Last 1 year", "Last 2 years", "All time") for every shop
   5. Initial backfill for a "Last 1 year" shop fetches only reviews from the past 12 months; for a "Last 2 years" shop it fetches the past 24 months; for an "All time" shop no date filter is sent to the Google API
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 15-01-PLAN.md — Organisation `allow_custom_sync_depth`: model, migration, service, serializers, tests (SYNC-01/02/03)
+- [ ] 15-02-PLAN.md — Shop `sync_depth` TextChoices field default TWO_YEARS: model, migration, serializer, tests (SDEP-02/03 backend)
+- [ ] 15-03-PLAN.md — Backfill date filter: thread `start_date` through `fetch_and_persist_reviews` and `_persist_page` (BKFL-01/02/03)
+- [ ] 15-04-PLAN.md — Frontend: Superadmin toggle in Create/Edit/View Org modals + 'Review history' row in ShopDetailsModal
 
 ### Phase 16: Org Admin Shop Creation — Conditional Depth Selector
 
