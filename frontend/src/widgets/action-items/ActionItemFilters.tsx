@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calendar, RefreshCw, Search, Tag, Users } from "lucide-react";
 import type {
+  ActionItemCategory,
   ActionItemScope,
   ActionItemStatus,
   ListParams,
@@ -17,6 +18,7 @@ interface DraftFilters {
   shop?: number;
   status?: ActionItemStatus;
   scope?: ActionItemScope;
+  category?: ActionItemCategory;
   assignee?: string;
   from_date?: string;
   to_date?: string;
@@ -41,6 +43,14 @@ const STATUS_OPTIONS: { value: ActionItemStatus; label: string }[] = [
 const SCOPE_OPTIONS: { value: ActionItemScope; label: string }[] = [
   { value: "SHOP", label: "Shop" },
   { value: "BRAND", label: "Brand" },
+];
+
+const CATEGORY_OPTIONS: { value: ActionItemCategory; label: string }[] = [
+  { value: "QUALITY", label: "Quality" },
+  { value: "SERVICE", label: "Service" },
+  { value: "EXPERIENCE", label: "Experience" },
+  { value: "OPERATIONS", label: "Operations" },
+  { value: "OTHER", label: "Other" },
 ];
 
 function ChevronIcon() {
@@ -123,6 +133,7 @@ export function ActionItemFilters({
     shop: filters.shop,
     status: filters.status as ActionItemStatus | undefined,
     scope: filters.scope as ActionItemScope | undefined,
+    category: filters.category as ActionItemCategory | undefined,
     assignee: filters.assignee,
     from_date: filters.from_date,
     to_date: filters.to_date,
@@ -133,6 +144,7 @@ export function ActionItemFilters({
       filters.shop !== undefined ||
       filters.status ||
       filters.scope ||
+      filters.category ||
       filters.assignee ||
       filters.from_date ||
       filters.to_date,
@@ -144,6 +156,7 @@ export function ActionItemFilters({
       shop: undefined,
       status: undefined,
       scope: undefined,
+      category: undefined,
       assignee: undefined,
       from_date: undefined,
       to_date: undefined,
@@ -151,10 +164,10 @@ export function ActionItemFilters({
     onReset();
   };
 
-  // Row 1 columns: Search | Store | Status | [Scope — OrgAdmin only]
+  // Row 1 columns: Search | Store | Status | [Scope — OrgAdmin only] | Category
   const row1Cols = isOrgAdmin
-    ? "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)"
-    : "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr)";
+    ? "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)"
+    : "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)";
 
   return (
     <div className="bg-white border border-line rounded-xl p-3.5 mb-[18px]">
@@ -255,6 +268,32 @@ export function ActionItemFilters({
             </div>
           </label>
         )}
+
+        {/* Category */}
+        <label className="flex flex-col gap-1.5 min-w-0">
+          <FilterLabel icon={<Tag size={15} />} label="Category" />
+          <div className="relative">
+            <select
+              aria-label="Filter by category"
+              className={selectCls}
+              value={draft.category ?? ""}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  category: (e.target.value || undefined) as ActionItemCategory | undefined,
+                }))
+              }
+            >
+              <option value="">Any category</option>
+              {CATEGORY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <ChevronIcon />
+          </div>
+        </label>
       </div>
 
       {/* Row 2 — date range + assignee + actions */}

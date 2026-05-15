@@ -6,6 +6,7 @@ import { StatusBadge } from "./StatusBadge";
 import { ScopePill } from "./ScopePill";
 import type { ActionItemListRow, ActionItemStatus } from "./types";
 import { STATUS_LABEL } from "./types";
+import { CategoryBadge } from "./CategoryBadge";
 
 function avatarInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -210,6 +211,14 @@ export function ActionItemTable({
       label: "SCOPE",
       skeletonWidth: "80px",
       accessor: (r) => <ScopePill scope={r.scope} />,
+    },
+    {
+      key: "category",
+      label: "CATEGORY",
+      skeletonWidth: "100px",
+      accessor: (r) => (
+        <CategoryBadge category={r.category_value} label={r.category} />
+      ),
     },
     {
       key: "shop",
