@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.5
 milestone_name: — Configurable Sync Depth
-status: in_progress
-stopped_at: Phase 15 complete — all 4 plans executed
-last_updated: "2026-05-15T16:30:00.000Z"
+status: planning
+stopped_at: Phase 16 context gathered
+last_updated: "2026-05-15T12:29:25.587Z"
 last_activity: 2026-05-15 — Phase 15 complete (4/4 plans, SYNC-01/02/03, SDEP-02/03, BKFL-01/02/03)
 progress:
-  total_phases: 2
-  completed_phases: 1
+  total_phases: 3
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 4
-  percent: 50
+  completed_plans: 12
+  percent: 67
 ---
 
 # Project State
@@ -68,6 +68,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-15T16:30:00.000Z
-Stopped at: Phase 15 complete — all 4 plans executed
-Resume file: None
+Last session: 2026-05-15T12:29:25.579Z
+Stopped at: Phase 16 context gathered
+Resume file: .planning/phases/16-org-admin-shop-creation-conditional-depth-selector/16-CONTEXT.md
