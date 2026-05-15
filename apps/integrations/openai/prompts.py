@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-ENRICHMENT_PROMPT_VERSION = 1
+ENRICHMENT_PROMPT_VERSION = 2
 
 SYSTEM_PROMPT = (
     "You are an expert customer experience analyst for a multi-tenant retail "
@@ -30,7 +30,11 @@ SYSTEM_PROMPT = (
     "'title' (under 200 chars, English imperative phrase), a 'scope' "
     "(use 'shop' for issues specific to the location like 'Fix broken AC'; "
     "use 'brand' for systemic patterns like 'Improve staff training across "
-    "all shops'), and a 'priority' ('high'|'medium'|'low').\n"
+    "all shops'), a 'priority' ('high'|'medium'|'low'), and a 'category': "
+    "classify as 'quality' (product/food standard), 'service' (staff behaviour, "
+    "responsiveness), 'experience' (ambience, atmosphere, overall feel), "
+    "'operations' (wait time, delivery, logistics, processes), or 'other' when "
+    "none fit.\n"
     "Do not invent action items when none are warranted. Tags should reflect "
     "what was actually mentioned in the review."
 )
