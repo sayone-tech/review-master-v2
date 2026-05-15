@@ -3,6 +3,7 @@ import { Modal } from "../modal";
 import { createOrg, ApiError } from "./api";
 import { emitToast } from "../../lib/toast";
 import type { CreateOrgPayload, OrgType } from "./types";
+import { ToggleSwitch } from "./ToggleSwitch";
 
 const ORG_TYPE_OPTIONS: { value: OrgType | ""; label: string }[] = [
   { value: "", label: "Select a type" },
@@ -24,6 +25,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
   const [email, setEmail] = useState("");
   const [stores, setStores] = useState("");
   const [address, setAddress] = useState("");
+  const [allowCustomSyncDepth, setAllowCustomSyncDepth] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,6 +35,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
     setEmail("");
     setStores("");
     setAddress("");
+    setAllowCustomSyncDepth(false);
     setErrors({});
   };
 
@@ -62,6 +65,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
       email: email.trim(),
       address: address.trim(),
       number_of_stores: Number(stores),
+      allow_custom_sync_depth: allowCustomSyncDepth,
     };
     try {
       await createOrg(payload);
@@ -214,6 +218,15 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
             data-testid="field-address"
           />
         </Field>
+        <div className="mt-4">
+          <ToggleSwitch
+            id="allow_custom_sync_depth"
+            checked={allowCustomSyncDepth}
+            onChange={(v) => setAllowCustomSyncDepth(v)}
+            label="Allow configurable sync depth"
+            description="When enabled, Org Admins can choose how far back to sync reviews when adding a new shop."
+          />
+        </div>
       </form>
     </Modal>
   );

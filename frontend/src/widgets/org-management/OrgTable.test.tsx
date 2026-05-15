@@ -17,6 +17,7 @@ const BASE_ROW: OrgRow = {
   active_stores: 0,
   activation_status: "pending",
   last_invited_at: "2026-04-22T10:00:00Z",
+  allow_custom_sync_depth: false,
 };
 
 function noopHandlers() {

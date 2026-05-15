@@ -3,6 +3,7 @@ import { Modal } from "../modal";
 import { updateOrg, ApiError } from "./api";
 import { emitToast } from "../../lib/toast";
 import type { OrgRow, OrgType, UpdateOrgPayload } from "./types";
+import { ToggleSwitch } from "./ToggleSwitch";
 
 const ORG_TYPE_OPTIONS: { value: OrgType; label: string }[] = [
   { value: "RETAIL", label: "Retail" },
@@ -22,6 +23,7 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
   const [orgType, setOrgType] = useState<OrgType>("RETAIL");
   const [stores, setStores] = useState("");
   const [address, setAddress] = useState("");
+  const [allowCustomSyncDepth, setAllowCustomSyncDepth] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,6 +33,7 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
       setOrgType(org.org_type);
       setStores(String(org.number_of_stores));
       setAddress(org.address ?? "");
+      setAllowCustomSyncDepth(org.allow_custom_sync_depth ?? false);
       setErrors({});
     }
   }, [org]);
@@ -62,6 +65,7 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
       org_type: orgType,
       number_of_stores: Number(stores),
       address: address.trim(),
+      allow_custom_sync_depth: allowCustomSyncDepth,
     };
     try {
       await updateOrg(currentOrg.id, payload);
@@ -211,6 +215,15 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
               {errors.address}
             </p>
           )}
+        </div>
+        <div className="mt-4">
+          <ToggleSwitch
+            id="edit-allow_custom_sync_depth"
+            checked={allowCustomSyncDepth}
+            onChange={(v) => setAllowCustomSyncDepth(v)}
+            label="Allow configurable sync depth"
+            description="When enabled, Org Admins can choose how far back to sync reviews when adding a new shop."
+          />
         </div>
       </form>
     </Modal>

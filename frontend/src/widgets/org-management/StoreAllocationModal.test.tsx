@@ -24,6 +24,7 @@ const ORG: OrgRow = {
   active_stores: 6,
   activation_status: "active",
   last_invited_at: null,
+  allow_custom_sync_depth: false,
 };
 
 function captureToasts() {

@@ -120,6 +120,13 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
         <dd className="text-[13px] text-ink">
           {formatDateTime(org.last_invited_at)}
         </dd>
+
+        <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
+          Configurable sync depth
+        </dt>
+        <dd className="text-[13px] text-ink">
+          {org.allow_custom_sync_depth ? "Enabled" : "Disabled"}
+        </dd>
       </dl>
     </Modal>
   );
