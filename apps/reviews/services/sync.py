@@ -19,7 +19,7 @@ Both wrap fetch_and_persist_reviews which:
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from asgiref.sync import async_to_sync
@@ -187,16 +187,36 @@ def _persist_page(
     return len(new_google_review_ids), rev_ids, new_google_review_ids
 
 
+_NEW_REVIEW_RECENCY_DAYS = 5
+
+
 def _schedule_new_review_dispatch(*, shop: Shop, new_google_review_ids: set[str]) -> None:
     """Dispatch ONE summary new_review Notification per incremental sync run.
 
     Sends a single "X new reviews at <Shop>" notification rather than one per
     review. Initial backfill callers skip this entirely — the sync progress
     indicator already communicates that work.
+
+    Only reviews whose review_create_time is within _NEW_REVIEW_RECENCY_DAYS
+    are counted. Google occasionally re-surfaces old reviews (e.g. after a
+    location merge) that are new-to-DB but were written years ago. Notifying
+    on those creates a mismatch: the bell shows "1 new review at X" but
+    Reports (filtered by review_create_time) shows nothing new.
     """
     from apps.notifications.services.dispatch import dispatch_notification
 
-    count = len(new_google_review_ids)
+    if not new_google_review_ids:
+        return
+
+    # Filter: only notify for reviews whose create time is recent.
+    recency_cutoff = dj_timezone.now() - timedelta(days=_NEW_REVIEW_RECENCY_DAYS)
+    recent_count = Review.objects.filter(
+        shop=shop,
+        google_review_id__in=new_google_review_ids,
+        review_create_time__gte=recency_cutoff,
+    ).count()
+
+    count = recent_count
     if count == 0:
         return
 
