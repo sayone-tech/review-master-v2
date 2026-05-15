@@ -64,7 +64,12 @@ def _build_result() -> EnrichmentResult:
                 {"label": "limited menu", "polarity": "neutral"},
             ],
             "action_items": [
-                {"title": "Expand menu", "scope": "shop", "priority": "medium"},
+                {
+                    "title": "Expand menu",
+                    "scope": "shop",
+                    "priority": "medium",
+                    "category": "other",
+                },
             ],
         }
     )
