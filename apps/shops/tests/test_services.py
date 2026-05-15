@@ -163,3 +163,22 @@ class TestCreateShopGBPResourceNames:
         shop.refresh_from_db()
         assert shop.google_account_name == ""
         assert shop.google_location_name == ""
+
+
+# ---------------------------------------------------------------------------
+# Phase 15-02: create_shop defaults sync_depth to TWO_YEARS
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_create_shop_defaults_sync_depth_to_two_years() -> None:
+    org = OrganisationFactory(number_of_stores=5)
+    region = RegionFactory(organisation=org)
+    shop = create_shop(
+        organisation=org,
+        region=region,
+        name="Test Shop",
+        connection_method=Shop.ConnectionMethod.NOT_CONNECTED,
+    )
+    assert shop.sync_depth == Shop.SyncDepth.TWO_YEARS
+    assert shop.sync_depth == "TWO_YEARS"

@@ -894,3 +894,30 @@ class TestShopMobileScoping:
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         resp = client.post(f"/api/v1/shops/{shop.pk}/reconnect/", {"state": "invalid"})
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Phase 15-02: sync_depth exposed in list and detail API responses
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestShopSyncDepthInApiResponses:
+    def test_shop_list_includes_sync_depth(self, org_and_admin):
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        ShopFactory(organisation=org, region=region)
+        resp = client.get("/api/v1/shops/")
+        assert resp.status_code == 200
+        results = resp.data.get("results", [])
+        assert len(results) > 0
+        assert all("sync_depth" in row for row in results)
+        assert any(row["sync_depth"] == "TWO_YEARS" for row in results)
+
+    def test_shop_detail_includes_sync_depth(self, org_and_admin):
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region)
+        resp = client.get(f"/api/v1/shops/{shop.pk}/")
+        assert resp.status_code == 200
+        assert resp.data["sync_depth"] in {"ONE_YEAR", "TWO_YEARS", "ALL_TIME"}
