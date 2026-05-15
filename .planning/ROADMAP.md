@@ -111,7 +111,11 @@ Plans:
   1. Org Admin creating a shop when the parent org has "Allow configurable sync depth" enabled sees a "Review History" dropdown with exactly three options: "Last 1 year", "Last 2 years", "All time"
   2. Org Admin creating a shop when the parent org does not have the flag enabled sees no dropdown; the shop is silently created with "Last 2 years" and no user action is required
   3. After shop creation with a custom depth, the shop detail page reflects the chosen depth, confirming the value was stored and returned correctly
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 16-01-PLAN.md — Backend: ShopCreateSerializer sync_depth field, create_shop() kwarg, shop_list view context, template bootstrap tag (SDEP-01)
+- [ ] 16-02-PLAN.md — Frontend: types.ts, entrypoint, ShopModals, CreateShopModal conditional Review History dropdown (SDEP-01)
 
 ## Progress
 
@@ -128,4 +132,4 @@ Plans:
 | 13. Action Items and Notifications | v0.3 | 8/8 | ✅ Complete | 2026-05-04 |
 | 14. Dashboard | v0.4 | 8/8 | ✅ Complete | 2026-05-07 |
 | 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
-| 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/TBD | Not started | - |
+| 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
