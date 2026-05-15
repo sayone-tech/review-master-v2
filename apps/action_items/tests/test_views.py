@@ -233,3 +233,26 @@ def test_no_patch_or_delete_endpoint_for_notes(org_admin_setup) -> None:
     note_url = f"/api/v1/action-items/{item.pk}/notes/1/"
     with pytest.raises(Resolver404):
         resolve(note_url)
+
+
+@pytest.mark.django_db
+def test_list_response_includes_category_fields(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    ActionItemFactory(organisation=org, category=ActionItem.Category.QUALITY)
+    response = client.get("/api/v1/action-items/")
+    assert response.status_code == 200
+    result = response.json()["results"][0]
+    assert result["category_value"] == "QUALITY"
+    assert result["category"] == "Quality"
+
+
+@pytest.mark.django_db
+def test_filter_by_category_returns_matching_items(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    ActionItemFactory(organisation=org, category=ActionItem.Category.QUALITY)
+    ActionItemFactory(organisation=org, category=ActionItem.Category.SERVICE)
+    response = client.get("/api/v1/action-items/?category=QUALITY")
+    assert response.status_code == 200
+    results = response.json()["results"]
+    assert len(results) == 1
+    assert results[0]["category_value"] == "QUALITY"

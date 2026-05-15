@@ -14,6 +14,7 @@ class ActionItemFilterSet(django_filters.FilterSet):  # type: ignore[misc]
     shop = django_filters.NumberFilter(field_name="shop_id")
     status = django_filters.ChoiceFilter(choices=ActionItem.Status.choices)
     scope = django_filters.ChoiceFilter(choices=ActionItem.Scope.choices)
+    category = django_filters.MultipleChoiceFilter(choices=ActionItem.Category.choices)
     assignee = django_filters.CharFilter(method="filter_assignee")
     from_date = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
     to_date = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
