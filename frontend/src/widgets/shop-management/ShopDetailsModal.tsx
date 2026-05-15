@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { Modal } from "../modal/Modal";
 import { ConnectionStatusPill } from "./ConnectionStatusPill";
 import type { ShopRow } from "./types";
+import { SYNC_DEPTH_LABELS } from "./types";
 
 interface Props {
   open: boolean;
@@ -152,6 +153,7 @@ export function ShopDetailsModal({
                 status={shop.connection_status}
               />
             </Row>
+            <Row label="Review history">{SYNC_DEPTH_LABELS[shop.sync_depth]}</Row>
             <Row label="Created">{formatDate(shop.created_at)}</Row>
             <Row label="Updated">{formatDate(shop.updated_at)}</Row>
           </dl>

@@ -13,6 +13,7 @@ function fakeRow(over: Partial<ShopRow> = {}): ShopRow {
     place_id: "ChIJ",
     connection_method: "GOOGLE_OAUTH",
     connection_status: "CONNECTED",
+    sync_depth: "TWO_YEARS",
     is_active: true,
     region: 1,
     region_name: "North",
