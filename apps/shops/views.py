@@ -166,7 +166,7 @@ class ShopViewSet(
         return ShopReadSerializer
 
     def get_serializer_context(self) -> dict[str, Any]:
-        ctx = super().get_serializer_context()
+        ctx = dict(super().get_serializer_context())
         ctx["request"] = self.request
         return ctx
 
