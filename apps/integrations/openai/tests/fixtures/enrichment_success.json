@@ -9,12 +9,14 @@
     {
       "title": "Add more vegetarian options to the menu",
       "scope": "shop",
-      "priority": "medium"
+      "priority": "medium",
+      "category": "quality"
     },
     {
       "title": "Train staff on upselling techniques",
       "scope": "brand",
-      "priority": "low"
+      "priority": "low",
+      "category": "service"
     }
   ]
 }
