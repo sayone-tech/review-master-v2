@@ -20,6 +20,7 @@ class ActionItemFactory(DjangoModelFactory):
     scope = ActionItem.Scope.SHOP
     priority = ActionItem.Priority.MEDIUM
     source = ActionItem.Source.MANUAL
+    category = ActionItem.Category.OTHER
     shop = factory.LazyAttribute(lambda o: ShopFactory(organisation=o.organisation))
     assignee = None
     due_date = None

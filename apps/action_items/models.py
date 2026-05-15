@@ -41,6 +41,13 @@ class ActionItem(TimeStampedModel):
         AI = "AI", "AI Extracted"
         MANUAL = "MANUAL", "Manual"
 
+    class Category(models.TextChoices):
+        QUALITY = "QUALITY", "Quality"
+        SERVICE = "SERVICE", "Service"
+        EXPERIENCE = "EXPERIENCE", "Experience"
+        OPERATIONS = "OPERATIONS", "Operations"
+        OTHER = "OTHER", "Other"
+
     organisation = models.ForeignKey(
         "organisations.Organisation",
         on_delete=models.CASCADE,
@@ -55,6 +62,12 @@ class ActionItem(TimeStampedModel):
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
     source = models.CharField(
         max_length=10, choices=Source.choices, default=Source.MANUAL, db_index=True
+    )
+    category = models.CharField(
+        max_length=15,
+        choices=Category.choices,
+        default=Category.OTHER,
+        db_index=True,
     )
     shop = models.ForeignKey(
         "shops.Shop",
@@ -89,6 +102,7 @@ class ActionItem(TimeStampedModel):
             ),
             models.Index(fields=["organisation", "due_date"], name="ai_org_due_idx"),
             models.Index(fields=["organisation", "assignee"], name="ai_org_assignee_idx"),
+            models.Index(fields=["organisation", "category"], name="ai_org_category_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [
             models.UniqueConstraint(
