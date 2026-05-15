@@ -517,12 +517,13 @@ return render(
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Payload inclusion strategy for `sync_depth`**
    - What we know: UI-SPEC offers two valid patterns — always include `sync_depth` in the payload, or conditionally include only when `allowCustomSyncDepth === true`.
    - What's unclear: The planner must choose one. D-05 says the backend accepts either.
    - Recommendation: Always include `sync_depth` in the payload. Simpler code — no conditional spread. The backend ignores the value when the flag is `False` (accepts it but the flag is frontend-only).
+   - RESOLVED: Always include `sync_depth` in the payload unconditionally. Plan 16-02 Task 2 implements this. Backend accepts any valid value per D-05.
 
 ---
 
