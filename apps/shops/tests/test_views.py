@@ -921,3 +921,59 @@ class TestShopSyncDepthInApiResponses:
         resp = client.get(f"/api/v1/shops/{shop.pk}/")
         assert resp.status_code == 200
         assert resp.data["sync_depth"] in {"ONE_YEAR", "TWO_YEARS", "ALL_TIME"}
+
+
+# ---------------------------------------------------------------------------
+# Phase 16-01 Task 1: ShopCreateSerializer sync_depth acceptance tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestShopCreateSerializerSyncDepth:
+    def test_create_shop_api_accepts_sync_depth_one_year(self, org_and_admin, bypass_session_auth):
+        """POST /api/v1/shops/ with sync_depth=ONE_YEAR → 201 and shop.sync_depth=ONE_YEAR."""
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        resp = client.post(
+            "/api/v1/shops/",
+            {
+                "name": "Depth One Year Shop",
+                "connection_method": "NOT_CONNECTED",
+                "region": region.pk,
+                "sync_depth": "ONE_YEAR",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.data["sync_depth"] == "ONE_YEAR"
+
+    def test_create_shop_api_rejects_invalid_sync_depth(self, org_and_admin, bypass_session_auth):
+        """POST /api/v1/shops/ with sync_depth=INVALID → 400."""
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        resp = client.post(
+            "/api/v1/shops/",
+            {
+                "name": "Bad Depth Shop",
+                "connection_method": "NOT_CONNECTED",
+                "region": region.pk,
+                "sync_depth": "INVALID",
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_create_shop_api_defaults_sync_depth_to_two_years(
+        self, org_and_admin, bypass_session_auth
+    ):
+        """POST /api/v1/shops/ without sync_depth → 201 and shop.sync_depth=TWO_YEARS."""
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        resp = client.post(
+            "/api/v1/shops/",
+            {
+                "name": "Default Depth Shop",
+                "connection_method": "NOT_CONNECTED",
+                "region": region.pk,
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.data["sync_depth"] == "TWO_YEARS"

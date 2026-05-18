@@ -48,6 +48,11 @@ class ShopCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]
     street_address = serializers.CharField(required=False, allow_blank=True, default="")
     connection_method = serializers.ChoiceField(choices=Shop.ConnectionMethod.choices)
     place_id = serializers.CharField(required=False, allow_blank=True, default="", max_length=300)
+    sync_depth = serializers.ChoiceField(
+        choices=Shop.SyncDepth.choices,
+        required=False,
+        default=Shop.SyncDepth.TWO_YEARS,
+    )
     # write_only: the raw token never appears in responses (SHOP-13).
     # For GOOGLE_OAUTH, the view resolves this value from the session (it is
     # actually the OAuth state string, not the raw refresh token).

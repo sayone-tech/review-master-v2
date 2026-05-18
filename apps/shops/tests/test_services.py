@@ -182,3 +182,40 @@ def test_create_shop_defaults_sync_depth_to_two_years() -> None:
     )
     assert shop.sync_depth == Shop.SyncDepth.TWO_YEARS
     assert shop.sync_depth == "TWO_YEARS"
+
+
+# ---------------------------------------------------------------------------
+# Phase 16-01 Task 1: create_shop persists caller-specified sync_depth
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_create_shop_persists_custom_sync_depth() -> None:
+    """Phase 16-01: create_shop(sync_depth="ONE_YEAR") persists ONE_YEAR on the shop."""
+    org = OrganisationFactory(number_of_stores=5)
+    region = RegionFactory(organisation=org)
+    shop = create_shop(
+        organisation=org,
+        region=region,
+        name="Test Shop ONE_YEAR",
+        connection_method=Shop.ConnectionMethod.NOT_CONNECTED,
+        sync_depth=Shop.SyncDepth.ONE_YEAR,
+    )
+    assert shop.sync_depth == Shop.SyncDepth.ONE_YEAR
+    assert shop.sync_depth == "ONE_YEAR"
+
+
+@pytest.mark.django_db
+def test_create_shop_persists_all_time_sync_depth() -> None:
+    """Phase 16-01: create_shop(sync_depth="ALL_TIME") persists ALL_TIME on the shop."""
+    org = OrganisationFactory(number_of_stores=5)
+    region = RegionFactory(organisation=org)
+    shop = create_shop(
+        organisation=org,
+        region=region,
+        name="Test Shop ALL_TIME",
+        connection_method=Shop.ConnectionMethod.NOT_CONNECTED,
+        sync_depth=Shop.SyncDepth.ALL_TIME,
+    )
+    assert shop.sync_depth == Shop.SyncDepth.ALL_TIME
+    assert shop.sync_depth == "ALL_TIME"
