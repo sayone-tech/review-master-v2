@@ -566,12 +566,14 @@ def test_initial_backfill_all_time_no_filter(patched_dependencies) -> None:
     )
 
 
-@pytest.mark.django_db
-def test_incremental_sync_unaffected_by_sync_depth(patched_dependencies) -> None:
-    """Incremental sync must not apply start_date filter regardless of shop.sync_depth.
+# ---------------------------------------------------------------------------
+# Phase 16-01 Task 3: incremental sync respects shop.sync_depth date floor
+# ---------------------------------------------------------------------------
 
-    Even a ONE_YEAR shop persists all reviews when trigger='incremental'.
-    """
+
+@pytest.mark.django_db
+def test_incremental_sync_filters_reviews_older_than_one_year(patched_dependencies) -> None:
+    """Phase 16-01: ONE_YEAR incremental sync skips reviews older than 365 days."""
     shop = ShopFactory(
         sync_depth=Shop.SyncDepth.ONE_YEAR,
         connection_status=Shop.ConnectionStatus.CONNECTED,
@@ -584,15 +586,66 @@ def test_incremental_sync_unaffected_by_sync_depth(patched_dependencies) -> None
     shop.refresh_from_db()
     page = {
         "reviews": [
-            _build_gbp_review("r-recent", 100),
-            _build_gbp_review("r-mid", 400),
-            _build_gbp_review("r-old", 800),
+            _build_gbp_review("r-recent", 100),  # inside ONE_YEAR window
+            _build_gbp_review("r-old", 400),  # outside ONE_YEAR window (>365 days)
         ],
-        "totalReviewCount": 3,
+        "totalReviewCount": 2,
     }
     with patch.object(sync_mod, "list_reviews", return_value=page):
         sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
     persisted_ids = set(Review.objects.filter(shop=shop).values_list("google_review_id", flat=True))
-    assert persisted_ids == {"r-recent", "r-mid", "r-old"}, (
-        f"Incremental sync must persist all reviews regardless of sync_depth; got {persisted_ids}"
+    assert persisted_ids == {"r-recent"}, (
+        f"ONE_YEAR incremental sync must exclude reviews older than 365 days; got {persisted_ids}"
+    )
+
+
+@pytest.mark.django_db
+def test_incremental_sync_no_filter_for_all_time(patched_dependencies) -> None:
+    """Phase 16-01: ALL_TIME incremental sync persists all reviews regardless of age."""
+    shop = ShopFactory(
+        sync_depth=Shop.SyncDepth.ALL_TIME,
+        connection_status=Shop.ConnectionStatus.CONNECTED,
+        google_refresh_token="rt",
+    )
+    Shop.objects.filter(pk=shop.pk).update(
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+    shop.refresh_from_db()
+    page = {
+        "reviews": [
+            _build_gbp_review("r-old-1000", 1000),  # well outside any date window
+        ],
+        "totalReviewCount": 1,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
+    assert Review.objects.filter(shop=shop).count() == 1, (
+        "ALL_TIME incremental sync must persist all reviews regardless of age"
+    )
+
+
+@pytest.mark.django_db
+def test_incremental_sync_two_years_filter(patched_dependencies) -> None:
+    """Phase 16-01: TWO_YEARS incremental sync skips reviews older than 730 days."""
+    shop = ShopFactory(
+        sync_depth=Shop.SyncDepth.TWO_YEARS,
+        connection_status=Shop.ConnectionStatus.CONNECTED,
+        google_refresh_token="rt",
+    )
+    Shop.objects.filter(pk=shop.pk).update(
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+    shop.refresh_from_db()
+    page = {
+        "reviews": [
+            _build_gbp_review("r-old-800", 800),  # outside TWO_YEARS window (>730 days)
+        ],
+        "totalReviewCount": 1,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
+    assert Review.objects.filter(shop=shop).count() == 0, (
+        "TWO_YEARS incremental sync must exclude reviews older than 730 days"
     )

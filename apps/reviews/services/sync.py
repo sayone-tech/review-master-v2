@@ -288,7 +288,7 @@ def fetch_and_persist_reviews(
     # Phase 15 — derive date floor for initial backfill from shop.sync_depth.
     # Computed HERE (at execution time, not enqueue time) using the shop instance
     # already fetched above — no second DB query (RESEARCH §Pitfall 1, §Pitfall 2).
-    if trigger == "initial" and start_date is None:
+    if start_date is None:
         if shop.sync_depth == Shop.SyncDepth.ONE_YEAR:
             start_date = dj_timezone.now() - timedelta(days=365)
         elif shop.sync_depth == Shop.SyncDepth.TWO_YEARS:
