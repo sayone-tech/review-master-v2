@@ -113,6 +113,7 @@ def shop_list(request):  # type: ignore[no-untyped-def]
             "page_url_params": _shop_page_url_params(request, per_page),
             "page_title": "Shops",
             "is_org_admin": user.role == User.Role.ORG_ADMIN,
+            "allow_custom_sync_depth": org.allow_custom_sync_depth,
         },
     )
 

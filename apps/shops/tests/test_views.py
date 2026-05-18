@@ -977,3 +977,31 @@ class TestShopCreateSerializerSyncDepth:
         )
         assert resp.status_code == 201
         assert resp.data["sync_depth"] == "TWO_YEARS"
+
+
+# ---------------------------------------------------------------------------
+# Phase 16-01 Task 2: shop_list view context includes allow_custom_sync_depth
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestShopListContextAllowCustomSyncDepth:
+    def test_shop_list_context_includes_allow_custom_sync_depth_false(self, db):
+        """shop_list view context has allow_custom_sync_depth=False when org flag is False."""
+        org = OrganisationFactory(number_of_stores=10, allow_custom_sync_depth=False)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        dj_client = Client()
+        dj_client.force_login(admin)
+        resp = dj_client.get("/admin/org/shops/")
+        assert resp.status_code == 200
+        assert resp.context["allow_custom_sync_depth"] is False
+
+    def test_shop_list_context_includes_allow_custom_sync_depth_true(self, db):
+        """shop_list view context has allow_custom_sync_depth=True when org flag is True."""
+        org = OrganisationFactory(number_of_stores=10, allow_custom_sync_depth=True)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        dj_client = Client()
+        dj_client.force_login(admin)
+        resp = dj_client.get("/admin/org/shops/")
+        assert resp.status_code == 200
+        assert resp.context["allow_custom_sync_depth"] is True
