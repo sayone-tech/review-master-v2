@@ -8,7 +8,7 @@
 
 Add safety and control mechanisms around every OpenAI call in the platform — both the review enrichment pipeline and the reply-generation endpoint (Phase 19). Guardrails operate at two layers: **Input (pre-LLM)** intercepts content before it reaches OpenAI; **Output (post-LLM)** checks the model's response before it is persisted or returned to the user. Additionally, add an org-level AI enable/disable toggle (Superadmin only) and a per-org daily token budget cap.
 
-**Out of scope:** Real-time content moderation of the reviews themselves in the UI, custom moderation model training, per-user AI budgets, keyword allowlists/blocklists as a config UI.
+**Out of scope:** Real-time content moderation of the reviews themselves in the UI, custom moderation model training, per-user AI budgets, keyword allowlists/blocklists as a config UI, groundedness/on-topic checks beyond prompt instruction, third-party guardrail libraries (Guardrails AI, NeMo Guardrails, Presidio), moderation during review sync.
 
 </domain>
 
@@ -31,7 +31,7 @@ Add safety and control mechanisms around every OpenAI call in the platform — b
 - **D-07:** **Moderation check on generated replies** — after `call_openai_reply_generation()` returns a draft, run the generated text through the Moderation API. If flagged: return `{"code": "output_moderated", "detail": "AI generation failed. Please write your reply manually."}` with HTTP 422. Do NOT return the flagged text.
 - **D-08:** **Length enforcement on generated replies** — if the generated reply exceeds **300 words**, truncate at the last sentence boundary before the 300-word mark and append ` (Please review and complete before sending.)`. Log at WARNING.
 - **D-09:** **Enrichment structural validation** — Pydantic already validates enrichment output. No additional moderation check on enrichment output (tags and action item titles are low-risk structured data, not user-facing prose).
-- **D-10:** **Hallucination mitigation** — enforced at prompt level via "Do not invent facts" instruction (already in D-05/D-06 prompts in Phase 19). No post-LLM factuality check — hallucination detection via external API is out of scope for this phase.
+- **D-10:** **Groundedness / on-topic check** — not implemented. The prompt instruction "Do not invent facts" combined with the review text provided as context is the sole groundedness control. No post-LLM factuality or keyword-overlap check. Revisit after Phase 20 ships if real outputs reveal issues.
 
 ### Org-level AI toggle
 - **D-11:** Add `ai_features_enabled = models.BooleanField(default=True)` to `Organisation`. Migration included. Superadmin can toggle on org edit form (same pattern as `allow_custom_sync_depth`).
@@ -41,13 +41,19 @@ Add safety and control mechanisms around every OpenAI call in the platform — b
 - **D-13:** The `ai_features_enabled` check happens in the **service layer**, not the view — `generate_reply_draft()` and `enrich_review()` both check the org flag at entry.
 
 ### Per-org daily token budget
-- **D-14:** Add `daily_ai_token_budget = models.PositiveIntegerField(null=True, blank=True)` to `Organisation`. `null` = unlimited. Superadmin sets it on org edit form.
+
+- **D-14:** Add `daily_ai_token_budget = models.PositiveIntegerField(null=True, blank=True)` to `Organisation`. `null` = unlimited — there is **no platform-wide default**. New orgs are uncapped until a Superadmin explicitly sets a limit. This avoids surprising existing orgs on upgrade.
 - **D-15:** Token counter key: `ai:tokens:org:{org_id}:{YYYY-MM-DD}` in Redis (TTL = 25 hours, rolls over naturally). Counter is incremented by `total_tokens` after each successful OpenAI call, inside `AiUsageLog` write.
 - **D-16:** Budget enforcement: if `(existing_daily_count + estimated_prompt_tokens) > daily_ai_token_budget` → abort the call:
   - Enrichment: skip enrichment, set `enrichment_status=FAILED`, `error_code="budget_exceeded"`.
   - Reply generation: return `{"code": "budget_exceeded", "detail": "Daily AI usage limit reached for your organisation."}` with HTTP 429.
 - **D-17:** Estimation uses prompt token count only (before the call). Actual total (including completion) is recorded post-call. Budget accounting is best-effort — over-counting is acceptable; under-counting is not. In practice, reply prompts are small and estimation is close.
 - **D-18:** A new helper `check_and_reserve_ai_budget(organisation_id, estimated_tokens)` in `apps/integrations/openai/guardrails.py` centralises budget check + Redis increment. Returns `True` (OK) or raises `AiBudgetExceededError`.
+
+### Moderation timing
+
+- **D-19a:** Moderation runs **only at call time** — i.e., immediately before `call_openai_enrichment()` or `call_openai_reply_generation()`. It does **not** run during `fetch_and_persist_reviews()` (the Celery sync task). Reviews with harmful text are stored and displayed normally; they are simply not enriched and cannot generate AI replies.
+- **D-19b:** No third-party guardrail library (Guardrails AI, NeMo Guardrails, Presidio, Azure Content Safety) is added. The OpenAI Moderation API covers the safety surface needed; additional libraries add dependency weight without proportionate benefit for single-turn review interactions.
 
 ### Guardrails module
 - **D-19:** New file `apps/integrations/openai/guardrails.py` with three public functions:

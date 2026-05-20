@@ -61,6 +61,11 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 - [ ] **Phase 18: Action Item Duplicate Merge** — User-driven merge of duplicate AI-extracted action items across stores; merged duplicates hidden from list, shown as read-only context in canonical detail; "+N" badge in list view
 - [ ] **Phase 19: AI Reply Generation** — "Generate with AI" button in ReplyComposer with Professional/Friendly tone picker; GPT-4o-mini generates a draft that fills the textarea for user review before submitting
 
+### 📋 v0.7 — AI Safety & Governance (Planned)
+
+- [ ] **Phase 20: AI Guardrails** — Input and output safety controls around all OpenAI calls: OpenAI Moderation API checks, content length truncation, per-org daily token budget (Redis counter), org-level AI enable/disable toggle (Superadmin)
+- [ ] **Phase 21: Audit Log Viewer** — Read-only "Activity Log" page in Org Admin UI showing reply and action item audit events; Staff-scoped to accessible shops; cursor-paginated; filters by type, date, and actor
+
 ## Phase Details
 
 ### Phase 14: Dashboard
