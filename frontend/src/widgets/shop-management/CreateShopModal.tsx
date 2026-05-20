@@ -4,7 +4,7 @@ import { Modal } from "../modal/Modal";
 import { ApiError, createShop } from "./api";
 import { emitToast } from "../../lib/toast";
 import { OAuthConnectionSection, type OAuthListingsResult } from "./OAuthConnectionSection";
-import type { ShopCreatePayload, ShopRow } from "./types";
+import type { ShopCreatePayload, ShopRow, SyncDepth } from "./types";
 
 const inputCls =
   "w-full px-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
@@ -35,9 +35,17 @@ interface Props {
   onCreated: (shop: ShopRow) => void;
   regions: RegionLite[];
   existingPlaceIds?: Set<string>;
+  allowCustomSyncDepth?: boolean;
 }
 
-export function CreateShopModal({ open, onClose, onCreated, regions, existingPlaceIds }: Props) {
+export function CreateShopModal({
+  open,
+  onClose,
+  onCreated,
+  regions,
+  existingPlaceIds,
+  allowCustomSyncDepth,
+}: Props) {
   const [step, setStep] = useState<Step>("connect");
   const [oauthState, setOauthState] = useState<string>("");
   const [listings, setListings] = useState<Listing[]>([]);
@@ -50,6 +58,7 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
   const [errors, setErrors] = useState<Record<string, string | string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [listingQuery, setListingQuery] = useState("");
+  const [syncDepth, setSyncDepth] = useState<SyncDepth>("TWO_YEARS");
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filteredListings = listingQuery.trim()
@@ -90,6 +99,7 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
     setErrors({});
     setSubmitting(false);
     setListingQuery("");
+    setSyncDepth("TWO_YEARS");
   }
 
   // Autofocus search when entering the pick step
@@ -142,6 +152,7 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
       street_address: streetAddress,
       place_id: selectedListing.placeId,
       google_refresh_token: oauthState,
+      sync_depth: syncDepth,
     };
     try {
       const shop = await createShop(payload);
@@ -453,6 +464,28 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
               </p>
             )}
           </div>
+
+          {allowCustomSyncDepth && (
+            <div>
+              <label htmlFor="cs-sync-depth" className={labelCls}>
+                Review History
+              </label>
+              <p className="mt-1 text-[12px] text-muted">
+                Sets how far back this shop&#39;s initial review sync will go.
+              </p>
+              <select
+                id="cs-sync-depth"
+                value={syncDepth}
+                onChange={(e) => setSyncDepth(e.target.value as SyncDepth)}
+                className={inputCls}
+                aria-label="Review History"
+              >
+                <option value="ONE_YEAR">Last 1 year</option>
+                <option value="TWO_YEARS">Last 2 years</option>
+                <option value="ALL_TIME">All time</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label htmlFor="cs-phone" className={labelCls}>

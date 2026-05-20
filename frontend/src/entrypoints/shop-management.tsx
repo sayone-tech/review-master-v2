@@ -35,6 +35,9 @@ function mount() {
     "shop-regions-data",
     [],
   );
+  const orgData = parseJson<{ allow_custom_sync_depth: boolean }>("shop-org-data", {
+    allow_custom_sync_depth: false,
+  });
 
   const tableRoot = document.getElementById("shop-table-root");
   if (tableRoot && !tableRoot.dataset.mounted) {
@@ -65,6 +68,7 @@ function mount() {
           regions={initialRegions}
           initialPlaceIds={initialPlaceIds}
           isOrgAdmin={isOrgAdmin}
+          allowCustomSyncDepth={orgData.allow_custom_sync_depth}
         />
       </StrictMode>,
     );

@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.5
 milestone_name: — Configurable Sync Depth
 status: planning
-stopped_at: Phase 16 context gathered
+stopped_at: Phase 16 UI-SPEC approved
 last_updated: "2026-05-15T12:29:25.587Z"
 last_activity: 2026-05-15 — Phase 15 complete (4/4 plans, SYNC-01/02/03, SDEP-02/03, BKFL-01/02/03)
 progress:
@@ -70,4 +70,4 @@ None.
 
 Last session: 2026-05-15T12:29:25.579Z
 Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-org-admin-shop-creation-conditional-depth-selector/16-CONTEXT.md
+Resume file: .planning/phases/16-org-admin-shop-creation-conditional-depth-selector/16-UI-SPEC.md

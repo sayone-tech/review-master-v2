@@ -61,6 +61,7 @@ interface ShopModalsProps {
   regions: RegionLite[];
   initialPlaceIds?: string[];
   isOrgAdmin?: boolean;
+  allowCustomSyncDepth?: boolean;
 }
 
 export function ShopModals({
@@ -68,6 +69,7 @@ export function ShopModals({
   regions,
   initialPlaceIds = [],
   isOrgAdmin = false,
+  allowCustomSyncDepth,
 }: ShopModalsProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [takenPlaceIds, setTakenPlaceIds] = useState<Set<string>>(new Set(initialPlaceIds));
@@ -193,6 +195,7 @@ export function ShopModals({
         }}
         regions={regions}
         existingPlaceIds={takenPlaceIds}
+        allowCustomSyncDepth={allowCustomSyncDepth}
       />
 
       <EditShopModal

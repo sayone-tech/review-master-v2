@@ -56,6 +56,7 @@ export interface ShopCreatePayload {
   google_refresh_token?: string;
   phone?: string;
   street_address?: string;
+  sync_depth?: string;
 }
 
 export interface ShopUpdatePayload {
