@@ -59,6 +59,7 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 
 - [ ] **Phase 17: Tag Rework — ReviewTag Model and Filter** — Replace Review.tags JSONField with a proper ReviewTag relational model; add multi-select tag filter (with search) to the reviews UI; make tag chips clickable to filter
 - [ ] **Phase 18: Action Item Duplicate Merge** — User-driven merge of duplicate AI-extracted action items across stores; merged duplicates hidden from list, shown as read-only context in canonical detail; "+N" badge in list view
+- [ ] **Phase 19: AI Reply Generation** — "Generate with AI" button in ReplyComposer with Professional/Friendly tone picker; GPT-4o-mini generates a draft that fills the textarea for user review before submitting
 
 ## Phase Details
 
