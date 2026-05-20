@@ -55,6 +55,11 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 - [x] **Phase 15: Sync Depth Data Layer and Superadmin Controls** — Model fields, migration, serializer updates, Superadmin org toggle UI, backfill service logic, shop detail display — completed 2026-05-15
 - [ ] **Phase 16: Org Admin Shop Creation — Conditional Depth Selector** — Conditional "Review History" dropdown in shop creation form, wired through API to persisted sync_depth
 
+### 📋 v0.6 — Tag Rework & Action Item Quality (Planned)
+
+- [ ] **Phase 17: Tag Rework — ReviewTag Model and Filter** — Replace Review.tags JSONField with a proper ReviewTag relational model; add multi-select tag filter (with search) to the reviews UI; make tag chips clickable to filter
+- [ ] **Phase 18: Action Item Duplicate Merge** — User-driven merge of duplicate AI-extracted action items across stores; merged duplicates hidden from list, shown as read-only context in canonical detail; "+N" badge in list view
+
 ## Phase Details
 
 ### Phase 14: Dashboard
@@ -117,6 +122,19 @@ Plans:
 - [ ] 16-01-PLAN.md — Backend: ShopCreateSerializer sync_depth field, create_shop() kwarg, shop_list view context, template bootstrap tag (SDEP-01)
 - [ ] 16-02-PLAN.md — Frontend: types.ts, entrypoint, ShopModals, CreateShopModal conditional Review History dropdown (SDEP-01)
 
+### Phase 17: Tag Rework — ReviewTag Model and Filter
+
+**Goal**: Replace `Review.tags` JSONField with a proper `ReviewTag` relational model; update the AI enrichment pipeline to write rows into the new table; add a multi-select tag filter with search to the reviews list UI; and make tag chips on review rows clickable to filter — giving Org Admins a fast, queryable way to explore reviews by AI-generated topic.
+**Depends on**: Phase 16
+**Requirements**: TAG-01, TAG-02, TAG-03 (to be added to REQUIREMENTS.md)
+**Success Criteria** (what must be TRUE):
+
+  1. A `ReviewTag` model exists with `(id, review_id, label, polarity)`; `Review.tags` JSONField is removed
+  2. Review enrichment writes `ReviewTag` rows (title-cased, case-insensitively deduplicated per org) instead of updating the JSONField
+  3. The reviews list API returns tags as `[{label, polarity}]` via the new model — same JSON shape as before
+  4. A `GET /api/v1/reviews/tags/` endpoint returns `[{label, count}]` scoped to the caller's org (optionally filtered by `?shop=<id>`)
+  5. The reviews UI has a Tags multi-select dropdown with search; selecting tags filters the review list (AND semantics); clickable tag chips on rows add to the active filter
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -133,3 +151,4 @@ Plans:
 | 14. Dashboard | v0.4 | 8/8 | ✅ Complete | 2026-05-07 |
 | 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
+| 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 0/? | Not started | - |
