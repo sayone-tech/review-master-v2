@@ -8,7 +8,7 @@ from factory.django import DjangoModelFactory
 
 from apps.common.models import AuditLog
 from apps.organisations.tests.factories import OrganisationFactory
-from apps.reviews.models import Review
+from apps.reviews.models import Review, ReviewTag
 from apps.shops.tests.factories import ShopFactory
 
 
@@ -32,8 +32,16 @@ class ReviewFactory(DjangoModelFactory):
     is_replied = False
     enrichment_status = Review.EnrichmentStatus.PENDING
     sentiment = ""
-    tags: ClassVar[list] = []
     extracted_action_items: ClassVar[list] = []
+
+
+class ReviewTagFactory(DjangoModelFactory):
+    class Meta:
+        model = ReviewTag
+
+    review = factory.SubFactory(ReviewFactory)
+    label = factory.Faker("word")
+    polarity = "positive"
 
 
 class AuditLogFactory(DjangoModelFactory):
