@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.5
 milestone_name: — Configurable Sync Depth
-status: planning
-stopped_at: Phase 17 plans approved — ready to execute
-last_updated: "2026-05-21T00:00:00.000Z"
-last_activity: 2026-05-21 — Phase 17 planned (4 plans, TAG-01/02/03, waves 1–3)
+status: executing
+stopped_at: Phase 16 context gathered
+last_updated: "2026-05-21T09:10:19.454Z"
+last_activity: 2026-05-21 -- Phase 17 execution started
 progress:
-  total_phases: 3
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
-  percent: 67
+  total_phases: 4
+  completed_phases: 3
+  total_plans: 18
+  completed_plans: 14
+  percent: 75
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-15)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** v0.5 — Configurable Sync Depth (Phase 17 planned, ready to execute)
+**Current focus:** Phase 17 — tag-rework-reviewtag-model-and-filter
 
 ## Current Position
 
-Phase: 17 of 17 (Tag Rework — ReviewTag Model and Filter)
-Plan: — of 4 in current phase
-Status: Plans approved — ready to execute
-Last activity: 2026-05-21 — Phase 17 planned (4 plans: 17-01 Wave 1, 17-02/17-03 Wave 2 parallel, 17-04 Wave 3)
+Phase: 17 (tag-rework-reviewtag-model-and-filter) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 17
+Last activity: 2026-05-21 -- Phase 17 execution started
 
 Progress: [█████░░░░░] 50%
 

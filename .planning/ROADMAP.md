@@ -143,7 +143,7 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 17-01-PLAN.md — ReviewTag model + migration 0008_reviewtag + factory update (TAG-01)
+- [x] 17-01-PLAN.md — ReviewTag model + migration 0008_reviewtag + factory update (TAG-01)
 - [ ] 17-02-PLAN.md — Enrichment service write path + ReviewTagSerializer + prefetch_related (TAG-02)
 - [ ] 17-03-PLAN.md — Tags @action endpoint + ReviewFilterSet tags CharFilter + TAG-03 tests (TAG-03)
 - [ ] 17-04-PLAN.md — Frontend: TagsFilter dropdown, clickable chips, ReviewManagementWidget wiring (TAG-03)
@@ -164,4 +164,4 @@ Plans:
 | 14. Dashboard | v0.4 | 8/8 | ✅ Complete | 2026-05-07 |
 | 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
-| 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 0/4 | Not started | - |
+| 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 1/4 | In Progress|  |
