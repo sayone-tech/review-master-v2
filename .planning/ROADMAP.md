@@ -57,7 +57,7 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 
 ### 📋 v0.6 — Tag Rework & Action Item Quality (Planned)
 
-- [ ] **Phase 17: Tag Rework — ReviewTag Model and Filter** — Replace Review.tags JSONField with a proper ReviewTag relational model; add multi-select tag filter (with search) to the reviews UI; make tag chips clickable to filter
+- [x] **Phase 17: Tag Rework — ReviewTag Model and Filter** — Replace Review.tags JSONField with a proper ReviewTag relational model; add multi-select tag filter (with search) to the reviews UI; make tag chips clickable to filter (completed 2026-05-21)
 - [ ] **Phase 18: Action Item Duplicate Merge** — User-driven merge of duplicate AI-extracted action items across stores; merged duplicates hidden from list, shown as read-only context in canonical detail; "+N" badge in list view
 - [ ] **Phase 19: AI Reply Generation** — "Generate with AI" button in ReplyComposer with Professional/Friendly tone picker; GPT-4o-mini generates a draft that fills the textarea for user review before submitting
 
@@ -146,7 +146,7 @@ Plans:
 - [x] 17-01-PLAN.md — ReviewTag model + migration 0008_reviewtag + factory update (TAG-01)
 - [x] 17-02-PLAN.md — Enrichment service write path + ReviewTagSerializer + prefetch_related (TAG-02)
 - [x] 17-03-PLAN.md — Tags @action endpoint + ReviewFilterSet tags CharFilter + TAG-03 tests (TAG-03)
-- [ ] 17-04-PLAN.md — Frontend: TagsFilter dropdown, clickable chips, ReviewManagementWidget wiring (TAG-03)
+- [x] 17-04-PLAN.md — Frontend: TagsFilter dropdown, clickable chips, ReviewManagementWidget wiring (TAG-03)
 
 ## Progress
 
@@ -164,4 +164,4 @@ Plans:
 | 14. Dashboard | v0.4 | 8/8 | ✅ Complete | 2026-05-07 |
 | 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
-| 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 3/4 | In Progress|  |
+| 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete   | 2026-05-21 |
