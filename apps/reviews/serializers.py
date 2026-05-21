@@ -9,6 +9,18 @@ from rest_framework import serializers
 from apps.reviews.models import Review
 
 
+class ReviewTagSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """Phase 17 (TAG-02): nested read serializer for ReviewTag rows.
+
+    Plain Serializer (not ModelSerializer) following the ReviewReplySerializer
+    pattern. Returns {label, polarity} to preserve the JSON shape the
+    frontend already consumes from the old Review.tags JSONField.
+    """
+
+    label = serializers.CharField(read_only=True)  # type: ignore[assignment]
+    polarity = serializers.CharField(read_only=True)
+
+
 class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
     shop_name = serializers.CharField(source="shop.name", read_only=True)
     shop_region_name = serializers.SerializerMethodField()
@@ -19,6 +31,10 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
     # ReviewViewSet.get_queryset). Annotation collapses into the existing list
     # JOINs so the REVW-14 <=5-query budget is preserved.
     has_action_items = serializers.BooleanField(read_only=True)
+    # Phase 17 (TAG-02): tags now come from ReviewTag rows via the
+    # related_name="tags" RelatedManager (prefetch_related("tags") in the
+    # selector keeps this O(1) extra query, not N+1).
+    tags = ReviewTagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Review

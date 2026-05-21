@@ -39,6 +39,9 @@ def base_reviews_queryset(*, organisation_id: int) -> QuerySet[Review]:
         Review.objects.active()
         .filter(organisation_id=organisation_id)
         .select_related("shop", "shop__region", "replied_by")
+        # Phase 17 (TAG-02): prefetch ReviewTag rows so ReviewTagSerializer(many=True)
+        # does not trigger N+1 — exactly one extra IN query regardless of page size.
+        .prefetch_related("tags")
     )
 
 

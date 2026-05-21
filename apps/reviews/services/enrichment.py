@@ -37,7 +37,7 @@ from apps.integrations.openai.exceptions import (
 )
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
-from apps.reviews.models import Review
+from apps.reviews.models import Review, ReviewTag
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +87,25 @@ def _persist_success(
         Review.objects.filter(pk=review.pk).update(
             enrichment_status=Review.EnrichmentStatus.SUCCESS,
             sentiment=result.sentiment,
-            tags=[{"label": t.label, "polarity": t.polarity} for t in result.tags],
             extracted_action_items=[
                 {"title": a.title, "scope": a.scope, "priority": a.priority}
                 for a in result.action_items
             ],
             enrichment_version=models.F("enrichment_version") + 1,
+        )
+        # Phase 17 (TAG-02): write tags as relational ReviewTag rows. Delete-before-
+        # bulk_create makes re-enrichment idempotent (D-09); both calls inside the
+        # transaction so a bulk_create failure rolls back the Review update.
+        ReviewTag.objects.filter(review_id=review.pk).delete()
+        ReviewTag.objects.bulk_create(
+            [
+                ReviewTag(
+                    review_id=review.pk,
+                    label=tag.label.title(),
+                    polarity=tag.polarity,
+                )
+                for tag in result.tags
+            ]
         )
         AiUsageLog.objects.create(
             organisation_id=review.organisation_id,
@@ -204,10 +217,12 @@ def _persist_success_no_comment(*, review: Review) -> None:
         Review.objects.filter(pk=review.pk).update(
             enrichment_status=Review.EnrichmentStatus.SUCCESS,
             sentiment=sentiment_value,
-            tags=[],
             extracted_action_items=[],
             enrichment_version=models.F("enrichment_version") + 1,
         )
+        # Phase 17 (TAG-02): clear any stale ReviewTag rows from a prior
+        # enrichment. No bulk_create — comment-less reviews have no tags.
+        ReviewTag.objects.filter(review_id=review.pk).delete()
 
     # AFTER commit: emit progress so the modal counter increments
     # identically to a normal enrichment.
