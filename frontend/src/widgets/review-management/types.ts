@@ -63,6 +63,7 @@ export interface ReviewFilterParams {
   ordering?: SortKey;
   page_size?: 10 | 25 | 50 | 100;
   page?: number;
+  tags?: string[]; // comma-joined for ?tags=A,B; array here for multi-select UI
 }
 
 export interface ReviewListResponse {
@@ -92,4 +93,9 @@ export interface SyncingResponse {
 export interface ShopOption {
   id: number;
   name: string;
+}
+
+export interface TagOption {
+  label: string;
+  count: number;
 }

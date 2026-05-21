@@ -4,9 +4,9 @@ import { ReviewEmptyStates } from "./ReviewEmptyStates";
 import { ReviewFilters } from "./ReviewFilters";
 import { ReviewStatsCards } from "./ReviewStatsCards";
 import { ReviewTable } from "./ReviewTable";
-import { fetchReviewStats } from "./api";
+import { fetchReviewStats, fetchTagList } from "./api";
 import { useReviews } from "./useReviews";
-import type { ReviewRow, ReviewStats, ShopOption, SortKey } from "./types";
+import type { ReviewRow, ReviewStats, ShopOption, SortKey, TagOption } from "./types";
 
 function buildPageRange(current: number, total: number): (number | "…")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -94,7 +94,16 @@ export const ReviewManagementWidget = ({
     filters.from_date,
     filters.to_date,
     filters.search,
+    filters.tags,
   ]);
+
+  // Tags filter — fetch available tags on mount and when shop scope changes
+  const [availableTags, setAvailableTags] = useState<TagOption[] | undefined>(undefined);
+  useEffect(() => {
+    fetchTagList(filters.shop)
+      .then((tags) => setAvailableTags(tags))
+      .catch(() => setAvailableTags([]));
+  }, [filters.shop]);
 
   const isOrgAdmin = userRole === "ORG_ADMIN";
   const pageSize = filters.page_size ?? 10;
@@ -130,6 +139,17 @@ export const ReviewManagementWidget = ({
     });
   };
 
+  // Tag chip click — toggles the label in the active tags filter and applies immediately,
+  // bypassing the Apply-button draft (Pitfall 6 in RESEARCH.md).
+  const handleTagClick = (label: string) => {
+    const currentTags = filters.tags ?? [];
+    const alreadyActive = currentTags.includes(label);
+    const newTags = alreadyActive
+      ? currentTags.filter((t) => t !== label)
+      : [...currentTags, label];
+    applyFilters({ ...filters, tags: newTags.length ? newTags : undefined });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -143,6 +163,7 @@ export const ReviewManagementWidget = ({
       <ReviewFilters
         shops={shops}
         filters={filters}
+        availableTags={availableTags}
         onApply={(draft) =>
           applyFilters({
             search: draft.search || undefined,
@@ -153,6 +174,7 @@ export const ReviewManagementWidget = ({
             has_comment: draft.has_comment,
             from_date: draft.from_date,
             to_date: draft.to_date,
+            tags: draft.tags?.length ? draft.tags : undefined,
           })
         }
         onReset={clearFilters}
@@ -167,6 +189,7 @@ export const ReviewManagementWidget = ({
           loading={loading}
           emptyState={emptyState}
           onReply={handleReplyCtaClick}
+          onTagClick={handleTagClick}
           expandedRowId={openComposerId}
           showFullComment={showFullComment}
           onToggleShowFullComment={toggleShowFullComment}

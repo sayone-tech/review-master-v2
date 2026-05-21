@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, MessageSquare, RefreshCw, Search, Star, Tag, ThumbsUp } from "lucide-react";
-import type { ReviewFilterParams, ShopOption } from "./types";
+import type { ReviewFilterParams, ShopOption, TagOption } from "./types";
 
 interface DraftFilters {
   search: string;
@@ -11,6 +11,7 @@ interface DraftFilters {
   has_comment?: boolean;
   from_date?: string;
   to_date?: string;
+  tags?: string[];
 }
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   filters: ReviewFilterParams;
   onApply: (draft: DraftFilters) => void;
   onReset: () => void;
+  availableTags?: TagOption[];
 }
 
 const selectCls =
@@ -70,7 +72,204 @@ function StoreIcon({ size = 15 }: { size?: number }) {
   );
 }
 
-export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
+interface TagsFilterProps {
+  availableTags?: TagOption[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}
+
+function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
+
+  const loading = availableTags === undefined;
+  const filtered = useMemo(() => {
+    const list = availableTags ?? [];
+    if (!query.trim()) return list;
+    const q = query.toLowerCase();
+    return list.filter((t) => t.label.toLowerCase().includes(q));
+  }, [availableTags, query]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  // Focus search input on open
+  useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+    } else {
+      setActiveIndex(-1);
+    }
+  }, [open]);
+
+  const triggerLabel = (() => {
+    if (selected.length === 0) return "Any tag";
+    if (selected.length === 1) return selected[0];
+    return `${selected.length} tags`;
+  })();
+
+  const toggleLabel = (label: string) => {
+    if (selected.includes(label)) {
+      onChange(selected.filter((l) => l !== label));
+    } else {
+      onChange([...selected, label]);
+    }
+  };
+
+  const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (loading) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen((o) => !o);
+    } else if (e.key === "Escape" && open) {
+      e.preventDefault();
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
+  const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      setQuery("");
+      triggerRef.current?.focus();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (filtered.length === 0 ? -1 : Math.min(filtered.length - 1, i + 1)));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (filtered.length === 0 ? -1 : Math.max(0, i - 1)));
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0 && activeIndex < filtered.length) {
+        e.preventDefault();
+        toggleLabel(filtered[activeIndex].label);
+      }
+    } else if (e.key === "Tab") {
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
+  return (
+    <label className="flex flex-col gap-1.5 min-w-0">
+      <FilterLabel icon={<Tag size={15} />} label="Tags" />
+      <div className="relative" ref={containerRef}>
+        <button
+          ref={triggerRef}
+          type="button"
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label="Filter by tag"
+          disabled={loading}
+          onClick={() => !loading && setOpen((o) => !o)}
+          onKeyDown={onTriggerKeyDown}
+          className={
+            "w-full flex items-center justify-between gap-2 px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]" +
+            (loading ? " opacity-50 cursor-not-allowed pointer-events-none" : "")
+          }
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="truncate">{triggerLabel}</span>
+            {selected.length > 0 && (
+              <span
+                className="inline-flex items-center justify-center w-4 h-4 bg-yellow text-black text-[10px] font-semibold rounded-full shrink-0"
+                aria-hidden="true"
+              >
+                {selected.length}
+              </span>
+            )}
+          </span>
+          <ChevronIcon />
+        </button>
+        {open && (
+          <div
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label="Tags"
+            onKeyDown={onPanelKeyDown}
+            className="absolute z-50 mt-1 left-0 right-0 bg-white border border-line rounded-[10px] shadow-md max-h-60 overflow-y-auto py-1"
+          >
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-line">
+              <Search size={13} className="text-muted shrink-0" aria-hidden="true" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setActiveIndex(-1);
+                }}
+                placeholder="Search tags…"
+                className="flex-1 min-w-0 text-[13px] font-semibold text-ink placeholder:text-faint focus:outline-none bg-transparent"
+                aria-label="Search tags"
+              />
+            </div>
+            {filtered.length === 0 ? (
+              <div className="px-3 py-3 text-[12px] text-muted">
+                {(availableTags ?? []).length === 0
+                  ? "No tags yet"
+                  : `No tags match “${query}”`}
+              </div>
+            ) : (
+              filtered.map((opt, idx) => {
+                const isSelected = selected.includes(opt.label);
+                const isActive = idx === activeIndex;
+                return (
+                  <div
+                    key={opt.label}
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toggleLabel(opt.label);
+                    }}
+                    className={
+                      "flex items-center justify-between px-3 py-2 cursor-pointer transition-colors " +
+                      (isSelected || isActive ? "bg-line-soft" : "hover:bg-line-soft")
+                    }
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="inline-flex items-center justify-center w-3 text-[12px] text-ink shrink-0"
+                        aria-hidden="true"
+                      >
+                        {isSelected ? "✓" : ""}
+                      </span>
+                      <span className="text-[13px] font-semibold text-ink truncate">
+                        {opt.label}
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-faint shrink-0">{opt.count}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </label>
+  );
+}
+
+export function ReviewFilters({ shops, filters, onApply, onReset, availableTags }: Props) {
   const [draft, setDraft] = useState<DraftFilters>({
     search: filters.search ?? "",
     shop: filters.shop,
@@ -80,6 +279,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
     has_comment: filters.has_comment,
     from_date: filters.from_date,
     to_date: filters.to_date,
+    tags: filters.tags ?? [],
   });
 
   const hasActiveFilters = Boolean(
@@ -90,7 +290,8 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
       filters.is_replied !== undefined ||
       filters.has_comment !== undefined ||
       filters.from_date ||
-      filters.to_date,
+      filters.to_date ||
+      (filters.tags && filters.tags.length > 0),
   );
 
   const handleReset = () => {
@@ -103,6 +304,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
       has_comment: undefined,
       from_date: undefined,
       to_date: undefined,
+      tags: [],
     });
     onReset();
   };
@@ -113,7 +315,8 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
+          gridTemplateColumns:
+            "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
           gap: 14,
           alignItems: "end",
         }}
@@ -213,6 +416,13 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
             <ChevronIcon />
           </div>
         </label>
+
+        {/* Tags multi-select */}
+        <TagsFilter
+          availableTags={availableTags}
+          selected={draft.tags ?? []}
+          onChange={(next) => setDraft((d) => ({ ...d, tags: next }))}
+        />
 
       </div>
 

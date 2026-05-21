@@ -4,6 +4,7 @@ import type {
   ReviewRow,
   ReviewStats,
   SyncingResponse,
+  TagOption,
 } from "./types";
 
 function getCsrfToken(): string {
@@ -50,6 +51,7 @@ function buildQs(params: ReviewFilterParams): string {
   if (params.ordering) u.set("ordering", params.ordering);
   if (params.page_size) u.set("page_size", String(params.page_size));
   if (params.page && params.page > 1) u.set("page", String(params.page));
+  if (params.tags && params.tags.length > 0) u.set("tags", params.tags.join(","));
   const qs = u.toString();
   return qs ? `?${qs}` : "";
 }
@@ -90,6 +92,16 @@ export async function fetchReviewStats(params?: ReviewFilterParams): Promise<Rev
     credentials: "same-origin",
   });
   return (await handle(resp)) as ReviewStats;
+}
+
+export async function fetchTagList(shopId?: number): Promise<TagOption[]> {
+  const qs = shopId ? `?shop=${shopId}` : "";
+  const resp = await fetch(`/api/v1/reviews/tags/${qs}`, {
+    method: "GET",
+    headers: headers("GET"),
+    credentials: "same-origin",
+  });
+  return (await handle(resp)) as TagOption[];
 }
 
 export async function fetchSyncingShops(): Promise<SyncingResponse> {

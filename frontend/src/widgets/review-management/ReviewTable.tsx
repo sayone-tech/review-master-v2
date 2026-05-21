@@ -73,6 +73,7 @@ interface Props {
   onComposerClose: () => void;
   showFullComment: Map<number, boolean>;
   onToggleShowFullComment: (reviewId: number) => void;
+  onTagClick?: (label: string) => void;
 }
 
 export function ReviewTable({
@@ -85,6 +86,7 @@ export function ReviewTable({
   onComposerClose,
   showFullComment,
   onToggleShowFullComment,
+  onTagClick,
 }: Props) {
   const columns: DataTableColumn<ReviewRow>[] = [
     {
@@ -203,13 +205,19 @@ export function ReviewTable({
         return (
           <div className="flex flex-wrap gap-1 max-w-[170px]">
             {r.tags.slice(0, 4).map((tag) => (
-              <span
+              <button
                 key={`${tag.label}-${tag.polarity}`}
-                className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium rounded"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTagClick?.(tag.label);
+                }}
+                className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium rounded cursor-pointer hover:opacity-80 transition-opacity focus-visible:ring-1 focus-visible:ring-ink focus-visible:ring-offset-1 focus-visible:outline-none"
                 style={TAG_STYLES[tag.polarity]}
+                aria-label={`Filter by tag: ${tag.label}`}
               >
                 {tag.label}
-              </span>
+              </button>
             ))}
             {r.tags.length > 4 && (
               <span className="text-[11px] text-muted">+{r.tags.length - 4}</span>
