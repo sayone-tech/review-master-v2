@@ -155,7 +155,6 @@ def test_status_transitions_pending_to_success() -> None:
     review = ReviewFactory(
         enrichment_status=Review.EnrichmentStatus.PENDING,
         sentiment="",
-        tags=[],
         extracted_action_items=[],
         enrichment_version=0,
     )
