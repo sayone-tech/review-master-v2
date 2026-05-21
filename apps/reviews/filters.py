@@ -20,6 +20,7 @@ class ReviewFilterSet(django_filters.FilterSet):  # type: ignore[misc]
     from_date = django_filters.DateFilter(field_name="review_create_time", lookup_expr="gte")
     to_date = django_filters.DateFilter(field_name="review_create_time", lookup_expr="lte")
     search = django_filters.CharFilter(method="filter_search")
+    tags = django_filters.CharFilter(field_name="", method="filter_tags")
 
     class Meta:
         model = Review
@@ -35,3 +36,11 @@ class ReviewFilterSet(django_filters.FilterSet):  # type: ignore[misc]
             return queryset
         q = SearchQuery(value, config="english")
         return queryset.filter(Q(search_vector=q) | Q(reviewer_display_name__icontains=value))
+
+    def filter_tags(self, queryset, name, value):  # type: ignore[no-untyped-def]
+        if not value:
+            return queryset
+        tag_labels = [t.strip() for t in value.split(",") if t.strip()]
+        for label in tag_labels:
+            queryset = queryset.filter(tags__label__iexact=label)
+        return queryset.distinct()
