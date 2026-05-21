@@ -75,7 +75,6 @@ class Review(TimeStampedModel):
     enrichment_version = models.PositiveSmallIntegerField(default=0)
     enrichment_attempted_at = models.DateTimeField(null=True, blank=True)
     sentiment = models.CharField(max_length=10, blank=True)
-    tags = models.JSONField(default=list, blank=True)
     extracted_action_items = models.JSONField(default=list, blank=True)
 
     deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -119,3 +118,27 @@ class Review(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"Review({self.pk}, shop={self.shop_id}, stars={self.star_rating})"
+
+
+class ReviewTag(models.Model):
+    class Polarity(models.TextChoices):
+        POSITIVE = "positive", "Positive"
+        NEUTRAL = "neutral", "Neutral"
+        NEGATIVE = "negative", "Negative"
+
+    review = models.ForeignKey(
+        "reviews.Review",
+        on_delete=models.CASCADE,
+        related_name="tags",
+    )
+    label = models.CharField(max_length=100, db_index=True)
+    polarity = models.CharField(max_length=10, choices=Polarity.choices)
+
+    class Meta:
+        db_table = "reviews_reviewtag"
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["review", "label"], name="reviewtag_review_label_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"ReviewTag({self.review_id}, {self.label}, {self.polarity})"
