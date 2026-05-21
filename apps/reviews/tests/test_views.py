@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import StaffAccessScope
 from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
 from apps.organisations.tests.factories import OrganisationFactory
-from apps.reviews.tests.factories import ReviewFactory
+from apps.reviews.tests.factories import ReviewFactory, ReviewTagFactory
 from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
@@ -119,6 +119,32 @@ def test_reviews_list_query_count_org_admin(org_admin_client) -> None:
     assert resp.status_code == 200
     assert len(resp.data["results"]) == 25
     assert len(ctx.captured_queries) <= 5, [q["sql"] for q in ctx.captured_queries]
+
+
+def test_review_list_tags_shape(org_admin_client) -> None:
+    """Phase 17 (TAG-02): tags in list response are [{label, polarity}] objects.
+
+    Wave 0 shape-regression contract: ReviewTagSerializer(many=True) on the
+    ReviewReadSerializer must return the same JSON shape the frontend already
+    consumes from the old Review.tags JSONField — a list of dicts each with
+    "label" and "polarity" keys (not the raw RelatedManager).
+    """
+    client, _, org = org_admin_client
+    review = ReviewFactory(organisation=org)
+    ReviewTagFactory(review=review, label="Cleanliness", polarity="positive")
+    ReviewTagFactory(review=review, label="Long Wait", polarity="negative")
+
+    resp = client.get(LIST_URL)
+    assert resp.status_code == 200
+    assert resp.data["total_count"] == 1
+    first = resp.data["results"][0]
+    assert "tags" in first
+    assert isinstance(first["tags"], list)
+    assert len(first["tags"]) == 2
+    for tag in first["tags"]:
+        assert set(tag.keys()) == {"label", "polarity"}
+    labels = {t["label"] for t in first["tags"]}
+    assert labels == {"Cleanliness", "Long Wait"}
 
 
 def test_reviews_list_query_count_staff_admin() -> None:
