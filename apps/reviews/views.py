@@ -86,6 +86,37 @@ class ReviewViewSet(
         response.data["total_count"] = total_count
         return response
 
+    @action(detail=False, methods=["get"], url_path="tags")
+    def tags(self, request: Request) -> Response:
+        """Return distinct tag labels + counts scoped to the caller's org.
+
+        ?shop=<id> — optional, narrows to a single shop.
+        Staff users see only tags from their accessible shops.
+        """
+        user = request.user
+        org_id = getattr(user, "organisation_id", None)
+        if org_id is None:
+            return Response([])
+
+        # Local import — avoids any circular import risk at module load time.
+        from apps.reviews.models import ReviewTag
+
+        qs = ReviewTag.objects.filter(review__shop__organisation_id=org_id)
+
+        shop_id = request.query_params.get("shop")
+        if shop_id:
+            qs = qs.filter(review__shop_id=shop_id)
+
+        if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
+            raw_pk = user.pk
+            if raw_pk is None:
+                return Response([])
+            user_id: int = raw_pk
+            qs = qs.filter(review__shop_id__in=get_accessible_shop_ids(user_id=user_id))
+
+        result = qs.values("label").annotate(count=Count("id")).order_by("-count")
+        return Response([{"label": row["label"], "count": row["count"]} for row in result])
+
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
         """Aggregate stats for the reviews list header cards."""
