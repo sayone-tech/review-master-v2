@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v0.5
 milestone_name: — Configurable Sync Depth
 status: planning
-stopped_at: Phase 16 UI-SPEC approved
-last_updated: "2026-05-15T12:29:25.587Z"
-last_activity: 2026-05-15 — Phase 15 complete (4/4 plans, SYNC-01/02/03, SDEP-02/03, BKFL-01/02/03)
+stopped_at: Phase 17 plans approved — ready to execute
+last_updated: "2026-05-21T00:00:00.000Z"
+last_activity: 2026-05-21 — Phase 17 planned (4 plans, TAG-01/02/03, waves 1–3)
 progress:
   total_phases: 3
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-15)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** v0.5 — Configurable Sync Depth (Phase 16 ready to plan)
+**Current focus:** v0.5 — Configurable Sync Depth (Phase 17 planned, ready to execute)
 
 ## Current Position
 
-Phase: 16 of 16 (Org Admin Shop Creation — Conditional Depth Selector)
-Plan: — of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-05-15 — Phase 15 complete (4/4 plans, SYNC-01/02/03, SDEP-02/03, BKFL-01/02/03)
+Phase: 17 of 17 (Tag Rework — ReviewTag Model and Filter)
+Plan: — of 4 in current phase
+Status: Plans approved — ready to execute
+Last activity: 2026-05-21 — Phase 17 planned (4 plans: 17-01 Wave 1, 17-02/17-03 Wave 2 parallel, 17-04 Wave 3)
 
 Progress: [█████░░░░░] 50%
 
@@ -70,4 +70,4 @@ None.
 
 Last session: 2026-05-15T12:29:25.579Z
 Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-org-admin-shop-creation-conditional-depth-selector/16-UI-SPEC.md
+Resume file: .planning/phases/17-tag-rework-reviewtag-model-and-filter/17-01-PLAN.md

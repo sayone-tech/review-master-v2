@@ -293,7 +293,7 @@ if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
 
 ```python
 # apps/reviews/filters.py  [ASSUMED — pattern inferred from existing filter_search() method]
-tags = django_filters.CharFilter(method="filter_tags")
+tags = django_filters.CharFilter(field_name="", method="filter_tags")
 
 def filter_tags(self, queryset, name, value):
     if not value:
@@ -537,22 +537,16 @@ if (params.tags && params.tags.length > 0) {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Query count gate after adding `prefetch_related("tags")`**
-   - What we know: current REVW-14 test asserts `<=5` queries. Adding `prefetch_related("tags")` adds 1 query (a single IN query for all tags on the page).
-   - What's unclear: whether the current test is at exactly 5 or has headroom. The existing `has_action_items=Exists(...)` annotation is resolved in the same query as the list fetch.
-   - Recommendation: Run the test immediately after adding `prefetch_related("tags")` — if it fails at 6, raise the ceiling to 6 and document the reason.
+1. **Query count gate after adding `prefetch_related("tags")`** — RESOLVED
+   - Resolution: Plan 17-02 Task 2 handles this at runtime — run the REVW-14 test immediately after adding the prefetch; if it fails at ≤5, raise the ceiling to ≤6 with a comment explaining the tags prefetch. This is a procedural resolution that does not block planning.
 
-2. **`extracted_action_items` JSONField — not touched in this phase**
-   - What we know: Phase 17 CONTEXT.md only removes `Review.tags`. `extracted_action_items` stays as a JSONField.
-   - What's unclear: whether test fixtures or factory code that sets `tags=` alongside `extracted_action_items=` will break.
-   - Recommendation: After removing `tags` from `ReviewFactory`, search for all `ReviewFactory(..., tags=[...])` calls in tests and update them.
+2. **`ReviewFactory(..., tags=[...])` call sites in test files beyond `factories.py`** — RESOLVED
+   - Resolution: Plan 17-01 Task 3 includes an explicit acceptance criterion to `grep -r "ReviewFactory.*tags=" apps/` across all test files and fix any matches (remove the `tags=` kwarg or pass `tags=None`). The executor must run this grep before claiming Task 3 complete.
 
-3. **`?tags=` param name conflict with `ReviewTag.tags` related_name**
-   - What we know: The query param is `?tags=` and the related name on `ReviewTag` is `tags`. The FilterSet method is `filter_tags()`.
-   - What's unclear: whether `django-filter` auto-discovers a `tags` FilterSet field as conflicting with the `Review.tags` relation (which is now a RelatedManager, not a model field).
-   - Recommendation: Use `django_filters.CharFilter(field_name="", method="filter_tags")` with empty `field_name` to prevent django-filter from attempting to resolve the field automatically.
+3. **`?tags=` param name conflict with `ReviewTag.tags` related_name** — RESOLVED
+   - Resolution: Plan 17-03 Task 1 uses `django_filters.CharFilter(field_name="", method="filter_tags")` with empty `field_name` — prevents django-filter from attempting to resolve the related manager as a model field. Confirmed correct approach.
 
 ---
 
