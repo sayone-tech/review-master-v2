@@ -164,4 +164,4 @@ Plans:
 | 14. Dashboard | v0.4 | 8/8 | ✅ Complete | 2026-05-07 |
 | 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
-| 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete   | 2026-05-21 |
+| 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
