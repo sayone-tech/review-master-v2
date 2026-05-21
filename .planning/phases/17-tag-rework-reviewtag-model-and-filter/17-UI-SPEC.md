@@ -33,18 +33,15 @@ Declared values (must be multiples of 4):
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| xs | 4px | Icon gaps, tag chip inline padding (`px-1.5 py-0.5`) |
-| sm | 8px | Gap between tag chips (`gap-1`), gap within dropdown items |
-| md | 16px | Filter panel internal column gap baseline, dropdown body padding |
+| xs | 4px | Icon gaps, chip vertical padding (`py-1`) |
+| sm | 8px | Tag chip horizontal padding (`px-2`), gap between chips (`gap-1`), gap within dropdown items |
+| md | 16px | Dropdown body padding, page-level grid gap |
 | lg | 24px | Filter panel vertical section gap |
 | xl | 32px | Page-level section spacing |
 | 2xl | 48px | Major section breaks |
 | 3xl | 64px | Page-level spacing |
 
-Exceptions:
-- Tag chips: `px-1.5 py-0.5` (6px / 2px) — inherits existing `TAG_STYLES` pattern from `ReviewTable.tsx`
-- Filter grid column gap: `14px` — matches existing `ReviewFilters.tsx` grid gap
-- Filter panel padding: `p-3.5` (14px) — matches existing panel chrome
+No exceptions. Filter grid column gap uses `gap-4` (16px); filter panel padding uses `p-3` (12px); tag chips use `px-2 py-1` (8px / 4px).
 
 ---
 
@@ -55,7 +52,7 @@ Exceptions:
 | Body | 14px | 400 | 1.5 |
 | Label | 13.5px | 600 | snug (1.375) |
 | Metadata / micro | 11px | 400 | snug |
-| Filter section heading | 11.5px | 500 (uppercase, tracked) | — |
+| Filter section heading | 11.5px | 600 (uppercase, tracked) | — |
 
 Source: confirmed from `ReviewFilters.tsx` (filter labels at 11.5px), `ReviewTable.tsx` (tag chips at 11px, reviewer name at 13.5px).
 
@@ -87,7 +84,7 @@ Source: `TAG_STYLES` constant in `ReviewTable.tsx` — these values are locked a
 | Element | Value | Note |
 |---------|-------|-------|
 | Dropdown trigger border (default) | `#E4E4E7` (`line`) | Matches `selectCls` in `ReviewFilters.tsx` |
-| Dropdown trigger border (hover) | `#D4D4D8` | Matches existing hover |
+| Dropdown trigger border (hover) | `#A1A1AA` (`faint`) | Matches existing hover |
 | Dropdown trigger border (focus) | `#18181B` (`ink`) | Matches existing focus ring |
 | Focus ring | `rgba(10,10,10,0.05)` | 3px offset shadow — existing pattern |
 | Dropdown panel background | `#FFFFFF` | |
@@ -125,9 +122,10 @@ No destructive actions in this phase.
 ### 1. Tags multi-select dropdown (`TagsFilter` in `ReviewFilters.tsx`)
 
 **Trigger element:**
-- Same visual style as existing `selectCls` selects: `px-3.5 py-[10px] border border-line rounded-[10px] text-[14px] font-medium text-ink bg-white`
+
+- Same visual style as existing `selectCls` selects: `px-4 py-2 border border-line rounded-[10px] text-[14px] font-normal text-ink bg-white`
 - Replace the `<select>` native element with a custom button trigger (needed for multi-select behaviour)
-- Active selection count badge: small `inline-flex` circle `w-4 h-4 bg-yellow text-black text-[10px] font-bold rounded-full` rendered to the right of the trigger text when ≥1 tag selected
+- Active selection count badge: small `inline-flex` circle `w-4 h-4 bg-yellow text-black text-[10px] font-semibold rounded-full` rendered to the right of the trigger text when ≥1 tag selected
 - Chevron icon: same `ChevronIcon` component already defined in `ReviewFilters.tsx`
 
 **Dropdown panel:**
@@ -139,11 +137,12 @@ No destructive actions in this phase.
 **Search input inside dropdown:**
 - `px-3 py-2 border-b border-line` separator below search
 - Search icon `lucide-react Search` at 13px, `text-muted`
-- Input: `text-[13px] font-medium text-ink placeholder:text-faint focus:outline-none bg-transparent`
+- Input: `text-[13px] font-semibold text-ink placeholder:text-faint focus:outline-none bg-transparent`
 
 **Tag option row:**
-- `flex items-center justify-between px-3 py-[7px] cursor-pointer hover:bg-line-soft transition-colors`
-- Left: checkbox-like check indicator (`✓` in `text-[12px] font-bold text-ink w-3` or `w-3` empty space), then tag label at `text-[13px] font-medium text-ink`
+
+- `flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-line-soft transition-colors`
+- Left: checkbox-like check indicator (`✓` in `text-[12px] font-semibold text-ink w-3` or `w-3` empty space), then tag label at `text-[13px] font-semibold text-ink`
 - Right: count at `text-[11px] text-faint`
 - Selected row background: `bg-line-soft` (persistent, not just hover)
 
@@ -164,7 +163,8 @@ No destructive actions in this phase.
 Current chips are `<span>` elements. Upgrade to `<button type="button">`.
 
 **Visual spec (chip as button):**
-- Identical to current static chip: `inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium rounded` with `TAG_STYLES[polarity]`
+
+- Identical to current static chip: `inline-flex items-center px-2 py-1 text-[11px] font-normal rounded` with `TAG_STYLES[polarity]`
 - Add `cursor-pointer` (already a button so inherits)
 - Add hover: slight opacity drop — `hover:opacity-80 transition-opacity`
 - Add `focus-visible:ring-1 focus-visible:ring-ink focus-visible:ring-offset-1 focus-visible:outline-none` for keyboard accessibility
@@ -242,11 +242,11 @@ No third-party registries. No shadcn. All new UI is hand-built Tailwind followin
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved
