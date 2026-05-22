@@ -129,9 +129,14 @@ def create_action_item(
 # No state machine validation - every status pair is legal.
 @transaction.atomic
 def transition_status(*, action_item: ActionItem, new_status: str, actor: User) -> ActionItem:
+    # Phase 18 (WR-02 fix): pre-lock check is a fast-path; the authoritative
+    # check is re-run on the locked row to close the TOCTOU window between
+    # the view's get_object() snapshot and select_for_update().
     if action_item.canonical_id is not None:
         raise ValidationError("Cannot modify a merged duplicate.")
     locked = ActionItem.objects.select_for_update().get(pk=action_item.pk)
+    if locked.canonical_id is not None:
+        raise ValidationError("Cannot modify a merged duplicate.")
     old_status = locked.status
     if old_status == new_status:
         return locked
@@ -181,9 +186,14 @@ def transition_status(*, action_item: ActionItem, new_status: str, actor: User) 
 def assign_action_item(
     *, action_item: ActionItem, assignee_id: int | None, actor: User
 ) -> ActionItem:
+    # Phase 18 (WR-02 fix): pre-lock check is a fast-path; the authoritative
+    # check is re-run on the locked row to close the TOCTOU window between
+    # the view's get_object() snapshot and select_for_update().
     if action_item.canonical_id is not None:
         raise ValidationError("Cannot modify a merged duplicate.")
     locked = ActionItem.objects.select_for_update().get(pk=action_item.pk)
+    if locked.canonical_id is not None:
+        raise ValidationError("Cannot modify a merged duplicate.")
     old = locked.assignee_id
     if old == assignee_id:
         return locked
@@ -227,11 +237,19 @@ def assign_action_item(
 
 @transaction.atomic
 def add_note(*, action_item: ActionItem, author: User | None, body: str) -> ActionItemNote:
+    # Phase 18 (WR-02 fix): pre-lock check is a fast-path; lock the row and
+    # re-check canonical_id to close the TOCTOU window between get_object()
+    # and the note insert. Notes are append-only, so a stale-snapshot insert
+    # cannot be undone — closing this window matters more here than for the
+    # status / assign transitions.
     if action_item.canonical_id is not None:
         raise ValidationError("Cannot modify a merged duplicate.")
     body = (body or "").strip()
     if not (1 <= len(body) <= 2000):
         raise ValidationError("Note body must be 1-2000 characters")
+    locked = ActionItem.objects.select_for_update().get(pk=action_item.pk)
+    if locked.canonical_id is not None:
+        raise ValidationError("Cannot modify a merged duplicate.")
     note = ActionItemNote.objects.create(
         action_item=action_item,
         author=author if author and getattr(author, "is_authenticated", False) else None,
