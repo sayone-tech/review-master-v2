@@ -339,7 +339,19 @@ def merge_action_items(
     if len(set(duplicate_ids)) != len(duplicate_ids):
         raise ValidationError("duplicate_ids must be unique.")
 
-    all_ids = sorted({primary_id, *duplicate_ids})
+    # Phase 18 (WR-03 fix): resolve sub-duplicates BEFORE acquiring the lock
+    # so the SELECT FOR UPDATE covers every row this transaction will write
+    # to. The re-parent statement below mutates rows whose canonical_id is in
+    # duplicate_ids — if we don't lock them here, a concurrent merge that
+    # picks one of those sub-duplicates as a primary in a different
+    # transaction can interleave and produce an inconsistent canonical chain.
+    sub_dup_ids = list(
+        ActionItem.objects.filter(
+            canonical_id__in=duplicate_ids, organisation_id=organisation_id
+        ).values_list("pk", flat=True)
+    )
+    all_ids = sorted({primary_id, *duplicate_ids, *sub_dup_ids})
+    selected_ids = {primary_id, *duplicate_ids}
 
     # Lock rows in PK order to prevent deadlocks; org filter validates ownership.
     locked = list(
@@ -347,7 +359,12 @@ def merge_action_items(
         .filter(pk__in=all_ids, organisation_id=organisation_id)
         .order_by("pk")
     )
-    if len(locked) != len(all_ids):
+    # Only the directly-selected rows (primary + duplicate_ids) need to all
+    # exist; sub-duplicates are discovered by query and may legitimately
+    # vanish between the resolve and the lock (e.g. a concurrent operation
+    # already moved them) — the re-parent UPDATE handles any remaining ones.
+    locked_ids = {item.pk for item in locked}
+    if not selected_ids.issubset(locked_ids):
         raise ValidationError("One or more action items not found in this organisation.")
 
     by_pk = {item.pk: item for item in locked}
@@ -357,13 +374,16 @@ def merge_action_items(
     if primary.canonical_id is not None:
         raise ValidationError("Primary is already a merged duplicate.")
 
-    # D-06: all items must be AI-sourced.
-    for item in locked:
+    # D-06: all directly-selected items must be AI-sourced. Sub-duplicates
+    # (already merged in a prior transaction) are not re-validated here — they
+    # passed D-06 when they were originally merged.
+    selected_items = [by_pk[pk] for pk in selected_ids]
+    for item in selected_items:
         if item.source != ActionItem.Source.AI:
             raise ValidationError("Only AI-sourced action items can be merged.")
 
-    # D-05: all items must have the same scope.
-    scopes = {item.scope for item in locked}
+    # D-05: all directly-selected items must have the same scope.
+    scopes = {item.scope for item in selected_items}
     if len(scopes) > 1:
         raise ValidationError("All merged items must share the same scope.")
 
