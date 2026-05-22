@@ -10,15 +10,24 @@
 // ACTN-11: Source Review tab includes "Open in Reviews" deep link.
 import { useEffect, useState } from "react";
 import { Modal } from "../modal/Modal";
+import { ConfirmModal } from "../modal/ConfirmModal";
 import { NotesTab } from "./NotesTab";
 import { PriorityIndicator } from "./PriorityIndicator";
 import { SourceReviewTab } from "./SourceReviewTab";
-import { addNote, getActionItem, transitionStatus, updateActionItemBackend } from "./api";
+import { DuplicatePickerModal } from "./DuplicatePickerModal";
+import {
+  addNote,
+  getActionItem,
+  mergeActionItems,
+  transitionStatus,
+  updateActionItemBackend,
+} from "./api";
 import { emitToast } from "../../lib/toast";
 import { getAssignableMembers } from "./assigneeUtils";
 import {
   STATUS_LABEL,
   type ActionItemDetail,
+  type ActionItemListRow,
   type ActionItemPriority,
   type ActionItemStatus,
   type ShopOption,
@@ -39,6 +48,7 @@ interface Props {
   itemId: number | null;
   shops: ShopOption[];
   teamMembers: TeamMember[];
+  isOrgAdmin: boolean;
   onClose: () => void;
   onChanged: () => void;
 }
@@ -87,6 +97,8 @@ interface DetailsTabProps {
   saving: boolean;
   error: string | null;
   teamMembers: TeamMember[];
+  isOrgAdmin: boolean;
+  onMarkAsDuplicate: () => void;
 }
 
 function DetailsTab({
@@ -101,6 +113,8 @@ function DetailsTab({
   saving,
   error,
   teamMembers,
+  isOrgAdmin,
+  onMarkAsDuplicate,
 }: DetailsTabProps) {
   const assignableMembers = getAssignableMembers(teamMembers, item.scope, item.shop_id);
   const today = new Date().toISOString().slice(0, 10);
@@ -168,6 +182,37 @@ function DetailsTab({
             </dd>
           </div>
         </dl>
+        {item.duplicates && item.duplicates.length > 0 && (
+          <div className="border-t border-line-soft pt-4 mt-4">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted mb-2">
+              Also reported in
+            </p>
+            <div className="space-y-2">
+              {item.duplicates.map((dup) => (
+                <div
+                  key={dup.id}
+                  className="flex items-center justify-between px-4 py-2 rounded-md bg-line-soft text-[14px]"
+                >
+                  <div>
+                    <span className="text-ink font-semibold">{dup.shop_name || "—"}</span>
+                    {dup.source_review_date && (
+                      <span className="text-muted ml-2 text-[12px]">
+                        {new Date(dup.source_review_date).toLocaleDateString(undefined, {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </div>
+                  {dup.source_review_rating !== null && (
+                    <span className="text-amber text-[12px]">★ {dup.source_review_rating}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="pt-2 text-right">
           <button
             type="button"
@@ -177,6 +222,17 @@ function DetailsTab({
             Edit Details
           </button>
         </div>
+        {isOrgAdmin && item.source === "AI" && item.canonical_id === null && (
+          <div className="pt-1 text-right">
+            <button
+              type="button"
+              onClick={onMarkAsDuplicate}
+              className="text-[14px] text-muted underline hover:text-ink"
+            >
+              Mark as duplicate of…
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -283,6 +339,7 @@ export function ActionItemModal({
   itemId,
   shops: _shops,
   teamMembers,
+  isOrgAdmin,
   onClose,
   onChanged,
 }: Props) {
@@ -297,6 +354,11 @@ export function ActionItemModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Phase 18 Plan 04 — detail-view "Mark as duplicate of…" flow.
+  const [duplicatePickerOpen, setDuplicatePickerOpen] = useState(false);
+  const [mergeFromDetailOpen, setMergeFromDetailOpen] = useState(false);
+  const [pickedForMerge, setPickedForMerge] = useState<ActionItemListRow | null>(null);
+  const [mergingFromDetail, setMergingFromDetail] = useState(false);
 
   useEffect(() => {
     if (!open || itemId == null) return;
@@ -370,7 +432,31 @@ export function ActionItemModal({
     ...(showSourceTab ? ([{ id: "source", label: "Source Review" }] as const) : []),
   ];
 
+  const handleConfirmDetailMerge = async () => {
+    if (!item || !pickedForMerge) return;
+    setMergingFromDetail(true);
+    try {
+      await mergeActionItems({
+        primary_id: pickedForMerge.id,
+        duplicate_ids: [item.id],
+      });
+      emitToast({ kind: "success", title: "Marked as duplicate" });
+      setMergeFromDetailOpen(false);
+      setPickedForMerge(null);
+      onChanged();
+      onClose();
+    } catch {
+      emitToast({
+        kind: "error",
+        title: "Could not merge items. Please try again.",
+      });
+    } finally {
+      setMergingFromDetail(false);
+    }
+  };
+
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -404,6 +490,8 @@ export function ActionItemModal({
               saving={saving}
               error={error}
               teamMembers={teamMembers}
+              isOrgAdmin={isOrgAdmin}
+              onMarkAsDuplicate={() => setDuplicatePickerOpen(true)}
             />
           )}
           {activeTab === "notes" && (
@@ -415,5 +503,31 @@ export function ActionItemModal({
         </>
       )}
     </Modal>
+    {item && (
+      <DuplicatePickerModal
+        open={duplicatePickerOpen}
+        currentItem={item}
+        onClose={() => setDuplicatePickerOpen(false)}
+        onPicked={(_primaryId, primaryItem) => {
+          setPickedForMerge(primaryItem);
+          setDuplicatePickerOpen(false);
+          setMergeFromDetailOpen(true);
+        }}
+      />
+    )}
+    <ConfirmModal
+      open={mergeFromDetailOpen && pickedForMerge !== null}
+      onClose={() => {
+        if (mergingFromDetail) return;
+        setMergeFromDetailOpen(false);
+        setPickedForMerge(null);
+      }}
+      onConfirm={() => void handleConfirmDetailMerge()}
+      variant="amber"
+      title="Confirm merge"
+      message={`Merge 2 items into "${pickedForMerge?.title ?? ""}"? This cannot be undone.`}
+      confirmLabel={mergingFromDetail ? "Merging…" : "Merge items"}
+    />
+    </>
   );
 }
