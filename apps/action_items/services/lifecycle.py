@@ -388,6 +388,12 @@ def merge_action_items(
         raise ValidationError("All merged items must share the same scope.")
 
     # D-09: re-parent sub-duplicates of selected duplicates onto primary FIRST.
+    # Phase 18 (WR-04 fix): capture the old canonical_id for each
+    # sub-duplicate BEFORE the update so we can write a per-row AuditLog
+    # entry. Without these entries, querying the audit trail by the
+    # sub-duplicate's entity_id would show no record of it being silently
+    # moved onto a different canonical.
+    sub_dup_before = [(item.pk, item.canonical_id) for item in locked if item.pk in sub_dup_ids]
     ActionItem.objects.filter(canonical_id__in=duplicate_ids).update(canonical_id=primary_id)
 
     # Now mark the selected duplicates.
@@ -402,6 +408,26 @@ def merge_action_items(
         before_data={},
         after_data={"merged_ids": list(duplicate_ids)},
     )
+
+    # Phase 18 (WR-04 fix): one AuditLog row per re-parented sub-duplicate so
+    # the per-entity audit trail records the canonical change. Bulk-create
+    # keeps the query count constant regardless of sub-duplicate count.
+    if sub_dup_before:
+        actor_obj = actor if getattr(actor, "is_authenticated", False) else None
+        AuditLog.objects.bulk_create(
+            [
+                AuditLog(
+                    organisation_id=primary.organisation_id,
+                    actor=actor_obj,
+                    entity_type="action_item",
+                    entity_id=str(sub_pk),
+                    action="action_item.canonical_changed",
+                    before_data={"canonical_id": old_canonical_id},
+                    after_data={"canonical_id": primary_id},
+                )
+                for sub_pk, old_canonical_id in sub_dup_before
+            ]
+        )
 
     return ActionItem.objects.prefetch_related(
         Prefetch(
