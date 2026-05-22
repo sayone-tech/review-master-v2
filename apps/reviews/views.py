@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
@@ -19,6 +20,10 @@ from rest_framework.throttling import ScopedRateThrottle
 from apps.accounts.models import User
 from apps.common.permissions import IsOrgScoped
 from apps.common.viewsets import TenantScopedViewSet
+from apps.integrations.openai.exceptions import (
+    OpenAIPermanentError,
+    OpenAITransientError,
+)
 from apps.reviews.exceptions import ReplyConflictError, ReplyFailedError
 from apps.reviews.filters import ReviewFilterSet
 from apps.reviews.models import Review
@@ -26,8 +31,15 @@ from apps.reviews.selectors.reviews import (
     base_reviews_queryset,
     get_accessible_shop_ids,
 )
-from apps.reviews.serializers import ReviewReadSerializer, ReviewReplySerializer
+from apps.reviews.serializers import (
+    GenerateReplySerializer,
+    ReviewReadSerializer,
+    ReviewReplySerializer,
+)
 from apps.reviews.services.replies import remove_reply, submit_reply
+from apps.reviews.services.reply_generation import generate_reply_draft
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewPageNumberPagination(PageNumberPagination):
@@ -57,7 +69,10 @@ class ReviewViewSet(
         org_id = getattr(user, "organisation_id", None)
         if org_id is None:
             return Review.objects.none()
-        qs = base_reviews_queryset(organisation_id=org_id)
+        # Phase 19 Plan 02: select_related("shop__organisation") so that the
+        # generate_reply action can access review.shop.organisation.name in
+        # generate_reply_draft() without an extra query (CLAUDE.md §6 N+1 guard).
+        qs = base_reviews_queryset(organisation_id=org_id).select_related("shop__organisation")
         if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
             raw_pk = user.pk
             if raw_pk is None:
@@ -218,6 +233,49 @@ class ReviewViewSet(
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         return Response(ReviewReadSerializer(updated).data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="generate-reply",
+        throttle_classes=[ScopedRateThrottle],
+    )
+    def generate_reply(self, request: Request, pk: int | None = None) -> Response:
+        """POST: generate an AI draft reply for the given review.
+
+        Returns 200 {draft: str} on success.
+        Returns 400 on invalid tone (serializer validation).
+        Returns 502 on any OpenAI failure (transient/permanent/unexpected).
+        D-09, D-10, D-11, D-12, D-13, D-17, D-18.
+        """
+        self.throttle_scope = "generate_reply"
+        review = self.get_object()
+        serializer = GenerateReplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tone: str = serializer.validated_data["tone"]
+        try:
+            draft = generate_reply_draft(review=review, tone=tone)
+        except (OpenAITransientError, OpenAIPermanentError, Exception) as exc:
+            # D-17: all OpenAI errors (transient, permanent, unexpected) map to
+            # a single generic 502 response. Service layer has already written
+            # the FAILED AiUsageLog row before re-raising.
+            logger.warning(
+                "generate_reply_failed review_id=%s tone=%s exc_type=%s exc=%s",
+                review.pk,
+                tone,
+                type(exc).__name__,
+                exc,
+            )
+            return Response(
+                {
+                    "code": "ai_unavailable",
+                    "detail": (
+                        "AI generation failed. Please try again or write your reply manually."
+                    ),
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response({"draft": draft}, status=status.HTTP_200_OK)
 
 
 @login_required(login_url="/login/")
