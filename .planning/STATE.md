@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.5
-milestone_name: — Configurable Sync Depth
-status: milestone_complete
-stopped_at: Milestone complete (Phase 17 was final phase)
-last_updated: 2026-05-21T11:22:09.327Z
-last_activity: 2026-05-21 -- Phase 17 execution started
+milestone: v0.6
+milestone_name: — Action Item Duplicate Merge
+status: planning_complete
+stopped_at: Phase 18 plans verified and ready for execution
+last_updated: 2026-05-22T00:00:00.000Z
+last_activity: 2026-05-22 -- Phase 18 planning complete
 progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 18
+  total_phases: 5
+  completed_phases: 4
+  total_plans: 22
   completed_plans: 93
-  percent: 75
+  percent: 80
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-15)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Milestone complete
+**Current focus:** Phase 18 — Action Item Duplicate Merge
 
 ## Current Position
 
-Phase: 17
+Phase: 18
 Plan: Not started
-Status: Milestone complete
-Last activity: 2026-05-21
+Status: Plans ready for execution
+Last activity: 2026-05-22
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -69,6 +69,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-15T12:29:25.579Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/17-tag-rework-reviewtag-model-and-filter/17-01-PLAN.md
+Last session: 2026-05-22T00:00:00.000Z
+Stopped at: Phase 18 plans verified — 4 plans (18-01 through 18-04), 3 waves, all 20 decisions covered
+Resume file: .planning/phases/18-action-item-duplicate-merge/18-01-PLAN.md

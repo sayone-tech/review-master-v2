@@ -666,7 +666,7 @@ accessor: (r) => (
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `duplicate_count` exclude items where the duplicate itself has a non-null `canonical`?**
    - What we know: D-09 re-parents orphans. After a merge, all items in the duplicate chain point directly to the primary (no second-level canonicals).
