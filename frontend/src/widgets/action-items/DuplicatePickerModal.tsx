@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Modal } from "../modal/Modal";
 import { listActionItems } from "./api";
-import type { ActionItemDetail, ActionItemListRow } from "./types";
+import type { ActionItemDetail, ActionItemListRow, ListParams } from "./types";
 
 interface Props {
   open: boolean;
@@ -40,17 +40,28 @@ export function DuplicatePickerModal({ open, currentItem, onClose, onPicked }: P
   }, [open]);
 
   // Debounced fetch of candidate primaries.
+  //
+  // Phase 18 (WR-06 fix): for SHOP-scope items, restrict the picker to
+  // candidates in the same shop. The backend allows cross-shop merges
+  // within the same org/scope (D-05 only constrains scope, not shop), but
+  // the resulting "Also reported in" UI is semantically confusing if a
+  // Shop A item suddenly has a duplicate whose source review came from
+  // Shop B. Same-shop is the use-case CONTEXT.md describes — cross-shop
+  // rollups belong at the BRAND scope.
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     const timer = setTimeout(() => {
-      const params = {
+      const params: ListParams = {
         page: 1,
         page_size: 20,
         ordering: "-created_at",
         scope: currentItem.scope,
         ...(query.trim() ? { search: query.trim() } : {}),
       };
+      if (currentItem.scope === "SHOP" && currentItem.shop_id !== null) {
+        params.shop = currentItem.shop_id;
+      }
       listActionItems(params)
         .then((resp) => {
           const filtered = resp.results.filter(
@@ -62,7 +73,7 @@ export function DuplicatePickerModal({ open, currentItem, onClose, onPicked }: P
         .finally(() => setLoading(false));
     }, 300);
     return () => clearTimeout(timer);
-  }, [open, query, currentItem.id, currentItem.scope]);
+  }, [open, query, currentItem.id, currentItem.scope, currentItem.shop_id]);
 
   const selectedItem = useMemo(
     () => results.find((r) => r.id === selectedId) ?? null,
