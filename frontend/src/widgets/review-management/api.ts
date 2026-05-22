@@ -112,3 +112,16 @@ export async function fetchSyncingShops(): Promise<SyncingResponse> {
   });
   return (await handle(resp)) as SyncingResponse;
 }
+
+export async function generateReply(
+  reviewId: number,
+  tone: string,
+): Promise<{ draft: string }> {
+  const resp = await fetch(`/api/v1/reviews/${reviewId}/generate-reply/`, {
+    method: "POST",
+    headers: headers("POST"),
+    credentials: "same-origin",
+    body: JSON.stringify({ tone }),
+  });
+  return (await handle(resp)) as { draft: string };
+}
