@@ -65,6 +65,21 @@ class ReviewViewSet(
     throttle_scope = "review_reply"  # used only when ScopedRateThrottle is selected
     queryset = Review.objects.none()
 
+    def get_throttles(self):  # type: ignore[no-untyped-def]
+        """Set per-action throttle_scope BEFORE DRF instantiates throttles.
+
+        WR-02: assigning ``self.throttle_scope`` inside the action body runs
+        AFTER ``initial()`` has already evaluated the throttle against the
+        class-level scope. Setting it here — invoked from ``initial()`` —
+        ensures the correct rate is applied (10/min for generate_reply,
+        30/min for reply).
+        """
+        if self.action == "generate_reply":
+            self.throttle_scope = "generate_reply"
+        elif self.action == "reply":
+            self.throttle_scope = "review_reply"
+        return super().get_throttles()
+
     def get_queryset(self) -> QuerySet[Review]:
         user = self.request.user
         org_id = getattr(user, "organisation_id", None)
@@ -248,8 +263,10 @@ class ReviewViewSet(
         Returns 400 on invalid tone (serializer validation).
         Returns 502 on any OpenAI failure (transient/permanent/unexpected).
         D-09, D-10, D-11, D-12, D-13, D-17, D-18.
+
+        Throttle scope is set in ``get_throttles`` (see WR-02) so DRF picks
+        up the per-action rate BEFORE the action body executes.
         """
-        self.throttle_scope = "generate_reply"
         review = self.get_object()
         serializer = GenerateReplySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

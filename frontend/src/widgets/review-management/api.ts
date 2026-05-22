@@ -24,15 +24,35 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public data: unknown,
+    public retryAfterSeconds?: number,
   ) {
     super(`API error ${status}`);
   }
 }
 
+function parseRetryAfter(resp: Response, data: unknown): number | undefined {
+  // WR-02: surface Retry-After to callers so the UI can show "try again in X seconds".
+  // Prefer the HTTP header; fall back to parsing DRF's `detail` ("Expected available in N seconds.").
+  const header = resp.headers.get("Retry-After");
+  if (header) {
+    const n = parseInt(header, 10);
+    if (!Number.isNaN(n) && n >= 0) return n;
+  }
+  if (data && typeof data === "object") {
+    const detail = (data as { detail?: unknown }).detail;
+    if (typeof detail === "string") {
+      const m = detail.match(/in\s+(\d+)\s+seconds/i);
+      if (m) return parseInt(m[1], 10);
+    }
+  }
+  return undefined;
+}
+
 async function handle(resp: Response): Promise<unknown> {
   if (!resp.ok) {
     const data = await resp.json().catch(() => null);
-    throw new ApiError(resp.status, data);
+    const retryAfter = resp.status === 429 ? parseRetryAfter(resp, data) : undefined;
+    throw new ApiError(resp.status, data, retryAfter);
   }
   if (resp.status === 204) return null;
   return resp.json();

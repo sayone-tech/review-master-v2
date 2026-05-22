@@ -79,7 +79,11 @@ export function ReplyComposer({
       setGeneratingTone(null);
       let message = "AI generation failed. Please try again or write your reply manually.";
       if (e instanceof ApiError && e.status === 429) {
-        message = "You've reached the AI generation limit. Please wait a moment.";
+        if (typeof e.retryAfterSeconds === "number" && e.retryAfterSeconds > 0) {
+          message = `You've reached the AI generation limit. Please try again in ${e.retryAfterSeconds} seconds.`;
+        } else {
+          message = "You've reached the AI generation limit. Please wait a moment.";
+        }
       }
       setErrorMessage(message);
       generatorButtonRef.current?.focus();
