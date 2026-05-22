@@ -136,6 +136,19 @@ class ReviewTag(models.Model):
 
     class Meta:
         db_table = "reviews_reviewtag"
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            # Phase 17 CR-02: DB-level guard against the cross-transaction race
+            # in enrich_review's delete-then-bulk_create write path. Without
+            # this constraint a Redis-lock miss (e.g. Redis outage with
+            # IGNORE_EXCEPTIONS) could let two concurrent enrichments produce
+            # duplicate (review, label, polarity) rows; with it the second
+            # bulk_create fails at the DB layer and the second transaction
+            # rolls back cleanly.
+            models.UniqueConstraint(
+                fields=["review", "label", "polarity"],
+                name="uniq_reviewtag_review_label_polarity",
+            ),
+        ]
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["review", "label"], name="reviewtag_review_label_idx"),
         ]
