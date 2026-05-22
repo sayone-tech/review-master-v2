@@ -195,7 +195,7 @@ Wave 1:
 
 Wave 2 (blocked on Wave 1 completion):
 
-- [ ] 19-02-PLAN.md — API endpoint: GenerateReplySerializer, generate_reply @action on ReviewViewSet, generate_reply throttle rate, endpoint tests (D-09/D-10/D-11/D-12/D-13/D-17/D-18)
+- [x] 19-02-PLAN.md — API endpoint: GenerateReplySerializer, generate_reply @action on ReviewViewSet, generate_reply throttle rate, endpoint tests (D-09/D-10/D-11/D-12/D-13/D-17/D-18)
 
 - [ ] 19-03-PLAN.md — Frontend: generateReply() in api.ts, generator button + tone pills + confirmation row + state machine + focus management in ReplyComposer.tsx (D-19/D-20/D-21/D-22/D-23/D-24/D-25)
 
@@ -219,4 +219,4 @@ Cross-cutting constraints: every OpenAI call MUST write one AiUsageLog row (CLAU
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
 | 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
 | 18. Action Item Duplicate Merge | v0.6 | 4/4 | Complete    | 2026-05-22 |
-| 19. AI Reply Generation | v0.6 | 1/3 | In Progress|  |
+| 19. AI Reply Generation | v0.6 | 2/3 | In Progress|  |
