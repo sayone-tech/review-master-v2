@@ -170,6 +170,28 @@ Plans:
 - [x] 18-03-PLAN.md — Frontend list: DataTable checkbox extension + ActionItemTable + MergeModal + toolbar + types/api (D-11/D-18/D-20)
 - [x] 18-04-PLAN.md — Frontend detail: DuplicatePickerModal + "Also reported in" + "Mark as duplicate of…" (D-12/D-13/D-19/D-20)
 
+
+### Phase 19: AI Reply Generation
+
+**Goal**: Org Admins and Staff can generate an AI-drafted reply inside the ReplyComposer by clicking "Generate with AI", selecting Professional or Friendly tone, and reviewing the draft before submitting it manually — powered by GPT-4o-mini with full AiUsageLog cost tracking.
+**Depends on**: Phase 18
+**Requirements**: D-01 through D-25 (from 19-CONTEXT.md)
+**Success Criteria** (what must be TRUE):
+
+  1. "Generate with AI" button appears in the ReplyComposer toolbar to the left of "Use template"
+  2. Clicking Generate with an empty textarea shows Professional / Friendly tone pills; with non-empty textarea shows a confirmation row requiring the user to confirm overwrite
+  3. Clicking a tone pill calls POST /api/v1/reviews/{id}/generate-reply/ and fills the textarea with the returned draft on success
+  4. Loading state shows a spinner on the active pill; both pills disabled during load
+  5. On error (any), an inline error message appears (reusing the existing errorMessage slot); pills collapse
+  6. Every call writes one AiUsageLog row with request_type="reply_generation" and estimated_cost_usd calculated from AiPricing
+  7. Endpoint is throttled at 10/minute per user; invalid tone returns 400; OpenAI failure returns 502
+**Plans**: 3 plans
+
+Plans:
+- [ ] 19-01-PLAN.md — Backend service layer: REPLY_GENERATION_PROMPT_VERSION, build_reply_generation_messages(), call_openai_reply_generation(), generate_reply_draft() + AiUsageLog write + tests (D-04/D-05/D-06/D-07/D-08/D-14/D-15/D-16)
+- [ ] 19-02-PLAN.md — API endpoint: GenerateReplySerializer, generate_reply @action on ReviewViewSet, generate_reply throttle rate, endpoint tests (D-09/D-10/D-11/D-12/D-13/D-17/D-18)
+- [ ] 19-03-PLAN.md — Frontend: generateReply() in api.ts, generator button + tone pills + confirmation row + state machine + focus management in ReplyComposer.tsx (D-19/D-20/D-21/D-22/D-23/D-24/D-25)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -188,3 +210,4 @@ Plans:
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
 | 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
 | 18. Action Item Duplicate Merge | v0.6 | 4/4 | Complete    | 2026-05-22 |
+| 19. AI Reply Generation | v0.6 | 0/3 | Not started | - |
