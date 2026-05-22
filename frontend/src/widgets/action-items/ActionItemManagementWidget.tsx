@@ -396,6 +396,7 @@ export function ActionItemManagementWidget({
           itemId={openModalId}
           shops={shops}
           teamMembers={teamMembers}
+          isOrgAdmin={isOrgAdmin}
           onClose={() => setOpenModalId(null)}
           onChanged={() => void refetch()}
         />
