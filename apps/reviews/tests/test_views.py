@@ -222,6 +222,32 @@ def test_tags_action_staff_scoping() -> None:
     assert labels == {"Cleanliness"}
 
 
+def test_tags_action_staff_no_scope_empty() -> None:
+    """Phase 17 WR-04: a Staff user with zero StaffAccessScope rows must see
+    an empty tags list. Locks the contract so a future refactor that drops
+    the shop_id__in=[] filter cannot silently leak all org tags to a
+    no-scope Staff user.
+    """
+    org = OrganisationFactory()
+    s1 = ShopFactory(organisation=org)
+    r1 = ReviewFactory(organisation=org, shop=s1)
+    ReviewTagFactory(review=r1, label="Cleanliness", polarity="positive")
+    staff = StaffAdminFactory(organisation=org)
+    # Intentionally no StaffAccessScope rows.
+    client = APIClient()
+    client.force_authenticate(user=staff)
+    resp = client.get(TAGS_URL)
+    assert resp.status_code == 200
+    assert resp.data == []
+
+
+def test_tags_action_invalid_shop_param_returns_400(org_admin_client) -> None:
+    """Phase 17 WR-02: non-integer ?shop= must return 400, not 500."""
+    client, _, _org = org_admin_client
+    resp = client.get(TAGS_URL, {"shop": "abc"})
+    assert resp.status_code == 400
+
+
 def test_tags_action_cross_org_isolation() -> None:
     """User from Org B cannot see Org A's tags via the tags endpoint."""
     org_a = OrganisationFactory()

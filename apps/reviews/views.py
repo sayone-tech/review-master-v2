@@ -103,8 +103,16 @@ class ReviewViewSet(
 
         qs = ReviewTag.objects.filter(review__shop__organisation_id=org_id)
 
-        shop_id = request.query_params.get("shop")
-        if shop_id:
+        # Phase 17 WR-02: validate ?shop as int. Without this, a non-numeric
+        # value (e.g. ?shop=abc) propagates to the ORM and raises ValueError
+        # at query time → 500. Mirrors the django-filter NumberFilter contract
+        # on the list endpoint.
+        shop_id_raw = request.query_params.get("shop")
+        if shop_id_raw:
+            try:
+                shop_id = int(shop_id_raw)
+            except (TypeError, ValueError):
+                return Response({"detail": "Invalid shop id"}, status=status.HTTP_400_BAD_REQUEST)
             qs = qs.filter(review__shop_id=shop_id)
 
         if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
@@ -114,8 +122,21 @@ class ReviewViewSet(
             user_id: int = raw_pk
             qs = qs.filter(review__shop_id__in=get_accessible_shop_ids(user_id=user_id))
 
-        result = qs.values("label").annotate(count=Count("id")).order_by("-count")
-        return Response([{"label": row["label"], "count": row["count"]} for row in result])
+        # Phase 17 WR-03: hard-cap the response. Long-tail tag management UI
+        # is the long-term solution; for now we bound the payload at top-N
+        # by count (default 200) with a `?limit=` override. This matches the
+        # discovery-style contract of /reviews/tags/ — a UI combobox source —
+        # rather than the paginated list contract used for the reviews list.
+        try:
+            limit = int(request.query_params.get("limit", 200))
+        except (TypeError, ValueError):
+            limit = 200
+        limit = max(1, min(limit, 500))
+
+        result = qs.values("label").annotate(count=Count("id")).order_by("-count", "label")[:limit]
+        return Response(
+            [{"label": row["label"], "count": row["count"]} for row in result]  # type: ignore[index]
+        )
 
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:

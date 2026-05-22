@@ -6,7 +6,7 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
-from apps.reviews.models import Review
+from apps.reviews.models import Review, ReviewTag
 
 
 class ReviewTagSerializer(serializers.Serializer):  # type: ignore[type-arg]
@@ -18,7 +18,11 @@ class ReviewTagSerializer(serializers.Serializer):  # type: ignore[type-arg]
     """
 
     label = serializers.CharField(read_only=True)  # type: ignore[assignment]
-    polarity = serializers.CharField(read_only=True)
+    # Phase 17 WR-05: surface the model's Polarity choices to consumers so
+    # drf-spectacular emits the enum in the OpenAPI schema. The frontend
+    # TagPolarity type is a strict literal union; CharField hid the
+    # constraint and let contract drift surface only at runtime.
+    polarity = serializers.ChoiceField(choices=ReviewTag.Polarity.choices, read_only=True)
 
 
 class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
