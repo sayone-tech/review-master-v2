@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Prefetch
 
 from apps.action_items.models import ActionItem, ActionItemNote
 from apps.common.models import AuditLog
@@ -128,6 +129,8 @@ def create_action_item(
 # No state machine validation - every status pair is legal.
 @transaction.atomic
 def transition_status(*, action_item: ActionItem, new_status: str, actor: User) -> ActionItem:
+    if action_item.canonical_id is not None:
+        raise ValidationError("Cannot modify a merged duplicate.")
     locked = ActionItem.objects.select_for_update().get(pk=action_item.pk)
     old_status = locked.status
     if old_status == new_status:
@@ -178,6 +181,8 @@ def transition_status(*, action_item: ActionItem, new_status: str, actor: User) 
 def assign_action_item(
     *, action_item: ActionItem, assignee_id: int | None, actor: User
 ) -> ActionItem:
+    if action_item.canonical_id is not None:
+        raise ValidationError("Cannot modify a merged duplicate.")
     locked = ActionItem.objects.select_for_update().get(pk=action_item.pk)
     old = locked.assignee_id
     if old == assignee_id:
@@ -222,6 +227,8 @@ def assign_action_item(
 
 @transaction.atomic
 def add_note(*, action_item: ActionItem, author: User | None, body: str) -> ActionItemNote:
+    if action_item.canonical_id is not None:
+        raise ValidationError("Cannot modify a merged duplicate.")
     body = (body or "").strip()
     if not (1 <= len(body) <= 2000):
         raise ValidationError("Note body must be 1-2000 characters")
@@ -288,3 +295,79 @@ def promote_action_items_from_review(*, review: Review) -> int:
     ActionItem.objects.bulk_create(to_create, ignore_conflicts=True)
     post_count = ActionItem.objects.filter(source_review=review).count()
     return max(0, post_count - pre_count)
+
+
+@transaction.atomic
+def merge_action_items(
+    *,
+    primary_id: int,
+    duplicate_ids: list[int],
+    actor: User,
+    organisation_id: int,
+) -> ActionItem:
+    """Mark duplicate_ids as duplicates of primary_id (D-14/D-15).
+
+    Validates same-org, same-scope (D-05), source=AI only (D-06), primary has
+    no canonical (D-08), and re-parents any sub-duplicates of the selected
+    duplicate_ids BEFORE marking them (D-09).
+
+    Locks all involved rows in ascending PK order to prevent deadlocks.
+    Writes one AuditLog row: action="action_item.merged".
+    """
+    if not duplicate_ids:
+        raise ValidationError("duplicate_ids must not be empty.")
+    if primary_id in duplicate_ids:
+        raise ValidationError("primary_id must not be in duplicate_ids.")
+    if len(set(duplicate_ids)) != len(duplicate_ids):
+        raise ValidationError("duplicate_ids must be unique.")
+
+    all_ids = sorted({primary_id, *duplicate_ids})
+
+    # Lock rows in PK order to prevent deadlocks; org filter validates ownership.
+    locked = list(
+        ActionItem.objects.select_for_update()
+        .filter(pk__in=all_ids, organisation_id=organisation_id)
+        .order_by("pk")
+    )
+    if len(locked) != len(all_ids):
+        raise ValidationError("One or more action items not found in this organisation.")
+
+    by_pk = {item.pk: item for item in locked}
+    primary = by_pk[primary_id]
+
+    # D-08: primary must not already be a duplicate.
+    if primary.canonical_id is not None:
+        raise ValidationError("Primary is already a merged duplicate.")
+
+    # D-06: all items must be AI-sourced.
+    for item in locked:
+        if item.source != ActionItem.Source.AI:
+            raise ValidationError("Only AI-sourced action items can be merged.")
+
+    # D-05: all items must have the same scope.
+    scopes = {item.scope for item in locked}
+    if len(scopes) > 1:
+        raise ValidationError("All merged items must share the same scope.")
+
+    # D-09: re-parent sub-duplicates of selected duplicates onto primary FIRST.
+    ActionItem.objects.filter(canonical_id__in=duplicate_ids).update(canonical_id=primary_id)
+
+    # Now mark the selected duplicates.
+    ActionItem.objects.filter(pk__in=duplicate_ids).update(canonical_id=primary_id)
+
+    AuditLog.objects.create(
+        organisation_id=primary.organisation_id,
+        actor=actor if getattr(actor, "is_authenticated", False) else None,
+        entity_type="action_item",
+        entity_id=str(primary.pk),
+        action="action_item.merged",
+        before_data={},
+        after_data={"merged_ids": list(duplicate_ids)},
+    )
+
+    return ActionItem.objects.prefetch_related(
+        Prefetch(
+            "duplicates",
+            queryset=ActionItem.objects.select_related("shop", "source_review"),
+        )
+    ).get(pk=primary_id)
