@@ -119,6 +119,73 @@ def test_brand_scope_guard_blocks_staff_brand_item():
 
 
 @pytest.mark.django_db
+def test_list_hides_merged_duplicates():
+    """Phase 18 (D-10): items with canonical_id set must not appear in the list."""
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    dup = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    dup.canonical = primary
+    dup.save(update_fields=["canonical"])
+    admin = OrgAdminFactory(organisation=org)
+    qs = list_action_items(organisation_id=org.pk, user=admin)
+    ids = set(qs.values_list("pk", flat=True))
+    assert primary.pk in ids
+    assert dup.pk not in ids
+
+
+@pytest.mark.django_db
+def test_list_annotates_duplicate_count():
+    """Phase 18 (D-11): primary rows expose duplicate_count == #merged duplicates."""
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    for _ in range(2):
+        d = ActionItemFactory(
+            organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+        )
+        d.canonical = primary
+        d.save(update_fields=["canonical"])
+    admin = OrgAdminFactory(organisation=org)
+    qs = list_action_items(organisation_id=org.pk, user=admin)
+    found = next(item for item in qs if item.pk == primary.pk)
+    assert found.duplicate_count == 2
+
+
+@pytest.mark.django_db
+def test_list_query_count_with_duplicates():
+    """Phase 18: list query count is bounded regardless of merge density."""
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    for _ in range(5):
+        primary = ActionItemFactory(
+            organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+        )
+        for _ in range(2):
+            d = ActionItemFactory(
+                organisation=org,
+                shop=shop,
+                scope=ActionItem.Scope.SHOP,
+                source=ActionItem.Source.AI,
+            )
+            d.canonical = primary
+            d.save(update_fields=["canonical"])
+    admin = OrgAdminFactory(organisation=org)
+    qs = list_action_items(organisation_id=org.pk, user=admin)
+    with CaptureQueriesContext(connection) as ctx:
+        items = list(qs)
+        for item in items:
+            _ = item.duplicate_count
+    assert len(ctx.captured_queries) <= 6
+
+
+@pytest.mark.django_db
 def test_brand_scope_guard_allows_org_admin():
     org = OrganisationFactory()
     admin = OrgAdminFactory(organisation=org)

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import QuerySet
+from django.db.models import Count, QuerySet
 
 from apps.action_items.models import ActionItem
 from apps.reviews.selectors.reviews import get_accessible_shop_ids
@@ -42,6 +42,11 @@ def list_action_items(*, organisation_id: int, user: User) -> QuerySet[ActionIte
         accessible = get_accessible_shop_ids(user_id=user.pk)
         # CRITICAL Layer 1: Staff sees only SHOP-scope items in accessible shops.
         qs = qs.filter(scope=ActionItem.Scope.SHOP, shop_id__in=accessible)
+    # Phase 18 (D-10/D-11): hide merged duplicates and annotate the count of
+    # duplicates that point at each row. Annotation must follow the filter so
+    # rows that are themselves duplicates are excluded from the count.
+    qs = qs.filter(canonical__isnull=True)
+    qs = qs.annotate(duplicate_count=Count("duplicates"))
     return qs.order_by("-created_at")
 
 
