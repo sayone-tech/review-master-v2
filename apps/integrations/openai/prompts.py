@@ -124,7 +124,9 @@ def build_reply_generation_messages(
     template = _REPLY_PROMPTS_BY_TONE.get(tone)
     if template is None:
         raise ValueError(f"Unknown tone: {tone!r}")
-    system_content = template.format(brand_name=brand_name)
+    # IN-05: use str.replace (not str.format) so brand names containing
+    # literal braces (e.g., "Acme {Coffee}") do not trigger KeyError.
+    system_content = template.replace("{brand_name}", brand_name)
     shop_name = review.shop.name
     user_payload = (
         f"Brand: {brand_name}\n"

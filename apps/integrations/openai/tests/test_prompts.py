@@ -84,3 +84,13 @@ def test_review_without_comment_uses_placeholder() -> None:
     review = _make_review(comment="")
     msgs = build_reply_generation_messages(review=review, tone="professional", brand_name="Acme")
     assert "(no comment provided)" in msgs[1]["content"]
+
+
+def test_brand_name_with_braces_does_not_raise() -> None:
+    """IN-05: brand names with literal `{...}` must not break formatting."""
+    review = _make_review()
+    msgs = build_reply_generation_messages(
+        review=review, tone="professional", brand_name="Acme {Coffee}"
+    )
+    assert "Acme {Coffee}" in msgs[0]["content"]
+    assert "{brand_name}" not in msgs[0]["content"]
