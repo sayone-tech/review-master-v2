@@ -59,7 +59,7 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 
 - [x] **Phase 17: Tag Rework — ReviewTag Model and Filter** — Replace Review.tags JSONField with a proper ReviewTag relational model; add multi-select tag filter (with search) to the reviews UI; make tag chips clickable to filter (completed 2026-05-21)
 - [x] **Phase 18: Action Item Duplicate Merge** — User-driven merge of duplicate AI-extracted action items across stores; merged duplicates hidden from list, shown as read-only context in canonical detail; "+N" badge in list view (completed 2026-05-22)
-- [ ] **Phase 19: AI Reply Generation** — "Generate with AI" button in ReplyComposer with Professional/Friendly tone picker; GPT-4o-mini generates a draft that fills the textarea for user review before submitting
+- [x] **Phase 19: AI Reply Generation** — "Generate with AI" button in ReplyComposer with Professional/Friendly tone picker; GPT-4o-mini generates a draft that fills the textarea for user review before submitting (completed 2026-05-22)
 
 ### 📋 v0.7 — AI Safety & Governance (Planned)
 
@@ -197,7 +197,7 @@ Wave 2 (blocked on Wave 1 completion):
 
 - [x] 19-02-PLAN.md — API endpoint: GenerateReplySerializer, generate_reply @action on ReviewViewSet, generate_reply throttle rate, endpoint tests (D-09/D-10/D-11/D-12/D-13/D-17/D-18)
 
-- [ ] 19-03-PLAN.md — Frontend: generateReply() in api.ts, generator button + tone pills + confirmation row + state machine + focus management in ReplyComposer.tsx (D-19/D-20/D-21/D-22/D-23/D-24/D-25)
+- [x] 19-03-PLAN.md — Frontend: generateReply() in api.ts, generator button + tone pills + confirmation row + state machine + focus management in ReplyComposer.tsx (D-19/D-20/D-21/D-22/D-23/D-24/D-25)
 
 Cross-cutting constraints: every OpenAI call MUST write one AiUsageLog row (CLAUDE.md §14); select_related("shop__organisation") MUST be on ReviewViewSet.get_queryset() (CLAUDE.md §6).
 
@@ -219,4 +219,4 @@ Cross-cutting constraints: every OpenAI call MUST write one AiUsageLog row (CLAU
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
 | 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
 | 18. Action Item Duplicate Merge | v0.6 | 4/4 | Complete    | 2026-05-22 |
-| 19. AI Reply Generation | v0.6 | 2/3 | In Progress|  |
+| 19. AI Reply Generation | v0.6 | 3/3 | Complete   | 2026-05-22 |
