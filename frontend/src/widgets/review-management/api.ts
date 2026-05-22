@@ -136,12 +136,16 @@ export async function fetchSyncingShops(): Promise<SyncingResponse> {
 export async function generateReply(
   reviewId: number,
   tone: string,
+  signal?: AbortSignal,
 ): Promise<{ draft: string }> {
+  // IN-04: callers pass an AbortSignal so they can cancel an in-flight
+  // request (e.g., user re-clicks a different tone or closes the composer).
   const resp = await fetch(`/api/v1/reviews/${reviewId}/generate-reply/`, {
     method: "POST",
     headers: headers("POST"),
     credentials: "same-origin",
     body: JSON.stringify({ tone }),
+    signal,
   });
   return (await handle(resp)) as { draft: string };
 }

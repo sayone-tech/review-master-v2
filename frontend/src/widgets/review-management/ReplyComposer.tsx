@@ -31,9 +31,21 @@ export function ReplyComposer({
   const [generatingTone, setGeneratingTone] = useState<"professional" | "friendly" | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const generatorButtonRef = useRef<HTMLButtonElement>(null);
+  // IN-04: track the active generate-reply AbortController so we can cancel
+  // an in-flight request when the user re-clicks a different tone or the
+  // composer unmounts mid-generation.
+  const generateAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     listTemplates().then(setTemplates).catch(() => {});
+  }, []);
+
+  // IN-04: abort any pending generate-reply request when the composer unmounts.
+  useEffect(() => {
+    return () => {
+      generateAbortRef.current?.abort();
+      generateAbortRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -66,15 +78,24 @@ export function ReplyComposer({
   };
 
   const handleGenerate = async (tone: "professional" | "friendly") => {
+    // IN-04: cancel any in-flight request so a fast re-click doesn't race.
+    generateAbortRef.current?.abort();
+    const controller = new AbortController();
+    generateAbortRef.current = controller;
+
     setGeneratingTone(tone);
     setErrorMessage(null);
     try {
-      const { draft } = await generateReply(row.id, tone);
+      const { draft } = await generateReply(row.id, tone, controller.signal);
+      if (controller.signal.aborted) return;
       setComment(draft);
       setGeneratorOpen(false);
       setGeneratingTone(null);
       document.getElementById(`reply-textarea-${row.id}`)?.focus();
     } catch (e) {
+      // Swallow AbortError — the user (or a newer click) cancelled.
+      if (controller.signal.aborted) return;
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setGeneratorOpen(false);
       setGeneratingTone(null);
       let message = "AI generation failed. Please try again or write your reply manually.";
@@ -87,6 +108,10 @@ export function ReplyComposer({
       }
       setErrorMessage(message);
       generatorButtonRef.current?.focus();
+    } finally {
+      if (generateAbortRef.current === controller) {
+        generateAbortRef.current = null;
+      }
     }
   };
 
