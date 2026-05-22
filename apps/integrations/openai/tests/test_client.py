@@ -24,7 +24,10 @@ from uuid import uuid4
 import openai
 import pytest
 
-from apps.integrations.openai.client import call_openai_enrichment
+from apps.integrations.openai.client import (
+    call_openai_enrichment,
+    call_openai_reply_generation,
+)
 from apps.integrations.openai.exceptions import (
     EnrichmentParseError,
     OpenAIPermanentError,
@@ -273,8 +276,6 @@ class TestCallOpenAiReplyGeneration:
     @pytest.mark.django_db
     def test_returns_draft_and_usage_data(self) -> None:
         """Success path returns (draft_text, usage_dict) with Chat Completions token mapping."""
-        from apps.integrations.openai.client import call_openai_reply_generation
-
         review = ReviewFactory()
         response = _build_chat_response(
             content="Hi there! Thanks for visiting.",
@@ -307,8 +308,6 @@ class TestCallOpenAiReplyGeneration:
     @pytest.mark.django_db
     def test_rate_limit_raises_transient(self) -> None:
         """429 -> OpenAITransientError."""
-        from apps.integrations.openai.client import call_openai_reply_generation
-
         review = ReviewFactory()
         err = openai.RateLimitError(
             message="rate limited",
@@ -329,8 +328,6 @@ class TestCallOpenAiReplyGeneration:
     @pytest.mark.django_db
     def test_5xx_raises_transient(self) -> None:
         """5xx -> OpenAITransientError."""
-        from apps.integrations.openai.client import call_openai_reply_generation
-
         review = ReviewFactory()
         err = openai.APIStatusError(
             message="server error",
@@ -352,8 +349,6 @@ class TestCallOpenAiReplyGeneration:
     @pytest.mark.django_db
     def test_4xx_raises_permanent(self) -> None:
         """4xx other than 429 -> OpenAIPermanentError."""
-        from apps.integrations.openai.client import call_openai_reply_generation
-
         review = ReviewFactory()
         err = openai.APIStatusError(
             message="bad request",

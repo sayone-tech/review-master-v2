@@ -396,7 +396,7 @@ class TestGenerateReplyEndpoint:
     """
 
     @patch("apps.reviews.views.generate_reply_draft")
-    def test_success_returns_draft(self, mock_generate, db) -> None:
+    def test_success_returns_draft(self, mock_generate) -> None:
         mock_generate.return_value = "Great reply!"
         org = OrganisationFactory()
         user = OrgAdminFactory(organisation=org)
@@ -413,7 +413,7 @@ class TestGenerateReplyEndpoint:
         assert kwargs["tone"] == "professional"
         assert kwargs["review"].pk == review.pk
 
-    def test_invalid_tone_returns_400(self, db) -> None:
+    def test_invalid_tone_returns_400(self) -> None:
         org = OrganisationFactory()
         user = OrgAdminFactory(organisation=org)
         review = ReviewFactory(organisation=org)
@@ -424,7 +424,7 @@ class TestGenerateReplyEndpoint:
 
         assert resp.status_code == 400
 
-    def test_unauthenticated_returns_403(self, db) -> None:
+    def test_unauthenticated_returns_403(self) -> None:
         org = OrganisationFactory()
         review = ReviewFactory(organisation=org)
         client = APIClient()
@@ -434,7 +434,7 @@ class TestGenerateReplyEndpoint:
         assert resp.status_code == 403
 
     @patch("apps.reviews.views.generate_reply_draft")
-    def test_transient_error_returns_502(self, mock_generate, db) -> None:
+    def test_transient_error_returns_502(self, mock_generate) -> None:
         mock_generate.side_effect = OpenAITransientError("boom")
         org = OrganisationFactory()
         user = OrgAdminFactory(organisation=org)
@@ -449,7 +449,7 @@ class TestGenerateReplyEndpoint:
         assert "AI generation failed" in resp.data["detail"]
 
     @patch("apps.reviews.views.generate_reply_draft")
-    def test_permanent_error_returns_502(self, mock_generate, db) -> None:
+    def test_permanent_error_returns_502(self, mock_generate) -> None:
         mock_generate.side_effect = OpenAIPermanentError("nope")
         org = OrganisationFactory()
         user = OrgAdminFactory(organisation=org)
@@ -464,7 +464,7 @@ class TestGenerateReplyEndpoint:
         assert "AI generation failed" in resp.data["detail"]
 
     @patch("apps.reviews.views.generate_reply_draft")
-    def test_generic_exception_returns_502(self, mock_generate, db) -> None:
+    def test_generic_exception_returns_502(self, mock_generate) -> None:
         mock_generate.side_effect = ValueError("unexpected")
         org = OrganisationFactory()
         user = OrgAdminFactory(organisation=org)
@@ -478,7 +478,7 @@ class TestGenerateReplyEndpoint:
         assert resp.data["code"] == "ai_unavailable"
 
     @patch("apps.reviews.views.generate_reply_draft")
-    def test_staff_admin_accessible_shop(self, mock_generate, db) -> None:
+    def test_staff_admin_accessible_shop(self, mock_generate) -> None:
         mock_generate.return_value = "Reply draft."
         org = OrganisationFactory()
         shop = ShopFactory(organisation=org)
@@ -496,7 +496,7 @@ class TestGenerateReplyEndpoint:
         assert resp.data == {"draft": "Reply draft."}
 
     @patch("apps.reviews.views.generate_reply_draft")
-    def test_staff_admin_inaccessible_shop_returns_404(self, mock_generate, db) -> None:
+    def test_staff_admin_inaccessible_shop_returns_404(self, mock_generate) -> None:
         org = OrganisationFactory()
         s1 = ShopFactory(organisation=org)
         s2 = ShopFactory(organisation=org)
@@ -514,7 +514,7 @@ class TestGenerateReplyEndpoint:
         mock_generate.assert_not_called()
 
     @patch("apps.reviews.views.generate_reply_draft")
-    def test_generate_reply_query_count(self, mock_generate, db) -> None:
+    def test_generate_reply_query_count(self, mock_generate) -> None:
         """N+1 guard: ≤4 queries on the generate_reply path.
 
         Verifies select_related("shop__organisation") so the service can read

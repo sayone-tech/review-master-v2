@@ -12,6 +12,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from apps.integrations.openai.prompts import (
+    REPLY_GENERATION_PROMPT_VERSION,
+    build_reply_generation_messages,
+)
+
 
 def _make_review(*, shop_name: str = "TestShop", star_rating: int = 4, comment: str = "Great!"):
     review = MagicMock()
@@ -22,14 +27,10 @@ def _make_review(*, shop_name: str = "TestShop", star_rating: int = 4, comment: 
 
 
 def test_prompt_version_constant_is_one() -> None:
-    from apps.integrations.openai.prompts import REPLY_GENERATION_PROMPT_VERSION
-
     assert REPLY_GENERATION_PROMPT_VERSION == 1
 
 
 def test_build_professional_messages_contains_locked_wording() -> None:
-    from apps.integrations.openai.prompts import build_reply_generation_messages
-
     review = _make_review()
     msgs = build_reply_generation_messages(review=review, tone="professional", brand_name="Acme")
 
@@ -48,8 +49,6 @@ def test_build_professional_messages_contains_locked_wording() -> None:
 
 
 def test_build_friendly_messages_contains_locked_wording() -> None:
-    from apps.integrations.openai.prompts import build_reply_generation_messages
-
     review = _make_review()
     msgs = build_reply_generation_messages(review=review, tone="friendly", brand_name="Acme")
 
@@ -64,8 +63,6 @@ def test_build_friendly_messages_contains_locked_wording() -> None:
 
 
 def test_user_payload_contains_brand_shop_rating_and_comment() -> None:
-    from apps.integrations.openai.prompts import build_reply_generation_messages
-
     review = _make_review(shop_name="MainStreet", star_rating=3, comment="Mediocre")
     msgs = build_reply_generation_messages(review=review, tone="professional", brand_name="Acme")
 
@@ -78,16 +75,12 @@ def test_user_payload_contains_brand_shop_rating_and_comment() -> None:
 
 
 def test_unknown_tone_raises_value_error() -> None:
-    from apps.integrations.openai.prompts import build_reply_generation_messages
-
     review = _make_review()
     with pytest.raises(ValueError, match="Unknown tone"):
         build_reply_generation_messages(review=review, tone="formal", brand_name="Acme")
 
 
 def test_review_without_comment_uses_placeholder() -> None:
-    from apps.integrations.openai.prompts import build_reply_generation_messages
-
     review = _make_review(comment="")
     msgs = build_reply_generation_messages(review=review, tone="professional", brand_name="Acme")
     assert "(no comment provided)" in msgs[1]["content"]
