@@ -88,7 +88,17 @@ class ActionItemViewSet(
         org_id = getattr(user, "organisation_id", None)
         if org_id is None:
             return ActionItem.objects.none()
-        qs = list_action_items(organisation_id=org_id, user=user)  # type: ignore[arg-type]
+        # Phase 18 (WR-01 fix): the list endpoint hides merged duplicates, but
+        # detail / mutator actions must surface them so the D-17 guards in the
+        # service layer return HTTP 400 ("cannot modify a merged duplicate")
+        # rather than a misleading 404. The detail panel's "Also reported in"
+        # UI also relies on deep-linked duplicates being retrievable.
+        include_duplicates = self.action != "list"
+        qs = list_action_items(
+            organisation_id=org_id,
+            user=user,  # type: ignore[arg-type]
+            include_duplicates=include_duplicates,
+        )
         if self.action == "retrieve":
             qs = qs.prefetch_related(
                 "notes__author",
