@@ -38,7 +38,12 @@ _ALLOWED_TONES: frozenset[str] = frozenset(ALLOWED_REPLY_TONES)
 
 
 def _write_failure_log(*, review: Review, exc: Exception) -> None:
-    """Write a single FAILED AiUsageLog row. Never raises (best-effort)."""
+    """Write a single FAILED AiUsageLog row. Never raises (best-effort).
+
+    WR-04: AiUsageLog.error_message is a TextField (no max_length), so the
+    full exception string is stored without truncation. Diagnostic context
+    is preserved for support / Sentry cross-reference.
+    """
     try:
         AiUsageLog.objects.create(
             organisation_id=review.organisation_id,
@@ -54,7 +59,7 @@ def _write_failure_log(*, review: Review, exc: Exception) -> None:
             langsmith_trace_id="",
             status=AiUsageLog.Status.FAILED,
             error_code=type(exc).__name__,
-            error_message=str(exc)[:500],
+            error_message=str(exc),
         )
     except Exception:  # pragma: no cover — defensive
         logger.exception("reply_generation_failed_log_write_failed review_id=%s", review.pk)
@@ -85,12 +90,25 @@ def generate_reply_draft(*, review: Review, tone: str) -> str:
         _write_failure_log(review=review, exc=exc)
         raise
 
-    cost = calculate_cost(
-        model=settings.OPENAI_MODEL,
-        prompt_tokens=int(usage_data.get("prompt_tokens") or 0),
-        completion_tokens=int(usage_data.get("completion_tokens") or 0),
-        cached_tokens=int(usage_data.get("cached_tokens") or 0),
-    )
+    # WR-05: never let a missing AiPricing row swallow the SUCCESS log. The
+    # OpenAI call has already been billed; we MUST record it. If pricing
+    # lookup fails (e.g., seed migration missed for a new model), log the
+    # call with estimated_cost_usd=0 + error_code="ai_pricing_lookup_failed"
+    # so cost auditing surfaces the gap rather than silently undercounting.
+    pricing_error_code = ""
+    pricing_error_message = ""
+    try:
+        cost: Decimal = calculate_cost(
+            model=settings.OPENAI_MODEL,
+            prompt_tokens=int(usage_data.get("prompt_tokens") or 0),
+            completion_tokens=int(usage_data.get("completion_tokens") or 0),
+            cached_tokens=int(usage_data.get("cached_tokens") or 0),
+        )
+    except Exception as exc:
+        logger.exception("ai_pricing_lookup_failed model=%s", settings.OPENAI_MODEL)
+        cost = Decimal("0")
+        pricing_error_code = "ai_pricing_lookup_failed"
+        pricing_error_message = str(exc)
     AiUsageLog.objects.create(
         organisation_id=review.organisation_id,
         review_id=review.pk,
@@ -104,5 +122,7 @@ def generate_reply_draft(*, review: Review, tone: str) -> str:
         latency_ms=usage_data.get("latency_ms"),
         langsmith_trace_id=usage_data.get("langsmith_trace_id") or "",
         status=AiUsageLog.Status.SUCCESS,
+        error_code=pricing_error_code,
+        error_message=pricing_error_message,
     )
     return draft
