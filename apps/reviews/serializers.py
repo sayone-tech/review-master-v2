@@ -88,3 +88,13 @@ class ReviewReplySerializer(serializers.Serializer):  # type: ignore[type-arg]
     """Input serializer for POST /reviews/{id}/reply/ (Plan 07)."""
 
     comment = serializers.CharField(min_length=1, max_length=4000, trim_whitespace=False)
+
+
+class GenerateReplySerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """Phase 19 Plan 02: input serializer for POST /reviews/{id}/generate-reply/.
+
+    D-10/D-11: tone is a required ChoiceField restricted to two values.
+    """
+
+    TONE_CHOICES: ClassVar[list[str]] = ["professional", "friendly"]
+    tone = serializers.ChoiceField(choices=TONE_CHOICES)
