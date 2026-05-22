@@ -148,6 +148,28 @@ Plans:
 - [x] 17-03-PLAN.md — Tags @action endpoint + ReviewFilterSet tags CharFilter + TAG-03 tests (TAG-03)
 - [x] 17-04-PLAN.md — Frontend: TagsFilter dropdown, clickable chips, ReviewManagementWidget wiring (TAG-03)
 
+### Phase 18: Action Item Duplicate Merge
+
+**Goal**: Allow Org Admins to mark action items as duplicates of one another, merging them under a canonical item. Duplicate items are hidden from the default list, the canonical shows a "+N" badge, and a detail section lists all duplicates with links.
+**Depends on**: Phase 17
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17, D-18, D-19, D-20
+**Success Criteria** (what must be TRUE):
+
+  1. Org Admin can select 2+ AI-extracted action items from the list (using checkboxes) and merge them into a single canonical item via a two-step modal (pick primary → confirm)
+  2. Merged duplicate items no longer appear in the action items list; the canonical item shows a "+N" badge indicating how many duplicates are merged into it
+  3. The canonical item's detail view shows an "Also reported in" section listing each merged duplicate's shop name, source review date, and star rating
+  4. Org Admin can mark a single action item as a duplicate of another from the detail modal using "Mark as duplicate of…" which opens a search-as-you-type picker
+  5. Merged duplicates are read-only: status changes, assignment, and notes are rejected (400) on duplicate items; only the canonical remains actionable
+  6. POST /api/v1/action-items/merge/ is restricted to Org Admin (Staff receives 403); service validates same org, same scope (SHOP/BRAND), source=AI, and non-chained primary
+**Plans**: 4 plans
+
+Plans:
+
+- [ ] 18-01-PLAN.md — ActionItem canonical FK + migration 0003_actionitem_canonical + model tests (D-01/D-02/D-04)
+- [ ] 18-02-PLAN.md — Backend: merge service + lifecycle guards + selector filter/annotation + serializers + merge API endpoint + full test suite (D-03/D-05–D-17)
+- [ ] 18-03-PLAN.md — Frontend list: DataTable checkbox extension + ActionItemTable + MergeModal + toolbar + types/api (D-11/D-18/D-20)
+- [ ] 18-04-PLAN.md — Frontend detail: DuplicatePickerModal + "Also reported in" + "Mark as duplicate of…" (D-12/D-13/D-19/D-20)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -165,3 +187,4 @@ Plans:
 | 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
 | 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
+| 18. Action Item Duplicate Merge | v0.6 | 0/4 | Not started | - |
