@@ -377,10 +377,20 @@ def merge_action_items(
     # D-06: all directly-selected items must be AI-sourced. Sub-duplicates
     # (already merged in a prior transaction) are not re-validated here — they
     # passed D-06 when they were originally merged.
+    # Phase 18 (WR-05 fix): distinguish primary vs. duplicates in the error
+    # so the frontend can show a useful toast. Previously the generic
+    # "Only AI-sourced action items can be merged" message left users
+    # guessing which row was rejected.
     selected_items = [by_pk[pk] for pk in selected_ids]
-    for item in selected_items:
-        if item.source != ActionItem.Source.AI:
-            raise ValidationError("Only AI-sourced action items can be merged.")
+    if primary.source != ActionItem.Source.AI:
+        raise ValidationError("Primary must be an AI-sourced action item.")
+    non_ai_dup_ids = [
+        i.pk for i in selected_items if i.pk != primary_id and i.source != ActionItem.Source.AI
+    ]
+    if non_ai_dup_ids:
+        raise ValidationError(
+            f"Only AI-sourced items can be merged. Non-AI duplicates: {non_ai_dup_ids}"
+        )
 
     # D-05: all directly-selected items must have the same scope.
     scopes = {item.scope for item in selected_items}
