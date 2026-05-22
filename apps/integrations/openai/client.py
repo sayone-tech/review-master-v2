@@ -347,6 +347,12 @@ def _call_openai_reply_with_tracing(
                 metadata_update["usage_metadata"] = usage_metadata
             run_tree.metadata.update(metadata_update)
     except Exception:  # pragma: no cover — defensive
+        # WR-06: log so SDK-shape regressions surface instead of silently
+        # dropping metadata (the LangSmith cost-rendering regression
+        # documented in .planning/debug/resolved/langsmith-cost-not-shown.md
+        # could otherwise recur for request_type="reply_generation" with
+        # no visibility).
+        logger.exception("langsmith_metadata_attach_failed_reply")
         trace_id = None
     return response, trace_id
 
