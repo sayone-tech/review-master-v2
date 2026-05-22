@@ -188,9 +188,18 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
+
+Wave 1:
+
 - [ ] 19-01-PLAN.md — Backend service layer: REPLY_GENERATION_PROMPT_VERSION, build_reply_generation_messages(), call_openai_reply_generation(), generate_reply_draft() + AiUsageLog write + tests (D-04/D-05/D-06/D-07/D-08/D-14/D-15/D-16)
+
+Wave 2 (blocked on Wave 1 completion):
+
 - [ ] 19-02-PLAN.md — API endpoint: GenerateReplySerializer, generate_reply @action on ReviewViewSet, generate_reply throttle rate, endpoint tests (D-09/D-10/D-11/D-12/D-13/D-17/D-18)
+
 - [ ] 19-03-PLAN.md — Frontend: generateReply() in api.ts, generator button + tone pills + confirmation row + state machine + focus management in ReplyComposer.tsx (D-19/D-20/D-21/D-22/D-23/D-24/D-25)
+
+Cross-cutting constraints: every OpenAI call MUST write one AiUsageLog row (CLAUDE.md §14); select_related("shop__organisation") MUST be on ReviewViewSet.get_queryset() (CLAUDE.md §6).
 
 ## Progress
 
