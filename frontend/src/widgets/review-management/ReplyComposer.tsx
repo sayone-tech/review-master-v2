@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle, ChevronDown, Trash2 } from "lucide-react";
+import { CheckCircle, ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { emitToast } from "../../lib/toast";
-import { ApiError, deleteReply, submitReply } from "./api";
+import { ApiError, deleteReply, generateReply, submitReply } from "./api";
 import { listTemplates } from "../reply-templates/api";
 import type { TemplateRow } from "../reply-templates/types";
 import { StarRating } from "./StarRating";
@@ -27,7 +27,10 @@ export function ReplyComposer({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [generatorOpen, setGeneratorOpen] = useState(false);
+  const [generatingTone, setGeneratingTone] = useState<"professional" | "friendly" | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const generatorButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     listTemplates().then(setTemplates).catch(() => {});
@@ -47,6 +50,41 @@ export function ReplyComposer({
   const charCount = comment.length;
   const counterCls =
     charCount >= 3900 ? "text-[12px] text-red text-right mt-1" : "text-[12px] text-muted text-right mt-1";
+
+  const handleToggleGenerator = () => {
+    setGeneratorOpen((o) => !o);
+    if (generatorOpen) {
+      // Closing: reset generating state too
+      setGeneratingTone(null);
+    }
+  };
+
+  const handleCancelGenerator = () => {
+    setGeneratorOpen(false);
+    setGeneratingTone(null);
+    generatorButtonRef.current?.focus();
+  };
+
+  const handleGenerate = async (tone: "professional" | "friendly") => {
+    setGeneratingTone(tone);
+    setErrorMessage(null);
+    try {
+      const { draft } = await generateReply(row.id, tone);
+      setComment(draft);
+      setGeneratorOpen(false);
+      setGeneratingTone(null);
+      document.getElementById(`reply-textarea-${row.id}`)?.focus();
+    } catch (e) {
+      setGeneratorOpen(false);
+      setGeneratingTone(null);
+      let message = "AI generation failed. Please try again or write your reply manually.";
+      if (e instanceof ApiError && e.status === 429) {
+        message = "You've reached the AI generation limit. Please wait a moment.";
+      }
+      setErrorMessage(message);
+      generatorButtonRef.current?.focus();
+    }
+  };
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -232,42 +270,114 @@ export function ReplyComposer({
             >
               Your reply
             </label>
-            {templates.length > 0 && (
-              <div ref={pickerRef} className="relative">
+            <div className="flex items-center gap-2">
+              <button
+                ref={generatorButtonRef}
+                type="button"
+                aria-label="Generate reply with AI"
+                aria-expanded={generatorOpen}
+                aria-controls={`ai-generator-${row.id}`}
+                onClick={handleToggleGenerator}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md text-ink transition-colors ${generatorOpen ? "bg-line-soft hover:bg-line-soft" : "bg-white hover:bg-line-soft"}`}
+              >
+                <Sparkles size={12} aria-hidden="true" />
+                Generate with AI
+              </button>
+              {templates.length > 0 && (
+                <div ref={pickerRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen((o) => !o)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium border border-line rounded-md text-ink bg-white hover:bg-line-soft transition-colors"
+                  >
+                    Use template
+                    <ChevronDown size={12} aria-hidden="true" />
+                  </button>
+                  {pickerOpen && (
+                    <div className="absolute right-0 z-20 mt-1 w-64 bg-white border border-line rounded-md shadow-lg overflow-hidden">
+                      <ul role="listbox" aria-label="Reply templates" className="max-h-56 overflow-y-auto py-1">
+                        {templates.map((t) => (
+                          <li key={t.id}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={false}
+                              onClick={() => {
+                                setComment(t.content);
+                                setPickerOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-line-soft transition-colors"
+                            >
+                              <div className="text-[13px] font-semibold text-ink truncate">{t.name}</div>
+                              <div className="text-[11.5px] text-muted truncate mt-0.5">{t.content.slice(0, 60)}{t.content.length > 60 ? "…" : ""}</div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          {generatorOpen && (
+            <div
+              id={`ai-generator-${row.id}`}
+              className={`flex items-center gap-2 mb-2${comment.trim() !== "" ? " flex-wrap" : ""}`}
+              role="group"
+              aria-label={comment.trim() === "" ? "Select tone for AI reply" : "Confirm replacing draft with AI reply"}
+            >
+              {comment.trim() !== "" && (
+                <span className="text-[12px] text-muted">Replace your draft with AI reply?</span>
+              )}
+              {(["professional", "friendly"] as const).map((tone) => {
+                const isLoading = generatingTone === tone;
+                const isDisabled = generatingTone !== null;
+                const label = tone === "professional" ? "Professional" : "Friendly";
+                const ariaLabel = isLoading
+                  ? `Generating ${label} reply…`
+                  : `Generate ${label} reply`;
+                if (isLoading) {
+                  return (
+                    <button
+                      key={tone}
+                      type="button"
+                      disabled
+                      aria-busy="true"
+                      aria-label={ariaLabel}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md bg-line-soft text-faint cursor-not-allowed"
+                    >
+                      <Loader2 size={12} className="animate-spin text-amber" aria-hidden="true" />
+                      {label}…
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={tone}
+                    type="button"
+                    onClick={() => handleGenerate(tone)}
+                    disabled={isDisabled}
+                    aria-busy={generatingTone === tone}
+                    aria-label={ariaLabel}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md bg-white text-ink hover:bg-amber-tint hover:text-amber hover:border-amber transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-ink disabled:hover:border-line"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              {comment.trim() !== "" && (
                 <button
                   type="button"
-                  onClick={() => setPickerOpen((o) => !o)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium border border-line rounded-md text-ink bg-white hover:bg-line-soft transition-colors"
+                  onClick={handleCancelGenerator}
+                  className="text-[12px] font-semibold text-muted hover:text-ink transition-colors"
+                  aria-label="Cancel AI reply generation"
                 >
-                  Use template
-                  <ChevronDown size={12} aria-hidden="true" />
+                  Cancel
                 </button>
-                {pickerOpen && (
-                  <div className="absolute right-0 z-20 mt-1 w-64 bg-white border border-line rounded-md shadow-lg overflow-hidden">
-                    <ul role="listbox" aria-label="Reply templates" className="max-h-56 overflow-y-auto py-1">
-                      {templates.map((t) => (
-                        <li key={t.id}>
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={false}
-                            onClick={() => {
-                              setComment(t.content);
-                              setPickerOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-line-soft transition-colors"
-                          >
-                            <div className="text-[13px] font-semibold text-ink truncate">{t.name}</div>
-                            <div className="text-[11.5px] text-muted truncate mt-0.5">{t.content.slice(0, 60)}{t.content.length > 60 ? "…" : ""}</div>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
           <textarea
             id={`reply-textarea-${row.id}`}
             className="w-full min-h-[120px] px-3 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink resize-y"
