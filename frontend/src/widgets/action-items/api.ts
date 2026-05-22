@@ -5,6 +5,7 @@ import type {
   CreateActionItemBackendPayload,
   CreateActionItemPayload,
   ListParams,
+  MergePayload,
   PaginatedActionItems,
   UpdateActionItemBackendPayload,
   UpdatePayload,
@@ -138,6 +139,20 @@ export async function updateActionItemBackend(
   const resp = await fetch(`/api/v1/action-items/${id}/`, {
     method: "PATCH",
     headers: headers("PATCH"),
+    credentials: "same-origin",
+    body: JSON.stringify(payload),
+  });
+  return (await handle(resp)) as ActionItemDetail;
+}
+
+// Phase 18 — POST /api/v1/action-items/merge/ — merges duplicate_ids into primary_id.
+// Returns the primary action item with `duplicates` nested.
+export async function mergeActionItems(
+  payload: MergePayload,
+): Promise<ActionItemDetail> {
+  const resp = await fetch(`/api/v1/action-items/merge/`, {
+    method: "POST",
+    headers: headers("POST"),
     credentials: "same-origin",
     body: JSON.stringify(payload),
   });
