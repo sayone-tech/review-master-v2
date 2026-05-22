@@ -26,6 +26,24 @@ export interface ActionItemListRow {
   due_date: string | null;
   source_review_id: number | null;
   created_at: string;
+  // Phase 18 — duplicate merge:
+  duplicate_count: number;
+}
+
+// Phase 18 — minimal duplicate row exposed by the detail endpoint and used by the
+// DuplicatePickerModal (plan 18-04). Kept here so wave-3 plans share one source of truth.
+export interface ActionItemDuplicate {
+  id: number;
+  title: string;
+  shop_name: string;
+  source_review_date: string | null;
+  source_review_rating: number | null;
+}
+
+// Phase 18 — POST /api/v1/action-items/merge/ request body.
+export interface MergePayload {
+  primary_id: number;
+  duplicate_ids: number[];
 }
 
 export interface ActionItemNote {
@@ -47,6 +65,9 @@ export interface ActionItemDetail extends ActionItemListRow {
   notes: ActionItemNote[];
   source_review: SourceReviewSnippet | null;
   updated_at: string;
+  // Phase 18 — populated on the detail endpoint:
+  duplicates: ActionItemDuplicate[];
+  canonical_id: number | null;
 }
 
 export interface PaginatedActionItems {

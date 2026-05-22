@@ -173,6 +173,11 @@ interface Props {
   onTransitionStatus: (id: number, status: ActionItemStatus) => void;
   onAssign: (row: ActionItemListRow) => void;
   onViewTargets: (shopId: number, shopName: string) => void;
+  // Phase 18 — optional multi-select wiring.
+  selectedIds?: Set<number>;
+  onToggleRow?: (id: number) => void;
+  onToggleAll?: (ids: number[]) => void;
+  isOrgAdmin?: boolean;
 }
 
 export function ActionItemTable({
@@ -183,6 +188,10 @@ export function ActionItemTable({
   onTransitionStatus,
   onAssign,
   onViewTargets,
+  selectedIds,
+  onToggleRow,
+  onToggleAll,
+  isOrgAdmin,
 }: Props) {
   const columns: DataTableColumn<ActionItemListRow>[] = [
     {
@@ -190,14 +199,24 @@ export function ActionItemTable({
       label: "TITLE",
       skeletonWidth: "180px",
       accessor: (r) => (
-        <button
-          type="button"
-          onClick={() => onOpenModal(r.id)}
-          className="text-[14px] text-ink font-semibold cursor-pointer hover:underline text-left"
-          aria-label={`${r.title} — open action item`}
-        >
-          {r.title}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenModal(r.id)}
+            className="text-[14px] text-ink font-semibold cursor-pointer hover:underline text-left"
+            aria-label={`${r.title} — open action item`}
+          >
+            {r.title}
+          </button>
+          {r.duplicate_count > 0 && (
+            <span
+              className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-amber-tint text-amber text-[11px] font-semibold"
+              aria-label={`${r.duplicate_count} duplicate${r.duplicate_count === 1 ? "" : "s"}`}
+            >
+              +{r.duplicate_count}
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -311,6 +330,18 @@ export function ActionItemTable({
       emptyState={emptyState}
       rowKey={(r) => String(r.id)}
       wrapperClassName="bg-white overflow-hidden"
+      selectedIds={
+        selectedIds ? new Set([...selectedIds].map(String)) : undefined
+      }
+      onToggleRow={
+        onToggleRow ? (key) => onToggleRow(Number(key)) : undefined
+      }
+      onToggleAll={
+        onToggleAll ? (keys) => onToggleAll(keys.map(Number)) : undefined
+      }
+      isRowSelectable={
+        isOrgAdmin ? (r) => r.source === "AI" : undefined
+      }
       renderRowActions={(row) => (
         <RowMenu
           row={row}
