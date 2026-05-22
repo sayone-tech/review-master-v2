@@ -69,8 +69,9 @@ All hex values extracted from `frontend/tailwind.config.js`.
 |------|-------|-----|-------|
 | Dominant (60%) | `bg` / `white` | `#FAFAFA` / `#FFFFFF` | Page background, modal surface, table rows |
 | Secondary (30%) | `line-soft` | `#F4F4F5` | Table header background (`#FBFBFB`), hover states, modal footer |
-| Accent (10%) | `yellow` | `#FACC15` | Primary CTA buttons ("Merge" confirm button) |
+| Accent (10%) | `yellow` | `#FACC15` | Primary CTA buttons, checkbox/radio checked state, focus rings |
 | Accent hover | `yellow-hover` | `#EAB308` | Hover on yellow CTA buttons |
+| Accent tint | `yellow-tint` | `#FEFCE8` | Selected radio row highlight in MergeModal, selected item row in DuplicatePickerModal |
 | Duplicate badge | `amber-tint` + `amber` | `#FEF3C7` / `#D97706` | `+N` duplicate count badge background and text |
 | Destructive | `red` | `#DC2626` | Not used in this phase (merge is permanent but not destructive-red — see note) |
 | Border | `line` | `#E4E4E7` | Table borders, modal borders, input borders |
@@ -83,7 +84,7 @@ All hex values extracted from `frontend/tailwind.config.js`.
 | Radio selected | `ink` | `#18181B` | Selected radio button in MergeModal (black dot) |
 | Search input focus | `yellow` | `#FACC15` | `focus:ring-2 focus:ring-yellow` on picker input |
 
-**Accent reserved for:** primary CTA "Merge" button only. The `+N` badge uses `amber` (not yellow) to distinguish it from interactive elements.
+**Accent reserved for:** primary CTA button ("Merge items"), checkbox/radio checked state, and focus rings. The `+N` badge uses `amber` (not yellow) to distinguish it from interactive elements. The `yellow-tint` token is used for selected-state row backgrounds only.
 
 **Note on merge confirmation styling:** The merge operation is permanent (D-07) but the confirmation uses the `amber` ConfirmModal variant (AlertTriangle icon, amber icon background, red confirm button per existing `CONFIRM_BTN_CLASS.amber`). This is consistent with the existing `ConfirmModal` — the amber variant already maps to the red confirm button class. Do not create a new variant.
 
@@ -111,13 +112,13 @@ All new components follow existing modal/table patterns exactly.
 - **Layout:** `flex items-center justify-between px-4 py-2 bg-white border border-line rounded-card mb-2` (a contained bar, not full-width banner)
 - **Left side:** Selection count text — `text-[14px] font-semibold text-ink` — copy: "{N} items selected"
 - **Right side:** Two buttons side by side with `gap-2`
-  - "Clear selection" — `px-3 py-1.5 text-[13.5px] text-muted border border-line rounded-md hover:bg-line-soft`
-  - "Merge duplicates" — `px-3 py-1.5 text-[13.5px] bg-yellow text-black font-semibold rounded-md hover:bg-yellow-hover`
+  - "Clear selection" — `px-4 py-2 text-[14px] text-muted border border-line rounded-md hover:bg-line-soft`
+  - "Merge duplicates" — `px-4 py-2 text-[14px] bg-yellow text-black font-semibold rounded-md hover:bg-yellow-hover`
 
 ### 3. `+N` duplicate count badge
 
 - **Where:** Inline with the item title in the TITLE column cell, appended immediately after the title button
-- **Layout:** `inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-amber-tint text-amber text-[11px] font-semibold`
+- **Layout:** `inline-flex items-center justify-center px-2 py-1 rounded-full bg-amber-tint text-amber text-[11px] font-semibold`
 - **Content:** `+{duplicate_count}` — e.g., "+3"
 - **Visibility:** Rendered only when `duplicate_count > 0`
 - **Wrapper:** `<div className="flex items-center gap-2">` wrapping the existing title button + the badge
@@ -126,49 +127,49 @@ All new components follow existing modal/table patterns exactly.
 
 - **Size:** `default` (max-w-[520px]) using the existing `<Modal>` component
 - **Title:** "Merge action items" — `text-[18px] font-semibold text-ink`
-- **Subtitle:** "{N} items selected" — `text-[13.5px] text-muted`
+- **Subtitle:** "{N} items selected" — `text-[14px] text-muted`
 - **Body layout:** `p-4 space-y-4`
 - **Section header:** "Pick the primary item" — `text-[12px] font-semibold uppercase tracking-[0.05em] text-muted`
-- **Instruction text:** "The primary item will remain active. All others will be merged into it." — `text-[13.5px] text-muted`
+- **Instruction text:** "The primary item will remain active. All others will be merged into it." — `text-[14px] text-muted`
 - **Radio list:** One `<label>` per selected item, `flex items-start gap-3 p-3 rounded-md border border-line cursor-pointer hover:bg-line-soft`
-  - Radio input: `mt-0.5 w-4 h-4 accent-[#FACC15]`
+  - Radio input: `mt-1 w-4 h-4 accent-[#FACC15]`
   - Item title: `text-[14px] font-semibold text-ink`
-  - Item meta (scope + shop name): `text-[12px] text-muted mt-0.5` — e.g., "Shop · Central Market"
+  - Item meta (scope + shop name): `text-[12px] text-muted mt-1` — e.g., "Shop · Central Market"
 - **Selected radio row highlight:** `border-yellow bg-yellow-tint` instead of `border-line`
 - **Validation:** Confirm button disabled until a primary radio is selected
 - **Footer (reuse Modal footer slot):**
-  - Cancel: `px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft`
-  - "Merge" (primary, disabled until radio selected): `px-3.5 py-2 bg-yellow text-black font-semibold rounded-md text-[13.5px] hover:bg-yellow-hover disabled:opacity-50`
+  - Cancel: `px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft`
+  - "Merge items" (primary, disabled until radio selected): `px-4 py-2 bg-yellow text-black font-semibold rounded-md text-[14px] hover:bg-yellow-hover disabled:opacity-50`
 
 ### 5. Confirmation step within MergeModal
 
-After the user picks a primary and clicks "Merge", show a confirmation state **within the same modal** (do not open a nested modal):
+After the user picks a primary and clicks "Merge items", show a confirmation state **within the same modal** (do not open a nested modal):
 
 - **Transition:** Replace the radio list with a single confirmation message block
 - **Icon block:** `w-11 h-11 rounded-[12px] bg-amber-tint flex items-center justify-center` — `<AlertTriangle size={22} className="text-amber" />`
-- **Confirmation title:** "Confirm merge" — `text-[18px] font-semibold text-ink mb-1.5`
-- **Confirmation message:** `text-[13.5px] text-muted leading-[1.5]` — copy: "Merge {N} items into '{primary title}'? This cannot be undone."
+- **Confirmation title:** "Confirm merge" — `text-[18px] font-semibold text-ink mb-2`
+- **Confirmation message:** `text-[14px] text-muted leading-[1.5]` — copy: "Merge {N} items into '{primary title}'? This cannot be undone."
 - **Footer buttons:**
-  - "Back" (returns to radio selection): `px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft`
-  - "Merge" (final confirm, calls API): `px-3.5 py-2 bg-yellow text-black font-semibold rounded-md text-[13.5px] hover:bg-yellow-hover disabled:opacity-50`
-- **Loading state:** "Merging…" text on the Merge button, button disabled
+  - "Back" (returns to radio selection): `px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft`
+  - "Merge items" (final confirm, calls API): `px-4 py-2 bg-yellow text-black font-semibold rounded-md text-[14px] hover:bg-yellow-hover disabled:opacity-50`
+- **Loading state:** "Merging…" text on the Merge items button, button disabled
 
 ### 6. DuplicatePickerModal
 
 - **Size:** `default` (max-w-[520px]) using the existing `<Modal>` component
 - **Title:** "Mark as duplicate of" — `text-[18px] font-semibold text-ink`
-- **Subtitle:** Current item title — `text-[13.5px] text-muted`
+- **Subtitle:** Current item title — `text-[14px] text-muted`
 - **Body layout:** `p-4 space-y-3`
 - **Search input:**
-  - Full-width: `w-full px-3 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-yellow`
+  - Full-width: `w-full px-4 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-yellow`
   - Placeholder: "Search action items…"
   - Icon: `<Search size={14} className="text-muted" />` inset on the left using `relative` wrapper with `pl-9` on input and `absolute left-3 top-1/2 -translate-y-1/2` on icon
 - **Results list:** `mt-2 max-h-[280px] overflow-y-auto space-y-1 border border-line rounded-md`
-  - Each result row: `flex flex-col px-3 py-2.5 cursor-pointer hover:bg-line-soft border-b border-line-soft last:border-b-0`
+  - Each result row: `flex flex-col px-4 py-2 cursor-pointer hover:bg-line-soft border-b border-line-soft last:border-b-0`
   - Title: `text-[14px] font-semibold text-ink`
-  - Meta: `text-[12px] text-muted mt-0.5` — format: "Shop · {shop_name}" or "Brand"
+  - Meta: `text-[12px] text-muted mt-1` — format: "Shop · {shop_name}" or "Brand"
   - Selected row: `bg-yellow-tint` background
-- **Empty search result:** Single row in the list: `text-[14px] text-muted px-3 py-4 text-center` — copy: "No matching items found."
+- **Empty search result:** Single row in the list: `text-[14px] text-muted px-4 py-4 text-center` — copy: "No matching items found."
 - **Footer:**
   - Cancel: same secondary button style as MergeModal
   - "Select as primary" (disabled until an item is selected): same primary yellow button style
@@ -179,7 +180,7 @@ After the user picks a primary and clicks "Merge", show a confirmation state **w
 - **Section separator:** `<div className="border-t border-line-soft pt-4 mt-4">`
 - **Section header:** `text-[12px] font-semibold uppercase tracking-[0.05em] text-muted mb-2` — copy: "Also reported in"
 - **Duplicate rows:** `space-y-2`
-  - Each row: `flex items-center justify-between px-3 py-2 rounded-md bg-line-soft text-[13.5px]`
+  - Each row: `flex items-center justify-between px-4 py-2 rounded-md bg-line-soft text-[14px]`
   - Left: shop name `text-ink font-semibold` + date `text-muted ml-2 text-[12px]`
   - Right: star rating display — `text-amber text-[12px]` — e.g., "★ 3"
   - Full row format: `[shop name] · [formatted date]` on left, `★ {rating}` on right
@@ -212,8 +213,8 @@ All user-facing strings, exact as they appear in the UI.
 | MergeModal confirm step title | "Confirm merge" |
 | MergeModal confirm step message | "Merge {N} items into '{primary title}'? This cannot be undone." |
 | MergeModal back button | "Back" |
-| MergeModal primary CTA (pre-pick) | "Merge" (disabled) |
-| MergeModal primary CTA (confirmed) | "Merge" (active) |
+| MergeModal primary CTA (pre-pick) | "Merge items" (disabled) |
+| MergeModal primary CTA (confirmed) | "Merge items" (active) |
 | MergeModal loading state | "Merging…" |
 | Cancel buttons (all modals) | "Cancel" |
 | DuplicatePickerModal title | "Mark as duplicate of" |
@@ -257,11 +258,11 @@ All user-facing strings, exact as they appear in the UI.
 
 | Step | State |
 |------|-------|
-| Opened, no radio selected | "Merge" button disabled |
-| Radio selected | "Merge" button enabled |
-| "Merge" clicked | Transitions to confirmation step |
+| Opened, no radio selected | "Merge items" button disabled |
+| Radio selected | "Merge items" button enabled |
+| "Merge items" clicked | Transitions to confirmation step |
 | "Back" clicked from confirm | Returns to radio selection step, radio stays selected |
-| "Merge" on confirmation clicked | Button shows "Merging…", disabled; API call fires |
+| "Merge items" on confirmation clicked | Button shows "Merging…", disabled; API call fires |
 | API success | Modal closes, success toast, list refetched, selection cleared |
 | API error | Modal stays open on the confirmation step, error toast shown |
 
@@ -296,7 +297,7 @@ All user-facing strings, exact as they appear in the UI.
 - Merge toolbar has `role="toolbar"` with `aria-label="Bulk actions"`
 - All modals use the existing `<Modal>` component which wraps `<FocusTrap>` and sets `role="dialog" aria-modal="true"`
 - Error messages use `role="alert"`
-- Loading states use `aria-busy="true"` on the Merge button
+- Loading states use `aria-busy="true"` on the Merge items button
 
 ---
 
