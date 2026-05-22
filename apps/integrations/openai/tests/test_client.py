@@ -238,3 +238,136 @@ def test_trace_id_captured_from_run_tree() -> None:
         _, usage_data = call_openai_enrichment(review=review)
 
     assert usage_data["langsmith_trace_id"] == str(fake_trace)
+
+
+# ---------------------------------------------------------------------------
+# Phase 19 — call_openai_reply_generation tests
+#
+# Mirrors the enrichment test structure but exercises the Chat Completions
+# code path (not Responses API). Token fields use Chat Completions naming:
+# prompt_tokens / completion_tokens (NOT input_tokens / output_tokens).
+# ---------------------------------------------------------------------------
+
+
+def _build_chat_response(
+    *,
+    content: str = "Thanks so much for the kind review!",
+    prompt_tokens: int = 120,
+    completion_tokens: int = 60,
+    cached_tokens: int = 0,
+) -> SimpleNamespace:
+    """Build a Mock chat.completions.create response."""
+    message = SimpleNamespace(content=content)
+    choice = SimpleNamespace(message=message)
+    details = SimpleNamespace(cached_tokens=cached_tokens)
+    usage = SimpleNamespace(
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=prompt_tokens + completion_tokens,
+        prompt_tokens_details=details,
+    )
+    return SimpleNamespace(choices=[choice], usage=usage)
+
+
+class TestCallOpenAiReplyGeneration:
+    @pytest.mark.django_db
+    def test_returns_draft_and_usage_data(self) -> None:
+        """Success path returns (draft_text, usage_dict) with Chat Completions token mapping."""
+        from apps.integrations.openai.client import call_openai_reply_generation
+
+        review = ReviewFactory()
+        response = _build_chat_response(
+            content="Hi there! Thanks for visiting.",
+            prompt_tokens=100,
+            completion_tokens=50,
+            cached_tokens=20,
+        )
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.return_value = response
+        with patch(
+            "apps.integrations.openai.client._get_client",
+            return_value=fake_client,
+        ):
+            draft, usage = call_openai_reply_generation(review=review, tone="professional")
+
+        assert draft == "Hi there! Thanks for visiting."
+        assert usage["prompt_tokens"] == 100
+        assert usage["completion_tokens"] == 50
+        assert usage["cached_tokens"] == 20
+        assert usage["total_tokens"] == 150
+        assert usage["latency_ms"] >= 0
+        assert "langsmith_trace_id" in usage
+        # Verify chat.completions.create was called with response_format text
+        call_kwargs = fake_client.chat.completions.create.call_args.kwargs
+        assert call_kwargs["response_format"] == {"type": "text"}
+        # messages list shape sanity check
+        assert isinstance(call_kwargs["messages"], list)
+        assert call_kwargs["messages"][0]["role"] == "system"
+
+    @pytest.mark.django_db
+    def test_rate_limit_raises_transient(self) -> None:
+        """429 -> OpenAITransientError."""
+        from apps.integrations.openai.client import call_openai_reply_generation
+
+        review = ReviewFactory()
+        err = openai.RateLimitError(
+            message="rate limited",
+            response=MagicMock(),
+            body=None,
+        )
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = err
+        with (
+            patch(
+                "apps.integrations.openai.client._get_client",
+                return_value=fake_client,
+            ),
+            pytest.raises(OpenAITransientError),
+        ):
+            call_openai_reply_generation(review=review, tone="professional")
+
+    @pytest.mark.django_db
+    def test_5xx_raises_transient(self) -> None:
+        """5xx -> OpenAITransientError."""
+        from apps.integrations.openai.client import call_openai_reply_generation
+
+        review = ReviewFactory()
+        err = openai.APIStatusError(
+            message="server error",
+            response=MagicMock(status_code=503),
+            body=None,
+        )
+        err.status_code = 503
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = err
+        with (
+            patch(
+                "apps.integrations.openai.client._get_client",
+                return_value=fake_client,
+            ),
+            pytest.raises(OpenAITransientError),
+        ):
+            call_openai_reply_generation(review=review, tone="friendly")
+
+    @pytest.mark.django_db
+    def test_4xx_raises_permanent(self) -> None:
+        """4xx other than 429 -> OpenAIPermanentError."""
+        from apps.integrations.openai.client import call_openai_reply_generation
+
+        review = ReviewFactory()
+        err = openai.APIStatusError(
+            message="bad request",
+            response=MagicMock(status_code=400),
+            body=None,
+        )
+        err.status_code = 400
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = err
+        with (
+            patch(
+                "apps.integrations.openai.client._get_client",
+                return_value=fake_client,
+            ),
+            pytest.raises(OpenAIPermanentError),
+        ):
+            call_openai_reply_generation(review=review, tone="professional")
