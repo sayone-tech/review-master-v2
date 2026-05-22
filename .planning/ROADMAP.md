@@ -58,7 +58,7 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 ### 📋 v0.6 — Tag Rework & Action Item Quality (Planned)
 
 - [x] **Phase 17: Tag Rework — ReviewTag Model and Filter** — Replace Review.tags JSONField with a proper ReviewTag relational model; add multi-select tag filter (with search) to the reviews UI; make tag chips clickable to filter (completed 2026-05-21)
-- [ ] **Phase 18: Action Item Duplicate Merge** — User-driven merge of duplicate AI-extracted action items across stores; merged duplicates hidden from list, shown as read-only context in canonical detail; "+N" badge in list view
+- [x] **Phase 18: Action Item Duplicate Merge** — User-driven merge of duplicate AI-extracted action items across stores; merged duplicates hidden from list, shown as read-only context in canonical detail; "+N" badge in list view (completed 2026-05-22)
 - [ ] **Phase 19: AI Reply Generation** — "Generate with AI" button in ReplyComposer with Professional/Friendly tone picker; GPT-4o-mini generates a draft that fills the textarea for user review before submitting
 
 ### 📋 v0.7 — AI Safety & Governance (Planned)
@@ -168,7 +168,7 @@ Plans:
 - [x] 18-01-PLAN.md — ActionItem canonical FK + migration 0003_actionitem_canonical + model tests (D-01/D-02/D-04)
 - [x] 18-02-PLAN.md — Backend: merge service + lifecycle guards + selector filter/annotation + serializers + merge API endpoint + full test suite (D-03/D-05–D-17)
 - [x] 18-03-PLAN.md — Frontend list: DataTable checkbox extension + ActionItemTable + MergeModal + toolbar + types/api (D-11/D-18/D-20)
-- [ ] 18-04-PLAN.md — Frontend detail: DuplicatePickerModal + "Also reported in" + "Mark as duplicate of…" (D-12/D-13/D-19/D-20)
+- [x] 18-04-PLAN.md — Frontend detail: DuplicatePickerModal + "Also reported in" + "Mark as duplicate of…" (D-12/D-13/D-19/D-20)
 
 ## Progress
 
@@ -187,4 +187,4 @@ Plans:
 | 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
 | 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
-| 18. Action Item Duplicate Merge | v0.6 | 3/4 | In Progress|  |
+| 18. Action Item Duplicate Merge | v0.6 | 4/4 | Complete   | 2026-05-22 |
