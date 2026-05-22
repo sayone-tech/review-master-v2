@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import StaffAccessScope
 from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
 from apps.organisations.tests.factories import OrganisationFactory
+from apps.reviews.models import Review
 from apps.reviews.tests.factories import ReviewFactory, ReviewTagFactory
 from apps.shops.tests.factories import ShopFactory
 
@@ -311,3 +312,38 @@ def test_stats_with_tag_filter(org_admin_client) -> None:
     assert resp.status_code == 200
     # Only r1 and r2 match; total_count must be 2 (not inflated to 3 by tag rows on r1)
     assert resp.data["total_count"] == 2
+
+
+def test_stats_with_tag_filter_avg_rating_not_inflated(org_admin_client) -> None:
+    """Phase 17 CR-01/WR-06 regression: Avg/Count aggregates must not be inflated
+    by JOINs to ReviewTag when ?tags= is applied. r1 has three tag rows; the
+    pre-fix JOIN-based filter caused Avg(star_rating) to weight r1 three times.
+    With the Exists()-based filter, Avg must equal the true unweighted mean.
+    """
+    client, _, org = org_admin_client
+    r1 = ReviewFactory(
+        organisation=org,
+        star_rating=5,
+        sentiment="positive",
+        enrichment_status=Review.EnrichmentStatus.SUCCESS,
+    )
+    # Three tag rows on r1 — would inflate Avg/Count by a factor of 3
+    ReviewTagFactory(review=r1, label="Cleanliness", polarity="positive")
+    ReviewTagFactory(review=r1, label="Friendly", polarity="positive")
+    ReviewTagFactory(review=r1, label="Fast", polarity="positive")
+    r2 = ReviewFactory(
+        organisation=org,
+        star_rating=1,
+        sentiment="negative",
+        enrichment_status=Review.EnrichmentStatus.SUCCESS,
+    )
+    ReviewTagFactory(review=r2, label="Cleanliness", polarity="positive")
+
+    resp = client.get(STATS_URL, {"tags": "Cleanliness"})
+    assert resp.status_code == 200
+    assert resp.data["total_count"] == 2
+    # True unweighted mean of {5, 1} is 3.0. With the buggy JOIN the average
+    # would have been (5+5+5+1)/4 = 4.0.
+    assert resp.data["avg_rating"] == 3.0
+    # Both enriched, one positive → 50%. Buggy JOIN would have yielded 75%.
+    assert resp.data["positive_sentiment_pct"] == 50
