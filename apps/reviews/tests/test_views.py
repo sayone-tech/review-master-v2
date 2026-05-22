@@ -520,6 +520,11 @@ class TestGenerateReplyEndpoint:
         Verifies select_related("shop__organisation") so the service can read
         review.shop.organisation.name without an extra query.
         """
+        # Clear throttle cache so an earlier-test bucket can't push this request
+        # into 429 (Redis throttle cache survives the DB-transaction rollback).
+        from django.core.cache import caches
+
+        caches["throttle"].clear()
         mock_generate.return_value = "draft"
         org = OrganisationFactory()
         user = OrgAdminFactory(organisation=org)
