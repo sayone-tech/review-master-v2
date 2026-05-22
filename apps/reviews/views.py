@@ -11,6 +11,7 @@ from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
 from rest_framework import mixins, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException
 from rest_framework.filters import OrderingFilter
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
@@ -255,16 +256,37 @@ class ReviewViewSet(
         tone: str = serializer.validated_data["tone"]
         try:
             draft = generate_reply_draft(review=review, tone=tone)
-        except (OpenAITransientError, OpenAIPermanentError, Exception) as exc:
-            # D-17: all OpenAI errors (transient, permanent, unexpected) map to
-            # a single generic 502 response. Service layer has already written
+        except (OpenAITransientError, OpenAIPermanentError) as exc:
+            # D-17: known OpenAI failures (transient + permanent) map to a
+            # single generic 502 response. Service layer has already written
             # the FAILED AiUsageLog row before re-raising.
             logger.warning(
-                "generate_reply_failed review_id=%s tone=%s exc_type=%s exc=%s",
+                "generate_reply_openai_failed review_id=%s tone=%s exc_type=%s exc=%s",
                 review.pk,
                 tone,
                 type(exc).__name__,
                 exc,
+            )
+            return Response(
+                {
+                    "code": "ai_unavailable",
+                    "detail": (
+                        "AI generation failed. Please try again or write your reply manually."
+                    ),
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except APIException:
+            # Let DRF handle Throttled, ValidationError, NotAuthenticated, etc.
+            # with their natural status codes (e.g., 429, 400, 401).
+            raise
+        except Exception:
+            # Unexpected programmer/runtime error — logger.exception emits
+            # ERROR-level + traceback so Sentry captures it (D-17).
+            logger.exception(
+                "generate_reply_unexpected review_id=%s tone=%s",
+                review.pk,
+                tone,
             )
             return Response(
                 {
