@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from django.db import connection
@@ -12,6 +13,10 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import StaffAccessScope
 from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
+from apps.integrations.openai.exceptions import (
+    OpenAIPermanentError,
+    OpenAITransientError,
+)
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.reviews.models import Review
 from apps.reviews.tests.factories import ReviewFactory, ReviewTagFactory
@@ -373,3 +378,161 @@ def test_stats_with_tag_filter_avg_rating_not_inflated(org_admin_client) -> None
     assert resp.data["avg_rating"] == 3.0
     # Both enriched, one positive → 50%. Buggy JOIN would have yielded 75%.
     assert resp.data["positive_sentiment_pct"] == 50
+
+
+# ---------------------------------------------------------------------------
+# Phase 19 Plan 02: TestGenerateReplyEndpoint
+# ---------------------------------------------------------------------------
+
+
+def _generate_reply_url(review_pk: int) -> str:
+    return f"/api/v1/reviews/{review_pk}/generate-reply/"
+
+
+class TestGenerateReplyEndpoint:
+    """Phase 19 Plan 02: POST /api/v1/reviews/{id}/generate-reply/.
+
+    Covers D-09 through D-13 and D-17/D-18.
+    """
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_success_returns_draft(self, mock_generate, db) -> None:
+        mock_generate.return_value = "Great reply!"
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 200
+        assert resp.data == {"draft": "Great reply!"}
+        mock_generate.assert_called_once()
+        kwargs = mock_generate.call_args.kwargs
+        assert kwargs["tone"] == "professional"
+        assert kwargs["review"].pk == review.pk
+
+    def test_invalid_tone_returns_400(self, db) -> None:
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "formal"}, format="json")
+
+        assert resp.status_code == 400
+
+    def test_unauthenticated_returns_403(self, db) -> None:
+        org = OrganisationFactory()
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 403
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_transient_error_returns_502(self, mock_generate, db) -> None:
+        mock_generate.side_effect = OpenAITransientError("boom")
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 502
+        assert resp.data["code"] == "ai_unavailable"
+        assert "AI generation failed" in resp.data["detail"]
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_permanent_error_returns_502(self, mock_generate, db) -> None:
+        mock_generate.side_effect = OpenAIPermanentError("nope")
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "friendly"}, format="json")
+
+        assert resp.status_code == 502
+        assert resp.data["code"] == "ai_unavailable"
+        assert "AI generation failed" in resp.data["detail"]
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_generic_exception_returns_502(self, mock_generate, db) -> None:
+        mock_generate.side_effect = ValueError("unexpected")
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 502
+        assert resp.data["code"] == "ai_unavailable"
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_staff_admin_accessible_shop(self, mock_generate, db) -> None:
+        mock_generate.return_value = "Reply draft."
+        org = OrganisationFactory()
+        shop = ShopFactory(organisation=org)
+        review = ReviewFactory(organisation=org, shop=shop)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=shop
+        )
+        client = APIClient()
+        client.force_authenticate(user=staff)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 200
+        assert resp.data == {"draft": "Reply draft."}
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_staff_admin_inaccessible_shop_returns_404(self, mock_generate, db) -> None:
+        org = OrganisationFactory()
+        s1 = ShopFactory(organisation=org)
+        s2 = ShopFactory(organisation=org)
+        review = ReviewFactory(organisation=org, shop=s2)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=s1
+        )
+        client = APIClient()
+        client.force_authenticate(user=staff)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 404
+        mock_generate.assert_not_called()
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_generate_reply_query_count(self, mock_generate, db) -> None:
+        """N+1 guard: ≤4 queries on the generate_reply path.
+
+        Verifies select_related("shop__organisation") so the service can read
+        review.shop.organisation.name without an extra query.
+        """
+        mock_generate.return_value = "draft"
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        with CaptureQueriesContext(connection) as ctx:
+            resp = client.post(
+                _generate_reply_url(review.pk),
+                {"tone": "professional"},
+                format="json",
+            )
+
+        assert resp.status_code == 200
+        assert len(ctx.captured_queries) <= 4, [q["sql"] for q in ctx.captured_queries]
