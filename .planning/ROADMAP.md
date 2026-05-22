@@ -191,7 +191,7 @@ Plans:
 
 Wave 1:
 
-- [ ] 19-01-PLAN.md — Backend service layer: REPLY_GENERATION_PROMPT_VERSION, build_reply_generation_messages(), call_openai_reply_generation(), generate_reply_draft() + AiUsageLog write + tests (D-04/D-05/D-06/D-07/D-08/D-14/D-15/D-16)
+- [x] 19-01-PLAN.md — Backend service layer: REPLY_GENERATION_PROMPT_VERSION, build_reply_generation_messages(), call_openai_reply_generation(), generate_reply_draft() + AiUsageLog write + tests (D-04/D-05/D-06/D-07/D-08/D-14/D-15/D-16)
 
 Wave 2 (blocked on Wave 1 completion):
 
@@ -219,4 +219,4 @@ Cross-cutting constraints: every OpenAI call MUST write one AiUsageLog row (CLAU
 | 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
 | 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
 | 18. Action Item Duplicate Merge | v0.6 | 4/4 | Complete    | 2026-05-22 |
-| 19. AI Reply Generation | v0.6 | 0/3 | Not started | - |
+| 19. AI Reply Generation | v0.6 | 1/3 | In Progress|  |
