@@ -6,6 +6,7 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
+from apps.integrations.openai.prompts import ALLOWED_REPLY_TONES
 from apps.reviews.models import Review, ReviewTag
 
 
@@ -96,5 +97,6 @@ class GenerateReplySerializer(serializers.Serializer):  # type: ignore[type-arg]
     D-10/D-11: tone is a required ChoiceField restricted to two values.
     """
 
-    TONE_CHOICES: ClassVar[list[str]] = ["professional", "friendly"]
-    tone = serializers.ChoiceField(choices=TONE_CHOICES)
+    # WR-03: single source of truth lives in apps.integrations.openai.prompts.
+    TONE_CHOICES: ClassVar[tuple[str, ...]] = ALLOWED_REPLY_TONES
+    tone = serializers.ChoiceField(choices=ALLOWED_REPLY_TONES)

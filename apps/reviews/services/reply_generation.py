@@ -28,11 +28,13 @@ from apps.integrations.openai.exceptions import (
 )
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
+from apps.integrations.openai.prompts import ALLOWED_REPLY_TONES
 from apps.reviews.models import Review
 
 logger = logging.getLogger(__name__)
 
-_ALLOWED_TONES: frozenset[str] = frozenset({"professional", "friendly"})
+# WR-03: single source of truth lives in apps.integrations.openai.prompts.
+_ALLOWED_TONES: frozenset[str] = frozenset(ALLOWED_REPLY_TONES)
 
 
 def _write_failure_log(*, review: Review, exc: Exception) -> None:

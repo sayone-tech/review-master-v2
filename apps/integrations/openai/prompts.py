@@ -71,6 +71,11 @@ def build_enrichment_messages(*, review: Any) -> list[dict[str, str]]:
 
 REPLY_GENERATION_PROMPT_VERSION = 1
 
+# WR-03: single source of truth for valid reply tones. Imported by the
+# serializer (input validation) and the service (defensive check) so adding
+# a new tone here propagates to all layers automatically.
+ALLOWED_REPLY_TONES: tuple[str, ...] = ("professional", "friendly")
+
 PROFESSIONAL_REPLY_SYSTEM_PROMPT = (
     "You are a professional customer experience representative replying to a "
     "Google Business review on behalf of {brand_name}. Write a formal, concise "
@@ -89,6 +94,13 @@ _REPLY_PROMPTS_BY_TONE: dict[str, str] = {
     "professional": PROFESSIONAL_REPLY_SYSTEM_PROMPT,
     "friendly": FRIENDLY_REPLY_SYSTEM_PROMPT,
 }
+
+# WR-03: keep ALLOWED_REPLY_TONES and the prompt map in lock-step at import time.
+if set(_REPLY_PROMPTS_BY_TONE.keys()) != set(ALLOWED_REPLY_TONES):
+    raise RuntimeError(
+        "ALLOWED_REPLY_TONES drifted from _REPLY_PROMPTS_BY_TONE — "
+        "update both when adding a new tone."
+    )
 
 
 def build_reply_generation_messages(
