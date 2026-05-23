@@ -60,9 +60,7 @@ def staff_setup():
 def test_list_audit_logs_org_admin(org_admin_setup) -> None:
     client, _user, org = org_admin_setup
     AuditLogFactory(organisation=org, entity_type="review", action="reply_posted")
-    AuditLogFactory(
-        organisation=org, entity_type="action_item", action="action_item.created"
-    )
+    AuditLogFactory(organisation=org, entity_type="action_item", action="action_item.created")
     resp = client.get(LIST_URL)
     assert resp.status_code == 200
     assert "results" in resp.data
@@ -124,9 +122,7 @@ def test_staff_scope(staff_setup) -> None:
 def test_staff_cannot_see_brand_items(staff_setup) -> None:
     """Brand-scope action item audit logs are absent from Staff response."""
     client, _staff, org, accessible_shop, _inaccessible_shop = staff_setup
-    brand_item = ActionItemFactory(
-        organisation=org, shop=None, scope=ActionItem.Scope.BRAND
-    )
+    brand_item = ActionItemFactory(organisation=org, shop=None, scope=ActionItem.Scope.BRAND)
     shop_item = ActionItemFactory(
         organisation=org, shop=accessible_shop, scope=ActionItem.Scope.SHOP
     )
@@ -153,9 +149,7 @@ def test_filter_entity_type(org_admin_setup) -> None:
     """?entity_type=review returns only review-type rows."""
     client, _user, org = org_admin_setup
     AuditLogFactory(organisation=org, entity_type="review", action="reply_posted")
-    AuditLogFactory(
-        organisation=org, entity_type="action_item", action="action_item.created"
-    )
+    AuditLogFactory(organisation=org, entity_type="action_item", action="action_item.created")
     resp = client.get(LIST_URL, {"entity_type": "review"})
     assert resp.status_code == 200
     types = {row["entity_type"] for row in resp.data["results"]}
@@ -168,12 +162,8 @@ def test_filter_date_range(org_admin_setup) -> None:
     a = AuditLogFactory(organisation=org, entity_type="review", action="reply_posted")
     b = AuditLogFactory(organisation=org, entity_type="review", action="reply_posted")
     # Backdate one entry to before the range.
-    AuditLog.objects.filter(pk=a.pk).update(
-        created_at=dt.datetime(2020, 1, 1, tzinfo=dt.UTC)
-    )
-    resp = client.get(
-        LIST_URL, {"date_from": "2099-01-01", "date_to": "2099-12-31"}
-    )
+    AuditLog.objects.filter(pk=a.pk).update(created_at=dt.datetime(2020, 1, 1, tzinfo=dt.UTC))
+    resp = client.get(LIST_URL, {"date_from": "2099-01-01", "date_to": "2099-12-31"})
     # 'a' (2020) is outside; 'b' (today) is also outside the 2099 window — both
     # filtered out. Now widen to today:
     resp = client.get(LIST_URL, {"date_from": "2021-01-01"})
@@ -246,3 +236,39 @@ def test_unauthenticated_returns_401() -> None:
     assert resp.status_code in (401, 403)
     # DRF returns 401 when no authentication classes assert credentials, 403
     # when an auth class is present but rejects. Either is a valid block.
+
+
+def test_filter_entity_type_whitelist_rejects_unknown(org_admin_setup) -> None:
+    """WR-01 regression: entity_type outside the whitelist returns 400."""
+    client, _user, _org = org_admin_setup
+    resp = client.get(LIST_URL, {"entity_type": "shop_sync"})
+    assert resp.status_code == 400
+
+
+def test_filter_date_from_after_date_to_returns_400(org_admin_setup) -> None:
+    """WR-02 regression: date_from > date_to is rejected with 400."""
+    client, _user, _org = org_admin_setup
+    resp = client.get(LIST_URL, {"date_from": "2026-12-31", "date_to": "2026-01-01"})
+    assert resp.status_code == 400
+
+
+def test_filter_shop_inaccessible_for_staff_returns_400(staff_setup) -> None:
+    """WR-04 regression: Staff requesting an inaccessible shop_id gets 400
+    rather than silently receiving an empty page."""
+    client, _staff, _org, _accessible_shop, inaccessible_shop = staff_setup
+    resp = client.get(LIST_URL, {"shop": inaccessible_shop.pk})
+    assert resp.status_code == 400
+
+
+def test_filter_shop_accessible_for_staff_ok(staff_setup) -> None:
+    """WR-04 regression: Staff can still filter by accessible shop_id."""
+    client, _staff, org, accessible_shop, _inaccessible_shop = staff_setup
+    review_in = ReviewFactory(organisation=org, shop=accessible_shop)
+    AuditLogFactory(
+        organisation=org,
+        entity_type="review",
+        entity_id=str(review_in.pk),
+        action="reply_posted",
+    )
+    resp = client.get(LIST_URL, {"shop": accessible_shop.pk})
+    assert resp.status_code == 200

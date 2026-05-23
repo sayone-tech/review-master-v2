@@ -6,7 +6,7 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
-from django_filters.rest_framework import DjangoFilterBackend
+from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
 from rest_framework import mixins, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.renderers import TemplateHTMLRenderer
@@ -151,7 +151,7 @@ def showcase(request: HttpRequest) -> HttpResponse:
     return render(request, "pages/showcase.html", ctx)
 
 
-class AuditLogViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+class AuditLogViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):  # type: ignore[type-arg]
     """Audit log read-only list endpoint (Phase 21).
 
     Per D-04: ORG_ADMIN sees all org-scoped audit log entries (review reply +
@@ -177,7 +177,7 @@ class AuditLogViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         if org_id is None:
             return AuditLog.objects.none()
         if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
-            return list_audit_logs_for_staff(organisation_id=org_id, user=user)
+            return list_audit_logs_for_staff(organisation_id=org_id, user=user)  # type: ignore[arg-type]
         return list_audit_logs_for_org(organisation_id=org_id)
 
 
@@ -201,8 +201,7 @@ def audit_log_view(request: HttpRequest) -> HttpResponse:
             .order_by("actor__full_name")
         )
         actors_list = [
-            {"id": row["actor_id"], "full_name": row["actor__full_name"]}
-            for row in actors_qs
+            {"id": row["actor_id"], "full_name": row["actor__full_name"]} for row in actors_qs
         ]
     context = {
         "actors_json": actors_list,
