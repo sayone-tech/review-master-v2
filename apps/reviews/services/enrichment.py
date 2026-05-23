@@ -36,7 +36,10 @@ from apps.integrations.openai.exceptions import (
     OpenAIPermanentError,
     OpenAITransientError,
 )
-from apps.integrations.openai.guardrails import moderate_input
+from apps.integrations.openai.guardrails import (
+    ReviewWithModeratedComment,
+    moderate_input,
+)
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
 from apps.reviews.models import Review, ReviewTag
@@ -480,13 +483,18 @@ def enrich_review(*, review_id: int) -> None:
             _persist_moderated(review)
             return
 
-        # Flow the truncated text into the prompt (D-21) by mutating the
-        # in-memory review.comment. Not saved — purely a prompt-assembly hand-off.
-        review.comment = truncated_text
+        # Flow the truncated text into the prompt (D-21) via a read-only
+        # proxy instead of mutating `review.comment` in place. A future
+        # contributor switching from `Review.objects.filter(pk=...).update(...)`
+        # to `review.save()` would otherwise silently persist the
+        # `…[truncated]` suffix into the database, corrupting the
+        # reviewer's actual text. Mirrors the pattern in reply_generation
+        # (WR-02).
+        review_for_prompt = ReviewWithModeratedComment(review, truncated_text)
 
         # OpenAI call OUTSIDE the transaction (RESEARCH.md anti-pattern).
         try:
-            result, usage_data = call_openai_enrichment(review=review)
+            result, usage_data = call_openai_enrichment(review=review_for_prompt)
         except (OpenAITransientError, EnrichmentParseError) as exc:
             _persist_failure(review=review, usage_data=None, exc=exc)
             raise  # Celery autoretry_for picks this up

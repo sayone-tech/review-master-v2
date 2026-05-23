@@ -232,6 +232,31 @@ def _persist_moderated_log(
 # --- Public surface -----------------------------------------------------------
 
 
+class ReviewWithModeratedComment:
+    """Lightweight read-only proxy exposing an overridden `comment`.
+
+    D-14 / D-21: the moderated/truncated input text — not the raw
+    `Review.comment` — must flow into the OpenAI prompt assembly. We avoid
+    `review.comment = ...` mutation because an accidental `review.save()`
+    downstream would persist the `…[truncated]` suffix into the database,
+    corrupting the reviewer's actual text. Other attribute access (shop,
+    star_rating, pk, organisation_id, shop_id, etc.) delegates to the
+    wrapped Review.
+
+    Hoisted to guardrails so both `enrich_review` and `generate_reply_draft`
+    share the same definition (review WR-02).
+    """
+
+    __slots__ = ("_review", "comment")
+
+    def __init__(self, review: Review, comment: str) -> None:
+        object.__setattr__(self, "_review", review)
+        object.__setattr__(self, "comment", comment)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._review, name)
+
+
 def moderate_input(
     text: str,
     *,

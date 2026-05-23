@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any
 
 from django.conf import settings
 
@@ -33,6 +32,7 @@ from apps.integrations.openai.exceptions import (
     OpenAITransientError,
 )
 from apps.integrations.openai.guardrails import (
+    ReviewWithModeratedComment,
     moderate_input,
     moderate_output,
     truncate_reply_at_sentence,
@@ -48,25 +48,9 @@ logger = logging.getLogger(__name__)
 _ALLOWED_TONES: frozenset[str] = frozenset(ALLOWED_REPLY_TONES)
 
 
-class _ReviewWithModeratedComment:
-    """Lightweight read-only proxy exposing an overridden `comment`.
-
-    D-14: the moderated/truncated input text — not the raw `Review.comment` —
-    must flow into the OpenAI prompt assembly. We avoid `review.comment = ...`
-    mutation because an accidental `review.save()` downstream would persist
-    the truncation suffix into the database. Other attribute access (shop,
-    star_rating, pk, organisation_id, shop_id, etc.) delegates to the wrapped
-    Review.
-    """
-
-    __slots__ = ("_review", "comment")
-
-    def __init__(self, review: Review, comment: str) -> None:
-        object.__setattr__(self, "_review", review)
-        object.__setattr__(self, "comment", comment)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._review, name)
+# NOTE: `_ReviewWithModeratedComment` was hoisted to
+# `apps.integrations.openai.guardrails.ReviewWithModeratedComment` so both
+# this service and `enrich_review` share a single definition (WR-02).
 
 
 def _write_failure_log(*, review: Review, exc: Exception) -> None:
@@ -120,7 +104,7 @@ def generate_reply_draft(*, review: Review, tone: str) -> str:
         review=review,
         request_type="reply_generation",
     )
-    review_for_prompt = _ReviewWithModeratedComment(review, truncated_comment)
+    review_for_prompt = ReviewWithModeratedComment(review, truncated_comment)
 
     try:
         draft, usage_data = call_openai_reply_generation(
