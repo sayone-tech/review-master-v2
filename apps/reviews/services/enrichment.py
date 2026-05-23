@@ -31,10 +31,12 @@ from django.utils import timezone as dj_timezone
 from apps.common.locks import distributed_lock
 from apps.integrations.openai.client import call_openai_enrichment
 from apps.integrations.openai.exceptions import (
+    ContentModeratedException,
     EnrichmentParseError,
     OpenAIPermanentError,
     OpenAITransientError,
 )
+from apps.integrations.openai.guardrails import moderate_input
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
 from apps.reviews.models import Review, ReviewTag
@@ -227,6 +229,26 @@ def _persist_success_no_comment(*, review: Review) -> None:
     # AFTER commit: emit progress so the modal counter increments
     # identically to a normal enrichment.
     _emit_enrichment_progress(review=review)
+
+
+def _persist_moderated(review: Review) -> None:
+    """Phase 20 (D-15/D-31/D-33): persist FAILED + content_moderated error_code.
+
+    Called by enrich_review when moderate_input raises ContentModeratedException.
+    Does NOT write an AiUsageLog row — guardrails.moderate_input has already
+    written the MODERATED row before raising (D-33). Single-row save; no
+    transaction.atomic() wrapper needed.
+    """
+    review.enrichment_status = Review.EnrichmentStatus.FAILED
+    review.enrichment_error_code = "content_moderated"
+    review.enrichment_attempted_at = dj_timezone.now()
+    review.save(
+        update_fields=[
+            "enrichment_status",
+            "enrichment_error_code",
+            "enrichment_attempted_at",
+        ]
+    )
 
 
 def _persist_failure(
@@ -446,6 +468,21 @@ def enrich_review(*, review_id: int) -> None:
             )
             _persist_success_no_comment(review=review)
             return
+
+        # Phase 20 (D-15/D-33): input moderation BEFORE the OpenAI call and
+        # OUTSIDE any transaction.atomic() block, so the MODERATED AiUsageLog
+        # row written inside guardrails survives a downstream rollback.
+        try:
+            truncated_text = moderate_input(
+                review.comment, review=review, request_type="enrichment"
+            )
+        except ContentModeratedException:
+            _persist_moderated(review)
+            return
+
+        # Flow the truncated text into the prompt (D-21) by mutating the
+        # in-memory review.comment. Not saved — purely a prompt-assembly hand-off.
+        review.comment = truncated_text
 
         # OpenAI call OUTSIDE the transaction (RESEARCH.md anti-pattern).
         try:
