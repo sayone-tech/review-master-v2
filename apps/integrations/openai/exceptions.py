@@ -26,3 +26,7 @@ class OpenAIPermanentError(OpenAIError):
 
 class EnrichmentParseError(OpenAIError):
     """Pydantic validation failed on response.output_parsed — retry once."""
+
+
+class ContentModeratedException(OpenAIError):  # noqa: N818 — name fixed by plan 20-02 (D-16/D-32)
+    """Raised when input or output content is blocked by moderation (Phase 20, D-16/D-32)."""
