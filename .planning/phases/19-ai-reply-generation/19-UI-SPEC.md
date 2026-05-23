@@ -84,7 +84,7 @@ Accent (`yellow`) is reserved for the primary "Submit Reply" action only. The "G
 | Element | Background | Border | Text | Hover bg | Hover text |
 |---------|-----------|--------|------|----------|------------|
 | "Generate with AI" button (idle) | `white` | `line` (#E4E4E7) | `ink` (#18181B) | `line-soft` (#F4F4F5) | `ink` |
-| "Generate with AI" button (generatorOpen=true) | `line-soft` | `line` | `ink` | `line-soft` | `ink` |
+| "Generate with AI" button (generatorOpen=true) | `line-soft` | `line` | `ink` | `line` (#E4E4E7) | `ink` |
 | Tone pill — Professional (idle) | `white` | `line` | `ink` | `amber-tint` (#FEF3C7) | `amber` (#D97706) |
 | Tone pill — Friendly (idle) | `white` | `line` | `ink` | `amber-tint` | `amber` |
 | Tone pill — loading (generatingTone set) | `line-soft` | `line` | `faint` (#A1A1AA) | n/a (disabled) | n/a |
@@ -93,6 +93,8 @@ Accent (`yellow`) is reserved for the primary "Submit Reply" action only. The "G
 | "Cancel" button in confirmation | — | — | `muted` | — | `ink` |
 | Error message | `red-tint` (#FEE2E2) | `red` (left border, 4px) | `red` (#DC2626) | — | — |
 | Spinner icon (Loader2) | — | — | `amber` (#D97706) | — | — |
+
+> **Pre-existing (unchanged):** the YOUR REPLY section label inherits `text-subtle` (#71717A) from the surrounding composer. Not part of this phase's per-element map but documented here so the spec is self-contained when audited in isolation.
 
 Rationale for amber hover on pills: amber-tint/amber is the project's established "AI / enrichment" accent (see enrichment status badges elsewhere). It signals AI action without competing with the yellow primary CTA.
 
@@ -240,7 +242,7 @@ No new error container — the generator uses the same `errorMessage` state vari
 
 ## Copywriting Contract
 
-All strings are exact. No variants, no ellipsis alternatives.
+All strings are exact. No variants, no ellipsis alternatives — except where a single dynamic substitution is declared in the table below.
 
 | Element | Exact Copy | Notes |
 |---------|-----------|-------|
@@ -252,7 +254,8 @@ All strings are exact. No variants, no ellipsis alternatives.
 | Confirmation prompt | `Replace your draft with AI reply?` | No colon. Space before pills. |
 | Cancel button | `Cancel` | Not "Dismiss", not "No thanks" |
 | Error — AI unavailable | `AI generation failed. Please try again or write your reply manually.` | Matches D-17 backend error detail verbatim |
-| Error — rate limited (429) | `You've reached the AI generation limit. Please wait a moment.` | Mirrors existing rate-limit copy pattern in submit handler |
+| Error — rate limited (429), retry-after known | `You've reached the AI generation limit. Please try again in {N} seconds.` | `{N}` is the integer `retry_after_seconds` from the backend's 429 body. Use this variant whenever the backend response includes a positive `retry_after_seconds`. Singular vs plural is acceptable as-is ("1 seconds") since the value is always ≥ 5 for a real rate-limit response. |
+| Error — rate limited (429), retry-after unknown | `You've reached the AI generation limit. Please wait a moment.` | Fallback when the 429 response omits or zeroes `retry_after_seconds`. Mirrors existing rate-limit copy pattern in the submit handler. |
 | `aria-label` — generator button (closed) | `Generate reply with AI` | Includes "reply" for context |
 | `aria-label` — generator button (open) | `Generate reply with AI` | Same — expanded state communicated via `aria-expanded` |
 | `aria-label` — Professional pill | `Generate Professional reply` | |
