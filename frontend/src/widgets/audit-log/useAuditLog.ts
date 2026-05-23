@@ -134,6 +134,14 @@ export function useAuditLog(): UseAuditLogResult {
   }, []);
 
   const changePageSize = useCallback((n: number) => {
+    // WR-06 regression fix: server cursors encode a (timestamp, id) boundary
+    // produced at the previous page_size. When page_size changes the saved
+    // next/prev cursors in prevCursorsRef and the active `cursor` become
+    // stale — clicking Prev with a stale cursor would produce an undefined
+    // boundary on the new page_size. Clear the cursor stack AND reset
+    // `cursor` to null so the next fetch starts from the first page on the
+    // new page_size. Without this, Next -> change page_size -> Prev would
+    // pop a cursor that no longer aligns with the new page boundary.
     setPageSize(n);
     setCursor(null);
     prevCursorsRef.current = [];
