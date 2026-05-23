@@ -99,7 +99,9 @@ export function ReplyComposer({
       setGeneratorOpen(false);
       setGeneratingTone(null);
       let message = "AI generation failed. Please try again or write your reply manually.";
-      if (e instanceof ApiError && e.status === 429) {
+      if (e instanceof ApiError && e.status === 422 && typeof e.data === "object" && e.data && (e.data as { code?: string }).code === "content_moderated") {
+        message = (e.data as { detail?: string }).detail ?? "AI reply isn't available for this review. Please write your reply manually.";
+      } else if (e instanceof ApiError && e.status === 429) {
         if (typeof e.retryAfterSeconds === "number" && e.retryAfterSeconds > 0) {
           message = `You've reached the AI generation limit. Please try again in ${e.retryAfterSeconds} seconds.`;
         } else {
@@ -307,7 +309,7 @@ export function ReplyComposer({
                 aria-expanded={generatorOpen}
                 aria-controls={`ai-generator-${row.id}`}
                 onClick={handleToggleGenerator}
-                className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md text-ink transition-colors ${generatorOpen ? "bg-line-soft hover:bg-line-soft" : "bg-white hover:bg-line-soft"}`}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md text-ink transition-colors ${generatorOpen ? "bg-line-soft hover:bg-line" : "bg-white hover:bg-line-soft"}`}
               >
                 <Sparkles size={12} aria-hidden="true" />
                 Generate with AI
@@ -317,7 +319,7 @@ export function ReplyComposer({
                   <button
                     type="button"
                     onClick={() => setPickerOpen((o) => !o)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium border border-line rounded-md text-ink bg-white hover:bg-line-soft transition-colors"
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md text-ink bg-white hover:bg-line-soft transition-colors"
                   >
                     Use template
                     <ChevronDown size={12} aria-hidden="true" />
@@ -338,7 +340,7 @@ export function ReplyComposer({
                               className="w-full text-left px-3 py-2 hover:bg-line-soft transition-colors"
                             >
                               <div className="text-[13px] font-semibold text-ink truncate">{t.name}</div>
-                              <div className="text-[11.5px] text-muted truncate mt-0.5">{t.content.slice(0, 60)}{t.content.length > 60 ? "…" : ""}</div>
+                              <div className="text-[12px] text-muted truncate mt-1">{t.content.slice(0, 60)}{t.content.length > 60 ? "…" : ""}</div>
                             </button>
                           </li>
                         ))}
