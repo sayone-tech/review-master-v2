@@ -78,6 +78,13 @@ _REPLY_WORD_CAP = 300
 _REPLY_SUFFIX = " (Please review and complete before sending.)"
 
 # SDK exceptions considered transient for the one-retry fail-open path (D-24).
+# Retained for documentation/back-compat; the actual retry loop below catches
+# the broader `Exception` to satisfy the D-24 contract verbatim ("if the call
+# raises ... retry once. If the retry also fails, proceed with the OpenAI
+# call"). Narrow tuples here would let a non-SDK exception (e.g.
+# httpx.RequestError, AttributeError from a future SDK shape change, or any
+# openai.OpenAIError subclass outside this tuple) bypass the fail-open
+# contract and surface as a hard failure to enrichment / reply generation.
 _MODERATION_TRANSIENT_EXCEPTIONS: tuple[type[BaseException], ...] = (
     openai.RateLimitError,
     openai.APIStatusError,
@@ -154,22 +161,33 @@ def _moderate_with_retry(
 
     On second failure: log ERROR `ai.moderation.errored` and return (False, [])
     so the caller fails open. Never raises.
+
+    The except clause is intentionally `Exception` (not the narrow
+    `_MODERATION_TRANSIENT_EXCEPTIONS` tuple) to honour D-24 verbatim — "if
+    the call raises (network, 5xx, rate limit), retry once... If the retry
+    also fails, proceed with the OpenAI call". Any non-transient raise
+    (httpx error, AttributeError from a future SDK shape change, generic
+    OpenAIError subclass) must still fail open rather than crashing the
+    enrichment task or returning HTTP 502 from the reply view. Per
+    CLAUDE.md §21, we log only the error class name + sanitized message —
+    never the moderation input text.
     """
     last_exc: BaseException | None = None
     for attempt in (1, 2):
         try:
             resp = _call_moderation_api(text)
             return _evaluate(resp)
-        except _MODERATION_TRANSIENT_EXCEPTIONS as exc:
+        except Exception as exc:
             last_exc = exc
             if attempt == 1:
                 time.sleep(1.0)
                 continue
             break
     logger.error(
-        "ai.moderation.errored stage=%s entity_id=%s error=%s",
+        "ai.moderation.errored stage=%s entity_id=%s error_class=%s error=%s",
         stage,
         entity_id,
+        type(last_exc).__name__ if last_exc is not None else "",
         last_exc,
     )
     return False, []
