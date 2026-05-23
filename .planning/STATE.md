@@ -4,8 +4,8 @@ milestone: v0.6
 milestone_name: Tag Rework & Action Item Quality
 status: executing
 stopped_at: Phase 20 plans verified — 8 plans (20-01..20-08), 4 waves, plan-checker PASSED with 2 warnings addressed
-last_updated: "2026-05-23T05:52:30.604Z"
-last_activity: 2026-05-22 -- Phase 19 execution started
+last_updated: "2026-05-23T10:56:47.164Z"
+last_activity: 2026-05-23 -- Phase 20 execution started
 progress:
   total_phases: 7
   completed_phases: 6
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-15)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 19 — ai-reply-generation
+**Current focus:** Phase 20 — ai-guardrails
 
 ## Current Position
 
-Phase: 19 (ai-reply-generation) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 19
-Last activity: 2026-05-22 -- Phase 19 execution started
+Phase: 20 (ai-guardrails) — EXECUTING
+Plan: 1 of 8
+Status: Executing Phase 20
+Last activity: 2026-05-23 -- Phase 20 execution started
 
 Progress: [██████░░░░] 60%
 
