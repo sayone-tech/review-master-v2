@@ -330,6 +330,7 @@ REST_FRAMEWORK = {
         "anon": "100/hour",
         "login": "10/15min",
         "review_reply": "30/minute",
+        "audit_log_list": "120/minute",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }

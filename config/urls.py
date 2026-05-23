@@ -7,7 +7,7 @@ from rest_framework.routers import SimpleRouter
 
 from apps.accounts.permissions import IsSuperadmin
 from apps.action_items.urls import api_urlpatterns as action_items_api_urls
-from apps.common.views import ScalarDocsView
+from apps.common.views import AuditLogViewSet, ScalarDocsView
 from apps.notifications.urls import api_urlpatterns as notifications_api_urls
 from apps.organisations.views import OrganisationViewSet
 from apps.regions.views import RegionViewSet
@@ -29,6 +29,7 @@ router.register(
 )
 router.register(r"api/v1/shops", ShopViewSet, basename="shop")
 router.register(r"api/v1/reviews", ReviewViewSet, basename="review")
+router.register(r"api/v1/audit-logs", AuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
     path("", include(router.urls)),
