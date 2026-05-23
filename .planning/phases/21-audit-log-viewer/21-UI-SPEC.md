@@ -1,7 +1,7 @@
 ---
 phase: 21
 slug: audit-log-viewer
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-05-23
@@ -36,20 +36,17 @@ below document the tokens used across existing widgets; Phase 21 must not deviat
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | xs | 4px (`gap-1`) | Icon-to-text gaps inside pills and badges |
-| sm | 8px (`gap-2`, `p-2`) | Compact controls, filter label icon gaps |
-| md | 16px (`px-4`, `gap-4`) | Cell horizontal padding, filter grid gap |
+| sm | 8px (`gap-2`, `p-2`, `py-2`) | Compact controls, filter select vertical padding, filter label icon gaps |
+| md | 16px (`px-4`, `gap-4`, `p-4`) | Cell horizontal padding, filter grid gap, filter bar inner padding |
 | lg | 24px (`py-6`, `gap-6`) | Empty/error state vertical rhythm |
-| xl | 32px (`py-8`) | Page-level vertical padding (`md:p-8` from `base_org.html`) |
+| xl | 32px (`py-8`, `w-8`, `h-8`) | Page-level vertical padding (`md:p-8` from `base_org.html`), caret/expand button touch target |
 | 2xl | 48px (`py-12`) | Empty state centering (`px-4 py-12` pattern from ActionItems) |
 | 3xl | 64px | Not used in this phase |
 
 Exceptions:
-- Filter bar inner padding: `p-3.5` (14px) — matches `ActionItemFilters` exactly.
-- Filter select inputs: `px-3.5 py-[10px]` — exact value carried from `ActionItemFilters`.
 - Nav item active left border: `border-l-[3px]` — matches `_nav_item.html`.
 - Details panel (expanded row): `px-4 py-3` — matches table cell rhythm.
 - Pagination footer: `px-4 py-3` — matches `ReviewManagementWidget` and `ActionItemManagementWidget`.
-- Touch target for caret/expand button: 30×30px (`w-[30px] h-[30px]`) — matches pagination buttons.
 
 ---
 
@@ -58,12 +55,13 @@ Exceptions:
 | Role | Size | Weight | Line Height | Color token | Usage |
 |------|------|--------|-------------|-------------|-------|
 | Page heading | 20px (`text-[20px]`) | 600 (`font-semibold`) | 1.3 | `text-ink` | "Activity Log" `<h1>` |
-| Body / cell text | 14px (`text-[14px]`) | 400 (`font-normal`) | 1.5 | `text-text` | Table cell default, filter labels |
-| Secondary / meta | 13px (`text-[13px]`) | 400 | 1.4 | `text-muted` | Pagination "Showing N–M of X", relative dates |
-| Label caps | 11.5px (`text-[11.5px]`) | 500 (`font-medium`) | 1 | `text-subtle` | Filter section labels (uppercase, `tracking-[0.05em]`) |
-| Badge / pill | 12px (`text-[12px]`) | 600 (`font-semibold`) | 1 | varies by pill | Type pill, existing `StatusBadge` pattern |
-| Micro / rows label | 12px (`text-[12px]`) | 400 | 1 | `text-muted` | "Rows:" label in pagination footer |
-| Mono / JSON | 12px (`text-[12px]`) | 400 | 1.5 | `text-text` | Expanded `after_data` JSON panel |
+| Body / cell text | 14px (`text-[14px]`) | 400 (`font-normal`) | 1.5 | `text-text` | Table cell default, filter labels, pagination "Rows:" label |
+| Badge / pill / meta | 12px (`text-[12px]`) | 600 (`font-semibold`) | 1 | varies | Type pill, filter label caps (uppercase `tracking-[0.05em]`), date preset buttons |
+| Mono / JSON | 12px (`text-[12px]`) | 400 (`font-normal`) | 1.5 | `text-text` | Expanded `after_data` JSON panel (`font-mono`) |
+
+**Weight summary:** font-normal (400) and font-semibold (600) only. font-medium (500) is not used.
+
+**Size summary:** 20px, 14px, 12px — three sizes. 13px and 11.5px are collapsed into 12px.
 
 **Rationale:** All sizes match the existing `ReviewManagementWidget` and `ActionItemManagementWidget` to maintain
 visual consistency. No new type sizes are introduced.
@@ -118,10 +116,12 @@ All components are hand-authored Tailwind. No third-party registry. Reference im
 ```
 
 - Icon: `clock` (Lucide, 18×18px, `data-lucide="clock"`)
-- Placement: After "Action Items" in the `<ul>`, inside the existing "Manage" `<nav>` group — no new nav group needed
-- Visibility: Org Admin only — wrap in `{% if user.role != "STAFF_ADMIN" %}` block
-  - Staff Admin is NOT excluded (D-03 scopes data, not visibility). Remove the `STAFF_ADMIN` guard — Staff see the page, but the API returns only their accessible entries.
-  - Correction from CONTEXT.md D-06: both `ORG_ADMIN` and `STAFF_ADMIN` can access. No visibility guard on the nav item.
+- Placement: At the bottom of the existing `<ul>` in `templates/partials/sidebar_org.html`, after the Org-Admin-only
+  conditional block (the block containing Reports, Team, Templates, Regions). No new nav group heading is added.
+  The existing sidebar has a single "Manage" `<nav>` group with one `<ul>` — the Activity Log nav item appends to
+  that `<ul>` without a sibling group label. This matches D-12 Option B (bottom of existing nav after the last item).
+- Visibility: Both `ORG_ADMIN` and `STAFF_ADMIN` can access (D-06). No role guard on this nav item. Staff sees the
+  page; the API returns only their accessible entries.
 - Active state: handled automatically by `{% is_active_route %}` tag
 
 ### 2. Page Layout
@@ -157,7 +157,7 @@ No count badge (cursor pagination does not expose total count efficiently).
 
 ### 5. Filter Bar (`AuditLogFilters`)
 
-Container: `<div className="bg-white border border-line rounded-xl p-3.5 mb-[18px]">`
+Container: `<div className="bg-white border border-line rounded-xl p-4 mb-4">`
 
 Single row layout — 4 columns on desktop:
 
@@ -165,7 +165,7 @@ Single row layout — 4 columns on desktop:
 [Type: All / Replies / Action Items] [Date Range] [Actor] [Apply | Reset]
 ```
 
-Grid: `display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr) auto; gap: 14px; align-items: end`
+Grid: `display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr) auto; gap: 16px; align-items: end`
 
 **Type filter** — `<select>` with chevron icon, `selectCls` class pattern from `ActionItemFilters`:
 - Options: `All types` (default), `Replies`, `Action Items`
@@ -173,14 +173,14 @@ Grid: `display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) minma
 - Label: "Type" with `Tag` lucide icon (15px)
 
 **Date Range filter** — dual `<input type="date">` inside single border container:
-- Matches `ActionItemFilters` date range exactly: `px-3.5 py-[10px]` container, `Calendar` icon, em dash separator
+- Matches `ActionItemFilters` date range pattern: `px-4 py-2` container, `Calendar` icon, em dash separator
 - Preset quick-picks rendered as segmented button row above the date inputs:
   - Options: "7d" | "30d" | "90d" | "Custom"
   - Default: "30d" (auto-populates `date_from` = today − 30d on mount)
   - Active preset: `bg-black text-white rounded-sm` — inactive: `bg-white text-muted border border-line rounded-sm`
   - Selecting a preset auto-fills the date inputs and triggers `applyFilters` immediately (no Apply button needed for preset clicks)
   - Selecting "Custom" leaves date inputs active for manual entry; Apply button required
-  - Button size: `px-2.5 py-1 text-[12px] font-medium`
+  - Button size: `px-2 py-1 text-[12px] font-semibold`
 - Label: "Date Range" with `Calendar` lucide icon (15px)
 
 **Actor filter** — `<select>` populated from `audit-log-actors-data` JSON:
@@ -189,7 +189,7 @@ Grid: `display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr) minma
 - Label: "Actor" with `Users` lucide icon (15px)
 
 **Actions column:**
-- "Apply" button: `bg-yellow text-black border border-yellow-hover text-[14px] font-medium px-3.5 py-[10px] rounded-[10px] hover:bg-yellow-hover` — matches `ActionItemFilters`
+- "Apply" button: `bg-yellow text-black border border-yellow-hover text-[14px] font-semibold px-4 py-2 rounded-[10px] hover:bg-yellow-hover` — matches `ActionItemFilters`
 - "Reset" button (conditional, shown when any filter active): dashed border style matching `ActionItemFilters` reset
 
 Filter state: draft-then-apply pattern. Changing any select or date input updates draft state. Apply commits to URL params + refetch. Preset quick-picks are the only exception (immediate apply).
@@ -212,7 +212,7 @@ Wraps `DataTable<AuditLogRow>` from `frontend/src/widgets/data-table/DataTable.t
 
 No row actions column (`renderRowActions` not used — read-only table).
 
-**Table header row:** `bg-[#FAFAFA] text-[11.5px] font-medium text-subtle uppercase tracking-[0.05em]` — matches `DataTable` default thead style.
+**Table header row:** `bg-[#FAFAFA] text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]` — matches `DataTable` default thead style.
 
 **Table body row:** `text-[14px] text-text border-b border-line-soft hover:bg-line-soft transition-colors`.
 
@@ -247,7 +247,7 @@ Trigger: caret button in the Details column. Uses `renderExpanded` prop of `Data
   type="button"
   aria-expanded={false}
   aria-label="Show details"
-  className="w-[30px] h-[30px] rounded-sm flex items-center justify-center text-muted hover:bg-line-soft hover:text-ink"
+  className="w-8 h-8 rounded-sm flex items-center justify-center text-muted hover:bg-line-soft hover:text-ink"
 >
   <ChevronRight className="w-4 h-4" />
 </button>
@@ -277,16 +277,16 @@ Trigger: caret button in the Details column. Uses `renderExpanded` prop of `Data
 
 **Uses cursor-based pagination** (API returns `next` / `previous` cursor URLs, not total count).
 
-Layout matches existing widgets: `flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted`
+Layout matches existing widgets: `flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[12px] text-muted`
 
 Left side:
 - "Rows:" label + `<select>` for page size (options: 10, 25, 50) — matching existing rows-per-page widget
 - No page number buttons (cursor pagination cannot compute total pages)
 
 Right side:
-- Previous button: `w-[30px] h-[30px] rounded-sm bg-white border border-line ... disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft` — matching existing style
-- `<ChevronLeft className="w-3.5 h-3.5" />`
-- Next button: same style with `<ChevronRight />`
+- Previous button: `w-8 h-8 rounded-sm bg-white border border-line ... disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft` — matching existing style
+- `<ChevronLeft className="w-4 h-4" />`
+- Next button: same style with `<ChevronRight className="w-4 h-4" />`
 - Disabled when no `previous` / `next` cursor respectively
 
 No page number buttons. No "Showing N–M of X" (total count not available from cursor pagination).
@@ -345,7 +345,7 @@ Inline error — no full-page error. Rendered inside the table wrapper in place 
   <h3 className="text-[14px] font-semibold text-ink">Could not load activity log</h3>
   <p className="text-[14px] text-muted mt-1">Something went wrong. Please try again.</p>
   <button type="button" onClick={onRetry}
-    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-line rounded-md text-[14px] font-medium text-ink hover:bg-line-soft">
+    className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-md text-[14px] font-semibold text-ink hover:bg-line-soft">
     <RefreshCw size={14} />
     Retry
   </button>
@@ -494,7 +494,7 @@ No third-party component registry is used in this project or this phase.
    - `templates/org-admin/audit-log.html` — Django template
 
 2. **Existing files to modify:**
-   - `templates/partials/sidebar_org.html` — add the Activity Log nav item (after Action Items)
+   - `templates/partials/sidebar_org.html` — add the Activity Log nav item at the bottom of the `<ul>` (after the closing `{% endif %}` of the Org-Admin-only block)
    - `frontend/vite.config.ts` — add `audit-log` entrypoint
    - `config/urls.py` — add audit-log Django view URL
 
@@ -508,11 +508,11 @@ No third-party component registry is used in this project or this phase.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** APPROVED
