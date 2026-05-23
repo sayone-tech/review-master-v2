@@ -118,7 +118,8 @@ export const ReviewManagementWidget = ({
       filters.is_replied !== undefined ||
       filters.has_comment !== undefined ||
       filters.from_date ||
-      filters.to_date,
+      filters.to_date ||
+      (filters.tags && filters.tags.length > 0),
   );
 
   let emptyState: React.ReactNode = null;

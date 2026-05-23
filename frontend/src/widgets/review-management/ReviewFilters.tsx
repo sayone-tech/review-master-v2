@@ -23,7 +23,7 @@ interface Props {
 }
 
 const selectCls =
-  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
+  "appearance-none w-full px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
 
 function ChevronIcon() {
   return (
@@ -45,7 +45,7 @@ function ChevronIcon() {
 
 function FilterLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-subtle uppercase tracking-[0.05em]">
+    <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
       <span className="text-muted">{icon}</span>
       <span>{label}</span>
     </span>
@@ -167,7 +167,7 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
   };
 
   return (
-    <label className="flex flex-col gap-1.5 min-w-0">
+    <label className="flex flex-col gap-2 min-w-0">
       <FilterLabel icon={<Tag size={15} />} label="Tags" />
       <div className="relative" ref={containerRef}>
         <button
@@ -181,7 +181,7 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
           onClick={() => !loading && setOpen((o) => !o)}
           onKeyDown={onTriggerKeyDown}
           className={
-            "w-full flex items-center justify-between gap-2 px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]" +
+            "w-full flex items-center justify-between gap-2 px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]" +
             (loading ? " opacity-50 cursor-not-allowed pointer-events-none" : "")
           }
         >
@@ -310,25 +310,25 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
   };
 
   return (
-    <div className="bg-white border border-line rounded-xl p-3.5 mb-[18px]">
+    <div className="bg-white border border-line rounded-xl p-4 mb-4">
       {/* Row 1 — search + store + rating + sentiment */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns:
             "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
-          gap: 14,
+          gap: 16,
           alignItems: "end",
         }}
       >
         {/* Search */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Search size={15} />} label="Search" />
-          <div className="flex items-center gap-2 px-3.5 py-[10px] bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
+          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
             <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
             <input
               type="text"
-              className="flex-1 min-w-0 bg-transparent focus:outline-none text-[14px] font-medium text-ink placeholder:text-faint placeholder:font-normal"
+              className="flex-1 min-w-0 bg-transparent focus:outline-none text-[14px] font-normal text-ink placeholder:text-faint"
               placeholder="Search reviews…"
               value={draft.search}
               onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
@@ -338,7 +338,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         </label>
 
         {/* Store */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<StoreIcon size={15} />} label="Store" />
           <div className="relative">
             <select
@@ -364,7 +364,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         </label>
 
         {/* Rating */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Star size={15} />} label="Rating" />
           <div className="relative">
             <select
@@ -392,7 +392,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         </label>
 
         {/* Sentiment */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<ThumbsUp size={15} />} label="Sentiment" />
           <div className="relative">
             <select
@@ -432,14 +432,14 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto",
-          gap: 14,
+          gap: 16,
           alignItems: "end",
         }}
       >
         {/* Date range — two date inputs side by side */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Calendar size={15} />} label="Date range" />
-          <div className="flex items-center gap-2 px-3.5 py-[10px] border border-line rounded-[10px] bg-white focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] transition-[border-color,box-shadow]">
+          <div className="flex items-center gap-2 px-4 py-2 border border-line rounded-[10px] bg-white focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] transition-[border-color,box-shadow]">
             <Calendar size={14} className="text-subtle shrink-0" aria-hidden="true" />
             <input
               type="date"
@@ -451,7 +451,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
                 setDraft((d) => ({ ...d, from_date: e.target.value || undefined }))
               }
             />
-            <span className="text-faint font-medium shrink-0">—</span>
+            <span className="text-faint font-normal shrink-0">—</span>
             <input
               type="date"
               aria-label="To date"
@@ -466,7 +466,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         </label>
 
         {/* Reply status */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<MessageSquare size={15} />} label="Reply" />
           <div className="relative">
             <select
@@ -492,7 +492,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         </label>
 
         {/* Comment presence */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Tag size={15} />} label="Comment" />
           <div className="relative">
             <select
@@ -523,7 +523,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-3 py-[10px] rounded-[10px] bg-transparent border border-dashed border-line text-subtle text-[13px] hover:text-ink hover:border-ink transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-transparent border border-dashed border-line text-subtle text-[14px] hover:text-ink hover:border-ink transition-colors"
             >
               <RefreshCw size={13} aria-hidden="true" />
               Reset
@@ -532,7 +532,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
           <button
             type="button"
             onClick={() => onApply(draft)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-[10px] rounded-[10px] bg-yellow text-black border border-yellow-hover text-[14px] font-medium hover:bg-yellow-hover transition-colors shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-yellow text-black border border-yellow-hover text-[14px] font-semibold hover:bg-yellow-hover transition-colors shrink-0"
           >
             Apply
           </button>
