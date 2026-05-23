@@ -230,12 +230,15 @@ def retry_failed_enrichments_task() -> int:
     """
     from apps.reviews.models import Review
 
+    # D-25: skip content_moderated rows — reviewer text is immutable, retry is pure waste.
     ids = list(
         Review.objects.filter(
             enrichment_status=Review.EnrichmentStatus.FAILED,
             enrichment_version__lt=MAX_TOTAL_ENRICH_ATTEMPTS,
             deleted_at__isnull=True,
-        ).values_list("id", flat=True)[:500]
+        )
+        .exclude(enrichment_error_code="content_moderated")
+        .values_list("id", flat=True)[:500]
     )
     for review_id in ids:
         enrich_review_task.delay(review_id)
