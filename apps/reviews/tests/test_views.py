@@ -14,6 +14,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import StaffAccessScope
 from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
 from apps.integrations.openai.exceptions import (
+    ContentModeratedException,
     OpenAIPermanentError,
     OpenAITransientError,
 )
@@ -541,3 +542,60 @@ class TestGenerateReplyEndpoint:
 
         assert resp.status_code == 200
         assert len(ctx.captured_queries) <= 4, [q["sql"] for q in ctx.captured_queries]
+
+    # ------------------------------------------------------------------
+    # Plan 20-07: ContentModeratedException -> HTTP 422 with canonical body
+    # ------------------------------------------------------------------
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_generate_reply_returns_422_on_content_moderated(self, mock_generate) -> None:
+        """D-16/D-26/D-32: moderation block maps to HTTP 422 with canonical body."""
+        mock_generate.side_effect = ContentModeratedException("input flagged")
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 422
+        assert resp.json() == {
+            "code": "content_moderated",
+            "detail": "AI reply isn't available for this review. Please write your reply manually.",
+        }
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_generate_reply_422_canonical_detail_string_byte_exact(self, mock_generate) -> None:
+        """D-26 regression: the user-facing copy must match byte-for-byte."""
+        mock_generate.side_effect = ContentModeratedException("output flagged")
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 422
+        assert (
+            resp.json()["detail"]
+            == "AI reply isn't available for this review. Please write your reply manually."
+        )
+
+    @patch("apps.reviews.views.generate_reply_draft")
+    def test_generate_reply_422_does_not_leak_categories_or_review_text(
+        self, mock_generate
+    ) -> None:
+        """T-20-LK: 422 body must contain only ``code`` and ``detail`` keys."""
+        mock_generate.side_effect = ContentModeratedException("input flagged")
+        org = OrganisationFactory()
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+
+        assert resp.status_code == 422
+        assert set(resp.json().keys()) == {"code", "detail"}

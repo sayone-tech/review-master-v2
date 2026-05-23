@@ -22,6 +22,7 @@ from apps.accounts.models import User
 from apps.common.permissions import IsOrgScoped
 from apps.common.viewsets import TenantScopedViewSet
 from apps.integrations.openai.exceptions import (
+    ContentModeratedException,
     OpenAIPermanentError,
     OpenAITransientError,
 )
@@ -273,6 +274,23 @@ class ReviewViewSet(
         tone: str = serializer.validated_data["tone"]
         try:
             draft = generate_reply_draft(review=review, tone=tone)
+        except ContentModeratedException:
+            # D-16/D-26/D-32: input or output blocked by moderation.
+            # Caught BEFORE OpenAITransient/Permanent because
+            # ContentModeratedException inherits from OpenAIError —
+            # most-specific catch first. Body is the canonical user-facing
+            # string from D-26; no LLM categories or review text leak (T-20-LK).
+            logger.info(
+                "generate_reply blocked by moderation review_id=%s",
+                review.pk,
+            )
+            return Response(
+                {
+                    "code": "content_moderated",
+                    "detail": "AI reply isn't available for this review. Please write your reply manually.",
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
         except (OpenAITransientError, OpenAIPermanentError) as exc:
             # D-17: known OpenAI failures (transient + permanent) map to a
             # single generic 502 response. Service layer has already written
