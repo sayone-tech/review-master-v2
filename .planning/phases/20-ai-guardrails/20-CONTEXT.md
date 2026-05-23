@@ -1,7 +1,7 @@
 # Phase 20: AI Guardrails - Context
 
 **Gathered:** 2026-05-21
-**Updated:** 2026-05-23 — refined length limits, moderation behavior, and failure UX (decisions D-21 through D-26)
+**Updated:** 2026-05-23 — refined length limits, moderation behavior, failure UX (D-21..D-27) + RESEARCH.md resolutions (D-28..D-33)
 **Status:** Ready for planning
 
 <domain>
@@ -79,18 +79,27 @@ Add safety and control mechanisms around every OpenAI call in the platform — b
 
 - **D-21:** **Input cap is env-configurable** — new setting `OPENAI_REVIEW_TEXT_MAX_CHARS` (default 4000) read from environment. Used by the truncation step in `moderate_input()` / prompt assembly. Mirrors §14.8 settings style. (Supersedes the hard-coded 4000 implied by D-03.)
 - **D-22:** **Output cap stays a constant** — 300 words, hard sentence-truncate, no env knob. (Confirms D-08; no change.)
-- **D-23:** **Category-aware blocking** — `results[0].flagged` is NOT used as the block trigger. Instead, treat the moderation response as flagged-for-blocking ONLY if any of the following high-severity categories are true:
-  - `sexual/minors`
-  - `hate/threatening`
-  - `violence/graphic`
-  - `self-harm/intent`
-  - `self-harm/instructions`
+- **D-23:** **Category-aware blocking** — `results[0].flagged` is NOT used as the block trigger. Instead, iterate `response.results[0].categories.model_dump()` (which returns Pydantic field names with underscores) and block if any of these high-severity keys is `True`:
+  - `sexual_minors`
+  - `hate_threatening`
+  - `violence_graphic`
+  - `self_harm_intent`
+  - `self_harm_instructions`
 
-  Other flagged categories (e.g. plain `harassment`, plain `hate`, mild `sexual`, plain `violence`, `self-harm` without intent/instructions) are logged at INFO with the full category list but do NOT block the OpenAI call. The exact category set lives in a module-level constant `BLOCKING_MODERATION_CATEGORIES` in `guardrails.py` so it's auditable in one place. Both `moderate_input()` and `moderate_output()` use the same constant.
+  **IMPORTANT:** Use underscore form (per D-30). The slash form (`self-harm/intent`) is the SDK's JSON alias and only appears when calling `model_dump(by_alias=True)`. Using slash strings against default `model_dump()` would silently never match → fail-open. Other flagged categories (e.g. plain `harassment`, plain `hate`, mild `sexual`, plain `violence`, `self_harm` without intent/instructions) are logged at INFO with the full category list but do NOT block the OpenAI call. The exact category set lives in a module-level constant `BLOCKING_MODERATION_CATEGORIES` in `guardrails.py` so it's auditable in one place. Both `moderate_input()` and `moderate_output()` use the same constant.
 - **D-24:** **Moderation API failure is fail-open with one retry** — if the `client.moderations.create(...)` call raises (network, 5xx, rate limit), retry once after 1 second. If the retry also fails, **proceed with the OpenAI call**, log a single record at ERROR `{event: "ai.moderation.errored", entity_type, entity_id, stage, error}`, and continue. Rationale: a moderation outage should not silently block all AI features for the platform. Trade-off accepted: brief window where unsafe content could reach OpenAI; OpenAI itself enforces usage policies as a backstop.
 - **D-25:** **`retry_failed_enrichments_task` never retries content_moderated rows** — the Beat task's queryset filters `enrichment_status = FAILED` AND `error_code != "content_moderated"`. Reviewer text doesn't change, so retrying is pure waste. Other `FAILED` rows (e.g. `error_code IN ("openai_5xx", "parse_error", "openai_timeout")`) continue to be retried up to 3 total attempts as today.
 - **D-26:** **User-facing copy for moderated content is shared between input and output cases** — single canonical message: `"AI reply isn't available for this review. Please write your reply manually."` Returned with HTTP 422 from `ReviewViewSet.generate_reply` on both `ContentModeratedException` paths. Frontend renders this string verbatim (no error-code branching). This keeps the UX simple: the user is told what they can do (write manually), not why (which would leak moderation criteria). For enrichment, no user-facing copy is needed — the failure is silent in the dashboard; the absence of tags/sentiment is the only signal.
 - **D-27:** **"Generate with AI" button is always enabled** — the frontend does NOT disable or hide the button based on prior `enrichment_status = FAILED, error_code = content_moderated`. The user clicks; backend re-runs moderation; the inline error shows the D-26 copy. Rationale: simpler frontend (no need to surface error_code in the review payload), one extra API call per blocked attempt is acceptable. If users complain about the dead-click experience, revisit by exposing `review.ai_reply_available: bool` in the API and disabling the button when false.
+
+### Resolutions from RESEARCH.md (2026-05-23)
+
+- **D-28:** **Status enum casing is UPPERCASE** — supersedes D-20's lowercase `"moderated"`. The new `AiUsageLog.Status` value is `MODERATED = "MODERATED", "Moderated"`, matching existing `SUCCESS`/`FAILED`. The Django migration is a single `AlterField` adding the new TextChoice; `max_length=10` already suffices (9 chars). Always reference `AiUsageLog.Status.MODERATED` (never the string literal).
+- **D-29:** **Output-moderation AiUsageLog row carries real tokens and real cost** — supersedes D-20's "tokens = 0" assumption for the output path. The OpenAI call did execute and tokens were consumed before output moderation fired, so accounting must reflect reality. To distinguish input vs output moderation events: input-moderation writes `status=MODERATED, error_code="content_moderated", prompt_tokens=0, completion_tokens=0, estimated_cost_usd=0`. Output-moderation writes `status=MODERATED, error_code="output_moderated", prompt_tokens=<real>, completion_tokens=<real>, estimated_cost_usd=<real>`. The user-facing HTTP body (D-26) keeps a single shared `code: "content_moderated"` so the frontend doesn't branch — the distinction is internal-only for cost analytics.
+- **D-30:** **BLOCKING_MODERATION_CATEGORIES uses underscore form** — supersedes the slash-form snippet in `<code_context>` (which was a bug — see RESEARCH.md "Pitfall 1"). Constant lives in `apps/integrations/openai/guardrails.py` as: `BLOCKING_MODERATION_CATEGORIES: frozenset[str] = frozenset({"sexual_minors", "hate_threatening", "violence_graphic", "self_harm_intent", "self_harm_instructions"})`. Add a one-line comment explaining the underscore-vs-slash decision so future readers don't "fix" it back.
+- **D-31:** **Denormalized `Review.enrichment_error_code` field** for the D-25 retry-task filter. New `CharField(max_length=32, blank=True, default="")` on `Review`. Populated by `_persist_failure` (with `error_code` it already produces, e.g. `openai_5xx`, `parse_error`) and the new `_persist_moderated` helper (with `content_moderated`). The retry task adds `.exclude(enrichment_error_code="content_moderated")` to its existing queryset. One migration; zero joins; idiomatic Django. Backfill is empty-string default — historical `FAILED` rows simply won't carry an error_code and remain retry-eligible (acceptable since no historical moderation rows exist before this phase).
+- **D-32:** **`ContentModeratedException` inherits from `OpenAIError`** (already-existing base at `apps/integrations/openai/exceptions.py:11`), not bare `Exception`. Satisfies D-16 (since `OpenAIError` IS an `Exception` subclass) and keeps the catch hierarchy uniform — view-layer `except OpenAIError` still works as a catch-all.
+- **D-33:** **`AiUsageLog` for moderated events is written inside `guardrails.py`** — the moderate functions accept `review: Review | None = None, stage: str` and, on block, write the `MODERATED` `AiUsageLog` row themselves before raising `ContentModeratedException`. Calling services do NOT need to know about `AiUsageLog` for the moderation path. Function signature: `moderate_input(text: str, *, review: Review | None = None) -> str` (returns possibly-truncated text; raises on block). `review=None` skips the side-effect write — used by unit tests of the guardrails module in isolation. **The moderation call must happen OUTSIDE any `transaction.atomic()` block** so a downstream rollback doesn't erase the safety-event audit row (see RESEARCH.md Pitfall 3).
 
 </decisions>
 
