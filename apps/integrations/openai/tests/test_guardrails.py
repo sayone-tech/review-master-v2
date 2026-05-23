@@ -307,3 +307,24 @@ class TestFailOpenRetry:
 
         assert result == "clean review"
         assert any("ai.moderation.errored" in rec.message for rec in caplog.records)
+
+    def test_fail_open_non_transient_exception_still_fails_open(self, caplog) -> None:
+        # WR-01 regression: D-24 says "if the call raises ... retry once. If
+        # the retry also fails, proceed with the OpenAI call" — the contract
+        # is broad. The previous narrow tuple
+        # (RateLimitError | APIStatusError | APIConnectionError) would let a
+        # generic exception (httpx error, AttributeError, OpenAIError subclass
+        # outside that tuple) propagate uncaught, crashing the enrichment task
+        # or returning HTTP 502 from the reply view. After WR-01 the retry
+        # loop catches bare Exception. Pin that behaviour here.
+        with (
+            patch(_PATCH_TARGET, side_effect=RuntimeError("unexpected boom")),
+            patch(_SLEEP_TARGET) as mock_sleep,
+            caplog.at_level("ERROR", logger="apps.integrations.openai.guardrails"),
+        ):
+            result = moderate_input("clean review")
+
+        assert result == "clean review"
+        # One retry with the 1s sleep, then fail-open ERROR log.
+        mock_sleep.assert_called_once_with(1.0)
+        assert any("ai.moderation.errored" in rec.message for rec in caplog.records)
