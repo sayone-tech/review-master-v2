@@ -32,6 +32,7 @@ export default defineConfig({
         "reply-templates": resolve(__dirname, "src/entrypoints/reply-templates.tsx"),
         "shop-targets": resolve(__dirname, "src/entrypoints/shop-targets.tsx"),
         reports: resolve(__dirname, "src/entrypoints/reports.tsx"),
+        "audit-log": resolve(__dirname, "src/entrypoints/audit-log.tsx"),
       },
     },
   },
