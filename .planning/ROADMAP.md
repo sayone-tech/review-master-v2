@@ -263,3 +263,33 @@ Cross-cutting constraints: BLOCKING_MODERATION_CATEGORIES uses underscore form (
 | 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
 | 18. Action Item Duplicate Merge | v0.6 | 4/4 | Complete    | 2026-05-22 |
 | 19. AI Reply Generation | v0.6 | 3/3 | Complete   | 2026-05-22 |
+| 20. AI Guardrails | v0.7 | 0/8 | Not started | - |
+| 21. Audit Log Viewer | v0.7 | 0/4 | Not started | - |
+
+### Phase 21: Audit Log Viewer
+
+**Goal**: Org Admins and Staff can view a read-only "Activity Log" page showing reply and action item audit events scoped to their organisation; Staff Admins see only entries from their accessible shops; the list is cursor-paginated and filterable by type, date range, and actor.
+**Depends on**: Phase 18 (action_item.merged AuditLog write), Phase 19 (AuditLog model in place)
+**Requirements**: REQ-01, REQ-02, REQ-03, REQ-04, REQ-05, REQ-06, REQ-07, REQ-08, REQ-09
+**Success Criteria** (what must be TRUE):
+
+  1. GET /api/v1/audit-logs/ returns cursor-paginated results scoped to the caller's org; Staff receives only entries from their accessible shops and SHOP-scope action items
+  2. Response has next/previous cursor URLs, no before_data field, and includes actor_name (null for system actions)
+  3. Filters work: entity_type (review/action_item), actor (user ID or "system"), date_from/date_to (ISO date), shop
+  4. Superadmin receives 403; unauthenticated receives 401; throttle enforced at 120/minute
+  5. "Activity Log" nav item appears in sidebar_org.html for both ORG_ADMIN and STAFF_ADMIN
+  6. /admin/org/activity-log/ renders the Django template with React widget at #audit-log-root
+  7. React widget shows 5-column table with expandable JSON detail panel, Type pills (Reply/Action Item), cursor pagination, and filter bar with 30d default date preset
+**Plans**: 4 plans
+
+Wave 1 (parallel):
+
+- [ ] 21-01-PLAN.md — Selectors (list_audit_logs_for_org/staff), AuditLogReadSerializer, AuditLogCursorPagination, AuditLogFilterSet, selector tests (REQ-01/REQ-02/REQ-03/REQ-04)
+- [ ] 21-02-PLAN.md — AuditLogViewSet in apps/common/views.py + audit_log_view + URL registration + settings throttle + API tests (REQ-01/REQ-02/REQ-03/REQ-04/REQ-05/REQ-09)
+
+Wave 2 (depends on Wave 1):
+
+- [ ] 21-03-PLAN.md — Django template templates/org-admin/audit-log.html + sidebar Activity Log nav item (REQ-06/REQ-07/REQ-08)
+- [ ] 21-04-PLAN.md — React widget: types, utils, api, useAuditLog hook, TypePill, AuditLogFilters, AuditLogTable, AuditLogWidget + vite entrypoint (REQ-07/REQ-08)
+
+Cross-cutting constraints: IsOrgScoped permission (NOT IsStaffAdmin — does not exist); AuditLogCursorPagination.ordering = ("-created_at", "id") tiebreaker; AuditLogFactory imported from apps/reviews/tests/factories.py (already exists); templates/org-admin/ directory must be created; after_data.merged_ids.length used for count — no count key on action_item.merged rows.
