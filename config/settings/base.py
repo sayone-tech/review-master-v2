@@ -156,6 +156,8 @@ CHANNEL_LAYERS = {
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini-2024-07-18")
 OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
+# Input cap for review text fed to OpenAI (D-21).
+OPENAI_REVIEW_TEXT_MAX_CHARS = env.int("OPENAI_REVIEW_TEXT_MAX_CHARS", default=4000)
 
 LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
 LANGSMITH_ENDPOINT = env("LANGSMITH_ENDPOINT", default="https://api.smith.langchain.com")
