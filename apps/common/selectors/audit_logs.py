@@ -77,11 +77,19 @@ def list_audit_logs_for_staff(*, organisation_id: int, user: User) -> QuerySet[A
             shop_id__in=accessible_shop_ids,
         ).values_list("pk", flat=True)
     ]
-    accessible_entity_ids = review_ids + action_item_ids
-
+    # CR-01 fix: bind each entity_id list to its matching entity_type. Reviews
+    # and ActionItems have independent integer PK sequences (PK collisions
+    # across the two tables are routine), so a flat entity_id__in=[...] could
+    # leak audit rows whose entity_type/entity_id pair maps to an inaccessible
+    # entity (e.g. an inaccessible review's PK collides with an accessible
+    # action item's PK). The Q(...) | Q(...) split makes the type+id pairing
+    # authoritative — layer-1 defence per CLAUDE.md §9.
     return (
         AuditLog.objects.filter(organisation_id=organisation_id)
         .filter(AUDIT_ENTITY_FILTER)
-        .filter(entity_id__in=accessible_entity_ids)
+        .filter(
+            Q(entity_type="review", entity_id__in=review_ids)
+            | Q(entity_type="action_item", entity_id__in=action_item_ids)
+        )
         .select_related("actor")
     )

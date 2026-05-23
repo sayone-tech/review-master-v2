@@ -130,6 +130,53 @@ def test_list_audit_logs_for_staff_excludes_inaccessible_shop_reviews():
 
 
 @pytest.mark.django_db
+def test_list_audit_logs_for_staff_no_cross_type_pk_collision():
+    """Regression for CR-01: when a Review PK in an inaccessible shop collides
+    with an accessible ActionItem PK, the inaccessible review's audit row must
+    NOT leak via a combined entity_id__in=[...] filter. The Q(...)|Q(...) split
+    in the selector binds each id list to its entity_type."""
+    org = OrganisationFactory()
+    shop_in = ShopFactory(organisation=org)
+    shop_out = ShopFactory(organisation=org)
+    staff = UserFactory(role=User.Role.STAFF_ADMIN, organisation=org)
+    StaffAccessScopeFactory(
+        user=staff,
+        scope_type=StaffAccessScope.ScopeType.SHOP,
+        region=None,
+        shop=shop_in,
+    )
+    # Inaccessible review with a chosen PK.
+    review_out = ReviewFactory(organisation=org, shop=shop_out)
+    # Accessible SHOP-scope action item forced to share the same PK.
+    ai_in = ActionItemFactory(
+        organisation=org,
+        shop=shop_in,
+        scope=ActionItem.Scope.SHOP,
+        pk=review_out.pk,
+    )
+    # Audit rows for both: the inaccessible review (should be hidden) and the
+    # accessible action item (should be visible).
+    AuditLogFactory(
+        organisation=org,
+        entity_type="review",
+        entity_id=str(review_out.pk),
+        action="reply_posted",
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="action_item",
+        entity_id=str(ai_in.pk),
+        action="action_item.status_changed",
+    )
+    rows = list(list_audit_logs_for_staff(organisation_id=org.id, user=staff))
+    # The review row must NOT leak even though its PK matches an accessible
+    # action item's PK.
+    assert all(not (r.entity_type == "review" and r.entity_id == str(review_out.pk)) for r in rows)
+    # The accessible action item row IS visible.
+    assert any(r.entity_type == "action_item" and r.entity_id == str(ai_in.pk) for r in rows)
+
+
+@pytest.mark.django_db
 def test_serializer_includes_actor_name_excludes_before_data():
     org = OrganisationFactory()
     actor = UserFactory(role=User.Role.ORG_ADMIN, organisation=org, full_name="Alice Admin")
