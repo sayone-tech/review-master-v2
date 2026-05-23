@@ -63,7 +63,7 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 
 ### 📋 v0.7 — AI Safety & Governance (Planned)
 
-- [ ] **Phase 20: AI Guardrails** — Input and output safety controls around all OpenAI calls: OpenAI Moderation API checks, content length truncation, per-org daily token budget (Redis counter), org-level AI enable/disable toggle (Superadmin)
+- [x] **Phase 20: AI Guardrails** — Input and output safety controls around all OpenAI calls: OpenAI Moderation API checks (category-aware blocking on 5 high-severity categories, fail-open with 1 retry on API errors), content length truncation (env-configurable `OPENAI_REVIEW_TEXT_MAX_CHARS`, default 4000), 300-word output cap with sentence-boundary truncation, shared HTTP 422 mapping for moderated content. Per-org token budget + Superadmin AI toggle deferred to a future pricing phase. (completed 2026-05-23)
 - [ ] **Phase 21: Audit Log Viewer** — Read-only "Activity Log" page in Org Admin UI showing reply and action item audit events; Staff-scoped to accessible shops; cursor-paginated; filters by type, date, and actor
 
 ## Phase Details
@@ -263,7 +263,7 @@ Cross-cutting constraints: BLOCKING_MODERATION_CATEGORIES uses underscore form (
 | 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
 | 18. Action Item Duplicate Merge | v0.6 | 4/4 | Complete    | 2026-05-22 |
 | 19. AI Reply Generation | v0.6 | 3/3 | Complete   | 2026-05-22 |
-| 20. AI Guardrails | v0.7 | 0/8 | Not started | - |
+| 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 0/4 | Not started | - |
 
 ### Phase 21: Audit Log Viewer
