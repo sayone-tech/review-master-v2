@@ -4,20 +4,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchAuditLogs } from "./api";
 import type { AuditLogRow, FilterParams } from "./types";
+import { defaultDateRange } from "./utils";
 
 const DEFAULT_PAGE_SIZE = 50;
-const DEFAULT_DATE_WINDOW_DAYS = 30;
-
-function isoDate(d: Date): string {
-  // YYYY-MM-DD in UTC — server compares against created_at::date.
-  return d.toISOString().split("T")[0];
-}
-
-function defaultDateRange(): { date_from: string; date_to: string } {
-  const today = new Date();
-  const from = new Date(Date.now() - DEFAULT_DATE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-  return { date_from: isoDate(from), date_to: isoDate(today) };
-}
 
 function readUrlFilters(): FilterParams {
   if (typeof window === "undefined") return defaultDateRange();

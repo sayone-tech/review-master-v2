@@ -6,22 +6,11 @@ import { AuditLogFilters } from "./AuditLogFilters";
 import { AuditLogTable } from "./AuditLogTable";
 import type { ActorOption, FilterParams } from "./types";
 import { useAuditLog } from "./useAuditLog";
+import { defaultDateRange } from "./utils";
 
 interface Props {
   userRole: string;
   actors: ActorOption[];
-}
-
-const DEFAULT_DATE_WINDOW_DAYS = 30;
-
-function isoDate(d: Date): string {
-  return d.toISOString().split("T")[0];
-}
-
-function defaultDateRange(): { date_from: string; date_to: string } {
-  const today = new Date();
-  const from = new Date(Date.now() - DEFAULT_DATE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-  return { date_from: isoDate(from), date_to: isoDate(today) };
 }
 
 function computeHasActiveFilters(filters: FilterParams): boolean {

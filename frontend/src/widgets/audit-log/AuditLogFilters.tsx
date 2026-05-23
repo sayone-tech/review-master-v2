@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, Tag, Users } from "lucide-react";
 import type { ActorOption, FilterParams } from "./types";
+import { isoDate } from "./utils";
 
 const selectCls =
   "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
@@ -19,10 +20,6 @@ interface Props {
   onApply: (next: FilterParams) => void;
   onReset: () => void;
   hasActiveFilters: boolean;
-}
-
-function isoDate(d: Date): string {
-  return d.toISOString().split("T")[0];
 }
 
 function presetRange(preset: Exclude<Preset, "Custom">): { date_from: string; date_to: string } {
