@@ -715,3 +715,159 @@ def test_no_comment_enrichment_clears_stale_review_tag_rows() -> None:
         enrich_review(review_id=review.pk)
     mock_call.assert_not_called()
     assert ReviewTag.objects.filter(review=review).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 20 — TestEnrichReviewModeration (D-15, D-31, D-33 regression)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestEnrichReviewModeration:
+    """Phase 20 plan 20-05 — input moderation wiring in enrich_review."""
+
+    def test_moderate_input_called_before_openai(self) -> None:
+        """D-15: moderate_input runs first; truncated text flows to OpenAI."""
+        from apps.integrations.openai.exceptions import ContentModeratedException  # noqa: F401
+
+        review = ReviewFactory(
+            comment="Original review text",
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+        )
+        result = _build_result()
+        call_order: list[str] = []
+
+        def _moderate_side_effect(text, *, review=None, request_type="enrichment"):
+            call_order.append("moderate")
+            return "clean truncated text"
+
+        def _openai_side_effect(*, review):
+            call_order.append("openai")
+            # The truncated text from moderate_input must be on the review.comment
+            # in-memory before reaching the prompt assembly (D-21).
+            assert review.comment == "clean truncated text"
+            return (result, _usage())
+
+        with (
+            patch(
+                "apps.reviews.services.enrichment.distributed_lock",
+                side_effect=lambda *_a, **_kw: _lock_acquired(True),
+            ),
+            patch(
+                "apps.reviews.services.enrichment.moderate_input",
+                side_effect=_moderate_side_effect,
+            ) as mock_moderate,
+            patch(
+                "apps.reviews.services.enrichment.call_openai_enrichment",
+                side_effect=_openai_side_effect,
+            ) as mock_openai,
+        ):
+            enrich_review(review_id=review.pk)
+
+        assert call_order == ["moderate", "openai"]
+        assert mock_moderate.call_count == 1
+        # moderate_input was called with the ORIGINAL review.comment.
+        called_text = mock_moderate.call_args.args[0]
+        assert called_text == "Original review text"
+        assert mock_openai.call_count == 1
+
+    def test_moderate_input_blocks_sets_failed_with_error_code(self) -> None:
+        """D-15/D-31: ContentModeratedException → FAILED + content_moderated."""
+        from apps.integrations.openai.exceptions import ContentModeratedException
+
+        review = ReviewFactory(
+            comment="Some flagged content",
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+            enrichment_error_code="",
+        )
+        with (
+            patch(
+                "apps.reviews.services.enrichment.distributed_lock",
+                side_effect=lambda *_a, **_kw: _lock_acquired(True),
+            ),
+            patch(
+                "apps.reviews.services.enrichment.moderate_input",
+                side_effect=ContentModeratedException("input flagged"),
+            ),
+            patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_openai,
+        ):
+            enrich_review(review_id=review.pk)
+
+        mock_openai.assert_not_called()
+        review.refresh_from_db()
+        assert review.enrichment_status == Review.EnrichmentStatus.FAILED
+        assert review.enrichment_error_code == "content_moderated"
+        assert review.enrichment_attempted_at is not None
+
+    def test_moderate_input_does_not_use_atomic_block(self) -> None:
+        """D-33 / Pitfall 3: moderate_input must run OUTSIDE any atomic block
+        opened by enrich_review.
+
+        @pytest.mark.django_db wraps every test in an outer atomic block, so
+        `in_atomic_block` is always True inside a test. Instead, snapshot the
+        savepoint depth BEFORE calling enrich_review, then at the moderation
+        call site assert the depth has not grown — proving no inner
+        transaction.atomic() block from enrich_review is open when
+        moderate_input runs.
+        """
+        from django.db import connection as dj_connection
+
+        review = ReviewFactory(
+            comment="Some text",
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+        )
+        result = _build_result()
+        baseline_depth = len(dj_connection.savepoint_ids)
+        depth_at_call: list[int] = []
+
+        def _moderate_side_effect(text, *, review=None, request_type="enrichment"):
+            depth_at_call.append(len(dj_connection.savepoint_ids))
+            return text
+
+        with (
+            patch(
+                "apps.reviews.services.enrichment.distributed_lock",
+                side_effect=lambda *_a, **_kw: _lock_acquired(True),
+            ),
+            patch(
+                "apps.reviews.services.enrichment.moderate_input",
+                side_effect=_moderate_side_effect,
+            ),
+            patch(
+                "apps.reviews.services.enrichment.call_openai_enrichment",
+                return_value=(result, _usage()),
+            ),
+        ):
+            enrich_review(review_id=review.pk)
+
+        # No nested atomic block from enrich_review is open at the moderation
+        # call site: savepoint depth matches the pre-call baseline (which is
+        # the depth of the outer test-wrapping atomic only).
+        assert depth_at_call == [baseline_depth]
+
+    def test_already_success_review_skips_moderation(self) -> None:
+        """D-15 idempotency: SUCCESS-status review is a no-op.
+
+        Pins CLAUDE.md §12.4 layer-3 short-circuit — prevents a future refactor
+        from moving moderate_input above the SUCCESS guard and silently
+        re-billing moderated traffic.
+        """
+        review = ReviewFactory(
+            comment="Already enriched",
+            enrichment_status=Review.EnrichmentStatus.SUCCESS,
+        )
+        baseline = AiUsageLog.objects.filter(review=review).count()
+
+        with (
+            patch(
+                "apps.reviews.services.enrichment.distributed_lock",
+                side_effect=lambda *_a, **_kw: _lock_acquired(True),
+            ),
+            patch("apps.reviews.services.enrichment.moderate_input") as mock_moderate,
+            patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_openai,
+        ):
+            enrich_review(review_id=review.pk)
+
+        mock_moderate.assert_not_called()
+        mock_openai.assert_not_called()
+        assert AiUsageLog.objects.filter(review=review).count() == baseline
