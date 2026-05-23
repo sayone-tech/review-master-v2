@@ -56,6 +56,7 @@ class AiUsageLog(models.Model):
     class Status(models.TextChoices):
         SUCCESS = "SUCCESS", "Success"
         FAILED = "FAILED", "Failed"
+        MODERATED = "MODERATED", "Moderated"
 
     organisation = models.ForeignKey(
         "organisations.Organisation",
