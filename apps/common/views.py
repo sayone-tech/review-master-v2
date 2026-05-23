@@ -187,15 +187,26 @@ def audit_log_view(request: HttpRequest) -> HttpResponse:
 
     Renders the audit-log page shell. The data table is hydrated client-side
     via /api/v1/audit-logs/. The actor filter dropdown is seeded with the
-    distinct set of actors who have audit log entries in this organisation.
+    distinct set of actors visible to this user (role-aware per WR-03).
     """
     org_id = getattr(request.user, "organisation_id", None)
     actors_list: list[dict[str, object]] = []
     if org_id is not None:
+        # WR-03 fix: scope the actor dropdown to the same set of audit-log
+        # entries the user is actually allowed to read. For Staff this means
+        # actors only appear if they have entries on the Staff user's
+        # accessible shops / SHOP-scope action items — preventing leakage of
+        # ORG_ADMIN names or actors who only operated on brand-scope items
+        # or inaccessible shops.
+        if getattr(request.user, "role", None) == User.Role.STAFF_ADMIN:
+            base_qs = list_audit_logs_for_staff(
+                organisation_id=org_id,
+                user=request.user,  # type: ignore[arg-type]
+            )
+        else:
+            base_qs = list_audit_logs_for_org(organisation_id=org_id)
         actors_qs = (
-            AuditLog.objects.filter(organisation_id=org_id)
-            .filter(actor__isnull=False)
-            .select_related("actor")
+            base_qs.filter(actor__isnull=False)
             .values("actor_id", "actor__full_name")
             .distinct()
             .order_by("actor__full_name")
