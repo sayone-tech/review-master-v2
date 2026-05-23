@@ -98,7 +98,7 @@ export function DuplicatePickerModal({ open, currentItem, onClose, onPicked }: P
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+            className="inline-flex items-center px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft"
           >
             Cancel
           </button>
@@ -106,7 +106,7 @@ export function DuplicatePickerModal({ open, currentItem, onClose, onPicked }: P
             type="button"
             onClick={handleConfirm}
             disabled={selectedId === null}
-            className={`inline-flex items-center px-3.5 py-2 rounded-md text-[13.5px] font-semibold bg-yellow text-black border border-yellow-hover hover:bg-yellow-hover ${
+            className={`inline-flex items-center px-4 py-2 rounded-md text-[14px] font-semibold bg-yellow text-black border border-yellow-hover hover:bg-yellow-hover ${
               selectedId === null ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
             }`}
           >
@@ -165,7 +165,7 @@ export function DuplicatePickerModal({ open, currentItem, onClose, onPicked }: P
                 >
                   <span className="text-[14px] font-semibold text-ink">{item.title}</span>
                   <span className="text-[12px] text-muted mt-1">
-                    {item.scope === "SHOP" ? "Shop" : "Brand"}
+                    {item.scope === "SHOP" ? (item.shop_name ? `Shop · ${item.shop_name}` : "Shop") : "Brand"}
                   </span>
                 </div>
               );

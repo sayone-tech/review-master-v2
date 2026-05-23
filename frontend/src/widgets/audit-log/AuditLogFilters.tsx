@@ -7,7 +7,7 @@ import type { ActorOption, FilterParams } from "./types";
 import { isoDate } from "./utils";
 
 const selectCls =
-  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
+  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
 
 const dateInputCls =
   "px-2 py-1 text-[14px] text-ink bg-white border-0 outline-none focus:ring-0 [&::-webkit-calendar-picker-indicator]:opacity-60";
@@ -54,7 +54,7 @@ function ChevronIcon() {
 
 function FilterLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-subtle uppercase tracking-[0.05em]">
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
       <span className="text-muted">{icon}</span>
       <span>{label}</span>
     </span>

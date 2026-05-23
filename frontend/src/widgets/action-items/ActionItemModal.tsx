@@ -523,7 +523,7 @@ export function ActionItemModal({
         setPickedForMerge(null);
       }}
       onConfirm={() => void handleConfirmDetailMerge()}
-      variant="amber"
+      variant="blue"
       title="Confirm merge"
       message={`Merge 2 items into "${pickedForMerge?.title ?? ""}"? This cannot be undone.`}
       confirmLabel={mergingFromDetail ? "Merging…" : "Merge items"}
