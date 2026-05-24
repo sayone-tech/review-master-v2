@@ -11,7 +11,7 @@ import type {
 } from "./types";
 
 const selectCls =
-  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
+  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
 
 interface DraftFilters {
   search: string;
@@ -176,7 +176,7 @@ export function ActionItemFilters({
         {/* Search */}
         <label className="flex flex-col gap-1.5 min-w-0">
           <FilterLabel icon={<Search size={15} />} label="Search" />
-          <div className="flex items-center gap-2 px-3.5 py-[10px] bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
+          <div className="flex items-center gap-2 px-3.5 py-[10px] bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:ring-2 focus-within:ring-yellow">
             <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
             <input
               type="text"
@@ -309,7 +309,7 @@ export function ActionItemFilters({
         {/* Date range */}
         <label className="flex flex-col gap-1.5 min-w-0">
           <FilterLabel icon={<Calendar size={15} />} label="Date range" />
-          <div className="flex items-center gap-2 px-3.5 py-[10px] border border-line rounded-[10px] bg-white focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] transition-[border-color,box-shadow]">
+          <div className="flex items-center gap-2 px-3.5 py-[10px] border border-line rounded-[10px] bg-white focus-within:ring-2 focus-within:ring-yellow transition-[border-color,box-shadow]">
             <Calendar size={14} className="text-subtle shrink-0" aria-hidden="true" />
             <input
               type="date"

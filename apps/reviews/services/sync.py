@@ -388,6 +388,12 @@ def fetch_and_persist_reviews(
                 )
                 page_reviews = list(page.get("reviews") or [])
                 total_estimate = int(page.get("totalReviewCount", total_estimate or 0))
+                # When syncing a date-bounded window (start_date is set), Google's
+                # totalReviewCount is the all-time count — it will never match the
+                # number of reviews actually fetched. Suppress it from the progress
+                # display so the UI shows "N fetched" without a misleading denominator.
+                # ALL_TIME syncs (start_date is None) keep the full estimate.
+                progress_total: int | None = None if start_date is not None else total_estimate
                 with transaction.atomic():
                     persisted, ids, new_ids = _persist_page(
                         shop=shop, api_reviews=page_reviews, start_date=start_date
@@ -444,7 +450,7 @@ def fetch_and_persist_reviews(
                     "shop_id": shop_id,
                     "status": "fetching",
                     "fetched": total_persisted,
-                    "total_estimate": total_estimate,
+                    "total_estimate": progress_total,
                     "enriched": 0,
                     "started_at": started_at.isoformat(),
                     "last_update_at": dj_timezone.now().isoformat(),
@@ -457,7 +463,7 @@ def fetch_and_persist_reviews(
                         "type": "sync.fetch.progress",
                         "shop_id": shop_id,
                         "fetched": total_persisted,
-                        "total_estimate": total_estimate,
+                        "total_estimate": progress_total,
                     },
                 )
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle, Search } from "lucide-react";
+import { Calendar, Search } from "lucide-react";
 import { Modal } from "../modal/Modal";
 import { ApiError, createShop } from "./api";
 import { emitToast } from "../../lib/toast";
@@ -37,6 +37,18 @@ interface Props {
   existingPlaceIds?: Set<string>;
   allowCustomSyncDepth?: boolean;
 }
+
+const SYNC_DEPTH_OPTIONS: {
+  value: SyncDepth;
+  label: string;
+  subtitle: string;
+  months: number | null;
+  syncTime: string;
+}[] = [
+  { value: "ONE_YEAR", label: "1 year", subtitle: "~12 months", months: 12, syncTime: "~15s" },
+  { value: "TWO_YEARS", label: "2 years", subtitle: "~24 months", months: 24, syncTime: "~30s" },
+  { value: "ALL_TIME", label: "All time", subtitle: "Every review", months: null, syncTime: "~2-5 min" },
+];
 
 export function CreateShopModal({
   open,
@@ -394,45 +406,32 @@ export function CreateShopModal({
             </div>
           )}
 
-          {/* Connected listing pill */}
-          <div
-            className="flex items-center gap-2.5 rounded-md border p-3"
-            style={{ backgroundColor: "#F0FDF4", borderColor: "rgba(22,163,74,0.3)" }}
-          >
-            <CheckCircle
-              size={16}
-              style={{ color: "#16A34A" }}
-              className="shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="text-[13.5px] font-semibold text-ink truncate">{selectedListing?.name}</div>
-              {selectedListing?.address && (
-                <div className="text-[12.5px] text-muted truncate">{selectedListing.address}</div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setStep("pick")}
-              className="text-[12px] underline shrink-0 hover:opacity-80"
-              style={{ color: "#B9860F" }}
-            >
-              Change
-            </button>
-          </div>
-
           <div>
             <label htmlFor="cs-name" className={labelCls}>
               Shop Name
             </label>
-            <input
-              id="cs-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={fieldError("name") ? inputErrorCls : inputCls}
-              aria-label="Shop Name"
-            />
+            <div className={[
+              "flex items-center",
+              fieldError("name") ? inputErrorCls : inputCls,
+              "p-0 overflow-hidden",
+            ].join(" ")}>
+              <input
+                id="cs-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="flex-1 min-w-0 px-3 py-2 bg-transparent focus:outline-none text-[13.5px]"
+                aria-label="Shop Name"
+              />
+              <button
+                type="button"
+                onClick={() => setStep("pick")}
+                className="shrink-0 px-3 py-2 text-[12px] font-semibold border-l border-line hover:bg-line-soft transition-colors"
+                style={{ color: "#B9860F" }}
+              >
+                Change
+              </button>
+            </div>
             {fieldError("name") && (
               <p role="alert" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
                 {fieldError("name")}
@@ -467,23 +466,81 @@ export function CreateShopModal({
 
           {allowCustomSyncDepth && (
             <div>
-              <label htmlFor="cs-sync-depth" className={labelCls}>
-                Review History
-              </label>
-              <p className="mt-1 text-[12px] text-muted">
-                Sets how far back this shop&#39;s initial review sync will go.
+              <div className={labelCls}>Review History</div>
+              <p className="mb-2 text-[13px] text-muted">
+                How far back should we fetch reviews?
               </p>
-              <select
-                id="cs-sync-depth"
-                value={syncDepth}
-                onChange={(e) => setSyncDepth(e.target.value as SyncDepth)}
-                className={inputCls}
-                aria-label="Review History"
+              <div
+                role="radiogroup"
+                aria-label="Review history depth"
+                className="grid gap-2"
+                style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
               >
-                <option value="ONE_YEAR">Last 1 year</option>
-                <option value="TWO_YEARS">Last 2 years</option>
-                <option value="ALL_TIME">All time</option>
-              </select>
+                {SYNC_DEPTH_OPTIONS.map((opt) => {
+                  const isSelected = syncDepth === opt.value;
+                  return (
+                    <label
+                      key={opt.value}
+                      className={[
+                        "flex flex-col items-center justify-center text-center px-3 py-3 rounded-card border cursor-pointer transition-colors select-none",
+                        isSelected
+                          ? "bg-yellow/10 border-yellow-hover ring-1 ring-yellow-hover"
+                          : "bg-white border-line hover:bg-line-soft",
+                      ].join(" ")}
+                    >
+                      <input
+                        type="radio"
+                        name="sync-depth"
+                        value={opt.value}
+                        checked={isSelected}
+                        onChange={() => setSyncDepth(opt.value)}
+                        className="sr-only"
+                      />
+                      <span className="text-[15px] font-bold leading-tight text-ink">
+                        {opt.label}
+                      </span>
+                      <span className="text-[12px] mt-0.5 font-normal text-muted">
+                        {opt.subtitle}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Summary info strip */}
+              {(() => {
+                const sel = SYNC_DEPTH_OPTIONS.find((o) => o.value === syncDepth)!;
+                const fromLabel = sel.months
+                  ? new Date(Date.now() - sel.months * 30 * 24 * 60 * 60 * 1000).toLocaleDateString(
+                      "en-US",
+                      { month: "short", year: "numeric" },
+                    )
+                  : null;
+                return (
+                  <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-line-soft rounded-card">
+                    <span
+                      className="shrink-0 flex items-center justify-center rounded-lg bg-[#111]"
+                      style={{ width: 32, height: 32 }}
+                    >
+                      <Calendar size={15} color="#F5C518" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] font-semibold text-ink leading-snug">
+                        {fromLabel ? `From ${fromLabel} to today` : "All your reviews"}
+                      </div>
+                      <div className="text-[11px] text-muted mt-0.5">
+                        {sel.months
+                          ? `Nightly sync · oldest review ~${sel.months} months old`
+                          : "Nightly sync · every review ever posted"}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[10px] text-muted">Sync time</div>
+                      <div className="text-[13px] font-semibold text-ink">{sel.syncTime}</div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

@@ -23,7 +23,7 @@ interface Props {
 }
 
 const selectCls =
-  "appearance-none w-full px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
+  "appearance-none w-full px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
 
 function ChevronIcon() {
   return (
@@ -182,7 +182,7 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
           onClick={() => !loading && setOpen((o) => !o)}
           onKeyDown={onTriggerKeyDown}
           className={
-            "w-full flex items-center justify-between gap-2 px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]" +
+            "w-full flex items-center justify-between gap-2 px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]" +
             (loading ? " opacity-50 cursor-not-allowed pointer-events-none" : "")
           }
         >
@@ -207,20 +207,22 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
             onKeyDown={onPanelKeyDown}
             className="absolute z-50 mt-1 left-0 right-0 bg-white border border-line rounded-[10px] shadow-md max-h-60 overflow-y-auto py-1"
           >
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-line">
-              <Search size={13} className="text-muted shrink-0" aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setActiveIndex(-1);
-                }}
-                placeholder="Search tags…"
-                className="flex-1 min-w-0 text-[13px] font-semibold text-ink placeholder:text-faint focus:outline-none bg-transparent"
-                aria-label="Search tags"
-              />
+            <div className="px-2 py-2 border-b border-line">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:ring-2 focus-within:ring-yellow">
+                <Search size={13} className="text-muted shrink-0" aria-hidden="true" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setActiveIndex(-1);
+                  }}
+                  placeholder="Search tags…"
+                  className="flex-1 min-w-0 text-[14px] font-normal text-ink placeholder:text-faint focus:outline-none bg-transparent"
+                  aria-label="Search tags"
+                />
+              </div>
             </div>
             {!hasMinChars ? (
               <div className="px-3 py-3 text-[12px] text-muted">
@@ -327,7 +329,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         {/* Search */}
         <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Search size={15} />} label="Search" />
-          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
+          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:ring-2 focus-within:ring-yellow">
             <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
             <input
               type="text"
@@ -446,7 +448,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         {/* Date range — two date inputs side by side */}
         <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Calendar size={15} />} label="Date range" />
-          <div className="flex items-center gap-2 px-4 py-2 border border-line rounded-[10px] bg-white focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] transition-[border-color,box-shadow]">
+          <div className="flex items-center gap-2 px-4 py-2 border border-line rounded-[10px] bg-white focus-within:ring-2 focus-within:ring-yellow transition-[border-color,box-shadow]">
             <Calendar size={14} className="text-subtle shrink-0" aria-hidden="true" />
             <input
               type="date"

@@ -151,7 +151,10 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
   const status = snapshot?.status ?? "fetching";
   const fetched = snapshot?.fetched ?? 0;
   const total = snapshot?.total_estimate ?? null;
+  // When total is known, show a determinate percentage bar.
+  // When total is null (date-bounded sync), show an indeterminate pulse bar.
   const fetchPct = pct(fetched, total);
+  const hasDeterminate = total != null;
   const enrichPct = pct(snapshot?.enriched ?? 0, fetched || 1);
   const eta = computeEtaMinutes(snapshot);
   const isComplete = status === "success";
@@ -254,22 +257,35 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                 Fetched from Google
               </label>
               <div className="text-[14px] font-semibold text-ink mt-1">
-                {fetched} of {total != null ? `~${total}` : "?"}
+                {hasDeterminate ? (
+                  <>{fetched} of ~{total}</>
+                ) : (
+                  <>{fetched} fetched</>
+                )}
               </div>
               <div
                 className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
                 role="progressbar"
-                aria-valuenow={fetchPct}
+                aria-valuenow={hasDeterminate ? fetchPct : undefined}
                 aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Fetched from Google: ${fetchPct}%`}
+                aria-valuemax={hasDeterminate ? 100 : undefined}
+                aria-label={
+                  hasDeterminate
+                    ? `Fetched from Google: ${fetchPct}%`
+                    : `Fetching from Google: ${fetched} reviews so far`
+                }
               >
-                <div
-                  className="h-full bg-yellow rounded-full transition-all"
-                  style={{ width: `${fetchPct}%` }}
-                />
+                {hasDeterminate ? (
+                  <div
+                    className="h-full bg-yellow rounded-full transition-all"
+                    style={{ width: `${fetchPct}%` }}
+                  />
+                ) : (
+                  /* Indeterminate bar for date-bounded syncs where the total is unknown */
+                  <div className="h-full w-1/3 bg-yellow rounded-full animate-pulse" />
+                )}
               </div>
-              {eta != null && (
+              {hasDeterminate && eta != null && (
                 <div className="text-[12px] text-muted mt-1">
                   About {eta} minute{eta === 1 ? "" : "s"} left
                 </div>
