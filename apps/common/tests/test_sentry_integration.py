@@ -73,6 +73,68 @@ def test_before_send_handles_none_values() -> None:
     assert scrubbed == {"email": "[Filtered]", "name": None}
 
 
+# -- retryable-noise drop ---------------------------------------------------
+# These tests cover the _is_retryable_noise gate in _before_send. Sentry
+# floods up if every Google retry surfaces; the gate keeps the issue list
+# focused on real, permanent failures.
+
+
+def _event_with_exception(exc_type: str) -> dict[str, object]:
+    return {
+        "exception": {
+            "values": [
+                {"type": exc_type, "value": "transient", "module": "x"},
+            ],
+        },
+    }
+
+
+def test_before_send_drops_google_unreachable_error() -> None:
+    assert _before_send(_event_with_exception("GoogleUnreachableError"), {}) is None
+
+
+def test_before_send_drops_read_timeout() -> None:
+    assert _before_send(_event_with_exception("ReadTimeout"), {}) is None
+
+
+def test_before_send_drops_connect_timeout() -> None:
+    assert _before_send(_event_with_exception("ConnectTimeout"), {}) is None
+
+
+def test_before_send_drops_connection_error() -> None:
+    assert _before_send(_event_with_exception("ConnectionError"), {}) is None
+
+
+def test_before_send_keeps_non_retryable_exception() -> None:
+    """A real bug like AttributeError must still reach Sentry."""
+    event = _event_with_exception("AttributeError")
+    result = _before_send(event, {})
+    assert result is not None
+    assert result["exception"]["values"][0]["type"] == "AttributeError"
+
+
+def test_before_send_keeps_event_without_exception() -> None:
+    """Plain log events (no exception) are not noise — let them through."""
+    event = {"message": "something happened", "level": "warning"}
+    result = _before_send(event, {})
+    assert result == event
+
+
+def test_before_send_handles_malformed_exception_block() -> None:
+    """If the exception block has unexpected shape, don't crash — let it through."""
+    event = {"exception": "not-a-dict"}
+    result = _before_send(event, {})
+    assert result is not None
+
+    event2 = {"exception": {"values": "not-a-list"}}
+    result2 = _before_send(event2, {})
+    assert result2 is not None
+
+    event3: dict[str, object] = {"exception": {"values": []}}
+    result3 = _before_send(event3, {})
+    assert result3 is not None
+
+
 def test_init_skipped_when_dsn_absent() -> None:
     """When SENTRY_DSN is unset, the settings module did NOT call sentry_sdk.init."""
     from config.settings import base

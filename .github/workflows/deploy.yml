@@ -59,6 +59,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Sync deployment artefacts (compose, scripts, Caddyfile) to S3 so
+      # deploy.sh on EC2 can fetch the latest copies before restart.
+      # Without this, changes under deployment/ in this repo never reach
+      # the running box. Bucket policy + IAM perm scoped to deploy/ prefix.
+      - name: Sync deploy/ assets to S3
+        env:
+          DEPLOY_BUCKET: review-master-static-prod
+        run: |
+          aws s3 cp deployment/compose/docker-compose.prod.yml \
+            "s3://${DEPLOY_BUCKET}/deploy/docker-compose.prod.yml"
+          aws s3 cp deployment/scripts/deploy.sh \
+            "s3://${DEPLOY_BUCKET}/deploy/deploy.sh"
+          aws s3 cp deployment/scripts/load-secrets.sh \
+            "s3://${DEPLOY_BUCKET}/deploy/load-secrets.sh"
+          aws s3 cp deployment/caddy/Caddyfile \
+            "s3://${DEPLOY_BUCKET}/deploy/Caddyfile"
+
       - name: Deploy via SSM Run Command
         id: ssm-deploy
         env:

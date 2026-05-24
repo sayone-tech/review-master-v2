@@ -18,28 +18,47 @@ export ECR_IMAGE="${ECR_REGISTRY}/review-master/app:latest"
 echo "[deploy] Starting at $(date)"
 echo "[deploy] Image: ${ECR_IMAGE}"
 
-# 1. ECR login (instance profile — no hardcoded keys)
+DEPLOY_BUCKET="review-master-static-prod"
+
+# 1. Refresh deploy assets from S3 (which CI just synced from the app repo's
+# deployment/ folder). Without this step, compose / scripts / Caddyfile
+# changes never reach the running box. Self-modifies this very script —
+# safe because bash has already parsed the file before execution begins.
+echo "[deploy] Refreshing deploy assets from s3://${DEPLOY_BUCKET}/deploy/"
+aws s3 cp "s3://${DEPLOY_BUCKET}/deploy/docker-compose.prod.yml" \
+  "${COMPOSE_FILE}"
+aws s3 cp "s3://${DEPLOY_BUCKET}/deploy/load-secrets.sh" \
+  "${APP_DIR}/scripts/load-secrets.sh"
+aws s3 cp "s3://${DEPLOY_BUCKET}/deploy/Caddyfile" \
+  "${APP_DIR}/caddy/Caddyfile"
+# Pull deploy.sh last so any failures above happen against the version
+# already in use, not the new one.
+aws s3 cp "s3://${DEPLOY_BUCKET}/deploy/deploy.sh" \
+  "${APP_DIR}/scripts/deploy.sh"
+chmod +x "${APP_DIR}/scripts/load-secrets.sh" "${APP_DIR}/scripts/deploy.sh"
+
+# 2. ECR login (instance profile — no hardcoded keys)
 aws ecr get-login-password --region "${AWS_REGION}" \
   | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
-# 2. Refresh secrets: SSM -> /etc/review-master.env
+# 3. Refresh secrets: Secrets Manager -> /etc/review-master.env
 "${APP_DIR}/scripts/load-secrets.sh"
 
-# 3. Pull latest image
+# 4. Pull latest image
 docker compose -f "${COMPOSE_FILE}" pull
 
-# 4. Run migrations
+# 5. Run migrations
 docker compose -f "${COMPOSE_FILE}" run --rm web \
   python manage.py migrate --noinput
 
-# 5. Collect static files to S3 (instance profile provides credentials)
+# 6. Collect static files to S3 (instance profile provides credentials)
 docker compose -f "${COMPOSE_FILE}" run --rm web \
   python manage.py collectstatic --noinput --clear
 
-# 6. Restart all services
+# 7. Restart all services
 docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
 
-# 7. Wait for web healthcheck (max 2 min)
+# 8. Wait for web healthcheck (max 2 min)
 echo "[deploy] Waiting for web to become healthy..."
 for i in $(seq 1 24); do
   if docker compose -f "${COMPOSE_FILE}" exec -T web \
