@@ -357,7 +357,7 @@ SIMPLE_JWT = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Review Master API",
+    "TITLE": "Review Bee API",
     "DESCRIPTION": "Internal API for web and mobile clients. Not for external use.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -371,6 +371,10 @@ SPECTACULAR_SETTINGS = {
             }
         }
     },
+    # Favicon for Redoc + Swagger viewers. Served from /static/favicon.ico
+    # (logo/favicon.ico via STATICFILES_DIRS — see §25 brand assets).
+    "REDOC_UI_FAVICON_HREF": "/static/favicon.ico",
+    "SWAGGER_UI_FAVICON_HREF": "/static/favicon.ico",
 }
 
 DJANGO_VITE = {
