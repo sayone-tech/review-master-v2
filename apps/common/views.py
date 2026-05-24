@@ -7,6 +7,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import mixins, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.renderers import TemplateHTMLRenderer
@@ -151,6 +152,72 @@ def showcase(request: HttpRequest) -> HttpResponse:
     return render(request, "pages/showcase.html", ctx)
 
 
+@extend_schema(
+    tags=["audit-log"],
+    summary="List audit log entries (Activity Log)",
+    description=(
+        "Read-only paginated list of audit log entries for the caller's organisation. "
+        "ORG_ADMIN sees all org-scoped entries (review/reply + action_item events). "
+        "STAFF_ADMIN sees only entries whose entity maps to a shop in their "
+        "StaffAccessScope AND only `scope=SHOP` action items — Brand-scope action "
+        "items are NEVER visible to Staff (CLAUDE.md §9 layer-1 defence). "
+        "Superadmin is denied (403). Throttled at 120/min (scope `audit_log_list`). "
+        "Cursor pagination ordered by `(-created_at, id)`; the response Link header "
+        "carries `next` and `previous` cursors. Response body omits `before_data` "
+        "(D-10) and includes `actor_name` (D-11)."
+    ),
+    parameters=[
+        OpenApiParameter(
+            name="entity_type",
+            description="Filter by entity type (whitelist enforced).",
+            enum=["review", "action_item"],
+            required=False,
+        ),
+        OpenApiParameter(
+            name="date_from",
+            description="Inclusive lower bound on `created_at` (ISO 8601 date). Must be ≤ date_to.",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="date_to",
+            description="Inclusive upper bound on `created_at` (ISO 8601 date). Must be ≥ date_from — 400 otherwise.",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="shop_id",
+            description="Filter by shop. For Staff users, the shop_id MUST be in their StaffAccessScope — inaccessible shop_ids return 403.",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="actor_id",
+            description="Filter by actor user ID. For Staff, the dropdown bootstrap surfaces only actors visible in their scoped queryset (Phase 21 WR-03 fix).",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="cursor",
+            description="Opaque cursor from a prior response's Link header (`next` or `previous`). Omit on first page.",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            description="Override the default page size. Capped server-side.",
+            required=False,
+        ),
+    ],
+    responses={
+        200: AuditLogReadSerializer(many=True),
+        400: OpenApiResponse(
+            description="Invalid filter (e.g. `date_from` > `date_to`, or `entity_type` not in whitelist)."
+        ),
+        401: OpenApiResponse(description="Authentication required."),
+        403: OpenApiResponse(
+            description="Caller is Superadmin (no organisation scope), or Staff requested an inaccessible shop_id."
+        ),
+        429: OpenApiResponse(
+            description="Rate limited (120/min/user). Standard DRF throttle response."
+        ),
+    },
+)
 class AuditLogViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):  # type: ignore[type-arg]
     """Audit log read-only list endpoint (Phase 21).
 
