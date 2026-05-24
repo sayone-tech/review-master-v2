@@ -190,15 +190,19 @@ class ActionItemCreateSerializer(serializers.ModelSerializer):  # type: ignore[t
 
 
 class ActionItemUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
-    """ACTN-07: Title, Priority, Due Date, Assignee are editable. Scope/Shop are NOT.
+    """ACTN-07: Title, Priority, Due Date, Assignee, Category are editable.
+    Scope/Shop are NOT.
 
-    Omitting scope and shop from Meta.fields means PATCH/PUT silently ignores
-    them in the payload (DRF validates incoming data only against declared
-    fields).
+    Category was added later (user-feedback fix): AI extraction frequently
+    defaults to OTHER, and users need a way to correct it without recreating
+    the item. Omitting scope and shop from Meta.fields means PATCH/PUT
+    silently ignores them in the payload (DRF validates incoming data only
+    against declared fields).
     """
 
     title = serializers.CharField(min_length=5, max_length=200, required=False)
     priority = serializers.ChoiceField(choices=ActionItem.Priority.choices, required=False)
+    category = serializers.ChoiceField(choices=ActionItem.Category.choices, required=False)
     due_date = serializers.DateField(required=False, allow_null=True)
     assignee = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True
@@ -206,7 +210,13 @@ class ActionItemUpdateSerializer(serializers.ModelSerializer):  # type: ignore[t
 
     class Meta:
         model = ActionItem
-        fields: ClassVar[list[str]] = ["title", "priority", "due_date", "assignee"]
+        fields: ClassVar[list[str]] = [
+            "title",
+            "priority",
+            "category",
+            "due_date",
+            "assignee",
+        ]
 
     def validate_due_date(self, value: Any) -> Any:
         if value is None:
