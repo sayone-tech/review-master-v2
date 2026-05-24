@@ -438,12 +438,45 @@ _SENSITIVE_SUBSTRINGS = frozenset(
     {"email", "token", "key", "secret", "password", "refresh", "access"}
 )
 
+# Transient external-API errors that Celery task retry logic handles cleanly.
+# Don't escalate every retry to Sentry — it floods the issue list with
+# resolved-by-retry noise (Sentry PYTHON-DJANGO-B/C/M/N/Q/R/S/T were all
+# this pattern, ~60 events across 8 issues with zero user impact).
+# Real permanent failures still surface because the task's final-attempt
+# handler raises a distinct, non-suppressed exception type.
+_RETRYABLE_NOISE_EXCEPTION_TYPES = frozenset(
+    {
+        "GoogleUnreachableError",
+        "ReadTimeout",
+        "ConnectTimeout",
+        "ConnectionError",
+        "ConnectionResetError",
+    }
+)
+
+
+def _is_retryable_noise(event: Event) -> bool:
+    """True if the event is a transient external-API error that retry handles."""
+    exception = event.get("exception")
+    if not isinstance(exception, dict):
+        return False
+    values = exception.get("values")
+    if not isinstance(values, list) or not values:
+        return False
+    first = values[0]
+    if not isinstance(first, dict):
+        return False
+    exc_type = first.get("type")
+    return exc_type in _RETRYABLE_NOISE_EXCEPTION_TYPES
+
 
 def _before_send(event: Event, hint: dict[str, object]) -> Event | None:
-    """Recursively scrub fields whose key contains any sensitive substring.
+    """Drop retryable noise, then recursively scrub sensitive fields.
 
     See CONTEXT.md locked decision and CLAUDE.md §22.
     """
+    if _is_retryable_noise(event):
+        return None
 
     def _scrub(obj: object) -> object:
         if isinstance(obj, dict):
