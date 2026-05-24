@@ -93,7 +93,7 @@ def _persist_success(
             enrichment_status=Review.EnrichmentStatus.SUCCESS,
             sentiment=result.sentiment,
             extracted_action_items=[
-                {"title": a.title, "scope": a.scope, "priority": a.priority}
+                {"title": a.title, "scope": a.scope, "priority": a.priority, "category": a.category}
                 for a in result.action_items
             ],
             enrichment_version=models.F("enrichment_version") + 1,

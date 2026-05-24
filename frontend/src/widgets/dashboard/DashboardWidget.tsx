@@ -45,16 +45,6 @@ function StarIcon({ filled }: { filled: boolean }) {
 function NoStoresEmptyState({ isOrgAdmin }: { isOrgAdmin: boolean }) {
   return (
     <div>
-      {/* Page welcome header */}
-      <div className="mb-5">
-        <h1 className="text-[26px] font-semibold text-ink tracking-tight leading-tight mb-1">
-          Welcome to Review Master
-        </h1>
-        <p className="text-[14px] text-muted">
-          Connect your first store to start tracking reviews, sentiment, and performance across locations.
-        </p>
-      </div>
-
       {/* Main empty-state card */}
       <div
         className="bg-white border border-line text-center relative overflow-hidden"

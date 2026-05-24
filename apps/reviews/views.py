@@ -174,7 +174,7 @@ class ReviewViewSet(
 
         result = qs.values("label").annotate(count=Count("id")).order_by("-count", "label")[:limit]
         return Response(
-            [{"label": row["label"], "count": row["count"]} for row in result]  # type: ignore[index]
+            [{"label": row["label"], "count": row["count"]} for row in result]  # type: ignore[index, unused-ignore]
         )
 
     @action(detail=False, methods=["get"], url_path="stats")
