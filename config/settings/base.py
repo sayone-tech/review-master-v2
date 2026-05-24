@@ -122,6 +122,7 @@ CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.initial_backfill_task": {"queue": "google-sync"},
     "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment"},
     "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment"},
+    "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 300  # 5-minute soft limit
@@ -171,6 +172,16 @@ INITIAL_SYNC_PAGE_SIZE = env.int("INITIAL_SYNC_PAGE_SIZE", default=50)
 ENRICHMENT_BATCH_SIZE = env.int("ENRICHMENT_BATCH_SIZE", default=10)
 INCREMENTAL_SYNC_INTERVAL_HOURS = env.int("INCREMENTAL_SYNC_INTERVAL_HOURS", default=6)
 INCREMENTAL_SYNC_JITTER_MINUTES = env.int("INCREMENTAL_SYNC_JITTER_MINUTES", default=30)
+
+# ---------------------------------------------------------------------------
+# AWS — used by Celery queue-depth metric publisher (apps.common.services.
+# cloudwatch_metrics) and any future CloudWatch custom-metric writers.
+# In production the EC2 instance profile supplies credentials; in dev/test
+# the publisher no-ops cleanly when no creds are present.
+# ---------------------------------------------------------------------------
+AWS_REGION = env("AWS_REGION", default="ap-south-1")
+CLOUDWATCH_METRICS_ENABLED = env.bool("CLOUDWATCH_METRICS_ENABLED", default=False)
+CELERY_QUEUE_NAMES = ["google-sync", "ai-enrichment", "default"]
 
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/login/"

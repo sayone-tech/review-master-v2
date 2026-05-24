@@ -66,12 +66,25 @@
 
 | Resource | Spec | Rate | Monthly |
 |---|---|---|---|
-| CloudWatch Alarms | 5 alarms (EC2 CPU, EC2 disk, RDS CPU, RDS memory, RDS storage) | $0.10 / alarm | $0.50* |
+| CloudWatch Alarms | 7 alarms (EC2 CPU/disk/memory/swap, RDS CPU/memory/storage) | $0.10 / alarm | $0.70* |
 | CloudWatch Logs ingestion | ~2 GB/month | $0.67 / GB | $1.34* |
 | CloudWatch Logs storage | ~2 GB (30-day retention) | $0.03 / GB-month | $0.06* |
-| **Subtotal** | | | **$1.90** |
+| CloudWatch Custom Metrics | 6 metrics — CWAgent (mem/swap/disk) + Celery (3 queues) | $0.30 / metric | $1.80* |
+| **Subtotal** | | | **$3.90** |
 
-> *CloudWatch perpetual free tier: 10 alarms, 5 GB ingestion, 5 GB storage — current usage falls within free tier, so **actual billed = $0.00**.
+> *CloudWatch perpetual free tier: 10 alarms, 5 GB ingestion + 5 GB storage, 10 custom metrics. Current usage falls within all three free tiers, so **actual billed ≈ $0.00**. Each new alarm or custom metric beyond those caps adds $0.10 / $0.30 per month respectively.
+
+---
+
+## Audit / Detection (Tier-0, added 2026-05-24)
+
+| Resource | Spec | Rate | Monthly |
+|---|---|---|---|
+| CloudTrail | 1 management-events trail, ap-south-1 only | First trail per region free | $0.00 |
+| VPC Flow Logs | Parquet, 10-min aggregation → S3 | ~$0.50 / GB ingested | ~$0.50 |
+| S3 logs bucket (`review-master-logs-prod`) | ~5 GB (CloudTrail + Flow Logs, 90-day retention) | $0.025 / GB-month | $0.13 |
+| Cost Anomaly Detection | Adopted `Default-Services-Monitor` + email subscription | Free | $0.00 |
+| **Subtotal** | | | **$0.63** |
 
 ---
 
@@ -84,8 +97,9 @@
 | Storage (S3 + ECR) | $0.83 |
 | Networking & DNS | $1.99 |
 | Security (Secrets Manager) | $0.40 |
-| Monitoring (CloudWatch) | $0.00 *(free tier)* |
-| **Total** | **~$43.43** |
+| Monitoring (CloudWatch — alarms/logs/metrics all within free tier) | $0.00 |
+| Audit / Detection (CloudTrail + Flow Logs + logs bucket + Cost Anomaly) | $0.63 |
+| **Total** | **~$44.06** |
 
 ---
 
@@ -98,7 +112,9 @@
 - **VPC, subnets, IGW, route tables, security groups** — no charge.
 - **GitHub Actions OIDC role** — IAM is free.
 - **Budgets:** first 2 budgets free; this project has 1.
-- EC2 disk alarm (`CWAgent` namespace) will only activate once the CloudWatch agent is installed on the instance. Until then it stays in *Insufficient Data* state at no extra cost (custom metric $0.30/metric/month only billed once data is flowing).
+- **CloudWatch agent is installed** as of 2026-05-24 via SSM Association (see `stacks/prod-app/cloudwatch_agent.tf` in the terraform repo). Ships `mem_used_percent`, `swap_used_percent`, `disk_used_percent` to the `CWAgent` namespace. These count against the 10-custom-metric free tier together with the 3 Celery queue depth metrics (6/10 used).
+- **Tier-0 hardening cost delta:** +$0.63/mo (Flow Logs ingest ~$0.50 + logs bucket storage ~$0.13). Everything else stays in free tier.
+- **Headroom before custom metrics start billing:** 4 more metrics. Per-org OpenAI cost (1 metric per org) would consume them as you add customers.
 
 ---
 
