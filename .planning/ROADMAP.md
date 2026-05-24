@@ -8,7 +8,17 @@
 - ✅ **v0.4 — Dashboard** — Phase 14, 8 plans, 38/38 requirements, shipped 2026-05-07
 - ✅ **v0.5 — Configurable Sync Depth** — Phases 15–16, 6 plans, 9/9 requirements, shipped 2026-05-16 → [archive](milestones/v0.5-ROADMAP.md)
 - ✅ **v0.6 — Tag Rework & Action Item Quality** — Phases 17–19, 11 plans, shipped 2026-05-22 → [archive](milestones/v0.6-ROADMAP.md)
-- 🚧 **v0.7 — AI Safety & Governance** — Phases 20–21 (in progress)
+- ✅ **v0.7 — AI Safety & Governance** — Phases 20–21, 12 plans, shipped 2026-05-24 → [archive](milestones/v0.7-ROADMAP.md)
+
+> 🚀 **Web Beta 1 (`web-beta-1`)** — v0.7 marks the close of the first
+> web beta. The web app is on **maintenance footing** as of
+> 2026-05-24; no new feature work until the mobile launch. Tag
+> `web-beta-1` points at this release for rollback / reference.
+
+## Next Up
+
+- 📱 **Mobile app** — scope, requirements, and roadmap to be defined
+  in a new milestone (`/gsd-new-milestone` once direction is clear).
 
 ## Phases
 
@@ -71,10 +81,20 @@ Full archive: `.planning/milestones/v0.6-ROADMAP.md`
 
 </details>
 
-### 🚧 v0.7 — AI Safety & Governance (In Progress)
+<details>
+<summary>✅ v0.7 — AI Safety & Governance (Phases 20–21) — SHIPPED 2026-05-24</summary>
 
-- [x] **Phase 20: AI Guardrails** — Input and output safety controls around all OpenAI calls: OpenAI Moderation API checks (category-aware blocking on 5 high-severity categories, fail-open with 1 retry on API errors), content length truncation (env-configurable `OPENAI_REVIEW_TEXT_MAX_CHARS`, default 4000), 300-word output cap with sentence-boundary truncation, shared HTTP 422 mapping for moderated content. Per-org token budget + Superadmin AI toggle deferred to a future pricing phase. (completed 2026-05-23)
-- [x] **Phase 21: Audit Log Viewer** — Read-only "Activity Log" page in Org Admin UI showing reply and action item audit events; Staff-scoped to accessible shops + SHOP-scope action items only (CLAUDE.md §9 layer-1 defence); cursor-paginated (Prev/Next, no page numbers); filters by type/date/actor with URL-synced state for bookmarkability. (completed 2026-05-24; 6 visual UI checks pending manual verification)
+- [x] Phase 20: AI Guardrails (8/8 plans) — completed 2026-05-23
+- [x] Phase 21: Audit Log Viewer (4/4 plans) — completed 2026-05-24
+
+Full archive: `.planning/milestones/v0.7-ROADMAP.md`
+
+</details>
+
+---
+
+🚀 **Web Beta 1 closed here (2026-05-24).** Web feature work paused;
+mobile app is the next focus.
 
 ## Phase Details
 
@@ -102,50 +122,10 @@ Plans:
 - [x] 14-07: KPI cards + sentiment donut widgets (`KpiCards.tsx` with parallel useQuery hooks; `SentimentDonut.tsx` donut chart + summary bars + coverage footer)
 - [x] 14-08: Dashboard root + entrypoint + error pages (`DashboardWidget.tsx` with `QueryClientProvider`, `dashboard.tsx` entrypoint, `vite.config.ts` entry, branded 404/500 templates + Django handler config)
 
-> **Phases 15–19** are shipped and archived. Full details in
-> [`milestones/v0.5-ROADMAP.md`](milestones/v0.5-ROADMAP.md) and
-> [`milestones/v0.6-ROADMAP.md`](milestones/v0.6-ROADMAP.md).
-
-### Phase 20: AI Guardrails
-
-**Goal**: Add input/output safety controls around all OpenAI calls — Moderation API checks (category-aware blocking) and content length truncation. MVP scope: NO token budget, NO org AI toggle (deferred to a future pricing phase).
-**Depends on**: Phase 19
-**Requirements**: D-01 through D-33 (from 20-CONTEXT.md)
-**Success Criteria** (what must be TRUE):
-
-  1. Review text >4000 chars (env-configurable) is truncated with "…[truncated]" before any OpenAI call
-  2. Review text flagged by high-severity moderation categories (sexual_minors, hate_threatening, violence_graphic, self_harm_intent, self_harm_instructions — underscore form) blocks the OpenAI enrichment call and sets Review.enrichment_status=FAILED with enrichment_error_code="content_moderated"
-  3. AI reply generation: input moderation blocks before OpenAI; output moderation blocks before the draft reaches the user; replies >300 words are truncated at sentence boundary with " (Please review and complete before sending.)" suffix
-  4. ContentModeratedException maps to HTTP 422 with canonical body {code: "content_moderated", detail: "AI reply isn't available for this review. Please write your reply manually."}
-  5. Moderation API outage: fail-open with one retry after 1s; ERROR log on second failure
-  6. AiUsageLog rows for moderated events: input-moderated → status=MODERATED + zero tokens; output-moderated → status=MODERATED + real tokens + error_code="output_moderated"
-  7. retry_failed_enrichments_task excludes rows with enrichment_error_code="content_moderated"
-  8. All AiUsageLog writes for moderation events happen OUTSIDE any transaction.atomic() block (audit-row survival on rollback)
-**Plans**: 8 plans
-
-Plans:
-
-Wave 1 (parallel — foundations):
-
-- [ ] 20-01-PLAN.md — Settings: OPENAI_REVIEW_TEXT_MAX_CHARS env-configurable (D-03/D-21) + .env.example
-- [ ] 20-02-PLAN.md — ContentModeratedException(OpenAIError) in exceptions.py (D-16/D-32)
-- [ ] 20-03-PLAN.md — Schema: AiUsageLog.Status.MODERATED enum + Review.enrichment_error_code field + two migrations (D-20/D-28/D-31)
-
-Wave 2 (depends on Wave 1):
-
-- [ ] 20-04-PLAN.md — apps/integrations/openai/guardrails.py: BLOCKING_MODERATION_CATEGORIES (underscore form), _moderate_with_retry (fail-open D-24), moderate_input, moderate_output, truncate_reply_at_sentence, _persist_moderated_log + full unit tests (D-01/D-02/D-03/D-04/D-07/D-08/D-13/D-21/D-22/D-23/D-24/D-30/D-33)
-
-Wave 3 (depends on Wave 2):
-
-- [ ] 20-05-PLAN.md — Service wiring: enrich_review calls moderate_input outside atomic; _persist_moderated helper sets enrichment_error_code; tests (D-04/D-15/D-20/D-28/D-29/D-31/D-33)
-- [ ] 20-06-PLAN.md — Service wiring: generate_reply_draft calls moderate_input → OpenAI → moderate_output → truncate_reply_at_sentence; output-moderation AiUsageLog carries real tokens; tests (D-07/D-08/D-14/D-22/D-29/D-33)
-
-Wave 4 (depends on Wave 3):
-
-- [ ] 20-07-PLAN.md — View: ReviewViewSet.generate_reply catches ContentModeratedException → HTTP 422 with canonical D-26 copy; tests (D-16/D-26/D-32)
-- [ ] 20-08-PLAN.md — Retry task: retry_failed_enrichments_task .exclude(enrichment_error_code="content_moderated"); tests (D-25/D-31)
-
-Cross-cutting constraints: BLOCKING_MODERATION_CATEGORIES uses underscore form (D-30, RESEARCH.md Pitfall 1); all moderate_* calls must be outside transaction.atomic() (D-33, RESEARCH.md Pitfall 3); never log review text at WARNING+ (CLAUDE.md §21); MODERATED enum value is uppercase string (D-28, RESEARCH.md Pitfall 2).
+> **Phases 15–21** are shipped and archived. Full details in
+> [`milestones/v0.5-ROADMAP.md`](milestones/v0.5-ROADMAP.md),
+> [`milestones/v0.6-ROADMAP.md`](milestones/v0.6-ROADMAP.md), and
+> [`milestones/v0.7-ROADMAP.md`](milestones/v0.7-ROADMAP.md).
 
 ## Progress
 
@@ -168,31 +148,3 @@ Cross-cutting constraints: BLOCKING_MODERATION_CATEGORIES uses underscore form (
 | 19. AI Reply Generation | v0.6 | 3/3 | ✅ Complete | 2026-05-22 |
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
-
-### Phase 21: Audit Log Viewer
-
-**Goal**: Org Admins and Staff can view a read-only "Activity Log" page showing reply and action item audit events scoped to their organisation; Staff Admins see only entries from their accessible shops; the list is cursor-paginated and filterable by type, date range, and actor.
-**Depends on**: Phase 18 (action_item.merged AuditLog write), Phase 19 (AuditLog model in place)
-**Requirements**: REQ-01, REQ-02, REQ-03, REQ-04, REQ-05, REQ-06, REQ-07, REQ-08, REQ-09
-**Success Criteria** (what must be TRUE):
-
-  1. GET /api/v1/audit-logs/ returns cursor-paginated results scoped to the caller's org; Staff receives only entries from their accessible shops and SHOP-scope action items
-  2. Response has next/previous cursor URLs, no before_data field, and includes actor_name (null for system actions)
-  3. Filters work: entity_type (review/action_item), actor (user ID or "system"), date_from/date_to (ISO date), shop
-  4. Superadmin receives 403; unauthenticated receives 401; throttle enforced at 120/minute
-  5. "Activity Log" nav item appears in sidebar_org.html for both ORG_ADMIN and STAFF_ADMIN
-  6. /admin/org/activity-log/ renders the Django template with React widget at #audit-log-root
-  7. React widget shows 5-column table with expandable JSON detail panel, Type pills (Reply/Action Item), cursor pagination, and filter bar with 30d default date preset
-**Plans**: 4 plans
-
-Wave 1 (parallel):
-
-- [ ] 21-01-PLAN.md — Selectors (list_audit_logs_for_org/staff), AuditLogReadSerializer, AuditLogCursorPagination, AuditLogFilterSet, selector tests (REQ-01/REQ-02/REQ-03/REQ-04)
-- [ ] 21-02-PLAN.md — AuditLogViewSet in apps/common/views.py + audit_log_view + URL registration + settings throttle + API tests (REQ-01/REQ-02/REQ-03/REQ-04/REQ-05/REQ-09)
-
-Wave 2 (depends on Wave 1):
-
-- [ ] 21-03-PLAN.md — Django template templates/org-admin/audit-log.html + sidebar Activity Log nav item (REQ-06/REQ-07/REQ-08)
-- [ ] 21-04-PLAN.md — React widget: types, utils, api, useAuditLog hook, TypePill, AuditLogFilters, AuditLogTable, AuditLogWidget + vite entrypoint (REQ-07/REQ-08)
-
-Cross-cutting constraints: IsOrgScoped permission (NOT IsStaffAdmin — does not exist); AuditLogCursorPagination.ordering = ("-created_at", "id") tiebreaker; AuditLogFactory imported from apps/reviews/tests/factories.py (already exists); templates/org-admin/ directory must be created; after_data.merged_ids.length used for count — no count key on action_item.merged rows.

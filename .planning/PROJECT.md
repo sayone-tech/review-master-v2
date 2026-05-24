@@ -4,19 +4,57 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current Milestone: v0.7 — AI Safety & Governance
+## Current State: 🚀 Web Beta 1 (`web-beta-1`)
 
-**Goal:** Add safety controls around all OpenAI calls (Moderation API input/output checks, content length truncation, sentence-boundary reply caps) and a read-only Activity Log surfacing reply + action item audit events to Org Admins and Staff.
+**Web app is on maintenance footing as of 2026-05-24.** Seven milestones
+shipped end-to-end (v1.0, v0.2-org-admin, v0.3, v0.4, v0.5, v0.6, v0.7).
+21 phases, 115 plans, all marked complete. No new web feature work is
+planned — bug fixes and ops only — until after the mobile launch.
 
-Phases 20 (AI Guardrails) and 21 (Audit Log Viewer) are both shipped to production; milestone awaiting formal close via `/gsd-complete-milestone` once next milestone scope is defined.
+## Next: Mobile App
 
-## Current State
+The next milestone is the **mobile app**. Scope, requirements, and
+technical direction are still to be defined. Run `/gsd-new-milestone`
+once the brief is clear to kick off the standard
+discovery → requirements → roadmap flow for the first mobile milestone.
 
-**v0.6 shipped 2026-05-22** — Tag Rework & Action Item Quality complete. ReviewTag relational model with multi-select filter UI; user-driven merge of duplicate AI-extracted action items; AI reply generation with tone selection in ReplyComposer.
+Reasonable starting questions for that brief:
 
-**v0.5 shipped 2026-05-16** — Configurable Sync Depth complete. Superadmin per-org toggle drives a conditional 1-year / 2-year / all-time selector at shop creation time, threaded through to the Celery backfill task.
+- iOS-first, Android-first, or both day one? React Native vs native?
+- Which web flows does the mobile app need to reach parity on (reviews
+  list, reply, action items, dashboard)? Which can be deferred?
+- Is the API surface sufficient as-is, or do we expect a v2 API geared
+  for mobile (e.g. lighter payloads, offline-first sync)?
+- Auth model on mobile — same SimpleJWT, or move to OAuth/OIDC?
 
-**6 milestones shipped end-to-end; v0.7 in production awaiting formal close.**
+## Recently Shipped (Web)
+
+**v0.7 shipped 2026-05-24** — AI Safety & Governance complete. OpenAI
+Moderation API on every input and output, content length caps,
+sentence-boundary reply truncation, and a Staff-/Org-scoped Activity
+Log of reply + action item audit events.
+
+**v0.6 shipped 2026-05-22** — Tag Rework & Action Item Quality. ReviewTag
+relational model with multi-select filter UI; user-driven merge of
+duplicate AI-extracted action items; AI reply generation with tone
+selection in ReplyComposer.
+
+**v0.5 shipped 2026-05-16** — Configurable Sync Depth. Superadmin per-org
+toggle drives a conditional 1-year / 2-year / all-time selector at shop
+creation time, threaded through to the Celery backfill task.
+
+### What's shipped (v0.7, Phases 20–21)
+
+- Moderation API checks on every OpenAI call — high-severity category
+  blocking, fail-open with retry on outage
+- Content length truncation: review text capped at 4000 chars (env);
+  reply drafts capped at 300 words with sentence-boundary cleanup
+- `ContentModeratedException` → HTTP 422 with canonical user-facing copy
+- `AiUsageLog` records every moderated event with status `MODERATED`
+- Read-only Activity Log page (`/admin/org/activity-log/`) — cursor-
+  paginated, filterable by type / actor / date / shop; Staff scoped to
+  accessible shops + SHOP-scope action items only
+- Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 
 ### What's shipped (v0.6, Phases 17–19)
 

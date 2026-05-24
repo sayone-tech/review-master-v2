@@ -1,11 +1,12 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.7
-milestone_name: — AI Safety & Governance
-status: in_progress
-stopped_at: v0.5 + v0.6 milestones archived (Phases 15-19); v0.7 (Phases 20-21) shipped but not yet formally sealed
-last_updated: "2026-05-24T22:00:00.000Z"
-last_activity: 2026-05-24 -- v0.5 + v0.6 archived via /gsd-complete-milestone
+milestone: web-beta-1
+milestone_name: — Web app first beta (shipped, maintenance footing)
+status: beta_hold
+stopped_at: All web milestones v1.0..v0.7 archived; web on maintenance footing; mobile app is next focus
+last_updated: "2026-05-24T22:30:00.000Z"
+last_activity: 2026-05-24 -- v0.7 archived, web-beta-1 marker placed, mobile pivot
+next_milestone: TBD (mobile app — define with /gsd-new-milestone when ready)
 progress:
   total_phases: 21
   completed_phases: 21
