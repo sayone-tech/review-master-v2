@@ -51,7 +51,7 @@ export function EditRegionModal({ open, region, onClose, onUpdated }: EditRegion
   };
 
   const handleRegionIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRegionId(e.target.value);
+    setRegionId(e.target.value.toUpperCase());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
