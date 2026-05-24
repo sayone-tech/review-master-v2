@@ -9,7 +9,14 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Exists, OuterRef, Q, QuerySet
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
 from rest_framework import mixins, status
+from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException
 from rest_framework.filters import OrderingFilter
@@ -251,6 +258,110 @@ class ReviewViewSet(
             )
         return Response(ReviewReadSerializer(updated).data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        operation_id="reviews_generate_reply",
+        summary="Generate an AI draft reply",
+        description=(
+            "Generates a tone-selected draft reply for the review using GPT-4o-mini. "
+            "The draft is NOT sent to Google — it fills the composer textarea for the "
+            "user to edit and submit. Input + output are passed through the OpenAI "
+            "Moderation API (Phase 20 — D-23 category-aware blocking). Throttled at "
+            "10/min/user (scope `generate_reply`)."
+        ),
+        request=GenerateReplySerializer,
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="GenerateReplyResponse",
+                    fields={"draft": drf_serializers.CharField()},
+                ),
+                description="Draft generated successfully. Length capped at 300 words by D-08.",
+                examples=[
+                    OpenApiExample(
+                        "Professional draft",
+                        value={
+                            "draft": (
+                                "Thank you for taking the time to share your feedback. "
+                                "We're sorry to hear about your experience and would "
+                                "appreciate the opportunity to make this right..."
+                            )
+                        },
+                    )
+                ],
+            ),
+            400: OpenApiResponse(description="Invalid tone (not in `professional`/`friendly`)."),
+            401: OpenApiResponse(description="Authentication required."),
+            403: OpenApiResponse(description="Review is outside the caller's accessible shops."),
+            422: OpenApiResponse(
+                response=inline_serializer(
+                    name="ContentModeratedResponse",
+                    fields={
+                        "code": drf_serializers.CharField(),
+                        "detail": drf_serializers.CharField(),
+                    },
+                ),
+                description=(
+                    "Review text or generated draft was flagged by Moderation API "
+                    "high-severity categories (Phase 20 D-23). Same canonical body "
+                    "for both input and output flags (D-26) — frontend renders "
+                    "`detail` verbatim."
+                ),
+                examples=[
+                    OpenApiExample(
+                        "Moderated content",
+                        value={
+                            "code": "content_moderated",
+                            "detail": (
+                                "AI reply isn't available for this review. "
+                                "Please write your reply manually."
+                            ),
+                        },
+                    )
+                ],
+            ),
+            429: OpenApiResponse(
+                response=inline_serializer(
+                    name="GenerateReplyThrottledResponse",
+                    fields={
+                        "detail": drf_serializers.CharField(),
+                        "retry_after_seconds": drf_serializers.IntegerField(required=False),
+                    },
+                ),
+                description=(
+                    "Rate limit exceeded (10/min/user). `retry_after_seconds` is the "
+                    "integer seconds until the bucket refills. Frontend uses the dynamic "
+                    "copy variant when present (see 19-UI-SPEC.md §Copywriting)."
+                ),
+            ),
+            502: OpenApiResponse(
+                response=inline_serializer(
+                    name="GenerateReplyFailedResponse",
+                    fields={
+                        "code": drf_serializers.CharField(),
+                        "detail": drf_serializers.CharField(),
+                    },
+                ),
+                description=(
+                    "OpenAI call failed (transient 5xx, permanent 4xx, or unexpected "
+                    "error). A FAILED AiUsageLog row is always written before the "
+                    "response is returned (D-17)."
+                ),
+                examples=[
+                    OpenApiExample(
+                        "OpenAI unavailable",
+                        value={
+                            "code": "ai_unavailable",
+                            "detail": (
+                                "AI generation failed. Please try again or "
+                                "write your reply manually."
+                            ),
+                        },
+                    )
+                ],
+            ),
+        },
+        tags=["reviews"],
+    )
     @action(
         detail=True,
         methods=["post"],
