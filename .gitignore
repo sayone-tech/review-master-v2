@@ -28,4 +28,4 @@ deployment/terraform/.terraform/
 deployment/terraform/terraform.tfstate*
 deployment/terraform/.terraform.lock.hcl
 .superpowers/
-.claude/worktrees/*
+.claude/
