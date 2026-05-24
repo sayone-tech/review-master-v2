@@ -81,11 +81,18 @@ jobs:
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
+          # Inline-fetch the latest deploy.sh from S3 before running it, so
+          # changes to deploy.sh itself flow through without a one-time
+          # manual bootstrap on EC2. Without this, an "old deploy.sh that
+          # didn't know about S3 fetch" runs and never picks up the new one
+          # (the chicken-and-egg seen on the first deploy after PR #31).
+          # All other deploy assets (compose, Caddyfile, load-secrets.sh)
+          # are fetched by deploy.sh itself once the new copy is in place.
           COMMAND_ID=$(aws ssm send-command \
             --region "$AWS_REGION" \
             --document-name "AWS-RunShellScript" \
             --targets "Key=tag:Project,Values=review-master" \
-            --parameters 'commands=["/opt/review-master/scripts/deploy.sh"]' \
+            --parameters 'commands=["set -e; aws s3 cp s3://review-master-static-prod/deploy/deploy.sh /opt/review-master/scripts/deploy.sh && chmod +x /opt/review-master/scripts/deploy.sh && /opt/review-master/scripts/deploy.sh"]' \
             --timeout-seconds 600 \
             --query "Command.CommandId" \
             --output text)
