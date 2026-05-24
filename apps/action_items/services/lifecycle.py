@@ -397,6 +397,17 @@ def merge_action_items(
     if len(scopes) > 1:
         raise ValidationError("All merged items must share the same scope.")
 
+    # D-05 (extended): SHOP-scope items must also share the same shop_id —
+    # merging "Fix broken AC" from Shop A with "Fix broken AC" from Shop B
+    # would collapse two genuinely distinct operational issues into one
+    # canonical row, breaking per-shop accountability and confusing the
+    # "Also reported in" UI (which assumes duplicates corroborate the same
+    # underlying issue at the same location). For BRAND-scope items shop_id
+    # is always None, so this constraint is naturally satisfied.
+    shop_ids = {item.shop_id for item in selected_items}
+    if len(shop_ids) > 1:
+        raise ValidationError("Shop-scope items can only be merged with items from the same shop.")
+
     # D-09: re-parent sub-duplicates of selected duplicates onto primary FIRST.
     # Phase 18 (WR-04 fix): capture the old canonical_id for each
     # sub-duplicate BEFORE the update so we can write a per-row AuditLog

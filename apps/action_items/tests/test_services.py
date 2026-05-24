@@ -506,6 +506,55 @@ def test_merge_rejects_cross_scope():
 
 
 @pytest.mark.django_db
+def test_merge_rejects_different_shops_same_scope_shop():
+    """SHOP-scope items from different shops cannot be merged: a 'broken AC' at
+    Shop A and a 'broken AC' at Shop B are genuinely distinct operational
+    issues, and collapsing them would break per-shop accountability and the
+    'Also reported in' UI."""
+    org = OrganisationFactory()
+    shop_a = ShopFactory(organisation=org)
+    shop_b = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop_a, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    dup = ActionItemFactory(
+        organisation=org, shop=shop_b, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError, match="same shop"):
+        merge_action_items(
+            primary_id=primary.pk,
+            duplicate_ids=[dup.pk],
+            actor=actor,
+            organisation_id=org.pk,
+        )
+
+
+@pytest.mark.django_db
+def test_merge_allows_same_shop_same_scope():
+    """Positive control for the cross-shop guard above: two SHOP-scope items
+    on the SAME shop merge successfully."""
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    dup = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    actor = OrgAdminFactory(organisation=org)
+    result = merge_action_items(
+        primary_id=primary.pk,
+        duplicate_ids=[dup.pk],
+        actor=actor,
+        organisation_id=org.pk,
+    )
+    assert result.pk == primary.pk
+    dup.refresh_from_db()
+    assert dup.canonical_id == primary.pk
+
+
+@pytest.mark.django_db
 def test_merge_rejects_manual_source():
     org = OrganisationFactory()
     shop = ShopFactory(organisation=org)
