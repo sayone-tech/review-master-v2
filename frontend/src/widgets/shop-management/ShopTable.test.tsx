@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 
 describe("ShopTableWidget", () => {
-  it("renders ConnectionStatusPill text for OAuth connected shop", () => {
+  it("renders shop name and Active status for a connected shop", () => {
     render(
       <ShopTableWidget
         initial={{
@@ -47,7 +47,8 @@ describe("ShopTableWidget", () => {
         }}
       />,
     );
-    expect(screen.getByText("Connected via Google")).toBeInTheDocument();
+    expect(screen.getByText("ACME Cafe")).toBeInTheDocument();
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
   });
 
   it("renders Empty State A when hasRegions=false and no shops", () => {
