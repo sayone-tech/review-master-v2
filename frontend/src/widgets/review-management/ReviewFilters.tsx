@@ -87,12 +87,13 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
   const [activeIndex, setActiveIndex] = useState<number>(-1);
 
   const loading = availableTags === undefined;
+  const trimmedQuery = query.trim();
+  const hasMinChars = trimmedQuery.length >= 2;
   const filtered = useMemo(() => {
-    const list = availableTags ?? [];
-    if (!query.trim()) return list;
-    const q = query.toLowerCase();
-    return list.filter((t) => t.label.toLowerCase().includes(q));
-  }, [availableTags, query]);
+    if (!hasMinChars) return [];
+    const q = trimmedQuery.toLowerCase();
+    return (availableTags ?? []).filter((t) => t.label.toLowerCase().includes(q));
+  }, [availableTags, trimmedQuery, hasMinChars]);
 
   // Close on outside click
   useEffect(() => {
@@ -221,11 +222,13 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
                 aria-label="Search tags"
               />
             </div>
-            {filtered.length === 0 ? (
+            {!hasMinChars ? (
               <div className="px-3 py-3 text-[12px] text-muted">
-                {(availableTags ?? []).length === 0
-                  ? "No tags yet"
-                  : `No tags match “${query}”`}
+                Type at least 2 characters to search tags
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="px-3 py-3 text-[12px] text-muted">
+                {`No tags match "${trimmedQuery}"`}
               </div>
             ) : (
               filtered.map((opt, idx) => {
@@ -363,6 +366,17 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
           </div>
         </label>
 
+        {/* Tags multi-select — placed after Store because the inline search
+           input makes this control visually heavier than a plain <select>;
+           grouping it next to Store keeps the heavier "entity" filters
+           together and the lighter scalar filters (Rating, Sentiment) to
+           the right. */}
+        <TagsFilter
+          availableTags={availableTags}
+          selected={draft.tags ?? []}
+          onChange={(next) => setDraft((d) => ({ ...d, tags: next }))}
+        />
+
         {/* Rating */}
         <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Star size={15} />} label="Rating" />
@@ -416,13 +430,6 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
             <ChevronIcon />
           </div>
         </label>
-
-        {/* Tags multi-select */}
-        <TagsFilter
-          availableTags={availableTags}
-          selected={draft.tags ?? []}
-          onChange={(next) => setDraft((d) => ({ ...d, tags: next }))}
-        />
 
       </div>
 
