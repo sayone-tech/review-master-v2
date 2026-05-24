@@ -114,6 +114,7 @@ def shop_list(request):  # type: ignore[no-untyped-def]
             "page_title": "Shops",
             "is_org_admin": user.role == User.Role.ORG_ADMIN,
             "allow_custom_sync_depth": org.allow_custom_sync_depth,
+            "org_data": {"allow_custom_sync_depth": org.allow_custom_sync_depth},
         },
     )
 
