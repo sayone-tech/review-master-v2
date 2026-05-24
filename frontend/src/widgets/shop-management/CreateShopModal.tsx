@@ -407,31 +407,27 @@ export function CreateShopModal({
           )}
 
           <div>
-            <label htmlFor="cs-name" className={labelCls}>
-              Shop Name
-            </label>
-            <div className={[
-              "flex items-center",
-              fieldError("name") ? inputErrorCls : inputCls,
-              "p-0 overflow-hidden",
-            ].join(" ")}>
-              <input
-                id="cs-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="flex-1 min-w-0 px-3 py-2 bg-transparent focus:outline-none text-[13.5px]"
-                aria-label="Shop Name"
-              />
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="cs-name" className="text-[12px] font-semibold text-subtle tracking-[0.05em] uppercase">
+                Shop Name
+              </label>
               <button
                 type="button"
                 onClick={() => setStep("pick")}
-                className="shrink-0 px-3 py-2 text-[12px] font-semibold border-l border-line hover:bg-line-soft transition-colors"
+                className="text-[12px] font-semibold hover:opacity-70 transition-opacity"
                 style={{ color: "#B9860F" }}
               >
                 Change
               </button>
             </div>
+            <input
+              id="cs-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={fieldError("name") ? inputErrorCls : inputCls}
+              aria-label="Shop Name"
+            />
             {fieldError("name") && (
               <p role="alert" className="mt-1 text-[12px]" style={{ color: "#DC2626" }}>
                 {fieldError("name")}

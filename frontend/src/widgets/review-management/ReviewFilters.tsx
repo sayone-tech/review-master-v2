@@ -208,7 +208,7 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
             className="absolute z-50 mt-1 left-0 right-0 bg-white border border-line rounded-[10px] shadow-md max-h-60 overflow-y-auto py-1"
           >
             <div className="px-2 py-2 border-b border-line">
-              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:ring-2 focus-within:ring-yellow">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
                 <Search size={13} className="text-muted shrink-0" aria-hidden="true" />
                 <input
                   ref={searchInputRef}
@@ -287,6 +287,11 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
     tags: filters.tags ?? [],
   });
 
+  // Keep draft.tags in sync when tags are applied externally (e.g. tag chip clicks on review rows)
+  useEffect(() => {
+    setDraft((d) => ({ ...d, tags: filters.tags ?? [] }));
+  }, [filters.tags]);
+
   const hasActiveFilters = Boolean(
     filters.search ||
       filters.shop !== undefined ||
@@ -329,7 +334,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         {/* Search */}
         <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Search size={15} />} label="Search" />
-          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:ring-2 focus-within:ring-yellow">
+          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
             <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
             <input
               type="text"
@@ -448,7 +453,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         {/* Date range — two date inputs side by side */}
         <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Calendar size={15} />} label="Date range" />
-          <div className="flex items-center gap-2 px-4 py-2 border border-line rounded-[10px] bg-white focus-within:ring-2 focus-within:ring-yellow transition-[border-color,box-shadow]">
+          <div className="flex items-center gap-2 px-4 py-2 border border-line rounded-[10px] bg-white focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] transition-[border-color,box-shadow]">
             <Calendar size={14} className="text-subtle shrink-0" aria-hidden="true" />
             <input
               type="date"
