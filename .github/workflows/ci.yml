@@ -1,9 +1,33 @@
 name: CI
 
+# Skip CI (and therefore Deploy, which chains off CI's workflow_run) when
+# a commit only touches documentation, license, or other non-build files.
+# A commit that touches BOTH docs and code still triggers CI — paths-ignore
+# only skips when EVERY changed file matches the ignore list.
+#
+# Caveat: if branch protection on `main` ever requires the "CI" status
+# check, a docs-only PR will show CI as "Skipped" (not "Passed") and the
+# required-check rule will block merge. Either drop the required-check
+# requirement or add a no-op fallback job that always passes. Solo
+# workflow today doesn't need that.
 on:
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
+      - ".editorconfig"
+      - ".gitattributes"
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
+      - ".editorconfig"
+      - ".gitattributes"
 
 jobs:
   frontend-test:
