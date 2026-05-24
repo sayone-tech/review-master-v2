@@ -1,6 +1,6 @@
 # Logs
 
-All container logs ship to **CloudWatch Logs** (`/review-master/prod`, 90-day retention) and are also available locally on the EC2 via `docker logs`.
+All container logs ship to **CloudWatch Logs** (`/review-master/prod`, 30-day retention) and are also available locally on the EC2 via `docker logs`. AWS audit trails (CloudTrail) and network forensics (VPC Flow Logs) go to S3 — see [Audit Trail Logs](#audit-trail-logs) at the end of this doc.
 
 ## CloudWatch Logs (recommended — no server access needed)
 
@@ -231,3 +231,66 @@ Search for `enqueue_incremental_syncs_task.dispatched` — should appear every ~
 #### "How many reviews did the last sync fetch?"
 
 Search `sync_shop_reviews_task.success shop_id=<X>` — the line includes `fetched=N`.
+
+---
+
+## Audit Trail Logs
+
+Two AWS-managed audit log streams write to a private S3 bucket (`review-master-logs-prod`) with 90-day retention. Both were added in Tier-0 hardening (2026-05-24).
+
+### CloudTrail — every AWS API call
+
+A single-region trail (`review-master-trail`, ap-south-1 only — for India residency) records every AWS API call made on this account: who, when, from where, with what parameters, and the response.
+
+**Bucket path:** `s3://review-master-logs-prod/cloudtrail/AWSLogs/270587882826/CloudTrail/ap-south-1/`
+
+**Check the trail is still logging:**
+
+```bash
+aws cloudtrail get-trail-status --name review-master-trail --region ap-south-1 \
+  --query '{IsLogging:IsLogging, LatestDeliveryTime:LatestDeliveryTime}' --output table
+```
+
+**Look up recent activity for a user (via CloudTrail Lake / Event History — fastest):**
+
+AWS Console → CloudTrail → Event history → filter by **User name** or **Event source**. Last 90 days are queryable in the console UI without downloading log files.
+
+**Download raw logs from S3 for forensic analysis:**
+
+```bash
+# List today's log files
+aws s3 ls "s3://review-master-logs-prod/cloudtrail/AWSLogs/270587882826/CloudTrail/ap-south-1/$(date -u +%Y/%m/%d)/" --region ap-south-1
+
+# Download a specific file (gzipped JSON)
+aws s3 cp s3://review-master-logs-prod/cloudtrail/AWSLogs/.../<file>.json.gz . --region ap-south-1
+gunzip <file>.json.gz | jq .
+```
+
+### VPC Flow Logs — network traffic forensics
+
+Every accepted/rejected TCP/UDP flow in the VPC is captured. Stored in Parquet format with 10-minute aggregation to keep cost down (~$0.50/mo at current traffic).
+
+**Bucket path:** `s3://review-master-logs-prod/flow-logs/AWSLogs/270587882826/vpcflowlogs/ap-south-1/`
+
+**Common use cases:**
+
+- "What IPs hit our EC2 in the last hour?" — Athena query on the parquet files
+- "Was there a port scan?" — count REJECTed flows per source IP
+- "Did EC2 reach an unexpected outbound endpoint?" — filter outbound flows
+
+**Quick analysis via Athena** (one-time setup, then queryable forever):
+
+AWS Console → Athena → create database `vpc_logs` → create table pointing at the flow-logs prefix in parquet format. Then query like:
+
+```sql
+-- Top source IPs hitting the EC2 in the last hour
+SELECT srcaddr, COUNT(*) AS hits
+FROM vpc_logs.flow_logs
+WHERE start >= to_unixtime(current_timestamp - interval '1' hour)
+  AND dstaddr = '10.0.0.X'   -- EC2 private IP
+GROUP BY srcaddr ORDER BY hits DESC LIMIT 20;
+```
+
+### Retention
+
+Lifecycle rule on the logs bucket deletes objects after **90 days** and noncurrent versions after **30 days**. Extend in `stacks/prod-app/logs_bucket.tf` if a compliance requirement appears.
