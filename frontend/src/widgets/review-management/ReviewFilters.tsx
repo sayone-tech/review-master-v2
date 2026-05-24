@@ -208,8 +208,8 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
             className="absolute z-50 mt-1 left-0 right-0 bg-white border border-line rounded-[10px] shadow-md max-h-60 overflow-y-auto py-1"
           >
             <div className="px-2 py-2 border-b border-line">
-              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
-                <Search size={13} className="text-muted shrink-0" aria-hidden="true" />
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#A1A1AA" }} aria-hidden="true" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -219,7 +219,7 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
                     setActiveIndex(-1);
                   }}
                   placeholder="Search tags…"
-                  className="flex-1 min-w-0 text-[14px] font-normal text-ink placeholder:text-faint focus:outline-none bg-transparent"
+                  className="w-full pl-9 pr-3 py-2 text-[14px] font-normal text-ink placeholder:text-faint bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring focus:ring-black/[0.05]"
                   aria-label="Search tags"
                 />
               </div>
