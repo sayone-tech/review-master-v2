@@ -60,7 +60,7 @@ Why RDS over Postgres-in-Docker: managed backups, point-in-time recovery, and ea
 
 ### 2.3 Networking & TLS
 
-- **VPC:** custom `10.0.0.0/16` with 2 public + 2 private subnets across 2 AZs (see `vpc.tf` in the [terraform repo](../../review-master-terraform/)).
+- **VPC:** custom `10.0.0.0/16` with 2 public + 2 private subnets across 2 AZs (see `vpc.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/)).
 - **Reverse proxy: Caddy** (Let's Encrypt auto-TLS, HTTP/2, gzip, WebSocket out of the box). Decision recorded over nginx because it eliminates certbot + renewal cron — fewer moving parts at this scale.
 - **No ALB.** TLS terminates at Caddy on the EC2 box.
 - **No ACM** (ACM certs cannot install on EC2 directly; only attach to ALB/CloudFront/API Gateway).
@@ -81,13 +81,13 @@ Why RDS over Postgres-in-Docker: managed backups, point-in-time recovery, and ea
 
 On deploy, [`scripts/load-secrets.sh`](scripts/load-secrets.sh) fetches the JSON blob from Secrets Manager and writes it to `/etc/review-master.env` for Docker Compose to read.
 
-EC2 instance profile permissions (see `iam.tf` in the [terraform repo](../../review-master-terraform/)):
+EC2 instance profile permissions (see `iam.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/)):
 - `secretsmanager:GetSecretValue` on `arn:aws:secretsmanager:ap-south-1:*:secret:review-master/prod*`
 - `AmazonSSMManagedInstanceCore` (covers SSM Session Manager and Parameter Store reads)
 
 ### 2.5 Container registry — ECR (private)
 
-- One repo: `review-master/app` (see `ecr.tf` in the [terraform repo](../../review-master-terraform/)).
+- One repo: `review-master/app` (see `ecr.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/)).
 - Single image, multiple Compose `command:` entries select web/worker/beat/flower behaviour.
 - `scan_on_push = true`, AES256 encryption at rest.
 - **Lifecycle policy:** untagged images expire after 1 day; keep at most 10 tagged images.
@@ -95,7 +95,7 @@ EC2 instance profile permissions (see `iam.tf` in the [terraform repo](../../rev
 
 ### 2.6 CI/CD — GitHub Actions → ECR → EC2
 
-1. **Auth:** GitHub OIDC → IAM role `review-master-github-actions`, trust scoped to `repo:sayone-tech/review-master-v2:ref:refs/heads/main` only (see `iam.tf` in the [terraform repo](../../review-master-terraform/)).
+1. **Auth:** GitHub OIDC → IAM role `review-master-github-actions`, trust scoped to `repo:sayone-tech/review-master-v2:ref:refs/heads/main` only (see `iam.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/)).
 2. **Build:** `docker build` on Actions runner.
 3. **Push:** `aws-actions/amazon-ecr-login@v2` → `docker push`.
 4. **Deploy:** **SSM Run Command** (`AWS-RunShellScript`) into EC2, restricted by `aws:ResourceTag/Project = review-master`. No SSH from CI. Runs [`scripts/deploy.sh`](scripts/deploy.sh) which does `docker compose pull && docker compose up -d`.
@@ -107,7 +107,7 @@ GitHub Actions cost: $0 (within 2,000 free minutes/month for private repos).
 
 ### 2.7 Static & media files — S3
 
-- Bucket: `review-master-static-prod` (see `s3.tf` in the [terraform repo](../../review-master-terraform/)).
+- Bucket: `review-master-static-prod` (see `s3.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/)).
 - `django-storages` with S3 backend.
 - `collectstatic` runs in the Docker build, then static files are uploaded to S3 in a deploy step.
 - Bucket policy grants public read on `/static/*` only. CORS allows `GET` from `https://app.reviewbee.in`.
@@ -125,7 +125,7 @@ When SES is approved, integration is already specified in `CLAUDE.md` §15 and c
 - **CloudWatch logs:** Docker `awslogs` log driver ships container stdout/stderr to log group `/review-master/prod` (30-day retention).
 - **CloudWatch metrics + agent:** track CPU, memory, disk on EC2; RDS metrics are automatic. RDS Performance Insights enabled.
 - **Sentry:** errors from web + worker. Free tier (5k events/mo) is sufficient.
-- **Alerts:** SNS topic `review-master-alerts` with email subscription to `renjith@sayonetech.com`. Alarms managed in `cloudwatch.tf` in the [terraform repo](../../review-master-terraform/):
+- **Alerts:** SNS topic `review-master-alerts` with email subscription to `renjith@sayonetech.com`. Alarms managed in `cloudwatch.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/):
   - EC2 `CPUUtilization` > 70% sustained 10 min
   - EC2 `disk_used_percent` > 80% (requires CloudWatch agent; install via SSM — see file comment)
   - RDS `FreeableMemory` < 100 MB sustained
@@ -134,7 +134,7 @@ When SES is approved, integration is already specified in `CLAUDE.md` §15 and c
 
 ### 2.10 Cost guardrails — AWS Budgets
 
-`aws_budgets_budget` named `review-master-monthly` set to **$70/mo** (see `budgets.tf` in the [terraform repo](../../review-master-terraform/)) with two notifications:
+`aws_budgets_budget` named `review-master-monthly` set to **$70/mo** (see `budgets.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/)) with two notifications:
 
 - Forecasted > 80% of budget → email
 - Actual > 100% of budget → email
@@ -217,15 +217,18 @@ deployment/                         # in THIS repo (review-master)
     └── seed-params.sh              # Legacy: pre-Secrets-Manager seed script (DB password only now)
 
 ../review-master-terraform/         # SIBLING repo — all AWS infra-as-code
-├── main.tf, variables.tf, outputs.tf, terraform.tfvars
-├── vpc.tf, security_groups.tf
-├── ec2.tf, route53.tf
-├── rds.tf
-├── iam.tf                          # EC2 instance profile + GitHub OIDC role
-├── ecr.tf, s3.tf
-├── secrets.tf                      # SSM DB password + Secrets Manager app blob
-├── cloudwatch.tf                   # Log group, SNS alerts, metric alarms
-└── budgets.tf                      # $70/mo budget with email alerts
+├── stacks/
+│   └── prod-app/                   # this app's stack: one terraform state, one blast radius
+│       ├── main.tf, variables.tf, outputs.tf, terraform.tfvars
+│       ├── vpc.tf, security_groups.tf
+│       ├── ec2.tf, route53.tf
+│       ├── rds.tf
+│       ├── iam.tf                  # EC2 instance profile + GitHub OIDC role
+│       ├── ecr.tf, s3.tf
+│       ├── secrets.tf              # SSM DB password + Secrets Manager app blob
+│       ├── cloudwatch.tf           # Log group, SNS alerts, metric alarms
+│       └── budgets.tf              # $70/mo budget with email alerts
+└── modules/                        # reusable blocks (empty for now)
 ```
 
 Terraform code lives in the sibling workspace folder [`review-master-terraform/`](../../review-master-terraform/) — a separate Git repo, registered as an additional working directory. See [CLAUDE.md §25](../CLAUDE.md) for the boundaries (no `.tf` files in this repo).
