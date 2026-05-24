@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.6
-milestone_name: — Tag Rework & Action Item Quality
-status: completed
-stopped_at: Phase 20 plans verified — 8 plans (20-01..20-08), 4 waves, plan-checker PASSED with 2 warnings addressed
-last_updated: "2026-05-23T18:32:07.282Z"
-last_activity: 2026-05-23 -- Phase 21 marked complete
+milestone: v0.7
+milestone_name: — AI Safety & Governance
+status: in_progress
+stopped_at: v0.5 + v0.6 milestones archived (Phases 15-19); v0.7 (Phases 20-21) shipped but not yet formally sealed
+last_updated: "2026-05-24T22:00:00.000Z"
+last_activity: 2026-05-24 -- v0.5 + v0.6 archived via /gsd-complete-milestone
 progress:
   total_phases: 21
-  completed_phases: 19
+  completed_phases: 21
   total_plans: 115
-  completed_plans: 112
-  percent: 90
+  completed_plans: 115
+  percent: 100
 ---
 
 # Project State

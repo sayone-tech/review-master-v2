@@ -4,22 +4,34 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current Milestone: v0.5 Configurable Sync Depth
+## Current Milestone: v0.7 — AI Safety & Governance
 
-**Goal:** Let Superadmins enable a per-org "configurable sync depth" flag; when enabled, Org Admins choose how far back the initial review backfill goes (1 year / 2 years / all time) at shop creation time — replacing the hard-coded 2-year default.
+**Goal:** Add safety controls around all OpenAI calls (Moderation API input/output checks, content length truncation, sentence-boundary reply caps) and a read-only Activity Log surfacing reply + action item audit events to Org Admins and Staff.
 
-**Target features:**
-
-- Superadmin org form: "Allow configurable sync depth" toggle (create + edit)
-- Org Admin shop creation: conditional "Review History" selector (1 year / 2 years / all time) shown only when org allows it
-- Shop model: `sync_depth` field storing the chosen depth; shop detail shows current setting
-- Initial backfill task: reads `shop.sync_depth` to compute `start_date` (or no filter for all-time)
+Phases 20 (AI Guardrails) and 21 (Audit Log Viewer) are both shipped to production; milestone awaiting formal close via `/gsd-complete-milestone` once next milestone scope is defined.
 
 ## Current State
 
-**v0.4 shipped 2026-05-07** — Dashboard module complete. Org Admins and Staff can view a multi-widget analytics page with KPI cards, top-performing outlets, sentiment donut, and a filter bar backed by Redis-cached endpoints.
+**v0.6 shipped 2026-05-22** — Tag Rework & Action Item Quality complete. ReviewTag relational model with multi-select filter UI; user-driven merge of duplicate AI-extracted action items; AI reply generation with tone selection in ReplyComposer.
 
-**115/115 requirements delivered. 5 milestones shipped.**
+**v0.5 shipped 2026-05-16** — Configurable Sync Depth complete. Superadmin per-org toggle drives a conditional 1-year / 2-year / all-time selector at shop creation time, threaded through to the Celery backfill task.
+
+**6 milestones shipped end-to-end; v0.7 in production awaiting formal close.**
+
+### What's shipped (v0.6, Phases 17–19)
+
+- Relational `ReviewTag` model — replaces `Review.tags` JSONField; case-insensitive dedup per org; multi-select filter dropdown with search; clickable tag chips on review rows
+- Action item duplicate merge — checkbox-select multiple AI-extracted items, two-step merge modal; merged items hidden from list with "+N" badge on canonical; "Mark as duplicate of…" picker on single-item detail; merged items become read-only
+- AI reply generation — "Generate with AI" button in ReplyComposer with Professional / Friendly tone pills; GPT-4o-mini draft fills textarea for user review before manual submit; every call writes one `AiUsageLog` row; throttled 10/min per user
+- Full archive: `.planning/milestones/v0.6-ROADMAP.md`
+
+### What's shipped (v0.5, Phases 15–16)
+
+- `Organisation.allow_custom_sync_depth` BooleanField — Superadmin toggle on org create / edit / detail
+- `Shop.sync_depth` TextChoices field (`ONE_YEAR`, `TWO_YEARS`, `ALL_TIME`); shop detail shows current setting
+- Initial backfill Celery task computes `start_date` from per-shop sync_depth (no date filter when "All time")
+- Conditional UI: shop creation form shows Review History dropdown only when parent org has the flag enabled
+- Full archive: `.planning/milestones/v0.5-ROADMAP.md`
 
 ### What's shipped (v0.4, Phase 14)
 
