@@ -334,11 +334,11 @@ export function ReviewFilters({ shops, filters, onApply, onReset, availableTags 
         {/* Search */}
         <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Search size={15} />} label="Search" />
-          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
-            <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#A1A1AA" }} aria-hidden="true" />
             <input
               type="text"
-              className="flex-1 min-w-0 bg-transparent focus:outline-none text-[14px] font-normal text-ink placeholder:text-faint"
+              className="w-full pl-9 pr-3.5 py-2 text-[14px] font-normal text-ink placeholder:text-faint bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring focus:ring-black/[0.05]"
               placeholder="Search reviews…"
               value={draft.search}
               onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
