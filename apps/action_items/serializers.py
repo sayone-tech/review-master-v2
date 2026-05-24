@@ -73,11 +73,19 @@ class _ActionItemBaseRead(serializers.ModelSerializer):  # type: ignore[type-arg
 
 
 class ActionItemDuplicateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
-    """Phase 18 — slim payload for items merged into a primary (rendered in detail)."""
+    """Phase 18 — slim payload for items merged into a primary (rendered in detail).
+
+    User-feedback addition: also surface the source review's id and a
+    text excerpt so the 'Also reported in' UI can show what the reviewer
+    actually wrote, not just a date + star rating.
+    """
 
     shop_name = serializers.SerializerMethodField()
+    source_review_id = serializers.IntegerField(read_only=True)
     source_review_date = serializers.SerializerMethodField()
     source_review_rating = serializers.SerializerMethodField()
+    source_review_comment = serializers.SerializerMethodField()
+    source_review_reviewer = serializers.SerializerMethodField()
 
     class Meta:
         model = ActionItem
@@ -85,8 +93,11 @@ class ActionItemDuplicateSerializer(serializers.ModelSerializer):  # type: ignor
             "id",
             "title",
             "shop_name",
+            "source_review_id",
             "source_review_date",
             "source_review_rating",
+            "source_review_comment",
+            "source_review_reviewer",
         ]
         read_only_fields: ClassVar[list[str]] = fields
 
@@ -103,6 +114,16 @@ class ActionItemDuplicateSerializer(serializers.ModelSerializer):  # type: ignor
         if obj.source_review is None:
             return None
         return obj.source_review.star_rating
+
+    def get_source_review_comment(self, obj: ActionItem) -> str | None:
+        if obj.source_review is None:
+            return None
+        return obj.source_review.comment or None
+
+    def get_source_review_reviewer(self, obj: ActionItem) -> str | None:
+        if obj.source_review is None:
+            return None
+        return obj.source_review.reviewer_display_name or None
 
 
 class ActionItemListSerializer(_ActionItemBaseRead):

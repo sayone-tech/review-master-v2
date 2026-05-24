@@ -207,22 +207,41 @@ function DetailsTab({
               {item.duplicates.map((dup) => (
                 <div
                   key={dup.id}
-                  className="flex items-center justify-between px-4 py-2 rounded-md bg-line-soft text-[14px]"
+                  className="px-4 py-3 rounded-md bg-line-soft text-[14px]"
                 >
-                  <div>
-                    <span className="text-ink font-semibold">{dup.shop_name || "—"}</span>
-                    {dup.source_review_date && (
-                      <span className="text-muted ml-2 text-[12px]">
-                        {new Date(dup.source_review_date).toLocaleDateString(undefined, {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-ink font-semibold">{dup.shop_name || "—"}</span>
+                      {dup.source_review_reviewer && (
+                        <span className="text-muted ml-2 text-[12px]">
+                          by {dup.source_review_reviewer}
+                        </span>
+                      )}
+                      {dup.source_review_date && (
+                        <span className="text-muted ml-2 text-[12px]">
+                          ·{" "}
+                          {new Date(dup.source_review_date).toLocaleDateString(undefined, {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                    {dup.source_review_rating !== null && (
+                      <span className="text-amber text-[12px] shrink-0">
+                        ★ {dup.source_review_rating}
                       </span>
                     )}
                   </div>
-                  {dup.source_review_rating !== null && (
-                    <span className="text-amber text-[12px]">★ {dup.source_review_rating}</span>
+                  {dup.source_review_comment ? (
+                    <blockquote className="mt-2 pl-3 border-l-2 border-line text-muted italic text-[13px] line-clamp-3">
+                      “{dup.source_review_comment}”
+                    </blockquote>
+                  ) : (
+                    <p className="mt-2 text-faint italic text-[12px]">
+                      (No review text provided)
+                    </p>
                   )}
                 </div>
               ))}

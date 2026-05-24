@@ -36,8 +36,11 @@ export interface ActionItemDuplicate {
   id: number;
   title: string;
   shop_name: string;
+  source_review_id: number | null;
   source_review_date: string | null;
   source_review_rating: number | null;
+  source_review_comment: string | null;
+  source_review_reviewer: string | null;
 }
 
 // Phase 18 — POST /api/v1/action-items/merge/ request body.
