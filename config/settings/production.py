@@ -23,11 +23,18 @@ X_FRAME_OPTIONS = "DENY"  # Clickjacking protection (XFrameOptionsMiddleware rea
 # all inline handlers are migrated to external modules with nonces.
 SECURE_CSP = {
     "default-src": ["'self'"],
-    "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-    "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+    # cdn.jsdelivr.net hosts the Scalar API reference bundle (templates/api_docs/scalar.html)
+    "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+    "style-src": [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com",
+        "https://cdn.jsdelivr.net",
+    ],
     "img-src": ["'self'", "data:"],
     "font-src": ["'self'", "https://fonts.gstatic.com"],
-    "connect-src": ["'self'"],
+    # proxy.scalar.com is Scalar's CORS proxy used by the API reference UI
+    "connect-src": ["'self'", "https://proxy.scalar.com"],
 }
 
 # Append CSP middleware to the base MIDDLEWARE list (Django 6 built-in).
