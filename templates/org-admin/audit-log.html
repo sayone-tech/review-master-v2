@@ -1,0 +1,11 @@
+{% extends "base_org.html" %}
+{% load static django_vite %}
+
+{% block content %}
+  <div id="audit-log-root" data-user-role="{{ user_role }}"></div>
+  {{ actors_json|json_script:"audit-log-actors-data" }}
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/audit-log.tsx' %}
+{% endblock %}

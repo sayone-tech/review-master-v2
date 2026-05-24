@@ -197,6 +197,50 @@ def test_api_list_organisations_respects_search_filter(api_client_superadmin, th
     assert results[0]["name"] == "Alpha Retail"
 
 
+# --- Phase 15 Plan 01: allow_custom_sync_depth API tests ---
+
+
+def test_org_list_includes_allow_custom_sync_depth(api_client_superadmin):
+    OrganisationFactory(allow_custom_sync_depth=True)
+    resp = api_client_superadmin.get("/api/v1/organisations/")
+    assert resp.status_code == 200
+    results = resp.json().get("results", resp.json())
+    assert all("allow_custom_sync_depth" in row for row in results)
+
+
+def test_org_detail_includes_allow_custom_sync_depth(api_client_superadmin):
+    org = OrganisationFactory(allow_custom_sync_depth=True)
+    resp = api_client_superadmin.get(f"/api/v1/organisations/{org.id}/")
+    assert resp.status_code == 200
+    assert resp.json()["allow_custom_sync_depth"] is True
+
+
+def test_org_create_persists_allow_custom_sync_depth(api_client_superadmin):
+    payload = {
+        "name": "NewCo",
+        "org_type": "RETAIL",
+        "email": "newco@example.com",
+        "address": "1 Test St",
+        "number_of_stores": 1,
+        "allow_custom_sync_depth": True,
+    }
+    resp = api_client_superadmin.post("/api/v1/organisations/", payload, format="json")
+    assert resp.status_code in (200, 201), resp.content
+    assert resp.json()["allow_custom_sync_depth"] is True
+
+
+def test_org_update_toggles_allow_custom_sync_depth(api_client_superadmin):
+    org = OrganisationFactory(allow_custom_sync_depth=False)
+    resp = api_client_superadmin.patch(
+        f"/api/v1/organisations/{org.id}/",
+        {"allow_custom_sync_depth": True},
+        format="json",
+    )
+    assert resp.status_code == 200
+    org.refresh_from_db()
+    assert org.allow_custom_sync_depth is True
+
+
 def test_api_create_organisation_sends_invitation_email_on_success(api_client_superadmin):
     from django.core import mail
 

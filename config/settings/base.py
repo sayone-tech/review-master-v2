@@ -156,6 +156,8 @@ CHANNEL_LAYERS = {
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini-2024-07-18")
 OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
+# Input cap for review text fed to OpenAI (D-21).
+OPENAI_REVIEW_TEXT_MAX_CHARS = env.int("OPENAI_REVIEW_TEXT_MAX_CHARS", default=4000)
 
 LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
 LANGSMITH_ENDPOINT = env("LANGSMITH_ENDPOINT", default="https://api.smith.langchain.com")
@@ -330,6 +332,8 @@ REST_FRAMEWORK = {
         "anon": "100/hour",
         "login": "10/15min",
         "review_reply": "30/minute",
+        "generate_reply": "10/minute",
+        "audit_log_list": "120/minute",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -353,7 +357,7 @@ SIMPLE_JWT = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Review Master API",
+    "TITLE": "Review Bee API",
     "DESCRIPTION": "Internal API for web and mobile clients. Not for external use.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -367,6 +371,10 @@ SPECTACULAR_SETTINGS = {
             }
         }
     },
+    # Favicon for Redoc + Swagger viewers. Served from /static/favicon.ico
+    # (logo/favicon.ico via STATICFILES_DIRS — see §25 brand assets).
+    "REDOC_UI_FAVICON_HREF": "/static/favicon.ico",
+    "SWAGGER_UI_FAVICON_HREF": "/static/favicon.ico",
 }
 
 DJANGO_VITE = {

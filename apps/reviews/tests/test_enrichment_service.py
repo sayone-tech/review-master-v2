@@ -31,13 +31,13 @@ from apps.integrations.openai.exceptions import (
 )
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.parser import EnrichmentResult
-from apps.reviews.models import Review
+from apps.reviews.models import Review, ReviewTag
 from apps.reviews.services.enrichment import (
     RATING_TO_SENTIMENT,
     enrich_review,
     rating_to_sentiment,
 )
-from apps.reviews.tests.factories import ReviewFactory
+from apps.reviews.tests.factories import ReviewFactory, ReviewTagFactory
 
 
 @pytest.fixture(autouse=True)
@@ -155,7 +155,6 @@ def test_status_transitions_pending_to_success() -> None:
     review = ReviewFactory(
         enrichment_status=Review.EnrichmentStatus.PENDING,
         sentiment="",
-        tags=[],
         extracted_action_items=[],
         enrichment_version=0,
     )
@@ -174,8 +173,11 @@ def test_status_transitions_pending_to_success() -> None:
     review.refresh_from_db()
     assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
     assert review.sentiment == "positive"
-    assert len(review.tags) == 2
-    assert review.tags[0]["label"] == "fast service"
+    # Phase 17 (TAG-02): tags now live in ReviewTag rows, not Review.tags JSONField.
+    tag_qs = ReviewTag.objects.filter(review=review).order_by("label")
+    assert tag_qs.count() == 2
+    tag_labels = sorted(t.label for t in tag_qs)
+    assert tag_labels == sorted(["Fast Service", "Limited Menu"])  # title-cased
     assert len(review.extracted_action_items) == 1
     assert review.extracted_action_items[0]["scope"] == "shop"
     assert review.enrichment_version == 1
@@ -401,7 +403,7 @@ def test_skip_openai_when_no_comment() -> None:
     review.refresh_from_db()
     assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
     assert review.sentiment == "negative"
-    assert review.tags == []
+    assert ReviewTag.objects.filter(review=review).count() == 0
     assert review.extracted_action_items == []
     assert review.enrichment_version == 1
     assert AiUsageLog.objects.count() == usage_before
@@ -427,7 +429,7 @@ def test_skip_openai_when_whitespace_comment() -> None:
     review.refresh_from_db()
     assert review.sentiment == "neutral"
     assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
-    assert review.tags == []
+    assert ReviewTag.objects.filter(review=review).count() == 0
     assert review.extracted_action_items == []
 
 
@@ -575,3 +577,297 @@ def test_in_progress_skip_does_not_emit_progress() -> None:
     mock_openai.assert_not_called()
     # No progress emission for IN_PROGRESS — the active worker will emit on completion.
     assert len(emitted_calls) == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 17 (TAG-02): ReviewTag relational write path tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_enrich_creates_review_tag_rows() -> None:
+    """TAG-02: successful enrichment writes one ReviewTag row per result.tag."""
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+    result = _build_result()
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(result, _usage()),
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+    assert ReviewTag.objects.filter(review=review).count() == len(result.tags)
+
+
+@pytest.mark.django_db
+def test_enrich_stores_labels_title_cased() -> None:
+    """TAG-02: ReviewTag.label is stored title-cased (not the raw GPT label)."""
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+    result = _build_result()  # raw labels: "fast service", "limited menu"
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(result, _usage()),
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+    labels = set(ReviewTag.objects.filter(review=review).values_list("label", flat=True))
+    assert labels == {"Fast Service", "Limited Menu"}
+
+
+@pytest.mark.django_db
+def test_re_enrichment_is_idempotent_deletes_old_tag_rows() -> None:
+    """TAG-02 (D-09): re-enriching a review deletes old ReviewTag rows before insert.
+
+    Simulates two enrichment passes producing different tags. Final state must
+    contain only the second pass's tags — no duplicates, no stale rows.
+    """
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+
+    first_result = EnrichmentResult.model_validate(
+        {
+            "sentiment": "positive",
+            "tags": [
+                {"label": "old tag", "polarity": "positive"},
+                {"label": "another old", "polarity": "neutral"},
+            ],
+            "action_items": [],
+        }
+    )
+    second_result = EnrichmentResult.model_validate(
+        {
+            "sentiment": "negative",
+            "tags": [
+                {"label": "fresh tag", "polarity": "negative"},
+            ],
+            "action_items": [],
+        }
+    )
+
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(first_result, _usage()),
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+
+    # Sanity: first pass landed.
+    assert ReviewTag.objects.filter(review=review).count() == 2
+
+    # Reset status so the second enrichment is allowed to run through (not
+    # short-circuited by the Layer-3 SUCCESS guard).
+    Review.objects.filter(pk=review.pk).update(enrichment_status=Review.EnrichmentStatus.PENDING)
+
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(second_result, _usage()),
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+
+    final_labels = set(ReviewTag.objects.filter(review=review).values_list("label", flat=True))
+    assert final_labels == {"Fresh Tag"}  # stale rows deleted, only new tag remains
+
+
+@pytest.mark.django_db
+def test_no_comment_enrichment_clears_stale_review_tag_rows() -> None:
+    """TAG-02: comment-less enrichment deletes any pre-existing ReviewTag rows.
+
+    A review enriched once (with tags), then re-fetched as comment-less (e.g.
+    reviewer edited their review to remove the text), must end with zero
+    ReviewTag rows — not the stale ones.
+    """
+    review = ReviewFactory(
+        comment="",
+        star_rating=4,
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+    )
+    # Pre-seed stale tags as if a previous enrichment had run.
+    ReviewTagFactory(review=review, label="Stale One")
+    ReviewTagFactory(review=review, label="Stale Two")
+    assert ReviewTag.objects.filter(review=review).count() == 2
+
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_call,
+    ):
+        enrich_review(review_id=review.pk)
+    mock_call.assert_not_called()
+    assert ReviewTag.objects.filter(review=review).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 20 — TestEnrichReviewModeration (D-15, D-31, D-33 regression)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestEnrichReviewModeration:
+    """Phase 20 plan 20-05 — input moderation wiring in enrich_review."""
+
+    def test_moderate_input_called_before_openai(self) -> None:
+        """D-15: moderate_input runs first; truncated text flows to OpenAI."""
+        from apps.integrations.openai.exceptions import ContentModeratedException  # noqa: F401
+
+        review = ReviewFactory(
+            comment="Original review text",
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+        )
+        result = _build_result()
+        call_order: list[str] = []
+
+        def _moderate_side_effect(text, *, review=None, request_type="enrichment"):
+            call_order.append("moderate")
+            return "clean truncated text"
+
+        def _openai_side_effect(*, review):
+            call_order.append("openai")
+            # The truncated text from moderate_input must be on the review.comment
+            # in-memory before reaching the prompt assembly (D-21).
+            assert review.comment == "clean truncated text"
+            return (result, _usage())
+
+        with (
+            patch(
+                "apps.reviews.services.enrichment.distributed_lock",
+                side_effect=lambda *_a, **_kw: _lock_acquired(True),
+            ),
+            patch(
+                "apps.reviews.services.enrichment.moderate_input",
+                side_effect=_moderate_side_effect,
+            ) as mock_moderate,
+            patch(
+                "apps.reviews.services.enrichment.call_openai_enrichment",
+                side_effect=_openai_side_effect,
+            ) as mock_openai,
+        ):
+            enrich_review(review_id=review.pk)
+
+        assert call_order == ["moderate", "openai"]
+        assert mock_moderate.call_count == 1
+        # moderate_input was called with the ORIGINAL review.comment.
+        called_text = mock_moderate.call_args.args[0]
+        assert called_text == "Original review text"
+        assert mock_openai.call_count == 1
+
+    def test_moderate_input_blocks_sets_failed_with_error_code(self) -> None:
+        """D-15/D-31: ContentModeratedException → FAILED + content_moderated."""
+        from apps.integrations.openai.exceptions import ContentModeratedException
+
+        review = ReviewFactory(
+            comment="Some flagged content",
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+            enrichment_error_code="",
+        )
+        with (
+            patch(
+                "apps.reviews.services.enrichment.distributed_lock",
+                side_effect=lambda *_a, **_kw: _lock_acquired(True),
+            ),
+            patch(
+                "apps.reviews.services.enrichment.moderate_input",
+                side_effect=ContentModeratedException("input flagged"),
+            ),
+            patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_openai,
+        ):
+            enrich_review(review_id=review.pk)
+
+        mock_openai.assert_not_called()
+        review.refresh_from_db()
+        assert review.enrichment_status == Review.EnrichmentStatus.FAILED
+        assert review.enrichment_error_code == "content_moderated"
+        assert review.enrichment_attempted_at is not None
+
+    def test_moderate_input_does_not_use_atomic_block(self) -> None:
+        """D-33 / Pitfall 3: moderate_input must run OUTSIDE any atomic block
+        opened by enrich_review.
+
+        @pytest.mark.django_db wraps every test in an outer atomic block, so
+        `in_atomic_block` is always True inside a test. Instead, snapshot the
+        savepoint depth BEFORE calling enrich_review, then at the moderation
+        call site assert the depth has not grown — proving no inner
+        transaction.atomic() block from enrich_review is open when
+        moderate_input runs.
+        """
+        from django.db import connection as dj_connection
+
+        review = ReviewFactory(
+            comment="Some text",
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+        )
+        result = _build_result()
+        baseline_depth = len(dj_connection.savepoint_ids)
+        depth_at_call: list[int] = []
+
+        def _moderate_side_effect(text, *, review=None, request_type="enrichment"):
+            depth_at_call.append(len(dj_connection.savepoint_ids))
+            return text
+
+        with (
+            patch(
+                "apps.reviews.services.enrichment.distributed_lock",
+                side_effect=lambda *_a, **_kw: _lock_acquired(True),
+            ),
+            patch(
+                "apps.reviews.services.enrichment.moderate_input",
+                side_effect=_moderate_side_effect,
+            ),
+            patch(
+                "apps.reviews.services.enrichment.call_openai_enrichment",
+                return_value=(result, _usage()),
+            ),
+        ):
+            enrich_review(review_id=review.pk)
+
+        # No nested atomic block from enrich_review is open at the moderation
+        # call site: savepoint depth matches the pre-call baseline (which is
+        # the depth of the outer test-wrapping atomic only).
+        assert depth_at_call == [baseline_depth]
+
+    def test_already_success_review_skips_moderation(self) -> None:
+        """D-15 idempotency: SUCCESS-status review is a no-op.
+
+        Pins CLAUDE.md §12.4 layer-3 short-circuit — prevents a future refactor
+        from moving moderate_input above the SUCCESS guard and silently
+        re-billing moderated traffic.
+        """
+        review = ReviewFactory(
+            comment="Already enriched",
+            enrichment_status=Review.EnrichmentStatus.SUCCESS,
+        )
+        baseline = AiUsageLog.objects.filter(review=review).count()
+
+        with (
+            patch(
+                "apps.reviews.services.enrichment.distributed_lock",
+                side_effect=lambda *_a, **_kw: _lock_acquired(True),
+            ),
+            patch("apps.reviews.services.enrichment.moderate_input") as mock_moderate,
+            patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_openai,
+        ):
+            enrich_review(review_id=review.pk)
+
+        mock_moderate.assert_not_called()
+        mock_openai.assert_not_called()
+        assert AiUsageLog.objects.filter(review=review).count() == baseline

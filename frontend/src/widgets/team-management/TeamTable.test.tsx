@@ -46,13 +46,12 @@ afterEach(() => {
 });
 
 describe("TeamTableWidget", () => {
-  it("renders MEMBER, ROLE, ACCESS, STATUS, INVITED, ENABLED columns", () => {
+  it("renders MEMBER, ROLE, ACCESS, STATUS, ENABLED columns", () => {
     render(<TeamTableWidget {...defaultProps} />);
     expect(screen.getByText("MEMBER")).toBeInTheDocument();
     expect(screen.getByText("ROLE")).toBeInTheDocument();
     expect(screen.getByText("ACCESS")).toBeInTheDocument();
     expect(screen.getByText("STATUS")).toBeInTheDocument();
-    expect(screen.getByText("INVITED")).toBeInTheDocument();
     expect(screen.getByText("ENABLED")).toBeInTheDocument();
   });
 

@@ -25,6 +25,7 @@ class Organisation(TimeStampedModel):
     email = models.EmailField(unique=True)
     address = models.TextField(max_length=500, blank=True)
     number_of_stores = models.PositiveIntegerField()
+    allow_custom_sync_depth = models.BooleanField(default=False)
     status = models.CharField(
         max_length=10,
         choices=Status.choices,

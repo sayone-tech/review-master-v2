@@ -52,8 +52,19 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 
 **Milestone Goal:** Let Superadmins enable a per-org "configurable sync depth" flag; when enabled, Org Admins choose how far back the initial review backfill goes (1 year / 2 years / all time) at shop creation time — replacing the hard-coded 2-year default.
 
-- [ ] **Phase 15: Sync Depth Data Layer and Superadmin Controls** — Model fields, migration, serializer updates, Superadmin org toggle UI, backfill service logic, shop detail display
+- [x] **Phase 15: Sync Depth Data Layer and Superadmin Controls** — Model fields, migration, serializer updates, Superadmin org toggle UI, backfill service logic, shop detail display — completed 2026-05-15
 - [ ] **Phase 16: Org Admin Shop Creation — Conditional Depth Selector** — Conditional "Review History" dropdown in shop creation form, wired through API to persisted sync_depth
+
+### 📋 v0.6 — Tag Rework & Action Item Quality (Planned)
+
+- [x] **Phase 17: Tag Rework — ReviewTag Model and Filter** — Replace Review.tags JSONField with a proper ReviewTag relational model; add multi-select tag filter (with search) to the reviews UI; make tag chips clickable to filter (completed 2026-05-21)
+- [x] **Phase 18: Action Item Duplicate Merge** — User-driven merge of duplicate AI-extracted action items across stores; merged duplicates hidden from list, shown as read-only context in canonical detail; "+N" badge in list view (completed 2026-05-22)
+- [x] **Phase 19: AI Reply Generation** — "Generate with AI" button in ReplyComposer with Professional/Friendly tone picker; GPT-4o-mini generates a draft that fills the textarea for user review before submitting (completed 2026-05-22)
+
+### 📋 v0.7 — AI Safety & Governance (Planned)
+
+- [x] **Phase 20: AI Guardrails** — Input and output safety controls around all OpenAI calls: OpenAI Moderation API checks (category-aware blocking on 5 high-severity categories, fail-open with 1 retry on API errors), content length truncation (env-configurable `OPENAI_REVIEW_TEXT_MAX_CHARS`, default 4000), 300-word output cap with sentence-boundary truncation, shared HTTP 422 mapping for moderated content. Per-org token budget + Superadmin AI toggle deferred to a future pricing phase. (completed 2026-05-23)
+- [x] **Phase 21: Audit Log Viewer** — Read-only "Activity Log" page in Org Admin UI showing reply and action item audit events; Staff-scoped to accessible shops + SHOP-scope action items only (CLAUDE.md §9 layer-1 defence); cursor-paginated (Prev/Next, no page numbers); filters by type/date/actor with URL-synced state for bookmarkability. (completed 2026-05-24; 6 visual UI checks pending manual verification)
 
 ## Phase Details
 
@@ -93,7 +104,13 @@ Plans:
   3. When an org does not allow custom sync depth, any shop created under it is automatically assigned "Last 2 years" as its review history depth, with no selector shown and no API parameter needed from the client
   4. Shop detail page shows the current review history depth (e.g., "Last 1 year", "Last 2 years", "All time") for every shop
   5. Initial backfill for a "Last 1 year" shop fetches only reviews from the past 12 months; for a "Last 2 years" shop it fetches the past 24 months; for an "All time" shop no date filter is sent to the Google API
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [x] 15-01-PLAN.md — Organisation `allow_custom_sync_depth`: model, migration, service, serializers, tests (SYNC-01/02/03)
+- [x] 15-02-PLAN.md — Shop `sync_depth` TextChoices field default TWO_YEARS: model, migration, serializer, tests (SDEP-02/03 backend)
+- [x] 15-03-PLAN.md — Backfill date filter: thread `start_date` through `fetch_and_persist_reviews` and `_persist_page` (BKFL-01/02/03)
+- [x] 15-04-PLAN.md — Frontend: Superadmin toggle in Create/Edit/View Org modals + 'Review history' row in ShopDetailsModal
 
 ### Phase 16: Org Admin Shop Creation — Conditional Depth Selector
 
@@ -105,7 +122,127 @@ Plans:
   1. Org Admin creating a shop when the parent org has "Allow configurable sync depth" enabled sees a "Review History" dropdown with exactly three options: "Last 1 year", "Last 2 years", "All time"
   2. Org Admin creating a shop when the parent org does not have the flag enabled sees no dropdown; the shop is silently created with "Last 2 years" and no user action is required
   3. After shop creation with a custom depth, the shop detail page reflects the chosen depth, confirming the value was stored and returned correctly
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 16-01-PLAN.md — Backend: ShopCreateSerializer sync_depth field, create_shop() kwarg, shop_list view context, template bootstrap tag (SDEP-01)
+- [ ] 16-02-PLAN.md — Frontend: types.ts, entrypoint, ShopModals, CreateShopModal conditional Review History dropdown (SDEP-01)
+
+### Phase 17: Tag Rework — ReviewTag Model and Filter
+
+**Goal**: Replace `Review.tags` JSONField with a proper `ReviewTag` relational model; update the AI enrichment pipeline to write rows into the new table; add a multi-select tag filter with search to the reviews list UI; and make tag chips on review rows clickable to filter — giving Org Admins a fast, queryable way to explore reviews by AI-generated topic.
+**Depends on**: Phase 16
+**Requirements**: TAG-01, TAG-02, TAG-03
+**Success Criteria** (what must be TRUE):
+
+  1. A `ReviewTag` model exists with `(id, review_id, label, polarity)`; `Review.tags` JSONField is removed
+  2. Review enrichment writes `ReviewTag` rows (title-cased, case-insensitively deduplicated per org) instead of updating the JSONField
+  3. The reviews list API returns tags as `[{label, polarity}]` via the new model — same JSON shape as before
+  4. A `GET /api/v1/reviews/tags/` endpoint returns `[{label, count}]` scoped to the caller's org (optionally filtered by `?shop=<id>`)
+  5. The reviews UI has a Tags multi-select dropdown with search; selecting tags filters the review list (AND semantics); clickable tag chips on rows add to the active filter
+**Plans**: 4 plans
+
+Plans:
+- [x] 17-01-PLAN.md — ReviewTag model + migration 0008_reviewtag + factory update (TAG-01)
+- [x] 17-02-PLAN.md — Enrichment service write path + ReviewTagSerializer + prefetch_related (TAG-02)
+- [x] 17-03-PLAN.md — Tags @action endpoint + ReviewFilterSet tags CharFilter + TAG-03 tests (TAG-03)
+- [x] 17-04-PLAN.md — Frontend: TagsFilter dropdown, clickable chips, ReviewManagementWidget wiring (TAG-03)
+
+### Phase 18: Action Item Duplicate Merge
+
+**Goal**: Allow Org Admins to mark action items as duplicates of one another, merging them under a canonical item. Duplicate items are hidden from the default list, the canonical shows a "+N" badge, and a detail section lists all duplicates with links.
+**Depends on**: Phase 17
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17, D-18, D-19, D-20
+**Success Criteria** (what must be TRUE):
+
+  1. Org Admin can select 2+ AI-extracted action items from the list (using checkboxes) and merge them into a single canonical item via a two-step modal (pick primary → confirm)
+  2. Merged duplicate items no longer appear in the action items list; the canonical item shows a "+N" badge indicating how many duplicates are merged into it
+  3. The canonical item's detail view shows an "Also reported in" section listing each merged duplicate's shop name, source review date, and star rating
+  4. Org Admin can mark a single action item as a duplicate of another from the detail modal using "Mark as duplicate of…" which opens a search-as-you-type picker
+  5. Merged duplicates are read-only: status changes, assignment, and notes are rejected (400) on duplicate items; only the canonical remains actionable
+  6. POST /api/v1/action-items/merge/ is restricted to Org Admin (Staff receives 403); service validates same org, same scope (SHOP/BRAND), source=AI, and non-chained primary
+**Plans**: 4 plans
+
+Plans:
+
+- [x] 18-01-PLAN.md — ActionItem canonical FK + migration 0003_actionitem_canonical + model tests (D-01/D-02/D-04)
+- [x] 18-02-PLAN.md — Backend: merge service + lifecycle guards + selector filter/annotation + serializers + merge API endpoint + full test suite (D-03/D-05–D-17)
+- [x] 18-03-PLAN.md — Frontend list: DataTable checkbox extension + ActionItemTable + MergeModal + toolbar + types/api (D-11/D-18/D-20)
+- [x] 18-04-PLAN.md — Frontend detail: DuplicatePickerModal + "Also reported in" + "Mark as duplicate of…" (D-12/D-13/D-19/D-20)
+
+
+### Phase 19: AI Reply Generation
+
+**Goal**: Org Admins and Staff can generate an AI-drafted reply inside the ReplyComposer by clicking "Generate with AI", selecting Professional or Friendly tone, and reviewing the draft before submitting it manually — powered by GPT-4o-mini with full AiUsageLog cost tracking.
+**Depends on**: Phase 18
+**Requirements**: D-01 through D-25 (from 19-CONTEXT.md)
+**Success Criteria** (what must be TRUE):
+
+  1. "Generate with AI" button appears in the ReplyComposer toolbar to the left of "Use template"
+  2. Clicking Generate with an empty textarea shows Professional / Friendly tone pills; with non-empty textarea shows a confirmation row requiring the user to confirm overwrite
+  3. Clicking a tone pill calls POST /api/v1/reviews/{id}/generate-reply/ and fills the textarea with the returned draft on success
+  4. Loading state shows a spinner on the active pill; both pills disabled during load
+  5. On error (any), an inline error message appears (reusing the existing errorMessage slot); pills collapse
+  6. Every call writes one AiUsageLog row with request_type="reply_generation" and estimated_cost_usd calculated from AiPricing
+  7. Endpoint is throttled at 10/minute per user; invalid tone returns 400; OpenAI failure returns 502
+**Plans**: 3 plans
+
+Plans:
+
+Wave 1:
+
+- [x] 19-01-PLAN.md — Backend service layer: REPLY_GENERATION_PROMPT_VERSION, build_reply_generation_messages(), call_openai_reply_generation(), generate_reply_draft() + AiUsageLog write + tests (D-04/D-05/D-06/D-07/D-08/D-14/D-15/D-16)
+
+Wave 2 (blocked on Wave 1 completion):
+
+- [x] 19-02-PLAN.md — API endpoint: GenerateReplySerializer, generate_reply @action on ReviewViewSet, generate_reply throttle rate, endpoint tests (D-09/D-10/D-11/D-12/D-13/D-17/D-18)
+
+- [x] 19-03-PLAN.md — Frontend: generateReply() in api.ts, generator button + tone pills + confirmation row + state machine + focus management in ReplyComposer.tsx (D-19/D-20/D-21/D-22/D-23/D-24/D-25)
+
+Cross-cutting constraints: every OpenAI call MUST write one AiUsageLog row (CLAUDE.md §14); select_related("shop__organisation") MUST be on ReviewViewSet.get_queryset() (CLAUDE.md §6).
+
+
+
+### Phase 20: AI Guardrails
+
+**Goal**: Add input/output safety controls around all OpenAI calls — Moderation API checks (category-aware blocking) and content length truncation. MVP scope: NO token budget, NO org AI toggle (deferred to a future pricing phase).
+**Depends on**: Phase 19
+**Requirements**: D-01 through D-33 (from 20-CONTEXT.md)
+**Success Criteria** (what must be TRUE):
+
+  1. Review text >4000 chars (env-configurable) is truncated with "…[truncated]" before any OpenAI call
+  2. Review text flagged by high-severity moderation categories (sexual_minors, hate_threatening, violence_graphic, self_harm_intent, self_harm_instructions — underscore form) blocks the OpenAI enrichment call and sets Review.enrichment_status=FAILED with enrichment_error_code="content_moderated"
+  3. AI reply generation: input moderation blocks before OpenAI; output moderation blocks before the draft reaches the user; replies >300 words are truncated at sentence boundary with " (Please review and complete before sending.)" suffix
+  4. ContentModeratedException maps to HTTP 422 with canonical body {code: "content_moderated", detail: "AI reply isn't available for this review. Please write your reply manually."}
+  5. Moderation API outage: fail-open with one retry after 1s; ERROR log on second failure
+  6. AiUsageLog rows for moderated events: input-moderated → status=MODERATED + zero tokens; output-moderated → status=MODERATED + real tokens + error_code="output_moderated"
+  7. retry_failed_enrichments_task excludes rows with enrichment_error_code="content_moderated"
+  8. All AiUsageLog writes for moderation events happen OUTSIDE any transaction.atomic() block (audit-row survival on rollback)
+**Plans**: 8 plans
+
+Plans:
+
+Wave 1 (parallel — foundations):
+
+- [ ] 20-01-PLAN.md — Settings: OPENAI_REVIEW_TEXT_MAX_CHARS env-configurable (D-03/D-21) + .env.example
+- [ ] 20-02-PLAN.md — ContentModeratedException(OpenAIError) in exceptions.py (D-16/D-32)
+- [ ] 20-03-PLAN.md — Schema: AiUsageLog.Status.MODERATED enum + Review.enrichment_error_code field + two migrations (D-20/D-28/D-31)
+
+Wave 2 (depends on Wave 1):
+
+- [ ] 20-04-PLAN.md — apps/integrations/openai/guardrails.py: BLOCKING_MODERATION_CATEGORIES (underscore form), _moderate_with_retry (fail-open D-24), moderate_input, moderate_output, truncate_reply_at_sentence, _persist_moderated_log + full unit tests (D-01/D-02/D-03/D-04/D-07/D-08/D-13/D-21/D-22/D-23/D-24/D-30/D-33)
+
+Wave 3 (depends on Wave 2):
+
+- [ ] 20-05-PLAN.md — Service wiring: enrich_review calls moderate_input outside atomic; _persist_moderated helper sets enrichment_error_code; tests (D-04/D-15/D-20/D-28/D-29/D-31/D-33)
+- [ ] 20-06-PLAN.md — Service wiring: generate_reply_draft calls moderate_input → OpenAI → moderate_output → truncate_reply_at_sentence; output-moderation AiUsageLog carries real tokens; tests (D-07/D-08/D-14/D-22/D-29/D-33)
+
+Wave 4 (depends on Wave 3):
+
+- [ ] 20-07-PLAN.md — View: ReviewViewSet.generate_reply catches ContentModeratedException → HTTP 422 with canonical D-26 copy; tests (D-16/D-26/D-32)
+- [ ] 20-08-PLAN.md — Retry task: retry_failed_enrichments_task .exclude(enrichment_error_code="content_moderated"); tests (D-25/D-31)
+
+Cross-cutting constraints: BLOCKING_MODERATION_CATEGORIES uses underscore form (D-30, RESEARCH.md Pitfall 1); all moderate_* calls must be outside transaction.atomic() (D-33, RESEARCH.md Pitfall 3); never log review text at WARNING+ (CLAUDE.md §21); MODERATED enum value is uppercase string (D-28, RESEARCH.md Pitfall 2).
 
 ## Progress
 
@@ -121,5 +258,38 @@ Plans:
 | 12. AI Enrichment Pipeline | v0.3 | 9/9 | ✅ Complete | 2026-05-03 |
 | 13. Action Items and Notifications | v0.3 | 8/8 | ✅ Complete | 2026-05-04 |
 | 14. Dashboard | v0.4 | 8/8 | ✅ Complete | 2026-05-07 |
-| 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 0/TBD | Not started | - |
-| 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/TBD | Not started | - |
+| 15. Sync Depth Data Layer and Superadmin Controls | v0.5 | 4/4 | ✅ Complete | 2026-05-15 |
+| 16. Org Admin Shop Creation — Conditional Depth Selector | v0.5 | 0/2 | Not started | - |
+| 17. Tag Rework — ReviewTag Model and Filter | v0.6 | 4/4 | Complete    | 2026-05-21 |
+| 18. Action Item Duplicate Merge | v0.6 | 4/4 | Complete    | 2026-05-22 |
+| 19. AI Reply Generation | v0.6 | 3/3 | Complete   | 2026-05-22 |
+| 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
+| 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
+
+### Phase 21: Audit Log Viewer
+
+**Goal**: Org Admins and Staff can view a read-only "Activity Log" page showing reply and action item audit events scoped to their organisation; Staff Admins see only entries from their accessible shops; the list is cursor-paginated and filterable by type, date range, and actor.
+**Depends on**: Phase 18 (action_item.merged AuditLog write), Phase 19 (AuditLog model in place)
+**Requirements**: REQ-01, REQ-02, REQ-03, REQ-04, REQ-05, REQ-06, REQ-07, REQ-08, REQ-09
+**Success Criteria** (what must be TRUE):
+
+  1. GET /api/v1/audit-logs/ returns cursor-paginated results scoped to the caller's org; Staff receives only entries from their accessible shops and SHOP-scope action items
+  2. Response has next/previous cursor URLs, no before_data field, and includes actor_name (null for system actions)
+  3. Filters work: entity_type (review/action_item), actor (user ID or "system"), date_from/date_to (ISO date), shop
+  4. Superadmin receives 403; unauthenticated receives 401; throttle enforced at 120/minute
+  5. "Activity Log" nav item appears in sidebar_org.html for both ORG_ADMIN and STAFF_ADMIN
+  6. /admin/org/activity-log/ renders the Django template with React widget at #audit-log-root
+  7. React widget shows 5-column table with expandable JSON detail panel, Type pills (Reply/Action Item), cursor pagination, and filter bar with 30d default date preset
+**Plans**: 4 plans
+
+Wave 1 (parallel):
+
+- [ ] 21-01-PLAN.md — Selectors (list_audit_logs_for_org/staff), AuditLogReadSerializer, AuditLogCursorPagination, AuditLogFilterSet, selector tests (REQ-01/REQ-02/REQ-03/REQ-04)
+- [ ] 21-02-PLAN.md — AuditLogViewSet in apps/common/views.py + audit_log_view + URL registration + settings throttle + API tests (REQ-01/REQ-02/REQ-03/REQ-04/REQ-05/REQ-09)
+
+Wave 2 (depends on Wave 1):
+
+- [ ] 21-03-PLAN.md — Django template templates/org-admin/audit-log.html + sidebar Activity Log nav item (REQ-06/REQ-07/REQ-08)
+- [ ] 21-04-PLAN.md — React widget: types, utils, api, useAuditLog hook, TypePill, AuditLogFilters, AuditLogTable, AuditLogWidget + vite entrypoint (REQ-07/REQ-08)
+
+Cross-cutting constraints: IsOrgScoped permission (NOT IsStaffAdmin — does not exist); AuditLogCursorPagination.ordering = ("-created_at", "id") tiebreaker; AuditLogFactory imported from apps/reviews/tests/factories.py (already exists); templates/org-admin/ directory must be created; after_data.merged_ids.length used for count — no count key on action_item.merged rows.

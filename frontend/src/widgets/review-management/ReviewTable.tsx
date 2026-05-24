@@ -73,6 +73,7 @@ interface Props {
   onComposerClose: () => void;
   showFullComment: Map<number, boolean>;
   onToggleShowFullComment: (reviewId: number) => void;
+  onTagClick?: (label: string) => void;
 }
 
 export function ReviewTable({
@@ -85,6 +86,7 @@ export function ReviewTable({
   onComposerClose,
   showFullComment,
   onToggleShowFullComment,
+  onTagClick,
 }: Props) {
   const columns: DataTableColumn<ReviewRow>[] = [
     {
@@ -203,16 +205,22 @@ export function ReviewTable({
         return (
           <div className="flex flex-wrap gap-1 max-w-[170px]">
             {r.tags.slice(0, 4).map((tag) => (
-              <span
+              <button
                 key={`${tag.label}-${tag.polarity}`}
-                className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium rounded"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTagClick?.(tag.label);
+                }}
+                className="inline-flex items-center px-2 py-1 text-[12px] font-normal rounded cursor-pointer hover:opacity-80 transition-opacity focus-visible:ring-1 focus-visible:ring-ink focus-visible:ring-offset-1 focus-visible:outline-none"
                 style={TAG_STYLES[tag.polarity]}
+                aria-label={`Filter by tag: ${tag.label}`}
               >
                 {tag.label}
-              </span>
+              </button>
             ))}
             {r.tags.length > 4 && (
-              <span className="text-[11px] text-muted">+{r.tags.length - 4}</span>
+              <span className="text-[12px] text-muted">+{r.tags.length - 4}</span>
             )}
           </div>
         );
@@ -228,7 +236,7 @@ export function ReviewTable({
         const s = SENTIMENT_DOT[r.sentiment] ?? SENTIMENT_DOT.neutral;
         return (
           <span
-            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[12px] font-semibold"
+            className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-[12px] font-semibold"
             style={{ backgroundColor: s.bg, color: s.text }}
           >
             <span
@@ -247,9 +255,9 @@ export function ReviewTable({
       skeletonWidth: "120px",
       accessor: (r) => (
         <div>
-          <div className="text-[13.5px] font-medium text-ink leading-snug">{r.shop_name}</div>
+          <div className="text-[14px] font-normal text-ink leading-snug">{r.shop_name}</div>
           {r.shop_region_name && (
-            <div className="text-[11px] text-muted mt-0.5">{r.shop_region_name}</div>
+            <div className="text-[12px] text-muted mt-1">{r.shop_region_name}</div>
           )}
         </div>
       ),

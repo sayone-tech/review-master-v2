@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Exists, OuterRef, Q, QuerySet
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
 from rest_framework import mixins, status
+from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException
 from rest_framework.filters import OrderingFilter
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
@@ -19,6 +28,11 @@ from rest_framework.throttling import ScopedRateThrottle
 from apps.accounts.models import User
 from apps.common.permissions import IsOrgScoped
 from apps.common.viewsets import TenantScopedViewSet
+from apps.integrations.openai.exceptions import (
+    ContentModeratedException,
+    OpenAIPermanentError,
+    OpenAITransientError,
+)
 from apps.reviews.exceptions import ReplyConflictError, ReplyFailedError
 from apps.reviews.filters import ReviewFilterSet
 from apps.reviews.models import Review
@@ -26,8 +40,15 @@ from apps.reviews.selectors.reviews import (
     base_reviews_queryset,
     get_accessible_shop_ids,
 )
-from apps.reviews.serializers import ReviewReadSerializer, ReviewReplySerializer
+from apps.reviews.serializers import (
+    GenerateReplySerializer,
+    ReviewReadSerializer,
+    ReviewReplySerializer,
+)
 from apps.reviews.services.replies import remove_reply, submit_reply
+from apps.reviews.services.reply_generation import generate_reply_draft
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewPageNumberPagination(PageNumberPagination):
@@ -52,12 +73,30 @@ class ReviewViewSet(
     throttle_scope = "review_reply"  # used only when ScopedRateThrottle is selected
     queryset = Review.objects.none()
 
+    def get_throttles(self):  # type: ignore[no-untyped-def]
+        """Set per-action throttle_scope BEFORE DRF instantiates throttles.
+
+        WR-02: assigning ``self.throttle_scope`` inside the action body runs
+        AFTER ``initial()`` has already evaluated the throttle against the
+        class-level scope. Setting it here — invoked from ``initial()`` —
+        ensures the correct rate is applied (10/min for generate_reply,
+        30/min for reply).
+        """
+        if self.action == "generate_reply":
+            self.throttle_scope = "generate_reply"
+        elif self.action == "reply":
+            self.throttle_scope = "review_reply"
+        return super().get_throttles()
+
     def get_queryset(self) -> QuerySet[Review]:
         user = self.request.user
         org_id = getattr(user, "organisation_id", None)
         if org_id is None:
             return Review.objects.none()
-        qs = base_reviews_queryset(organisation_id=org_id)
+        # Phase 19 Plan 02: select_related("shop__organisation") so that the
+        # generate_reply action can access review.shop.organisation.name in
+        # generate_reply_draft() without an extra query (CLAUDE.md §6 N+1 guard).
+        qs = base_reviews_queryset(organisation_id=org_id).select_related("shop__organisation")
         if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
             raw_pk = user.pk
             if raw_pk is None:
@@ -85,6 +124,58 @@ class ReviewViewSet(
             response = Response({"results": serializer.data})
         response.data["total_count"] = total_count
         return response
+
+    @action(detail=False, methods=["get"], url_path="tags")
+    def tags(self, request: Request) -> Response:
+        """Return distinct tag labels + counts scoped to the caller's org.
+
+        ?shop=<id> — optional, narrows to a single shop.
+        Staff users see only tags from their accessible shops.
+        """
+        user = request.user
+        org_id = getattr(user, "organisation_id", None)
+        if org_id is None:
+            return Response([])
+
+        # Local import — avoids any circular import risk at module load time.
+        from apps.reviews.models import ReviewTag
+
+        qs = ReviewTag.objects.filter(review__shop__organisation_id=org_id)
+
+        # Phase 17 WR-02: validate ?shop as int. Without this, a non-numeric
+        # value (e.g. ?shop=abc) propagates to the ORM and raises ValueError
+        # at query time → 500. Mirrors the django-filter NumberFilter contract
+        # on the list endpoint.
+        shop_id_raw = request.query_params.get("shop")
+        if shop_id_raw:
+            try:
+                shop_id = int(shop_id_raw)
+            except (TypeError, ValueError):
+                return Response({"detail": "Invalid shop id"}, status=status.HTTP_400_BAD_REQUEST)
+            qs = qs.filter(review__shop_id=shop_id)
+
+        if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
+            raw_pk = user.pk
+            if raw_pk is None:
+                return Response([])
+            user_id: int = raw_pk
+            qs = qs.filter(review__shop_id__in=get_accessible_shop_ids(user_id=user_id))
+
+        # Phase 17 WR-03: hard-cap the response. Long-tail tag management UI
+        # is the long-term solution; for now we bound the payload at top-N
+        # by count (default 200) with a `?limit=` override. This matches the
+        # discovery-style contract of /reviews/tags/ — a UI combobox source —
+        # rather than the paginated list contract used for the reviews list.
+        try:
+            limit = int(request.query_params.get("limit", 200))
+        except (TypeError, ValueError):
+            limit = 200
+        limit = max(1, min(limit, 500))
+
+        result = qs.values("label").annotate(count=Count("id")).order_by("-count", "label")[:limit]
+        return Response(
+            [{"label": row["label"], "count": row["count"]} for row in result]  # type: ignore[index, unused-ignore]
+        )
 
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request: Request) -> Response:
@@ -166,6 +257,193 @@ class ReviewViewSet(
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         return Response(ReviewReadSerializer(updated).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        operation_id="reviews_generate_reply",
+        summary="Generate an AI draft reply",
+        description=(
+            "Generates a tone-selected draft reply for the review using GPT-4o-mini. "
+            "The draft is NOT sent to Google — it fills the composer textarea for the "
+            "user to edit and submit. Input + output are passed through the OpenAI "
+            "Moderation API (Phase 20 — D-23 category-aware blocking). Throttled at "
+            "10/min/user (scope `generate_reply`)."
+        ),
+        request=GenerateReplySerializer,
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="GenerateReplyResponse",
+                    fields={"draft": drf_serializers.CharField()},
+                ),
+                description="Draft generated successfully. Length capped at 300 words by D-08.",
+                examples=[
+                    OpenApiExample(
+                        "Professional draft",
+                        value={
+                            "draft": (
+                                "Thank you for taking the time to share your feedback. "
+                                "We're sorry to hear about your experience and would "
+                                "appreciate the opportunity to make this right..."
+                            )
+                        },
+                    )
+                ],
+            ),
+            400: OpenApiResponse(description="Invalid tone (not in `professional`/`friendly`)."),
+            401: OpenApiResponse(description="Authentication required."),
+            403: OpenApiResponse(description="Review is outside the caller's accessible shops."),
+            422: OpenApiResponse(
+                response=inline_serializer(
+                    name="ContentModeratedResponse",
+                    fields={
+                        "code": drf_serializers.CharField(),
+                        "detail": drf_serializers.CharField(),
+                    },
+                ),
+                description=(
+                    "Review text or generated draft was flagged by Moderation API "
+                    "high-severity categories (Phase 20 D-23). Same canonical body "
+                    "for both input and output flags (D-26) — frontend renders "
+                    "`detail` verbatim."
+                ),
+                examples=[
+                    OpenApiExample(
+                        "Moderated content",
+                        value={
+                            "code": "content_moderated",
+                            "detail": (
+                                "AI reply isn't available for this review. "
+                                "Please write your reply manually."
+                            ),
+                        },
+                    )
+                ],
+            ),
+            429: OpenApiResponse(
+                response=inline_serializer(
+                    name="GenerateReplyThrottledResponse",
+                    fields={
+                        "detail": drf_serializers.CharField(),
+                        "retry_after_seconds": drf_serializers.IntegerField(required=False),
+                    },
+                ),
+                description=(
+                    "Rate limit exceeded (10/min/user). `retry_after_seconds` is the "
+                    "integer seconds until the bucket refills. Frontend uses the dynamic "
+                    "copy variant when present (see 19-UI-SPEC.md §Copywriting)."
+                ),
+            ),
+            502: OpenApiResponse(
+                response=inline_serializer(
+                    name="GenerateReplyFailedResponse",
+                    fields={
+                        "code": drf_serializers.CharField(),
+                        "detail": drf_serializers.CharField(),
+                    },
+                ),
+                description=(
+                    "OpenAI call failed (transient 5xx, permanent 4xx, or unexpected "
+                    "error). A FAILED AiUsageLog row is always written before the "
+                    "response is returned (D-17)."
+                ),
+                examples=[
+                    OpenApiExample(
+                        "OpenAI unavailable",
+                        value={
+                            "code": "ai_unavailable",
+                            "detail": (
+                                "AI generation failed. Please try again or "
+                                "write your reply manually."
+                            ),
+                        },
+                    )
+                ],
+            ),
+        },
+        tags=["reviews"],
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="generate-reply",
+        throttle_classes=[ScopedRateThrottle],
+    )
+    def generate_reply(self, request: Request, pk: int | None = None) -> Response:
+        """POST: generate an AI draft reply for the given review.
+
+        Returns 200 {draft: str} on success.
+        Returns 400 on invalid tone (serializer validation).
+        Returns 502 on any OpenAI failure (transient/permanent/unexpected).
+        D-09, D-10, D-11, D-12, D-13, D-17, D-18.
+
+        Throttle scope is set in ``get_throttles`` (see WR-02) so DRF picks
+        up the per-action rate BEFORE the action body executes.
+        """
+        review = self.get_object()
+        serializer = GenerateReplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tone: str = serializer.validated_data["tone"]
+        try:
+            draft = generate_reply_draft(review=review, tone=tone)
+        except ContentModeratedException:
+            # D-16/D-26/D-32: input or output blocked by moderation.
+            # Caught BEFORE OpenAITransient/Permanent because
+            # ContentModeratedException inherits from OpenAIError —
+            # most-specific catch first. Body is the canonical user-facing
+            # string from D-26; no LLM categories or review text leak (T-20-LK).
+            logger.info(
+                "generate_reply blocked by moderation review_id=%s",
+                review.pk,
+            )
+            return Response(
+                {
+                    "code": "content_moderated",
+                    "detail": "AI reply isn't available for this review. Please write your reply manually.",
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        except (OpenAITransientError, OpenAIPermanentError) as exc:
+            # D-17: known OpenAI failures (transient + permanent) map to a
+            # single generic 502 response. Service layer has already written
+            # the FAILED AiUsageLog row before re-raising.
+            logger.warning(
+                "generate_reply_openai_failed review_id=%s tone=%s exc_type=%s exc=%s",
+                review.pk,
+                tone,
+                type(exc).__name__,
+                exc,
+            )
+            return Response(
+                {
+                    "code": "ai_unavailable",
+                    "detail": (
+                        "AI generation failed. Please try again or write your reply manually."
+                    ),
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except APIException:
+            # Let DRF handle Throttled, ValidationError, NotAuthenticated, etc.
+            # with their natural status codes (e.g., 429, 400, 401).
+            raise
+        except Exception:
+            # Unexpected programmer/runtime error — logger.exception emits
+            # ERROR-level + traceback so Sentry captures it (D-17).
+            logger.exception(
+                "generate_reply_unexpected review_id=%s tone=%s",
+                review.pk,
+                tone,
+            )
+            return Response(
+                {
+                    "code": "ai_unavailable",
+                    "detail": (
+                        "AI generation failed. Please try again or write your reply manually."
+                    ),
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response({"draft": draft}, status=status.HTTP_200_OK)
 
 
 @login_required(login_url="/login/")

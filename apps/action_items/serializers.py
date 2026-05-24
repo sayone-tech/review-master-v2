@@ -72,8 +72,71 @@ class _ActionItemBaseRead(serializers.ModelSerializer):  # type: ignore[type-arg
         return str(full_name)
 
 
+class ActionItemDuplicateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
+    """Phase 18 — slim payload for items merged into a primary (rendered in detail).
+
+    User-feedback addition: also surface the source review's id and a
+    text excerpt so the 'Also reported in' UI can show what the reviewer
+    actually wrote, not just a date + star rating.
+    """
+
+    shop_name = serializers.SerializerMethodField()
+    source_review_id = serializers.IntegerField(read_only=True)
+    source_review_date = serializers.SerializerMethodField()
+    source_review_rating = serializers.SerializerMethodField()
+    source_review_comment = serializers.SerializerMethodField()
+    source_review_reviewer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActionItem
+        fields: ClassVar[list[str]] = [
+            "id",
+            "title",
+            "shop_name",
+            "source_review_id",
+            "source_review_date",
+            "source_review_rating",
+            "source_review_comment",
+            "source_review_reviewer",
+        ]
+        read_only_fields: ClassVar[list[str]] = fields
+
+    def get_shop_name(self, obj: ActionItem) -> str:
+        return str(obj.shop.name) if obj.shop else ""
+
+    def get_source_review_date(self, obj: ActionItem) -> str | None:
+        if obj.source_review is None:
+            return None
+        ts = obj.source_review.review_create_time
+        return ts.isoformat() if ts else None
+
+    def get_source_review_rating(self, obj: ActionItem) -> int | None:
+        if obj.source_review is None:
+            return None
+        return obj.source_review.star_rating
+
+    def get_source_review_comment(self, obj: ActionItem) -> str | None:
+        if obj.source_review is None:
+            return None
+        return obj.source_review.comment or None
+
+    def get_source_review_reviewer(self, obj: ActionItem) -> str | None:
+        if obj.source_review is None:
+            return None
+        return obj.source_review.reviewer_display_name or None
+
+
 class ActionItemListSerializer(_ActionItemBaseRead):
     """List endpoint payload — excludes nested notes/source_review for tight query budget."""
+
+    duplicate_count = serializers.IntegerField(read_only=True)
+
+    class Meta(_ActionItemBaseRead.Meta):
+        fields: ClassVar[list[str]] = [
+            *_ActionItemBaseRead.Meta.fields,
+            "duplicate_count",
+        ]
+        read_only_fields: ClassVar[list[str]] = fields
 
 
 class ActionItemReadSerializer(_ActionItemBaseRead):
@@ -81,12 +144,14 @@ class ActionItemReadSerializer(_ActionItemBaseRead):
 
     notes = ActionItemNoteSerializer(many=True, read_only=True)
     source_review = serializers.SerializerMethodField()
+    duplicates = ActionItemDuplicateSerializer(many=True, read_only=True)
 
     class Meta(_ActionItemBaseRead.Meta):
         fields: ClassVar[list[str]] = [
             *_ActionItemBaseRead.Meta.fields,
             "notes",
             "source_review",
+            "duplicates",
         ]
         read_only_fields: ClassVar[list[str]] = fields
 
@@ -146,15 +211,19 @@ class ActionItemCreateSerializer(serializers.ModelSerializer):  # type: ignore[t
 
 
 class ActionItemUpdateSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
-    """ACTN-07: Title, Priority, Due Date, Assignee are editable. Scope/Shop are NOT.
+    """ACTN-07: Title, Priority, Due Date, Assignee, Category are editable.
+    Scope/Shop are NOT.
 
-    Omitting scope and shop from Meta.fields means PATCH/PUT silently ignores
-    them in the payload (DRF validates incoming data only against declared
-    fields).
+    Category was added later (user-feedback fix): AI extraction frequently
+    defaults to OTHER, and users need a way to correct it without recreating
+    the item. Omitting scope and shop from Meta.fields means PATCH/PUT
+    silently ignores them in the payload (DRF validates incoming data only
+    against declared fields).
     """
 
     title = serializers.CharField(min_length=5, max_length=200, required=False)
     priority = serializers.ChoiceField(choices=ActionItem.Priority.choices, required=False)
+    category = serializers.ChoiceField(choices=ActionItem.Category.choices, required=False)
     due_date = serializers.DateField(required=False, allow_null=True)
     assignee = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True
@@ -162,7 +231,13 @@ class ActionItemUpdateSerializer(serializers.ModelSerializer):  # type: ignore[t
 
     class Meta:
         model = ActionItem
-        fields: ClassVar[list[str]] = ["title", "priority", "due_date", "assignee"]
+        fields: ClassVar[list[str]] = [
+            "title",
+            "priority",
+            "category",
+            "due_date",
+            "assignee",
+        ]
 
     def validate_due_date(self, value: Any) -> Any:
         if value is None:
@@ -174,6 +249,24 @@ class ActionItemUpdateSerializer(serializers.ModelSerializer):  # type: ignore[t
 
 class StatusTransitionSerializer(serializers.Serializer):  # type: ignore[type-arg]
     status = serializers.ChoiceField(choices=ActionItem.Status.choices)
+
+
+class MergeSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """Phase 18 — payload for POST /api/v1/action-items/merge/."""
+
+    primary_id = serializers.IntegerField()
+    duplicate_ids = serializers.ListField(child=serializers.IntegerField(), min_length=1)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        primary_id = attrs["primary_id"]
+        duplicate_ids = attrs["duplicate_ids"]
+        if primary_id in duplicate_ids:
+            raise serializers.ValidationError(
+                {"duplicate_ids": "primary_id must not appear in duplicate_ids."}
+            )
+        if len(set(duplicate_ids)) != len(duplicate_ids):
+            raise serializers.ValidationError({"duplicate_ids": "duplicate_ids must be unique."})
+        return attrs
 
 
 class ActionItemNoteCreateSerializer(serializers.Serializer):  # type: ignore[type-arg]

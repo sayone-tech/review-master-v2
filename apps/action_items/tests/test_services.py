@@ -11,6 +11,7 @@ from apps.action_items.services.lifecycle import (
     add_note,
     assign_action_item,
     create_action_item,
+    merge_action_items,
     promote_action_items_from_review,
     transition_status,
 )
@@ -356,6 +357,291 @@ def test_promote_category_falls_back_to_other_when_missing():
     promote_action_items_from_review(review=review)
     item = ActionItem.objects.get(source_review=review)
     assert item.category == ActionItem.Category.OTHER
+
+
+# ---------------------------------------------------------------------------
+# Phase 18 — read-only guards on merged duplicates (D-03)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_transition_status_raises_on_merged_duplicate():
+    org = OrganisationFactory()
+    primary = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    dup = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    dup.canonical = primary
+    dup.save(update_fields=["canonical"])
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        transition_status(
+            action_item=dup,
+            new_status=ActionItem.Status.IN_PROGRESS,
+            actor=actor,
+        )
+
+
+@pytest.mark.django_db
+def test_assign_action_item_raises_on_merged_duplicate():
+    org = OrganisationFactory()
+    primary = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    dup = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    dup.canonical = primary
+    dup.save(update_fields=["canonical"])
+    actor = OrgAdminFactory(organisation=org)
+    assignee = UserFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        assign_action_item(action_item=dup, assignee_id=assignee.pk, actor=actor)
+
+
+@pytest.mark.django_db
+def test_add_note_raises_on_merged_duplicate():
+    org = OrganisationFactory()
+    primary = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    dup = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    dup.canonical = primary
+    dup.save(update_fields=["canonical"])
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        add_note(action_item=dup, author=actor, body="A note")
+
+
+# ---------------------------------------------------------------------------
+# Phase 18 — merge_action_items (D-05/06/07/08/09/14/15)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_merge_happy_path():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org,
+        shop=shop,
+        scope=ActionItem.Scope.SHOP,
+        source=ActionItem.Source.AI,
+    )
+    dup1 = ActionItemFactory(
+        organisation=org,
+        shop=shop,
+        scope=ActionItem.Scope.SHOP,
+        source=ActionItem.Source.AI,
+    )
+    dup2 = ActionItemFactory(
+        organisation=org,
+        shop=shop,
+        scope=ActionItem.Scope.SHOP,
+        source=ActionItem.Source.AI,
+    )
+    actor = OrgAdminFactory(organisation=org)
+    result = merge_action_items(
+        primary_id=primary.pk,
+        duplicate_ids=[dup1.pk, dup2.pk],
+        actor=actor,
+        organisation_id=org.pk,
+    )
+    assert result.pk == primary.pk
+    dup1.refresh_from_db()
+    dup2.refresh_from_db()
+    assert dup1.canonical_id == primary.pk
+    assert dup2.canonical_id == primary.pk
+    logs = AuditLog.objects.filter(
+        entity_type="action_item",
+        entity_id=str(primary.pk),
+        action="action_item.merged",
+    )
+    assert logs.count() == 1
+    log = logs.first()
+    assert set(log.after_data["merged_ids"]) == {dup1.pk, dup2.pk}
+
+
+@pytest.mark.django_db
+def test_merge_reparents_sub_duplicates():
+    """D-09: when D1 already has its own sub-duplicate S1, merging D1 into P
+    must re-parent S1 onto P so the chain stays flat."""
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    d1 = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    s1 = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    # S1 is an existing sub-duplicate of D1.
+    s1.canonical = d1
+    s1.save(update_fields=["canonical"])
+    actor = OrgAdminFactory(organisation=org)
+    merge_action_items(
+        primary_id=primary.pk,
+        duplicate_ids=[d1.pk],
+        actor=actor,
+        organisation_id=org.pk,
+    )
+    s1.refresh_from_db()
+    d1.refresh_from_db()
+    assert s1.canonical_id == primary.pk
+    assert d1.canonical_id == primary.pk
+
+
+@pytest.mark.django_db
+def test_merge_rejects_cross_scope():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    dup = ActionItemFactory(
+        organisation=org, shop=None, scope=ActionItem.Scope.BRAND, source=ActionItem.Source.AI
+    )
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        merge_action_items(
+            primary_id=primary.pk,
+            duplicate_ids=[dup.pk],
+            actor=actor,
+            organisation_id=org.pk,
+        )
+
+
+@pytest.mark.django_db
+def test_merge_rejects_different_shops_same_scope_shop():
+    """SHOP-scope items from different shops cannot be merged: a 'broken AC' at
+    Shop A and a 'broken AC' at Shop B are genuinely distinct operational
+    issues, and collapsing them would break per-shop accountability and the
+    'Also reported in' UI."""
+    org = OrganisationFactory()
+    shop_a = ShopFactory(organisation=org)
+    shop_b = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop_a, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    dup = ActionItemFactory(
+        organisation=org, shop=shop_b, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError, match="same shop"):
+        merge_action_items(
+            primary_id=primary.pk,
+            duplicate_ids=[dup.pk],
+            actor=actor,
+            organisation_id=org.pk,
+        )
+
+
+@pytest.mark.django_db
+def test_merge_allows_same_shop_same_scope():
+    """Positive control for the cross-shop guard above: two SHOP-scope items
+    on the SAME shop merge successfully."""
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    dup = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    actor = OrgAdminFactory(organisation=org)
+    result = merge_action_items(
+        primary_id=primary.pk,
+        duplicate_ids=[dup.pk],
+        actor=actor,
+        organisation_id=org.pk,
+    )
+    assert result.pk == primary.pk
+    dup.refresh_from_db()
+    assert dup.canonical_id == primary.pk
+
+
+@pytest.mark.django_db
+def test_merge_rejects_manual_source():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    primary = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    manual = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.MANUAL
+    )
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        merge_action_items(
+            primary_id=primary.pk,
+            duplicate_ids=[manual.pk],
+            actor=actor,
+            organisation_id=org.pk,
+        )
+
+
+@pytest.mark.django_db
+def test_merge_rejects_already_merged_primary():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    other = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    primary = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    primary.canonical = other
+    primary.save(update_fields=["canonical"])
+    dup = ActionItemFactory(
+        organisation=org, shop=shop, scope=ActionItem.Scope.SHOP, source=ActionItem.Source.AI
+    )
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        merge_action_items(
+            primary_id=primary.pk,
+            duplicate_ids=[dup.pk],
+            actor=actor,
+            organisation_id=org.pk,
+        )
+
+
+@pytest.mark.django_db
+def test_merge_rejects_empty_duplicate_ids():
+    org = OrganisationFactory()
+    primary = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        merge_action_items(
+            primary_id=primary.pk,
+            duplicate_ids=[],
+            actor=actor,
+            organisation_id=org.pk,
+        )
+
+
+@pytest.mark.django_db
+def test_merge_rejects_primary_in_duplicate_list():
+    org = OrganisationFactory()
+    primary = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        merge_action_items(
+            primary_id=primary.pk,
+            duplicate_ids=[primary.pk],
+            actor=actor,
+            organisation_id=org.pk,
+        )
+
+
+@pytest.mark.django_db
+def test_merge_rejects_cross_org_items():
+    """IDOR: an item belonging to another org must not be mergeable even if its id is known."""
+    org = OrganisationFactory()
+    other_org = OrganisationFactory()
+    primary = ActionItemFactory(organisation=org, source=ActionItem.Source.AI)
+    foreign = ActionItemFactory(organisation=other_org, source=ActionItem.Source.AI)
+    actor = OrgAdminFactory(organisation=org)
+    with pytest.raises(ValidationError):
+        merge_action_items(
+            primary_id=primary.pk,
+            duplicate_ids=[foreign.pk],
+            actor=actor,
+            organisation_id=org.pk,
+        )
 
 
 @pytest.mark.django_db

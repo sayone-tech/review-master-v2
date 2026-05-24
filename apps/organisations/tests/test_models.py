@@ -70,3 +70,14 @@ def test_annotate_store_counts_returns_zero_in_phase_1() -> None:
     assert org is not None
     assert org.total_stores == 0
     assert org.active_stores == 0
+
+
+def test_organisation_allow_custom_sync_depth_default_false(db) -> None:
+    org = OrganisationFactory()
+    assert org.allow_custom_sync_depth is False
+
+
+def test_organisation_allow_custom_sync_depth_can_be_set_true(db) -> None:
+    org = OrganisationFactory(allow_custom_sync_depth=True)
+    org.refresh_from_db()
+    assert org.allow_custom_sync_depth is True

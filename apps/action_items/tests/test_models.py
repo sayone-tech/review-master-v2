@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from django.db import connection
+from django.db import connection, models
 
 from apps.action_items.models import ActionItem
 from apps.action_items.tests.factories import (
@@ -103,3 +103,34 @@ def test_brand_item_allows_null_shop() -> None:
 def test_action_item_category_defaults_to_other() -> None:
     item = ActionItemFactory()
     assert item.category == ActionItem.Category.OTHER
+
+
+@pytest.mark.django_db
+def test_canonical_field_exists() -> None:
+    """D-01: ActionItem.canonical is a nullable self-FK with related_name='duplicates'."""
+    field = ActionItem._meta.get_field("canonical")
+    assert isinstance(field, models.ForeignKey)
+    assert field.null is True
+    assert field.blank is True
+    assert field.remote_field.model is ActionItem
+    assert field.remote_field.related_name == "duplicates"
+
+
+@pytest.mark.django_db
+def test_canonical_set_null_on_delete() -> None:
+    """D-02: Deleting the canonical item sets canonical=None on its duplicates (SET_NULL)."""
+    canonical_item = ActionItemFactory(title="Primary item")
+    duplicate = ActionItemFactory(
+        organisation=canonical_item.organisation,
+        shop=canonical_item.shop,
+        title="Duplicate item",
+    )
+    duplicate.canonical = canonical_item
+    duplicate.save(update_fields=["canonical"])
+
+    duplicate.refresh_from_db()
+    assert duplicate.canonical_id == canonical_item.pk
+
+    canonical_item.delete()
+    duplicate.refresh_from_db()
+    assert duplicate.canonical is None

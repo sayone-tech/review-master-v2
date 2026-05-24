@@ -454,3 +454,198 @@ def test_already_enriched_reviews_bulk_incremented_not_dispatched(
     assert total_bulk_incremented == 2, (
         "bulk counter must be advanced by exactly 2 (the number of SUCCESS reviews)"
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 15-03: BKFL-01 / BKFL-02 / BKFL-03 — initial backfill date filter
+# ---------------------------------------------------------------------------
+
+
+def _build_gbp_review(google_review_id: str, days_old: int) -> dict[str, Any]:
+    """Build a single GBP API review payload at a given age relative to now."""
+    from datetime import timedelta
+
+    from django.utils import timezone as dj_timezone
+
+    create_time = (dj_timezone.now() - timedelta(days=days_old)).isoformat().replace("+00:00", "Z")
+    return {
+        "name": f"accounts/x/locations/y/reviews/{google_review_id}",
+        "reviewId": google_review_id,
+        "reviewer": {"displayName": "Test", "isAnonymous": False},
+        "starRating": "FIVE",
+        "comment": "ok",
+        "createTime": create_time,
+        "updateTime": create_time,
+    }
+
+
+@pytest.mark.django_db
+def test_initial_backfill_one_year_date_filter(patched_dependencies) -> None:
+    """BKFL-01: ONE_YEAR shop initial backfill skips reviews older than 365 days."""
+    shop = ShopFactory(
+        sync_depth=Shop.SyncDepth.ONE_YEAR,
+        connection_status=Shop.ConnectionStatus.CONNECTED,
+        google_refresh_token="rt",
+    )
+    Shop.objects.filter(pk=shop.pk).update(
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+    shop.refresh_from_db()
+    page = {
+        "reviews": [
+            _build_gbp_review("r-recent", 100),
+            _build_gbp_review("r-mid", 400),
+            _build_gbp_review("r-old", 800),
+        ],
+        "totalReviewCount": 3,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+    persisted_ids = set(Review.objects.filter(shop=shop).values_list("google_review_id", flat=True))
+    assert persisted_ids == {"r-recent"}, (
+        f"ONE_YEAR filter must exclude reviews older than 365 days; got {persisted_ids}"
+    )
+
+
+@pytest.mark.django_db
+def test_initial_backfill_two_years_date_filter(patched_dependencies) -> None:
+    """BKFL-02: TWO_YEARS shop initial backfill skips reviews older than 730 days."""
+    shop = ShopFactory(
+        sync_depth=Shop.SyncDepth.TWO_YEARS,
+        connection_status=Shop.ConnectionStatus.CONNECTED,
+        google_refresh_token="rt",
+    )
+    Shop.objects.filter(pk=shop.pk).update(
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+    shop.refresh_from_db()
+    page = {
+        "reviews": [
+            _build_gbp_review("r-recent", 100),
+            _build_gbp_review("r-mid", 400),
+            _build_gbp_review("r-old", 800),
+        ],
+        "totalReviewCount": 3,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+    persisted_ids = set(Review.objects.filter(shop=shop).values_list("google_review_id", flat=True))
+    assert persisted_ids == {"r-recent", "r-mid"}, (
+        f"TWO_YEARS filter must exclude reviews older than 730 days; got {persisted_ids}"
+    )
+
+
+@pytest.mark.django_db
+def test_initial_backfill_all_time_no_filter(patched_dependencies) -> None:
+    """BKFL-03: ALL_TIME shop initial backfill persists all reviews regardless of age."""
+    shop = ShopFactory(
+        sync_depth=Shop.SyncDepth.ALL_TIME,
+        connection_status=Shop.ConnectionStatus.CONNECTED,
+        google_refresh_token="rt",
+    )
+    Shop.objects.filter(pk=shop.pk).update(
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+    shop.refresh_from_db()
+    page = {
+        "reviews": [
+            _build_gbp_review("r-recent", 100),
+            _build_gbp_review("r-mid", 400),
+            _build_gbp_review("r-old", 800),
+        ],
+        "totalReviewCount": 3,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+    persisted_ids = set(Review.objects.filter(shop=shop).values_list("google_review_id", flat=True))
+    assert persisted_ids == {"r-recent", "r-mid", "r-old"}, (
+        f"ALL_TIME must persist all reviews; got {persisted_ids}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 16-01 Task 3: incremental sync respects shop.sync_depth date floor
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_incremental_sync_filters_reviews_older_than_one_year(patched_dependencies) -> None:
+    """Phase 16-01: ONE_YEAR incremental sync skips reviews older than 365 days."""
+    shop = ShopFactory(
+        sync_depth=Shop.SyncDepth.ONE_YEAR,
+        connection_status=Shop.ConnectionStatus.CONNECTED,
+        google_refresh_token="rt",
+    )
+    Shop.objects.filter(pk=shop.pk).update(
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+    shop.refresh_from_db()
+    page = {
+        "reviews": [
+            _build_gbp_review("r-recent", 100),  # inside ONE_YEAR window
+            _build_gbp_review("r-old", 400),  # outside ONE_YEAR window (>365 days)
+        ],
+        "totalReviewCount": 2,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
+    persisted_ids = set(Review.objects.filter(shop=shop).values_list("google_review_id", flat=True))
+    assert persisted_ids == {"r-recent"}, (
+        f"ONE_YEAR incremental sync must exclude reviews older than 365 days; got {persisted_ids}"
+    )
+
+
+@pytest.mark.django_db
+def test_incremental_sync_no_filter_for_all_time(patched_dependencies) -> None:
+    """Phase 16-01: ALL_TIME incremental sync persists all reviews regardless of age."""
+    shop = ShopFactory(
+        sync_depth=Shop.SyncDepth.ALL_TIME,
+        connection_status=Shop.ConnectionStatus.CONNECTED,
+        google_refresh_token="rt",
+    )
+    Shop.objects.filter(pk=shop.pk).update(
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+    shop.refresh_from_db()
+    page = {
+        "reviews": [
+            _build_gbp_review("r-old-1000", 1000),  # well outside any date window
+        ],
+        "totalReviewCount": 1,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
+    assert Review.objects.filter(shop=shop).count() == 1, (
+        "ALL_TIME incremental sync must persist all reviews regardless of age"
+    )
+
+
+@pytest.mark.django_db
+def test_incremental_sync_two_years_filter(patched_dependencies) -> None:
+    """Phase 16-01: TWO_YEARS incremental sync skips reviews older than 730 days."""
+    shop = ShopFactory(
+        sync_depth=Shop.SyncDepth.TWO_YEARS,
+        connection_status=Shop.ConnectionStatus.CONNECTED,
+        google_refresh_token="rt",
+    )
+    Shop.objects.filter(pk=shop.pk).update(
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+    shop.refresh_from_db()
+    page = {
+        "reviews": [
+            _build_gbp_review("r-old-800", 800),  # outside TWO_YEARS window (>730 days)
+        ],
+        "totalReviewCount": 1,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
+    assert Review.objects.filter(shop=shop).count() == 0, (
+        "TWO_YEARS incremental sync must exclude reviews older than 730 days"
+    )

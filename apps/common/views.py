@@ -1,17 +1,32 @@
 from __future__ import annotations
 
+from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework import mixins, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.renderers import TemplateHTMLRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
 from apps.accounts.permissions import IsSuperadmin
+from apps.common.filters import AuditLogFilterSet
+from apps.common.models import AuditLog
+from apps.common.pagination import AuditLogCursorPagination
+from apps.common.permissions import IsOrgScoped
+from apps.common.selectors.audit_logs import (
+    list_audit_logs_for_org,
+    list_audit_logs_for_staff,
+)
+from apps.common.serializers import AuditLogReadSerializer
 
 
 class ScalarDocsView(APIView):
@@ -135,3 +150,140 @@ def showcase(request: HttpRequest) -> HttpResponse:
         "fake_page_obj": _FakePage(),
     }
     return render(request, "pages/showcase.html", ctx)
+
+
+@extend_schema(
+    tags=["audit-log"],
+    summary="List audit log entries (Activity Log)",
+    description=(
+        "Read-only paginated list of audit log entries for the caller's organisation. "
+        "ORG_ADMIN sees all org-scoped entries (review/reply + action_item events). "
+        "STAFF_ADMIN sees only entries whose entity maps to a shop in their "
+        "StaffAccessScope AND only `scope=SHOP` action items — Brand-scope action "
+        "items are NEVER visible to Staff (CLAUDE.md §9 layer-1 defence). "
+        "Superadmin is denied (403). Throttled at 120/min (scope `audit_log_list`). "
+        "Cursor pagination ordered by `(-created_at, id)`; the response Link header "
+        "carries `next` and `previous` cursors. Response body omits `before_data` "
+        "(D-10) and includes `actor_name` (D-11)."
+    ),
+    parameters=[
+        OpenApiParameter(
+            name="entity_type",
+            description="Filter by entity type (whitelist enforced).",
+            enum=["review", "action_item"],
+            required=False,
+        ),
+        OpenApiParameter(
+            name="date_from",
+            description="Inclusive lower bound on `created_at` (ISO 8601 date). Must be ≤ date_to.",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="date_to",
+            description="Inclusive upper bound on `created_at` (ISO 8601 date). Must be ≥ date_from — 400 otherwise.",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="shop_id",
+            description="Filter by shop. For Staff users, the shop_id MUST be in their StaffAccessScope — inaccessible shop_ids return 403.",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="actor_id",
+            description="Filter by actor user ID. For Staff, the dropdown bootstrap surfaces only actors visible in their scoped queryset (Phase 21 WR-03 fix).",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="cursor",
+            description="Opaque cursor from a prior response's Link header (`next` or `previous`). Omit on first page.",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="page_size",
+            description="Override the default page size. Capped server-side.",
+            required=False,
+        ),
+    ],
+    responses={
+        200: AuditLogReadSerializer(many=True),
+        400: OpenApiResponse(
+            description="Invalid filter (e.g. `date_from` > `date_to`, or `entity_type` not in whitelist)."
+        ),
+        401: OpenApiResponse(description="Authentication required."),
+        403: OpenApiResponse(
+            description="Caller is Superadmin (no organisation scope), or Staff requested an inaccessible shop_id."
+        ),
+        429: OpenApiResponse(
+            description="Rate limited (120/min/user). Standard DRF throttle response."
+        ),
+    },
+)
+class AuditLogViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):  # type: ignore[type-arg]
+    """Audit log read-only list endpoint (Phase 21).
+
+    Per D-04: ORG_ADMIN sees all org-scoped audit log entries (review reply +
+    action_item events); STAFF_ADMIN sees only entries whose entity maps to a
+    shop in their StaffAccessScope and SHOP-scope action items.
+    Per D-06: Superadmin denied (IsOrgScoped denies role not in ORG/STAFF ADMIN).
+    Per D-09: Scoped throttle at 120/minute.
+    """
+
+    permission_classes = [IsOrgScoped]  # noqa: RUF012
+    serializer_class = AuditLogReadSerializer
+    pagination_class = AuditLogCursorPagination
+    filter_backends = [DjangoFilterBackend]  # noqa: RUF012
+    filterset_class = AuditLogFilterSet
+    throttle_scope = "audit_log_list"
+    throttle_classes = [ScopedRateThrottle]  # noqa: RUF012
+    # Required for DRF router introspection; real querysets come from get_queryset().
+    queryset = AuditLog.objects.none()
+
+    def get_queryset(self):  # type: ignore[no-untyped-def]
+        user = self.request.user
+        org_id = getattr(user, "organisation_id", None)
+        if org_id is None:
+            return AuditLog.objects.none()
+        if getattr(user, "role", None) == User.Role.STAFF_ADMIN:
+            return list_audit_logs_for_staff(organisation_id=org_id, user=user)  # type: ignore[arg-type]
+        return list_audit_logs_for_org(organisation_id=org_id)
+
+
+@login_required(login_url="/login/")
+def audit_log_view(request: HttpRequest) -> HttpResponse:
+    """Org Admin / Staff Admin activity log template view (Phase 21).
+
+    Renders the audit-log page shell. The data table is hydrated client-side
+    via /api/v1/audit-logs/. The actor filter dropdown is seeded with the
+    distinct set of actors visible to this user (role-aware per WR-03).
+    """
+    org_id = getattr(request.user, "organisation_id", None)
+    actors_list: list[dict[str, object]] = []
+    if org_id is not None:
+        # WR-03 fix: scope the actor dropdown to the same set of audit-log
+        # entries the user is actually allowed to read. For Staff this means
+        # actors only appear if they have entries on the Staff user's
+        # accessible shops / SHOP-scope action items — preventing leakage of
+        # ORG_ADMIN names or actors who only operated on brand-scope items
+        # or inaccessible shops.
+        if getattr(request.user, "role", None) == User.Role.STAFF_ADMIN:
+            base_qs = list_audit_logs_for_staff(
+                organisation_id=org_id,
+                user=request.user,  # type: ignore[arg-type]
+            )
+        else:
+            base_qs = list_audit_logs_for_org(organisation_id=org_id)
+        actors_qs = (
+            base_qs.filter(actor__isnull=False)
+            .values("actor_id", "actor__full_name")
+            .distinct()
+            .order_by("actor__full_name")
+        )
+        actors_list = [
+            {"id": row["actor_id"], "full_name": row["actor__full_name"]} for row in actors_qs
+        ]
+    context = {
+        "actors_json": actors_list,
+        "user_role": getattr(request.user, "role", ""),
+        "page_title": "Activity Log",
+    }
+    return render(request, "org-admin/audit-log.html", context)

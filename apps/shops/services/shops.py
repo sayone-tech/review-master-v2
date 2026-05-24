@@ -25,6 +25,7 @@ def create_shop(
     google_location_name: str = "",
     phone: str = "",
     street_address: str = "",
+    sync_depth: str = Shop.SyncDepth.TWO_YEARS,
     connection_status: str | None = None,
 ) -> Shop:
     # Allocation lock — XMOD-04
@@ -51,6 +52,7 @@ def create_shop(
         google_location_name=google_location_name,
         phone=phone,
         street_address=street_address,
+        sync_depth=sync_depth,
     )
 
 

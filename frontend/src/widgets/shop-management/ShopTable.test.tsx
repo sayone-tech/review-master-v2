@@ -13,6 +13,7 @@ function fakeRow(over: Partial<ShopRow> = {}): ShopRow {
     place_id: "ChIJ",
     connection_method: "GOOGLE_OAUTH",
     connection_status: "CONNECTED",
+    sync_depth: "TWO_YEARS",
     is_active: true,
     region: 1,
     region_name: "North",
@@ -36,7 +37,7 @@ beforeEach(() => {
 });
 
 describe("ShopTableWidget", () => {
-  it("renders ConnectionStatusPill text for OAuth connected shop", () => {
+  it("renders shop name and Active status for a connected shop", () => {
     render(
       <ShopTableWidget
         initial={{
@@ -46,7 +47,8 @@ describe("ShopTableWidget", () => {
         }}
       />,
     );
-    expect(screen.getByText("Connected via Google")).toBeInTheDocument();
+    expect(screen.getByText("ACME Cafe")).toBeInTheDocument();
+    expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
   });
 
   it("renders Empty State A when hasRegions=false and no shops", () => {

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, MessageSquare, RefreshCw, Search, Star, Tag, ThumbsUp } from "lucide-react";
-import type { ReviewFilterParams, ShopOption } from "./types";
+import type { ReviewFilterParams, ShopOption, TagOption } from "./types";
 
 interface DraftFilters {
   search: string;
@@ -11,6 +11,7 @@ interface DraftFilters {
   has_comment?: boolean;
   from_date?: string;
   to_date?: string;
+  tags?: string[];
 }
 
 interface Props {
@@ -18,10 +19,11 @@ interface Props {
   filters: ReviewFilterParams;
   onApply: (draft: DraftFilters) => void;
   onReset: () => void;
+  availableTags?: TagOption[];
 }
 
 const selectCls =
-  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
+  "appearance-none w-full px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
 
 function ChevronIcon() {
   return (
@@ -43,7 +45,7 @@ function ChevronIcon() {
 
 function FilterLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-subtle uppercase tracking-[0.05em]">
+    <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
       <span className="text-muted">{icon}</span>
       <span>{label}</span>
     </span>
@@ -70,7 +72,209 @@ function StoreIcon({ size = 15 }: { size?: number }) {
   );
 }
 
-export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
+interface TagsFilterProps {
+  availableTags?: TagOption[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}
+
+function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
+
+  const loading = availableTags === undefined;
+  const trimmedQuery = query.trim();
+  const hasMinChars = trimmedQuery.length >= 2;
+  const filtered = useMemo(() => {
+    if (!hasMinChars) return [];
+    const q = trimmedQuery.toLowerCase();
+    return (availableTags ?? []).filter((t) => t.label.toLowerCase().includes(q));
+  }, [availableTags, trimmedQuery, hasMinChars]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  // Focus search input on open
+  useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+    } else {
+      setActiveIndex(-1);
+    }
+  }, [open]);
+
+  const triggerLabel = (() => {
+    if (selected.length === 0) return "Any tag";
+    if (selected.length === 1) return selected[0];
+    return `${selected.length} tags`;
+  })();
+
+  const toggleLabel = (label: string) => {
+    if (selected.includes(label)) {
+      onChange(selected.filter((l) => l !== label));
+    } else {
+      onChange([...selected, label]);
+    }
+  };
+
+  const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (loading) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen((o) => !o);
+    } else if (e.key === "Escape" && open) {
+      e.preventDefault();
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
+  const onPanelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      setQuery("");
+      triggerRef.current?.focus();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (filtered.length === 0 ? -1 : Math.min(filtered.length - 1, i + 1)));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (filtered.length === 0 ? -1 : Math.max(0, i - 1)));
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0 && activeIndex < filtered.length) {
+        e.preventDefault();
+        toggleLabel(filtered[activeIndex].label);
+      }
+    } else if (e.key === "Tab") {
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
+  return (
+    <label className="flex flex-col gap-2 min-w-0">
+      <FilterLabel icon={<Tag size={15} />} label="Tags" />
+      <div className="relative" ref={containerRef}>
+        <button
+          ref={triggerRef}
+          type="button"
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label="Filter by tag"
+          disabled={loading}
+          onClick={() => !loading && setOpen((o) => !o)}
+          onKeyDown={onTriggerKeyDown}
+          className={
+            "w-full flex items-center justify-between gap-2 px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]" +
+            (loading ? " opacity-50 cursor-not-allowed pointer-events-none" : "")
+          }
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="truncate">{triggerLabel}</span>
+            {selected.length > 0 && (
+              <span
+                className="inline-flex items-center justify-center w-4 h-4 bg-yellow text-black text-[10px] font-semibold rounded-full shrink-0"
+                aria-hidden="true"
+              >
+                {selected.length}
+              </span>
+            )}
+          </span>
+          <ChevronIcon />
+        </button>
+        {open && (
+          <div
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label="Tags"
+            onKeyDown={onPanelKeyDown}
+            className="absolute z-50 mt-1 left-0 right-0 bg-white border border-line rounded-[10px] shadow-md max-h-60 overflow-y-auto py-1"
+          >
+            <div className="px-2 py-2 border-b border-line">
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#A1A1AA" }} aria-hidden="true" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setActiveIndex(-1);
+                  }}
+                  placeholder="Search tags…"
+                  className="w-full pl-9 pr-3 py-2 text-[14px] font-normal text-ink placeholder:text-faint bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring focus:ring-black/[0.05]"
+                  aria-label="Search tags"
+                />
+              </div>
+            </div>
+            {!hasMinChars ? (
+              <div className="px-3 py-3 text-[12px] text-muted">
+                Type at least 2 characters to search tags
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="px-3 py-3 text-[12px] text-muted">
+                {`No tags match "${trimmedQuery}"`}
+              </div>
+            ) : (
+              filtered.map((opt, idx) => {
+                const isSelected = selected.includes(opt.label);
+                const isActive = idx === activeIndex;
+                return (
+                  <div
+                    key={opt.label}
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toggleLabel(opt.label);
+                    }}
+                    className={
+                      "flex items-center justify-between px-3 py-2 cursor-pointer transition-colors " +
+                      (isSelected || isActive ? "bg-line-soft" : "hover:bg-line-soft")
+                    }
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="inline-flex items-center justify-center w-3 text-[12px] text-ink shrink-0"
+                        aria-hidden="true"
+                      >
+                        {isSelected ? "✓" : ""}
+                      </span>
+                      <span className="text-[13px] font-semibold text-ink truncate">
+                        {opt.label}
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-faint shrink-0">{opt.count}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </label>
+  );
+}
+
+export function ReviewFilters({ shops, filters, onApply, onReset, availableTags }: Props) {
   const [draft, setDraft] = useState<DraftFilters>({
     search: filters.search ?? "",
     shop: filters.shop,
@@ -80,7 +284,13 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
     has_comment: filters.has_comment,
     from_date: filters.from_date,
     to_date: filters.to_date,
+    tags: filters.tags ?? [],
   });
+
+  // Keep draft.tags in sync when tags are applied externally (e.g. tag chip clicks on review rows)
+  useEffect(() => {
+    setDraft((d) => ({ ...d, tags: filters.tags ?? [] }));
+  }, [filters.tags]);
 
   const hasActiveFilters = Boolean(
     filters.search ||
@@ -90,7 +300,8 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
       filters.is_replied !== undefined ||
       filters.has_comment !== undefined ||
       filters.from_date ||
-      filters.to_date,
+      filters.to_date ||
+      (filters.tags && filters.tags.length > 0),
   );
 
   const handleReset = () => {
@@ -103,29 +314,31 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
       has_comment: undefined,
       from_date: undefined,
       to_date: undefined,
+      tags: [],
     });
     onReset();
   };
 
   return (
-    <div className="bg-white border border-line rounded-xl p-3.5 mb-[18px]">
+    <div className="bg-white border border-line rounded-xl p-4 mb-4">
       {/* Row 1 — search + store + rating + sentiment */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
-          gap: 14,
+          gridTemplateColumns:
+            "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
+          gap: 16,
           alignItems: "end",
         }}
       >
         {/* Search */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Search size={15} />} label="Search" />
-          <div className="flex items-center gap-2 px-3.5 py-[10px] bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
-            <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#A1A1AA" }} aria-hidden="true" />
             <input
               type="text"
-              className="flex-1 min-w-0 bg-transparent focus:outline-none text-[14px] font-medium text-ink placeholder:text-faint placeholder:font-normal"
+              className="w-full pl-9 pr-3.5 py-2 text-[14px] font-normal text-ink placeholder:text-faint bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring focus:ring-black/[0.05]"
               placeholder="Search reviews…"
               value={draft.search}
               onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
@@ -135,7 +348,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
         </label>
 
         {/* Store */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<StoreIcon size={15} />} label="Store" />
           <div className="relative">
             <select
@@ -160,8 +373,19 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
           </div>
         </label>
 
+        {/* Tags multi-select — placed after Store because the inline search
+           input makes this control visually heavier than a plain <select>;
+           grouping it next to Store keeps the heavier "entity" filters
+           together and the lighter scalar filters (Rating, Sentiment) to
+           the right. */}
+        <TagsFilter
+          availableTags={availableTags}
+          selected={draft.tags ?? []}
+          onChange={(next) => setDraft((d) => ({ ...d, tags: next }))}
+        />
+
         {/* Rating */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Star size={15} />} label="Rating" />
           <div className="relative">
             <select
@@ -189,7 +413,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
         </label>
 
         {/* Sentiment */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<ThumbsUp size={15} />} label="Sentiment" />
           <div className="relative">
             <select
@@ -222,14 +446,14 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto",
-          gap: 14,
+          gap: 16,
           alignItems: "end",
         }}
       >
         {/* Date range — two date inputs side by side */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Calendar size={15} />} label="Date range" />
-          <div className="flex items-center gap-2 px-3.5 py-[10px] border border-line rounded-[10px] bg-white focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] transition-[border-color,box-shadow]">
+          <div className="flex items-center gap-2 px-4 py-2 border border-line rounded-[10px] bg-white focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] transition-[border-color,box-shadow]">
             <Calendar size={14} className="text-subtle shrink-0" aria-hidden="true" />
             <input
               type="date"
@@ -241,7 +465,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
                 setDraft((d) => ({ ...d, from_date: e.target.value || undefined }))
               }
             />
-            <span className="text-faint font-medium shrink-0">—</span>
+            <span className="text-faint font-normal shrink-0">—</span>
             <input
               type="date"
               aria-label="To date"
@@ -256,7 +480,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
         </label>
 
         {/* Reply status */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<MessageSquare size={15} />} label="Reply" />
           <div className="relative">
             <select
@@ -282,7 +506,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
         </label>
 
         {/* Comment presence */}
-        <label className="flex flex-col gap-1.5 min-w-0">
+        <label className="flex flex-col gap-2 min-w-0">
           <FilterLabel icon={<Tag size={15} />} label="Comment" />
           <div className="relative">
             <select
@@ -313,7 +537,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-3 py-[10px] rounded-[10px] bg-transparent border border-dashed border-line text-subtle text-[13px] hover:text-ink hover:border-ink transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-transparent border border-dashed border-line text-subtle text-[14px] hover:text-ink hover:border-ink transition-colors"
             >
               <RefreshCw size={13} aria-hidden="true" />
               Reset
@@ -322,7 +546,7 @@ export function ReviewFilters({ shops, filters, onApply, onReset }: Props) {
           <button
             type="button"
             onClick={() => onApply(draft)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-[10px] rounded-[10px] bg-yellow text-black border border-yellow-hover text-[14px] font-medium hover:bg-yellow-hover transition-colors shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-yellow text-black border border-yellow-hover text-[14px] font-semibold hover:bg-yellow-hover transition-colors shrink-0"
           >
             Apply
           </button>

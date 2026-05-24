@@ -1,7 +1,7 @@
 {
     "openapi": "3.0.3",
     "info": {
-        "title": "Review Master API",
+        "title": "Review Bee API",
         "version": "1.0.0",
         "description": "Internal API for web and mobile clients. Not for external use."
     },

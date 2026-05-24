@@ -110,6 +110,7 @@ def _persist_page(
     *,
     shop: Shop,
     api_reviews: list[dict[str, Any]],
+    start_date: datetime | None = None,
 ) -> tuple[int, set[str], set[str]]:
     """Upsert a page of reviews. Reset enrichment_status when text/rating changed.
 
@@ -125,6 +126,11 @@ def _persist_page(
     for api_rev in api_reviews:
         norm = _normalise_review(api_rev, shop=shop)
         if not norm["google_review_id"]:
+            continue
+        # Phase 15 — initial-backfill date filter (BKFL-01/02). Skipped rows are NOT
+        # added to rev_ids, so _soft_delete_absent will purge previously-synced rows
+        # that fall outside the new sync_depth window (intentional — see RESEARCH §Open Q1).
+        if start_date is not None and norm["review_create_time"] < start_date:
             continue
         rev_ids.add(norm["google_review_id"])
         rows.append(Review(**norm))
@@ -267,13 +273,27 @@ def _audit(*, shop: Shop, action: str, after: dict[str, Any] | None = None) -> N
     )
 
 
-def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> dict[str, Any]:
+def fetch_and_persist_reviews(
+    *,
+    shop_id: int,
+    trigger: str = "incremental",
+    start_date: datetime | None = None,
+) -> dict[str, Any]:
     """Lock + paginate + upsert + soft-delete + audit.
 
     trigger: "initial" | "incremental" | "manual" — recorded in AuditLog payload.
     Returns a summary dict {"fetched": int, "soft_deleted": int, "duration_seconds": float}.
     """
     shop = Shop.objects.select_related("organisation").get(pk=shop_id)
+    # Phase 15 — derive date floor for initial backfill from shop.sync_depth.
+    # Computed HERE (at execution time, not enqueue time) using the shop instance
+    # already fetched above — no second DB query (RESEARCH §Pitfall 1, §Pitfall 2).
+    if start_date is None:
+        if shop.sync_depth == Shop.SyncDepth.ONE_YEAR:
+            start_date = dj_timezone.now() - timedelta(days=365)
+        elif shop.sync_depth == Shop.SyncDepth.TWO_YEARS:
+            start_date = dj_timezone.now() - timedelta(days=730)
+        # ALL_TIME → start_date stays None (no filter)
     if shop.connection_status == Shop.ConnectionStatus.EXPIRED:
         return {"fetched": 0, "soft_deleted": 0, "duration_seconds": 0, "skipped": "expired"}
 
@@ -368,8 +388,16 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                 )
                 page_reviews = list(page.get("reviews") or [])
                 total_estimate = int(page.get("totalReviewCount", total_estimate or 0))
+                # When syncing a date-bounded window (start_date is set), Google's
+                # totalReviewCount is the all-time count — it will never match the
+                # number of reviews actually fetched. Suppress it from the progress
+                # display so the UI shows "N fetched" without a misleading denominator.
+                # ALL_TIME syncs (start_date is None) keep the full estimate.
+                progress_total: int | None = None if start_date is not None else total_estimate
                 with transaction.atomic():
-                    persisted, ids, new_ids = _persist_page(shop=shop, api_reviews=page_reviews)
+                    persisted, ids, new_ids = _persist_page(
+                        shop=shop, api_reviews=page_reviews, start_date=start_date
+                    )
                 total_persisted += persisted
                 all_fetched_ids.update(ids)
                 all_new_google_ids.update(new_ids)
@@ -422,7 +450,7 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                     "shop_id": shop_id,
                     "status": "fetching",
                     "fetched": total_persisted,
-                    "total_estimate": total_estimate,
+                    "total_estimate": progress_total,
                     "enriched": 0,
                     "started_at": started_at.isoformat(),
                     "last_update_at": dj_timezone.now().isoformat(),
@@ -435,7 +463,7 @@ def fetch_and_persist_reviews(*, shop_id: int, trigger: str = "incremental") -> 
                         "type": "sync.fetch.progress",
                         "shop_id": shop_id,
                         "fetched": total_persisted,
-                        "total_estimate": total_estimate,
+                        "total_estimate": progress_total,
                     },
                 )
 

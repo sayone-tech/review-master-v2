@@ -11,7 +11,7 @@ import type {
 } from "./types";
 
 const selectCls =
-  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
+  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-medium text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
 
 interface DraftFilters {
   search: string;
@@ -176,11 +176,11 @@ export function ActionItemFilters({
         {/* Search */}
         <label className="flex flex-col gap-1.5 min-w-0">
           <FilterLabel icon={<Search size={15} />} label="Search" />
-          <div className="flex items-center gap-2 px-3.5 py-[10px] bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]">
-            <Search size={14} className="text-muted shrink-0" aria-hidden="true" />
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#A1A1AA" }} aria-hidden="true" />
             <input
               type="text"
-              className="flex-1 min-w-0 bg-transparent focus:outline-none text-[14px] font-medium text-ink placeholder:text-faint placeholder:font-normal"
+              className="w-full pl-9 pr-3.5 py-[10px] text-[14px] font-medium text-ink placeholder:text-faint placeholder:font-normal bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring focus:ring-black/[0.05]"
               placeholder="Search action items…"
               value={draft.search}
               onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}

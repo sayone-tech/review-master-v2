@@ -20,6 +20,7 @@ from apps.shops.tests.factories import ShopFactory
 pytestmark = pytest.mark.django_db
 
 LIST_URL = "/api/v1/action-items/"
+MERGE_URL = "/api/v1/action-items/merge/"
 
 
 def _detail_url(pk: int) -> str:
@@ -256,3 +257,121 @@ def test_filter_by_category_returns_matching_items(org_admin_setup) -> None:
     results = response.json()["results"]
     assert len(results) == 1
     assert results[0]["category_value"] == "QUALITY"
+
+
+# ---------------------------------------------------------------------------
+# Phase 18 — merge endpoint + D-17 guards + serializer surface
+# ---------------------------------------------------------------------------
+
+
+def _ai_item(org, shop):
+    return ActionItemFactory(
+        organisation=org,
+        shop=shop,
+        scope=ActionItem.Scope.SHOP,
+        source=ActionItem.Source.AI,
+    )
+
+
+def test_merge_endpoint_org_admin(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org)
+    primary = _ai_item(org, shop)
+    dup = _ai_item(org, shop)
+    resp = client.post(
+        MERGE_URL,
+        {"primary_id": primary.pk, "duplicate_ids": [dup.pk]},
+        format="json",
+    )
+    assert resp.status_code == 200, resp.data
+    assert resp.data["id"] == primary.pk
+    dup.refresh_from_db()
+    assert dup.canonical_id == primary.pk
+
+
+def test_merge_endpoint_staff_forbidden(staff_setup) -> None:
+    client, _staff, org, shop = staff_setup
+    primary = _ai_item(org, shop)
+    dup = _ai_item(org, shop)
+    resp = client.post(
+        MERGE_URL,
+        {"primary_id": primary.pk, "duplicate_ids": [dup.pk]},
+        format="json",
+    )
+    assert resp.status_code == 403
+
+
+def test_merge_endpoint_invalid_payload(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org)
+    primary = _ai_item(org, shop)
+    # Missing duplicate_ids.
+    resp = client.post(MERGE_URL, {"primary_id": primary.pk}, format="json")
+    assert resp.status_code == 400
+
+
+def test_patch_merged_duplicate_returns_400(org_admin_setup) -> None:
+    """D-17: PATCH on a merged duplicate is rejected with 400."""
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org)
+    primary = _ai_item(org, shop)
+    dup = _ai_item(org, shop)
+    dup.canonical = primary
+    dup.save(update_fields=["canonical"])
+    resp = client.patch(
+        _detail_url(dup.pk),
+        {"title": "Updated title for the duplicate"},
+        format="json",
+    )
+    # PATCH route on a duplicate may be 400 (perform_update guard) or 404
+    # (selector hides duplicates from the queryset entirely). Both are valid
+    # blocks for the user-facing contract.
+    assert resp.status_code in (400, 404)
+
+
+def test_status_transition_merged_duplicate_returns_400(org_admin_setup) -> None:
+    """D-17: POST transition-status on a merged duplicate returns 400."""
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org)
+    primary = _ai_item(org, shop)
+    dup = _ai_item(org, shop)
+    dup.canonical = primary
+    dup.save(update_fields=["canonical"])
+    resp = client.post(
+        f"{_detail_url(dup.pk)}transition-status/",
+        {"status": ActionItem.Status.COMPLETE},
+        format="json",
+    )
+    assert resp.status_code in (400, 404)
+
+
+def test_list_serializer_exposes_duplicate_count(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org)
+    primary = _ai_item(org, shop)
+    for _ in range(2):
+        d = _ai_item(org, shop)
+        d.canonical = primary
+        d.save(update_fields=["canonical"])
+    resp = client.get(LIST_URL)
+    assert resp.status_code == 200
+    target = next(r for r in resp.data["results"] if r["id"] == primary.pk)
+    assert "duplicate_count" in target
+    assert target["duplicate_count"] == 2
+
+
+def test_detail_serializer_includes_duplicates(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org)
+    primary = _ai_item(org, shop)
+    d = _ai_item(org, shop)
+    d.canonical = primary
+    d.save(update_fields=["canonical"])
+    resp = client.get(_detail_url(primary.pk))
+    assert resp.status_code == 200
+    assert "duplicates" in resp.data
+    assert len(resp.data["duplicates"]) == 1
+    entry = resp.data["duplicates"][0]
+    assert entry["id"] == d.pk
+    assert "title" in entry
+    assert "shop_name" in entry

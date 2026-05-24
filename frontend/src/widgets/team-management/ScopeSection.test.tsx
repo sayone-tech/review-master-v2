@@ -30,7 +30,7 @@ describe("ScopeSection", () => {
   });
 
   it("renders shop checkbox list (all active shops)", () => {
-    render(<ScopeSection {...defaultProps} />);
+    render(<ScopeSection {...defaultProps} initialMode="store" />);
     expect(screen.getByText("Shop Alpha")).toBeInTheDocument();
     expect(screen.getByText("Shop Beta")).toBeInTheDocument();
   });
@@ -46,11 +46,9 @@ describe("ScopeSection", () => {
 
   it("toggling a shop checkbox calls onChangeShops with updated set", () => {
     const onChangeShops = vi.fn();
-    render(<ScopeSection {...defaultProps} onChangeShops={onChangeShops} />);
-    // Shop checkboxes come after region checkboxes
+    render(<ScopeSection {...defaultProps} onChangeShops={onChangeShops} initialMode="store" />);
     const allCheckboxes = screen.getAllByRole("checkbox");
-    // First 2 are regions, last 2 are shops
-    fireEvent.click(allCheckboxes[2]);
+    fireEvent.click(allCheckboxes[0]);
     expect(onChangeShops).toHaveBeenCalledOnce();
     const [nextSet] = onChangeShops.mock.calls[0] as [Set<number>];
     expect(nextSet.size).toBeGreaterThan(0);

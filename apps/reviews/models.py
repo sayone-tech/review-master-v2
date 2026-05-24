@@ -74,8 +74,12 @@ class Review(TimeStampedModel):
     )
     enrichment_version = models.PositiveSmallIntegerField(default=0)
     enrichment_attempted_at = models.DateTimeField(null=True, blank=True)
+    # Denormalized last-failure code; consumed by retry_failed_enrichments_task
+    # to skip 'content_moderated' rows (D-25, D-31). Populated by enrichment
+    # service helpers. No db_index — the retry task already filters on the
+    # indexed enrichment_status=FAILED, so the residual scan is small.
+    enrichment_error_code = models.CharField(max_length=32, blank=True, default="")
     sentiment = models.CharField(max_length=10, blank=True)
-    tags = models.JSONField(default=list, blank=True)
     extracted_action_items = models.JSONField(default=list, blank=True)
 
     deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -119,3 +123,40 @@ class Review(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"Review({self.pk}, shop={self.shop_id}, stars={self.star_rating})"
+
+
+class ReviewTag(models.Model):
+    class Polarity(models.TextChoices):
+        POSITIVE = "positive", "Positive"
+        NEUTRAL = "neutral", "Neutral"
+        NEGATIVE = "negative", "Negative"
+
+    review = models.ForeignKey(
+        "reviews.Review",
+        on_delete=models.CASCADE,
+        related_name="tags",
+    )
+    label = models.CharField(max_length=100, db_index=True)
+    polarity = models.CharField(max_length=10, choices=Polarity.choices)
+
+    class Meta:
+        db_table = "reviews_reviewtag"
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            # Phase 17 CR-02: DB-level guard against the cross-transaction race
+            # in enrich_review's delete-then-bulk_create write path. Without
+            # this constraint a Redis-lock miss (e.g. Redis outage with
+            # IGNORE_EXCEPTIONS) could let two concurrent enrichments produce
+            # duplicate (review, label, polarity) rows; with it the second
+            # bulk_create fails at the DB layer and the second transaction
+            # rolls back cleanly.
+            models.UniqueConstraint(
+                fields=["review", "label", "polarity"],
+                name="uniq_reviewtag_review_label_polarity",
+            ),
+        ]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["review", "label"], name="reviewtag_review_label_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"ReviewTag({self.review_id}, {self.label}, {self.polarity})"

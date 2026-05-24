@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle, Search } from "lucide-react";
+import { Calendar, Search } from "lucide-react";
 import { Modal } from "../modal/Modal";
 import { ApiError, createShop } from "./api";
 import { emitToast } from "../../lib/toast";
 import { OAuthConnectionSection, type OAuthListingsResult } from "./OAuthConnectionSection";
-import type { ShopCreatePayload, ShopRow } from "./types";
+import type { ShopCreatePayload, ShopRow, SyncDepth } from "./types";
 
 const inputCls =
   "w-full px-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
@@ -35,9 +35,29 @@ interface Props {
   onCreated: (shop: ShopRow) => void;
   regions: RegionLite[];
   existingPlaceIds?: Set<string>;
+  allowCustomSyncDepth?: boolean;
 }
 
-export function CreateShopModal({ open, onClose, onCreated, regions, existingPlaceIds }: Props) {
+const SYNC_DEPTH_OPTIONS: {
+  value: SyncDepth;
+  label: string;
+  subtitle: string;
+  months: number | null;
+  syncTime: string;
+}[] = [
+  { value: "ONE_YEAR", label: "1 year", subtitle: "~12 months", months: 12, syncTime: "~15s" },
+  { value: "TWO_YEARS", label: "2 years", subtitle: "~24 months", months: 24, syncTime: "~30s" },
+  { value: "ALL_TIME", label: "All time", subtitle: "Every review", months: null, syncTime: "~2-5 min" },
+];
+
+export function CreateShopModal({
+  open,
+  onClose,
+  onCreated,
+  regions,
+  existingPlaceIds,
+  allowCustomSyncDepth,
+}: Props) {
   const [step, setStep] = useState<Step>("connect");
   const [oauthState, setOauthState] = useState<string>("");
   const [listings, setListings] = useState<Listing[]>([]);
@@ -50,6 +70,7 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
   const [errors, setErrors] = useState<Record<string, string | string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [listingQuery, setListingQuery] = useState("");
+  const [syncDepth, setSyncDepth] = useState<SyncDepth>("TWO_YEARS");
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filteredListings = listingQuery.trim()
@@ -90,6 +111,7 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
     setErrors({});
     setSubmitting(false);
     setListingQuery("");
+    setSyncDepth("TWO_YEARS");
   }
 
   // Autofocus search when entering the pick step
@@ -142,6 +164,7 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
       street_address: streetAddress,
       place_id: selectedListing.placeId,
       google_refresh_token: oauthState,
+      sync_depth: syncDepth,
     };
     try {
       const shop = await createShop(payload);
@@ -383,37 +406,20 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
             </div>
           )}
 
-          {/* Connected listing pill */}
-          <div
-            className="flex items-center gap-2.5 rounded-md border p-3"
-            style={{ backgroundColor: "#F0FDF4", borderColor: "rgba(22,163,74,0.3)" }}
-          >
-            <CheckCircle
-              size={16}
-              style={{ color: "#16A34A" }}
-              className="shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="text-[13.5px] font-semibold text-ink truncate">{selectedListing?.name}</div>
-              {selectedListing?.address && (
-                <div className="text-[12.5px] text-muted truncate">{selectedListing.address}</div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setStep("pick")}
-              className="text-[12px] underline shrink-0 hover:opacity-80"
-              style={{ color: "#B9860F" }}
-            >
-              Change
-            </button>
-          </div>
-
           <div>
-            <label htmlFor="cs-name" className={labelCls}>
-              Shop Name
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="cs-name" className="text-[12px] font-semibold text-subtle tracking-[0.05em] uppercase">
+                Shop Name
+              </label>
+              <button
+                type="button"
+                onClick={() => setStep("pick")}
+                className="text-[12px] font-semibold hover:opacity-70 transition-opacity"
+                style={{ color: "#B9860F" }}
+              >
+                Change
+              </button>
+            </div>
             <input
               id="cs-name"
               type="text"
@@ -453,6 +459,86 @@ export function CreateShopModal({ open, onClose, onCreated, regions, existingPla
               </p>
             )}
           </div>
+
+          {allowCustomSyncDepth && (
+            <div>
+              <div className={labelCls}>Review History</div>
+              <p className="mb-2 text-[13px] text-muted">
+                How far back should we fetch reviews?
+              </p>
+              <div
+                role="radiogroup"
+                aria-label="Review history depth"
+                className="grid gap-2"
+                style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
+              >
+                {SYNC_DEPTH_OPTIONS.map((opt) => {
+                  const isSelected = syncDepth === opt.value;
+                  return (
+                    <label
+                      key={opt.value}
+                      className={[
+                        "flex flex-col items-center justify-center text-center px-3 py-3 rounded-card border cursor-pointer transition-colors select-none",
+                        isSelected
+                          ? "bg-yellow/10 border-yellow-hover ring-1 ring-yellow-hover"
+                          : "bg-white border-line hover:bg-line-soft",
+                      ].join(" ")}
+                    >
+                      <input
+                        type="radio"
+                        name="sync-depth"
+                        value={opt.value}
+                        checked={isSelected}
+                        onChange={() => setSyncDepth(opt.value)}
+                        className="sr-only"
+                      />
+                      <span className="text-[15px] font-bold leading-tight text-ink">
+                        {opt.label}
+                      </span>
+                      <span className="text-[12px] mt-0.5 font-normal text-muted">
+                        {opt.subtitle}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Summary info strip */}
+              {(() => {
+                const sel = SYNC_DEPTH_OPTIONS.find((o) => o.value === syncDepth)!;
+                const fromLabel = sel.months
+                  ? new Date(Date.now() - sel.months * 30 * 24 * 60 * 60 * 1000).toLocaleDateString(
+                      "en-US",
+                      { month: "short", year: "numeric" },
+                    )
+                  : null;
+                return (
+                  <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-line-soft rounded-card">
+                    <span
+                      className="shrink-0 flex items-center justify-center rounded-lg bg-[#111]"
+                      style={{ width: 32, height: 32 }}
+                    >
+                      <Calendar size={15} color="#F5C518" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] font-semibold text-ink leading-snug">
+                        {fromLabel ? `From ${fromLabel} to today` : "All your reviews"}
+                      </div>
+                      <div className="text-[11px] text-muted mt-0.5">
+                        {sel.months
+                          ? `Nightly sync · oldest review ~${sel.months} months old`
+                          : "Nightly sync · every review ever posted"}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[10px] text-muted">Sync time</div>
+                      <div className="text-[13px] font-semibold text-ink">{sel.syncTime}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           <div>
             <label htmlFor="cs-phone" className={labelCls}>

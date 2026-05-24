@@ -21,6 +21,11 @@ class Shop(TimeStampedModel):
         QUOTA_EXCEEDED = "QUOTA_EXCEEDED", "Quota Exceeded"
         NOT_CONNECTED = "NOT_CONNECTED", "Not Connected"
 
+    class SyncDepth(models.TextChoices):
+        ONE_YEAR = "ONE_YEAR", "Last 1 year"
+        TWO_YEARS = "TWO_YEARS", "Last 2 years"
+        ALL_TIME = "ALL_TIME", "All time"
+
     organisation = models.ForeignKey(
         "organisations.Organisation",
         on_delete=models.CASCADE,
@@ -60,6 +65,11 @@ class Shop(TimeStampedModel):
         choices=ConnectionStatus.choices,
         default=ConnectionStatus.NOT_CONNECTED,
         db_index=True,
+    )
+    sync_depth = models.CharField(
+        max_length=10,
+        choices=SyncDepth.choices,
+        default=SyncDepth.TWO_YEARS,
     )
     # Encrypted at rest — never add db_index to encrypted fields (ciphertext is per-row unique)
     # null=True is required: EncryptedTextField returns None for empty string (no ciphertext stored)

@@ -894,3 +894,114 @@ class TestShopMobileScoping:
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         resp = client.post(f"/api/v1/shops/{shop.pk}/reconnect/", {"state": "invalid"})
         assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Phase 15-02: sync_depth exposed in list and detail API responses
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestShopSyncDepthInApiResponses:
+    def test_shop_list_includes_sync_depth(self, org_and_admin):
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        ShopFactory(organisation=org, region=region)
+        resp = client.get("/api/v1/shops/")
+        assert resp.status_code == 200
+        results = resp.data.get("results", [])
+        assert len(results) > 0
+        assert all("sync_depth" in row for row in results)
+        assert any(row["sync_depth"] == "TWO_YEARS" for row in results)
+
+    def test_shop_detail_includes_sync_depth(self, org_and_admin):
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        shop = ShopFactory(organisation=org, region=region)
+        resp = client.get(f"/api/v1/shops/{shop.pk}/")
+        assert resp.status_code == 200
+        assert resp.data["sync_depth"] in {"ONE_YEAR", "TWO_YEARS", "ALL_TIME"}
+
+
+# ---------------------------------------------------------------------------
+# Phase 16-01 Task 1: ShopCreateSerializer sync_depth acceptance tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestShopCreateSerializerSyncDepth:
+    def test_create_shop_api_accepts_sync_depth_one_year(self, org_and_admin, bypass_session_auth):
+        """POST /api/v1/shops/ with sync_depth=ONE_YEAR → 201 and shop.sync_depth=ONE_YEAR."""
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        resp = client.post(
+            "/api/v1/shops/",
+            {
+                "name": "Depth One Year Shop",
+                "connection_method": "NOT_CONNECTED",
+                "region": region.pk,
+                "sync_depth": "ONE_YEAR",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.data["sync_depth"] == "ONE_YEAR"
+
+    def test_create_shop_api_rejects_invalid_sync_depth(self, org_and_admin, bypass_session_auth):
+        """POST /api/v1/shops/ with sync_depth=INVALID → 400."""
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        resp = client.post(
+            "/api/v1/shops/",
+            {
+                "name": "Bad Depth Shop",
+                "connection_method": "NOT_CONNECTED",
+                "region": region.pk,
+                "sync_depth": "INVALID",
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_create_shop_api_defaults_sync_depth_to_two_years(
+        self, org_and_admin, bypass_session_auth
+    ):
+        """POST /api/v1/shops/ without sync_depth → 201 and shop.sync_depth=TWO_YEARS."""
+        org, _, client = org_and_admin
+        region = RegionFactory(organisation=org)
+        resp = client.post(
+            "/api/v1/shops/",
+            {
+                "name": "Default Depth Shop",
+                "connection_method": "NOT_CONNECTED",
+                "region": region.pk,
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.data["sync_depth"] == "TWO_YEARS"
+
+
+# ---------------------------------------------------------------------------
+# Phase 16-01 Task 2: shop_list view context includes allow_custom_sync_depth
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestShopListContextAllowCustomSyncDepth:
+    def test_shop_list_context_includes_allow_custom_sync_depth_false(self, db):
+        """shop_list view context has allow_custom_sync_depth=False when org flag is False."""
+        org = OrganisationFactory(number_of_stores=10, allow_custom_sync_depth=False)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        dj_client = Client()
+        dj_client.force_login(admin)
+        resp = dj_client.get("/admin/org/shops/")
+        assert resp.status_code == 200
+        assert resp.context["allow_custom_sync_depth"] is False
+
+    def test_shop_list_context_includes_allow_custom_sync_depth_true(self, db):
+        """shop_list view context has allow_custom_sync_depth=True when org flag is True."""
+        org = OrganisationFactory(number_of_stores=10, allow_custom_sync_depth=True)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        dj_client = Client()
+        dj_client.force_login(admin)
+        resp = dj_client.get("/admin/org/shops/")
+        assert resp.status_code == 200
+        assert resp.context["allow_custom_sync_depth"] is True

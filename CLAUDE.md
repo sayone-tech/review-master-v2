@@ -1380,7 +1380,26 @@ Follow this order, every time:
 
 ---
 
-## 25. Brand Assets & Logo
+## 25. Terraform Code Location (temporary)
+
+Infrastructure-as-code for this project lives in the **sibling workspace
+folder** `../review-master-terraform/` (registered as an additional working
+directory). It will be extracted into its own dedicated Terraform repo after
+the current audit and removed from this workspace.
+
+Rules while it lives here:
+
+- Do **not** add `.tf`, `.tfvars`, or `terraform/` files inside this repo.
+- When working on infra, edit files in the sibling folder only.
+- That folder has its own lifecycle — when it's time to plan infra work,
+  run `/gsd-new-project` from **inside** `review-master-terraform/`, not
+  from this repo's `.planning/`.
+- The knowledge graph is per-repo; the sibling folder will not appear in
+  this project's graph.
+
+---
+
+## 26. Brand Assets & Logo
 
 All logo and favicon files live in `logo/` at the repo root.
 

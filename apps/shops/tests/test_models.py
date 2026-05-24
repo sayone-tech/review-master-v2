@@ -83,3 +83,31 @@ class TestReviewTargetModel:
             period_type=ReviewTarget.PeriodType.WEEK,
         )
         assert t2.pk is not None
+
+
+# ---------------------------------------------------------------------------
+# Phase 15-02: SyncDepth TextChoices + sync_depth field tests
+# ---------------------------------------------------------------------------
+
+
+def test_shop_sync_depth_choices_present() -> None:
+    values = {m.value for m in Shop.SyncDepth}
+    assert values == {"ONE_YEAR", "TWO_YEARS", "ALL_TIME"}
+    labels = {
+        Shop.SyncDepth.ONE_YEAR.label,
+        Shop.SyncDepth.TWO_YEARS.label,
+        Shop.SyncDepth.ALL_TIME.label,
+    }
+    assert labels == {"Last 1 year", "Last 2 years", "All time"}
+
+
+def test_shop_sync_depth_defaults_to_two_years(db) -> None:
+    shop = ShopFactory()
+    shop.refresh_from_db()
+    assert shop.sync_depth == "TWO_YEARS"
+
+
+def test_shop_sync_depth_can_be_set_to_one_year(db) -> None:
+    shop = ShopFactory(sync_depth=Shop.SyncDepth.ONE_YEAR)
+    shop.refresh_from_db()
+    assert shop.sync_depth == "ONE_YEAR"

@@ -6,15 +6,19 @@ import json
 from typing import Any
 
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Prefetch
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend  # type: ignore[import-untyped]
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.filters import OrderingFilter
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from apps.accounts.permissions import IsOrgAdmin
 from apps.action_items.filters import ActionItemFilterSet
 from apps.action_items.models import ActionItem
 from apps.action_items.permissions import BrandScopeGuard
@@ -26,12 +30,14 @@ from apps.action_items.serializers import (
     ActionItemNoteSerializer,
     ActionItemReadSerializer,
     ActionItemUpdateSerializer,
+    MergeSerializer,
     StatusTransitionSerializer,
 )
 from apps.action_items.services.lifecycle import (
     add_note,
     assign_action_item,
     create_action_item,
+    merge_action_items,
     transition_status,
 )
 from apps.common.pagination import DefaultPageNumberPagination
@@ -62,6 +68,12 @@ class ActionItemViewSet(
     ordering = ["-created_at"]  # noqa: RUF012
     queryset = ActionItem.objects.none()
 
+    def get_permissions(self):  # type: ignore[no-untyped-def]
+        # Phase 18 (D-16): /merge/ is restricted to Org Admin.
+        if self.action == "merge_action":
+            return [IsOrgAdmin(), IsOrgScoped()]
+        return [IsOrgScoped(), BrandScopeGuard()]
+
     def get_serializer_class(self):  # type: ignore[no-untyped-def]
         if self.action == "list":
             return ActionItemListSerializer
@@ -76,9 +88,25 @@ class ActionItemViewSet(
         org_id = getattr(user, "organisation_id", None)
         if org_id is None:
             return ActionItem.objects.none()
-        qs = list_action_items(organisation_id=org_id, user=user)  # type: ignore[arg-type]
+        # Phase 18 (WR-01 fix): the list endpoint hides merged duplicates, but
+        # detail / mutator actions must surface them so the D-17 guards in the
+        # service layer return HTTP 400 ("cannot modify a merged duplicate")
+        # rather than a misleading 404. The detail panel's "Also reported in"
+        # UI also relies on deep-linked duplicates being retrievable.
+        include_duplicates = self.action != "list"
+        qs = list_action_items(
+            organisation_id=org_id,
+            user=user,  # type: ignore[arg-type]
+            include_duplicates=include_duplicates,
+        )
         if self.action == "retrieve":
-            qs = qs.prefetch_related("notes__author")
+            qs = qs.prefetch_related(
+                "notes__author",
+                Prefetch(
+                    "duplicates",
+                    queryset=ActionItem.objects.select_related("shop", "source_review"),
+                ),
+            )
         return qs
 
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
@@ -103,6 +131,9 @@ class ActionItemViewSet(
 
     def perform_update(self, serializer: Any) -> None:
         item = serializer.instance
+        # Phase 18 (D-17): refuse to mutate a merged duplicate.
+        if item.canonical_id is not None:
+            raise DRFValidationError("Cannot modify a merged duplicate.")
         new_assignee = serializer.validated_data.get("assignee", "__unset__")
         serializer.save()
         if new_assignee != "__unset__":
@@ -128,11 +159,15 @@ class ActionItemViewSet(
         item = self.get_object()
         s = StatusTransitionSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        item = transition_status(
-            action_item=item,
-            new_status=s.validated_data["status"],
-            actor=request.user,  # type: ignore[arg-type]
-        )
+        try:
+            item = transition_status(
+                action_item=item,
+                new_status=s.validated_data["status"],
+                actor=request.user,  # type: ignore[arg-type]
+            )
+        except DjangoValidationError as e:
+            # Phase 18 (D-17): service raises when target has canonical_id set.
+            raise DRFValidationError(getattr(e, "messages", [str(e)])) from e
         return Response(ActionItemReadSerializer(item).data)
 
     @action(detail=True, methods=["post"], url_path="add-note")
@@ -140,12 +175,38 @@ class ActionItemViewSet(
         item = self.get_object()
         s = ActionItemNoteCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
-        note = add_note(
-            action_item=item,
-            author=request.user,  # type: ignore[arg-type]
-            body=s.validated_data["body"],
-        )
+        try:
+            note = add_note(
+                action_item=item,
+                author=request.user,  # type: ignore[arg-type]
+                body=s.validated_data["body"],
+            )
+        except DjangoValidationError as e:
+            raise DRFValidationError(getattr(e, "messages", [str(e)])) from e
         return Response(ActionItemNoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="merge")
+    def merge_action(self, request: Request) -> Response:
+        """Phase 18 (D-16): merge AI-sourced action items into a primary.
+
+        Org Admin only (enforced by get_permissions). All validation lives in
+        the service layer; django ValidationError is mapped to HTTP 400.
+        """
+        s = MergeSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        org_id = getattr(request.user, "organisation_id", None)
+        if org_id is None:
+            raise DRFValidationError("User is not scoped to an organisation.")
+        try:
+            primary = merge_action_items(
+                primary_id=s.validated_data["primary_id"],
+                duplicate_ids=list(s.validated_data["duplicate_ids"]),
+                actor=request.user,  # type: ignore[arg-type]
+                organisation_id=org_id,
+            )
+        except DjangoValidationError as e:
+            raise DRFValidationError(getattr(e, "messages", [str(e)])) from e
+        return Response(ActionItemReadSerializer(primary).data, status=status.HTTP_200_OK)
 
 
 @login_required(login_url="/login/")

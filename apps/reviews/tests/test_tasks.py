@@ -153,3 +153,61 @@ def test_retry_failed_enrichments_task_caps_at_500_per_run() -> None:
         count = tasks.retry_failed_enrichments_task()
     assert count == 500
     assert mock_delay.call_count == 500
+
+
+def test_retry_failed_enrichments_excludes_moderated() -> None:
+    """D-25: content_moderated rows must NEVER be retried (reviewer text is immutable).
+
+    D-31: uses the denormalized Review.enrichment_error_code field.
+    """
+    from apps.reviews.models import Review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    moderated = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.FAILED,
+        enrichment_version=1,
+        enrichment_error_code="content_moderated",
+    )
+    transient = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.FAILED,
+        enrichment_version=1,
+        enrichment_error_code="openai_5xx",
+    )
+    legacy = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.FAILED,
+        enrichment_version=1,
+        enrichment_error_code="",
+    )
+
+    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+        count = tasks.retry_failed_enrichments_task()
+
+    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    assert moderated.pk not in enqueued_ids, "content_moderated must not be retried (D-25)"
+    assert transient.pk in enqueued_ids
+    assert legacy.pk in enqueued_ids
+    assert count == 2
+
+
+def test_retry_failed_enrichments_includes_other_failure_codes() -> None:
+    """D-25 negative: all non-moderated failure codes remain retry-eligible."""
+    from apps.reviews.models import Review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    codes = ["openai_5xx", "parse_error", "openai_timeout", ""]
+    reviews = [
+        ReviewFactory(
+            enrichment_status=Review.EnrichmentStatus.FAILED,
+            enrichment_version=1,
+            enrichment_error_code=code,
+        )
+        for code in codes
+    ]
+
+    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+        count = tasks.retry_failed_enrichments_task()
+
+    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    for review in reviews:
+        assert review.pk in enqueued_ids, f"code={review.enrichment_error_code!r} should retry"
+    assert count == len(codes)

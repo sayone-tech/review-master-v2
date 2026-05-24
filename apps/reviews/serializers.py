@@ -6,7 +6,24 @@ from typing import ClassVar
 
 from rest_framework import serializers
 
-from apps.reviews.models import Review
+from apps.integrations.openai.prompts import ALLOWED_REPLY_TONES
+from apps.reviews.models import Review, ReviewTag
+
+
+class ReviewTagSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """Phase 17 (TAG-02): nested read serializer for ReviewTag rows.
+
+    Plain Serializer (not ModelSerializer) following the ReviewReplySerializer
+    pattern. Returns {label, polarity} to preserve the JSON shape the
+    frontend already consumes from the old Review.tags JSONField.
+    """
+
+    label = serializers.CharField(read_only=True)  # type: ignore[assignment]
+    # Phase 17 WR-05: surface the model's Polarity choices to consumers so
+    # drf-spectacular emits the enum in the OpenAPI schema. The frontend
+    # TagPolarity type is a strict literal union; CharField hid the
+    # constraint and let contract drift surface only at runtime.
+    polarity = serializers.ChoiceField(choices=ReviewTag.Polarity.choices, read_only=True)
 
 
 class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
@@ -19,6 +36,10 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
     # ReviewViewSet.get_queryset). Annotation collapses into the existing list
     # JOINs so the REVW-14 <=5-query budget is preserved.
     has_action_items = serializers.BooleanField(read_only=True)
+    # Phase 17 (TAG-02): tags now come from ReviewTag rows via the
+    # related_name="tags" RelatedManager (prefetch_related("tags") in the
+    # selector keeps this O(1) extra query, not N+1).
+    tags = ReviewTagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Review
@@ -68,3 +89,14 @@ class ReviewReplySerializer(serializers.Serializer):  # type: ignore[type-arg]
     """Input serializer for POST /reviews/{id}/reply/ (Plan 07)."""
 
     comment = serializers.CharField(min_length=1, max_length=4000, trim_whitespace=False)
+
+
+class GenerateReplySerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """Phase 19 Plan 02: input serializer for POST /reviews/{id}/generate-reply/.
+
+    D-10/D-11: tone is a required ChoiceField restricted to two values.
+    """
+
+    # WR-03: single source of truth lives in apps.integrations.openai.prompts.
+    TONE_CHOICES: ClassVar[tuple[str, ...]] = ALLOWED_REPLY_TONES
+    tone = serializers.ChoiceField(choices=ALLOWED_REPLY_TONES)

@@ -61,7 +61,7 @@ export function CreateRegionModal({
   };
 
   const handleRegionIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+    const val = e.target.value.toUpperCase();
     setRegionId(val);
     if (val === "") {
       setAutoMode(true); // RGN-05: resume auto-population when cleared

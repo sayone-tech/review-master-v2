@@ -10,24 +10,43 @@
 // ACTN-11: Source Review tab includes "Open in Reviews" deep link.
 import { useEffect, useState } from "react";
 import { Modal } from "../modal/Modal";
+import { ConfirmModal } from "../modal/ConfirmModal";
 import { NotesTab } from "./NotesTab";
 import { PriorityIndicator } from "./PriorityIndicator";
 import { SourceReviewTab } from "./SourceReviewTab";
-import { addNote, getActionItem, transitionStatus, updateActionItemBackend } from "./api";
+import { DuplicatePickerModal } from "./DuplicatePickerModal";
+import {
+  addNote,
+  getActionItem,
+  mergeActionItems,
+  transitionStatus,
+  updateActionItemBackend,
+} from "./api";
 import { emitToast } from "../../lib/toast";
 import { getAssignableMembers } from "./assigneeUtils";
 import {
   STATUS_LABEL,
+  type ActionItemCategory,
   type ActionItemDetail,
+  type ActionItemListRow,
   type ActionItemPriority,
   type ActionItemStatus,
   type ShopOption,
   type TeamMember,
 } from "./types";
 
+const CATEGORY_OPTIONS: { value: ActionItemCategory; label: string }[] = [
+  { value: "QUALITY", label: "Quality" },
+  { value: "SERVICE", label: "Service" },
+  { value: "EXPERIENCE", label: "Experience" },
+  { value: "OPERATIONS", label: "Operations" },
+  { value: "OTHER", label: "Other" },
+];
+
 type EditDraft = {
   title: string;
   priority: ActionItemPriority;
+  category: ActionItemCategory;
   due_date: string;
   assignee_id: number | null;
 };
@@ -39,6 +58,7 @@ interface Props {
   itemId: number | null;
   shops: ShopOption[];
   teamMembers: TeamMember[];
+  isOrgAdmin: boolean;
   onClose: () => void;
   onChanged: () => void;
 }
@@ -87,6 +107,8 @@ interface DetailsTabProps {
   saving: boolean;
   error: string | null;
   teamMembers: TeamMember[];
+  isOrgAdmin: boolean;
+  onMarkAsDuplicate: () => void;
 }
 
 function DetailsTab({
@@ -101,6 +123,8 @@ function DetailsTab({
   saving,
   error,
   teamMembers,
+  isOrgAdmin,
+  onMarkAsDuplicate,
 }: DetailsTabProps) {
   const assignableMembers = getAssignableMembers(teamMembers, item.scope, item.shop_id);
   const today = new Date().toISOString().slice(0, 10);
@@ -137,6 +161,12 @@ function DetailsTab({
           </div>
           <div>
             <dt className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
+              Category
+            </dt>
+            <dd className="text-ink mt-1">{item.category}</dd>
+          </div>
+          <div>
+            <dt className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
               Due date
             </dt>
             <dd className="text-ink mt-1">{item.due_date ?? "—"}</dd>
@@ -168,6 +198,56 @@ function DetailsTab({
             </dd>
           </div>
         </dl>
+        {item.duplicates && item.duplicates.length > 0 && (
+          <div className="border-t border-line-soft pt-4 mt-4">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted mb-2">
+              Also reported in
+            </p>
+            <div className="space-y-2">
+              {item.duplicates.map((dup) => (
+                <div
+                  key={dup.id}
+                  className="px-4 py-3 rounded-md bg-line-soft text-[14px]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-ink font-semibold">{dup.shop_name || "—"}</span>
+                      {dup.source_review_reviewer && (
+                        <span className="text-muted ml-2 text-[12px]">
+                          by {dup.source_review_reviewer}
+                        </span>
+                      )}
+                      {dup.source_review_date && (
+                        <span className="text-muted ml-2 text-[12px]">
+                          ·{" "}
+                          {new Date(dup.source_review_date).toLocaleDateString(undefined, {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                    {dup.source_review_rating !== null && (
+                      <span className="text-amber text-[12px] shrink-0">
+                        ★ {dup.source_review_rating}
+                      </span>
+                    )}
+                  </div>
+                  {dup.source_review_comment ? (
+                    <blockquote className="mt-2 pl-3 border-l-2 border-line text-muted italic text-[13px] line-clamp-3">
+                      “{dup.source_review_comment}”
+                    </blockquote>
+                  ) : (
+                    <p className="mt-2 text-faint italic text-[12px]">
+                      (No review text provided)
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="pt-2 text-right">
           <button
             type="button"
@@ -177,6 +257,17 @@ function DetailsTab({
             Edit Details
           </button>
         </div>
+        {isOrgAdmin && item.source === "AI" && item.canonical_id === null && (
+          <div className="pt-1 text-right">
+            <button
+              type="button"
+              onClick={onMarkAsDuplicate}
+              className="text-[14px] text-muted underline hover:text-ink"
+            >
+              Mark as duplicate of…
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -207,6 +298,23 @@ function DetailsTab({
           <option value="HIGH">High</option>
           <option value="MEDIUM">Medium</option>
           <option value="LOW">Low</option>
+        </select>
+      </label>
+      <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
+        Category
+        <select
+          value={draft.category}
+          onChange={(e) =>
+            setDraft({ ...draft, category: e.target.value as ActionItemCategory })
+          }
+          className="mt-1 block w-48 px-3 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-yellow"
+          disabled={saving}
+        >
+          {CATEGORY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
         </select>
       </label>
       <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
@@ -283,6 +391,7 @@ export function ActionItemModal({
   itemId,
   shops: _shops,
   teamMembers,
+  isOrgAdmin,
   onClose,
   onChanged,
 }: Props) {
@@ -292,11 +401,17 @@ export function ActionItemModal({
   const [draft, setDraft] = useState<EditDraft>({
     title: "",
     priority: "MEDIUM",
+    category: "OTHER",
     due_date: "",
     assignee_id: null,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Phase 18 Plan 04 — detail-view "Mark as duplicate of…" flow.
+  const [duplicatePickerOpen, setDuplicatePickerOpen] = useState(false);
+  const [mergeFromDetailOpen, setMergeFromDetailOpen] = useState(false);
+  const [pickedForMerge, setPickedForMerge] = useState<ActionItemListRow | null>(null);
+  const [mergingFromDetail, setMergingFromDetail] = useState(false);
 
   useEffect(() => {
     if (!open || itemId == null) return;
@@ -338,6 +453,7 @@ export function ActionItemModal({
       const updated = await updateActionItemBackend(item.id, {
         title: draft.title,
         priority: draft.priority,
+        category: draft.category,
         due_date: draft.due_date || null,
         assignee: draft.assignee_id,
       });
@@ -370,7 +486,31 @@ export function ActionItemModal({
     ...(showSourceTab ? ([{ id: "source", label: "Source Review" }] as const) : []),
   ];
 
+  const handleConfirmDetailMerge = async () => {
+    if (!item || !pickedForMerge) return;
+    setMergingFromDetail(true);
+    try {
+      await mergeActionItems({
+        primary_id: pickedForMerge.id,
+        duplicate_ids: [item.id],
+      });
+      emitToast({ kind: "success", title: "Marked as duplicate" });
+      setMergeFromDetailOpen(false);
+      setPickedForMerge(null);
+      onChanged();
+      onClose();
+    } catch {
+      emitToast({
+        kind: "error",
+        title: "Could not merge items. Please try again.",
+      });
+    } finally {
+      setMergingFromDetail(false);
+    }
+  };
+
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -394,6 +534,7 @@ export function ActionItemModal({
                 setDraft({
                   title: item.title,
                   priority: item.priority,
+                  category: item.category_value,
                   due_date: item.due_date ?? "",
                   assignee_id: item.assignee_id ?? null,
                 });
@@ -404,6 +545,8 @@ export function ActionItemModal({
               saving={saving}
               error={error}
               teamMembers={teamMembers}
+              isOrgAdmin={isOrgAdmin}
+              onMarkAsDuplicate={() => setDuplicatePickerOpen(true)}
             />
           )}
           {activeTab === "notes" && (
@@ -415,5 +558,31 @@ export function ActionItemModal({
         </>
       )}
     </Modal>
+    {item && (
+      <DuplicatePickerModal
+        open={duplicatePickerOpen}
+        currentItem={item}
+        onClose={() => setDuplicatePickerOpen(false)}
+        onPicked={(_primaryId, primaryItem) => {
+          setPickedForMerge(primaryItem);
+          setDuplicatePickerOpen(false);
+          setMergeFromDetailOpen(true);
+        }}
+      />
+    )}
+    <ConfirmModal
+      open={mergeFromDetailOpen && pickedForMerge !== null}
+      onClose={() => {
+        if (mergingFromDetail) return;
+        setMergeFromDetailOpen(false);
+        setPickedForMerge(null);
+      }}
+      onConfirm={() => void handleConfirmDetailMerge()}
+      variant="blue"
+      title="Confirm merge"
+      message={`Merge 2 items into "${pickedForMerge?.title ?? ""}"? This cannot be undone.`}
+      confirmLabel={mergingFromDetail ? "Merging…" : "Merge items"}
+    />
+    </>
   );
 }

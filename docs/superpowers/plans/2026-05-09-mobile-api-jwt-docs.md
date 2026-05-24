@@ -106,7 +106,7 @@ After the `SIMPLE_JWT` block, add:
 
 ```python
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Review Master API",
+    "TITLE": "Review Bee API",
     "DESCRIPTION": "Internal API for web and mobile clients. Not for external use.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -1051,7 +1051,7 @@ Create `templates/api_docs/scalar.html`:
 <!doctype html>
 <html lang="en">
 <head>
-  <title>Review Master API</title>
+  <title>Review Bee API</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>

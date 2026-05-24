@@ -91,6 +91,14 @@ class ActionItem(TimeStampedModel):
         on_delete=models.SET_NULL,
         related_name="action_items",
     )
+    canonical = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="duplicates",
+        db_index=True,
+    )
 
     class Meta:
         db_table = "action_items_actionitem"

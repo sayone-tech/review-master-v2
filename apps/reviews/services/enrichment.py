@@ -31,13 +31,18 @@ from django.utils import timezone as dj_timezone
 from apps.common.locks import distributed_lock
 from apps.integrations.openai.client import call_openai_enrichment
 from apps.integrations.openai.exceptions import (
+    ContentModeratedException,
     EnrichmentParseError,
     OpenAIPermanentError,
     OpenAITransientError,
 )
+from apps.integrations.openai.guardrails import (
+    ReviewWithModeratedComment,
+    moderate_input,
+)
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
-from apps.reviews.models import Review
+from apps.reviews.models import Review, ReviewTag
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +92,25 @@ def _persist_success(
         Review.objects.filter(pk=review.pk).update(
             enrichment_status=Review.EnrichmentStatus.SUCCESS,
             sentiment=result.sentiment,
-            tags=[{"label": t.label, "polarity": t.polarity} for t in result.tags],
             extracted_action_items=[
-                {"title": a.title, "scope": a.scope, "priority": a.priority}
+                {"title": a.title, "scope": a.scope, "priority": a.priority, "category": a.category}
                 for a in result.action_items
             ],
             enrichment_version=models.F("enrichment_version") + 1,
+        )
+        # Phase 17 (TAG-02): write tags as relational ReviewTag rows. Delete-before-
+        # bulk_create makes re-enrichment idempotent (D-09); both calls inside the
+        # transaction so a bulk_create failure rolls back the Review update.
+        ReviewTag.objects.filter(review_id=review.pk).delete()
+        ReviewTag.objects.bulk_create(
+            [
+                ReviewTag(
+                    review_id=review.pk,
+                    label=tag.label.title(),
+                    polarity=tag.polarity,
+                )
+                for tag in result.tags
+            ]
         )
         AiUsageLog.objects.create(
             organisation_id=review.organisation_id,
@@ -204,14 +222,36 @@ def _persist_success_no_comment(*, review: Review) -> None:
         Review.objects.filter(pk=review.pk).update(
             enrichment_status=Review.EnrichmentStatus.SUCCESS,
             sentiment=sentiment_value,
-            tags=[],
             extracted_action_items=[],
             enrichment_version=models.F("enrichment_version") + 1,
         )
+        # Phase 17 (TAG-02): clear any stale ReviewTag rows from a prior
+        # enrichment. No bulk_create — comment-less reviews have no tags.
+        ReviewTag.objects.filter(review_id=review.pk).delete()
 
     # AFTER commit: emit progress so the modal counter increments
     # identically to a normal enrichment.
     _emit_enrichment_progress(review=review)
+
+
+def _persist_moderated(review: Review) -> None:
+    """Phase 20 (D-15/D-31/D-33): persist FAILED + content_moderated error_code.
+
+    Called by enrich_review when moderate_input raises ContentModeratedException.
+    Does NOT write an AiUsageLog row — guardrails.moderate_input has already
+    written the MODERATED row before raising (D-33). Single-row save; no
+    transaction.atomic() wrapper needed.
+    """
+    review.enrichment_status = Review.EnrichmentStatus.FAILED
+    review.enrichment_error_code = "content_moderated"
+    review.enrichment_attempted_at = dj_timezone.now()
+    review.save(
+        update_fields=[
+            "enrichment_status",
+            "enrichment_error_code",
+            "enrichment_attempted_at",
+        ]
+    )
 
 
 def _persist_failure(
@@ -432,9 +472,29 @@ def enrich_review(*, review_id: int) -> None:
             _persist_success_no_comment(review=review)
             return
 
+        # Phase 20 (D-15/D-33): input moderation BEFORE the OpenAI call and
+        # OUTSIDE any transaction.atomic() block, so the MODERATED AiUsageLog
+        # row written inside guardrails survives a downstream rollback.
+        try:
+            truncated_text = moderate_input(
+                review.comment, review=review, request_type="enrichment"
+            )
+        except ContentModeratedException:
+            _persist_moderated(review)
+            return
+
+        # Flow the truncated text into the prompt (D-21) via a read-only
+        # proxy instead of mutating `review.comment` in place. A future
+        # contributor switching from `Review.objects.filter(pk=...).update(...)`
+        # to `review.save()` would otherwise silently persist the
+        # `…[truncated]` suffix into the database, corrupting the
+        # reviewer's actual text. Mirrors the pattern in reply_generation
+        # (WR-02).
+        review_for_prompt = ReviewWithModeratedComment(review, truncated_text)
+
         # OpenAI call OUTSIDE the transaction (RESEARCH.md anti-pattern).
         try:
-            result, usage_data = call_openai_enrichment(review=review)
+            result, usage_data = call_openai_enrichment(review=review_for_prompt)
         except (OpenAITransientError, EnrichmentParseError) as exc:
             _persist_failure(review=review, usage_data=None, exc=exc)
             raise  # Celery autoretry_for picks this up

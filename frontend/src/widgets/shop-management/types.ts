@@ -6,6 +6,14 @@ export type ConnectionStatus =
   | "QUOTA_EXCEEDED"
   | "NOT_CONNECTED";
 
+export type SyncDepth = "ONE_YEAR" | "TWO_YEARS" | "ALL_TIME";
+
+export const SYNC_DEPTH_LABELS: Record<SyncDepth, string> = {
+  ONE_YEAR: "Last 1 year",
+  TWO_YEARS: "Last 2 years",
+  ALL_TIME: "All time",
+};
+
 export interface ShopRow {
   id: number;
   name: string;
@@ -14,6 +22,7 @@ export interface ShopRow {
   place_id: string;
   connection_method: ConnectionMethod;
   connection_status: ConnectionStatus;
+  sync_depth: SyncDepth;
   is_active: boolean;
   region: number | null;
   region_name: string;
@@ -47,6 +56,7 @@ export interface ShopCreatePayload {
   google_refresh_token?: string;
   phone?: string;
   street_address?: string;
+  sync_depth?: string;
 }
 
 export interface ShopUpdatePayload {

@@ -4,6 +4,7 @@ import { ActionItemFilters } from "./ActionItemFilters";
 import { ActionItemTable } from "./ActionItemTable";
 import { ActionItemModal } from "./ActionItemModal";
 import { AssignModal } from "./AssignModal";
+import { MergeModal } from "./MergeModal";
 import { transitionStatus } from "./api";
 import { useActionItems } from "./useActionItems";
 import { emitToast } from "../../lib/toast";
@@ -111,8 +112,46 @@ export function ActionItemManagementWidget({
 
   const [openModalId, setOpenModalId] = useState<number | null>(null);
   const [assignRow, setAssignRow] = useState<ActionItemListRow | null>(null);
+  // Phase 18 — multi-select state for the merge flow.
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
 
   const isOrgAdmin = userRole === "ORG_ADMIN";
+
+  // Clear selection when the underlying list changes (page or filter).
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [
+    params.page,
+    params.shop,
+    params.status,
+    params.scope,
+    params.category,
+    params.assignee,
+    params.from_date,
+    params.to_date,
+    params.search,
+  ]);
+
+  const handleToggleRow = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleAll = (ids: number[]) => {
+    setSelectedIds((prev) => {
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
+      return allSelected ? new Set() : new Set(ids);
+    });
+  };
+
+  const selectedItems = (data?.results ?? []).filter((r) =>
+    selectedIds.has(r.id),
+  );
 
   // Deep-link support: ?id={N} opens the detail modal on mount, then strips
   // the param so refresh doesn't re-open.
@@ -194,6 +233,34 @@ export function ActionItemManagementWidget({
         onReset={handleReset}
       />
 
+      {isOrgAdmin && selectedIds.size >= 2 && (
+        <div
+          role="toolbar"
+          aria-label="Bulk actions"
+          className="flex items-center justify-between px-4 py-2 bg-white border border-line rounded-card mb-2"
+        >
+          <span className="text-[14px] font-semibold text-ink">
+            {selectedIds.size} items selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-4 py-2 text-[14px] text-muted border border-line rounded-md hover:bg-line-soft"
+            >
+              Clear selection
+            </button>
+            <button
+              type="button"
+              onClick={() => setMergeModalOpen(true)}
+              className="px-4 py-2 text-[14px] bg-yellow text-black font-semibold rounded-md hover:bg-yellow-hover"
+            >
+              Merge duplicates
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="border border-line rounded-card overflow-hidden">
         <ActionItemTable
           rows={data?.results ?? []}
@@ -203,6 +270,10 @@ export function ActionItemManagementWidget({
           onTransitionStatus={handleTransition}
           onAssign={setAssignRow}
           onViewTargets={(shopId) => { window.location.href = `/admin/org/shops/${shopId}/targets/`; }}
+          selectedIds={selectedIds}
+          onToggleRow={handleToggleRow}
+          onToggleAll={handleToggleAll}
+          isOrgAdmin={isOrgAdmin}
         />
         <nav
           className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
@@ -325,6 +396,7 @@ export function ActionItemManagementWidget({
           itemId={openModalId}
           shops={shops}
           teamMembers={teamMembers}
+          isOrgAdmin={isOrgAdmin}
           onClose={() => setOpenModalId(null)}
           onChanged={() => void refetch()}
         />
@@ -336,6 +408,17 @@ export function ActionItemManagementWidget({
         teamMembers={teamMembers}
         onClose={() => setAssignRow(null)}
         onAssigned={() => void refetch()}
+      />
+
+      <MergeModal
+        open={mergeModalOpen}
+        selectedItems={selectedItems}
+        onClose={() => setMergeModalOpen(false)}
+        onMerged={() => {
+          setSelectedIds(new Set());
+          setMergeModalOpen(false);
+          void refetch();
+        }}
       />
 
     </div>
