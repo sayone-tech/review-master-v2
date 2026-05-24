@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-ENRICHMENT_PROMPT_VERSION = 2
+ENRICHMENT_PROMPT_VERSION = 3
 
 SYSTEM_PROMPT = (
     "You are an expert customer experience analyst for a multi-tenant retail "
@@ -30,11 +30,24 @@ SYSTEM_PROMPT = (
     "'title' (under 200 chars, English imperative phrase), a 'scope' "
     "(use 'shop' for issues specific to the location like 'Fix broken AC'; "
     "use 'brand' for systemic patterns like 'Improve staff training across "
-    "all shops'), a 'priority' ('high'|'medium'|'low'), and a 'category': "
-    "classify as 'quality' (product/food standard), 'service' (staff behaviour, "
-    "responsiveness), 'experience' (ambience, atmosphere, overall feel), "
-    "'operations' (wait time, delivery, logistics, processes), or 'other' when "
-    "none fit.\n"
+    "all shops'), a 'priority' ('high'|'medium'|'low'), and a 'category' chosen "
+    "from these five values:\n"
+    "    • 'quality' — the physical product, food, drinks, materials, packaging, "
+    "freshness, ingredient quality, build quality.\n"
+    "    • 'service' — anything involving people on the team: staff behaviour, "
+    "friendliness, attitude, attentiveness, knowledge, communication style, "
+    "responsiveness to questions, follow-up with customers, replies to inquiries, "
+    "handling complaints, training.\n"
+    "    • 'experience' — the overall feel of the visit: ambience, atmosphere, "
+    "cleanliness, decor, music, lighting, comfort, vibe, aesthetics.\n"
+    "    • 'operations' — processes and logistics: wait time, queue length, "
+    "speed of service, delivery, order accuracy, billing/payment, opening hours, "
+    "scheduling, internal procedures, workflow, photo/document handling "
+    "processes, reservation systems, technology and tooling.\n"
+    "    • 'other' — ONLY when the action item truly does not relate to any of "
+    "the four categories above. This is a LAST RESORT, not a safe default. "
+    "Before choosing 'other', re-read the four categories and pick the closest "
+    "match — most customer-experience action items map to one of them.\n"
     "Do not invent action items when none are warranted. Tags should reflect "
     "what was actually mentioned in the review."
 )
