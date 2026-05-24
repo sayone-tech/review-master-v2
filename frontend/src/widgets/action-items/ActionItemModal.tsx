@@ -26,6 +26,7 @@ import { emitToast } from "../../lib/toast";
 import { getAssignableMembers } from "./assigneeUtils";
 import {
   STATUS_LABEL,
+  type ActionItemCategory,
   type ActionItemDetail,
   type ActionItemListRow,
   type ActionItemPriority,
@@ -34,9 +35,18 @@ import {
   type TeamMember,
 } from "./types";
 
+const CATEGORY_OPTIONS: { value: ActionItemCategory; label: string }[] = [
+  { value: "QUALITY", label: "Quality" },
+  { value: "SERVICE", label: "Service" },
+  { value: "EXPERIENCE", label: "Experience" },
+  { value: "OPERATIONS", label: "Operations" },
+  { value: "OTHER", label: "Other" },
+];
+
 type EditDraft = {
   title: string;
   priority: ActionItemPriority;
+  category: ActionItemCategory;
   due_date: string;
   assignee_id: number | null;
 };
@@ -148,6 +158,12 @@ function DetailsTab({
             <dd className="mt-1">
               <PriorityIndicator priority={item.priority} />
             </dd>
+          </div>
+          <div>
+            <dt className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
+              Category
+            </dt>
+            <dd className="text-ink mt-1">{item.category}</dd>
           </div>
           <div>
             <dt className="text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
@@ -266,6 +282,23 @@ function DetailsTab({
         </select>
       </label>
       <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
+        Category
+        <select
+          value={draft.category}
+          onChange={(e) =>
+            setDraft({ ...draft, category: e.target.value as ActionItemCategory })
+          }
+          className="mt-1 block w-48 px-3 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-yellow"
+          disabled={saving}
+        >
+          {CATEGORY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-[12px] font-semibold uppercase tracking-[0.05em] text-muted">
         Due date
         <input
           type="date"
@@ -349,6 +382,7 @@ export function ActionItemModal({
   const [draft, setDraft] = useState<EditDraft>({
     title: "",
     priority: "MEDIUM",
+    category: "OTHER",
     due_date: "",
     assignee_id: null,
   });
@@ -400,6 +434,7 @@ export function ActionItemModal({
       const updated = await updateActionItemBackend(item.id, {
         title: draft.title,
         priority: draft.priority,
+        category: draft.category,
         due_date: draft.due_date || null,
         assignee: draft.assignee_id,
       });
@@ -480,6 +515,7 @@ export function ActionItemModal({
                 setDraft({
                   title: item.title,
                   priority: item.priority,
+                  category: item.category_value,
                   due_date: item.due_date ?? "",
                   assignee_id: item.assignee_id ?? null,
                 });

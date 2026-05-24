@@ -135,6 +135,7 @@ export const STATUS_LABEL: Record<ActionItemStatus, string> = {
 export interface UpdateActionItemBackendPayload {
   title?: string;
   priority?: ActionItemPriority;
+  category?: ActionItemCategory;
   due_date?: string | null;
   assignee?: number | null;
 }
