@@ -38,7 +38,7 @@ export function ToggleSwitch({
           {label}
         </label>
         {description && (
-          <p className="mt-0.5 text-[12px] text-muted">{description}</p>
+          <p className="mt-1 text-[12px] text-muted">{description}</p>
         )}
       </div>
     </div>

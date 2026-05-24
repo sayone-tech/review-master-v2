@@ -15,8 +15,8 @@ interface Props {
   onReconnect: () => void;
 }
 
-const dtCls = "text-[11.5px] font-semibold text-subtle tracking-[0.05em] uppercase mb-0.5";
-const ddCls = "text-[13.5px] text-ink";
+const dtCls = "text-[12px] font-semibold text-subtle tracking-[0.05em] uppercase mb-0.5";
+const ddCls = "text-[14px] text-ink";
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -70,7 +70,7 @@ export function ShopDetailsModal({
               <button
                 type="button"
                 onClick={onReconnect}
-                className="px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover"
+                className="px-4 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[14px] font-semibold hover:bg-yellow-hover"
               >
                 Reconnect Google
               </button>
@@ -78,7 +78,7 @@ export function ShopDetailsModal({
             <button
               type="button"
               onClick={onEdit}
-              className="px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+              className="px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft"
             >
               Edit
             </button>
@@ -86,7 +86,7 @@ export function ShopDetailsModal({
               <button
                 type="button"
                 onClick={onDeactivate}
-                className="px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+                className="px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft"
               >
                 Deactivate
               </button>
@@ -94,7 +94,7 @@ export function ShopDetailsModal({
               <button
                 type="button"
                 onClick={onActivate}
-                className="px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+                className="px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft"
               >
                 Activate
               </button>
@@ -102,7 +102,7 @@ export function ShopDetailsModal({
             <button
               type="button"
               onClick={handleModalClose}
-              className="px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
+              className="px-4 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[14px] font-semibold hover:bg-yellow-hover"
             >
               Close
             </button>
@@ -115,11 +115,8 @@ export function ShopDetailsModal({
             <Row label="Phone">{shop.phone || "—"}</Row>
             <Row label="Region">
               {shop.region_region_id ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <span
-                    className="rounded px-1.5 py-0.5 text-[11px] font-semibold"
-                    style={{ backgroundColor: "#F3F4F6", color: "#374151" }}
-                  >
+                <span className="inline-flex items-center gap-2">
+                  <span className="rounded px-2 py-1 text-[12px] font-semibold bg-line text-ink">
                     {shop.region_region_id}
                   </span>
                   {shop.region_name}
@@ -130,19 +127,18 @@ export function ShopDetailsModal({
             </Row>
             <Row label="Status">
               <span
-                className="inline-flex items-center rounded-full px-2 py-[3px] text-[12px] font-medium"
-                style={
+                className={`inline-flex items-center rounded-full px-2 py-1 text-[12px] font-semibold ${
                   shop.is_active
-                    ? { backgroundColor: "#F0FDF4", color: "#16A34A" }
-                    : { backgroundColor: "#F9FAFB", color: "#6B7280" }
-                }
+                    ? "bg-[#F0FDF4] text-[#16A34A]"
+                    : "bg-[#FAFAFA] text-muted"
+                }`}
               >
                 {shop.is_active ? "Active" : "Inactive"}
               </span>
             </Row>
             <Row label="Street Address">{shop.street_address || "—"}</Row>
             <Row label="Place ID">
-              <code className="font-mono text-[12.5px]">{shop.place_id || "—"}</code>
+              <code className="font-mono text-[12px]">{shop.place_id || "—"}</code>
             </Row>
             <Row label="Connection Method">
               {shop.connection_method === "GOOGLE_OAUTH" ? "Google OAuth" : "Not connected"}

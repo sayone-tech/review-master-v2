@@ -39,7 +39,7 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+            className="inline-flex items-center px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft"
           >
             Close
           </button>
@@ -47,7 +47,7 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
             <button
               type="button"
               onClick={() => onResend(org)}
-              className="inline-flex items-center px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+              className="inline-flex items-center px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft"
               data-testid="view-resend-btn"
             >
               Resend Invitation
@@ -56,7 +56,7 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
           <button
             type="button"
             onClick={() => onEdit(org)}
-            className="inline-flex items-center px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover"
+            className="inline-flex items-center px-4 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[14px] font-semibold hover:bg-yellow-hover"
             data-testid="view-edit-btn"
           >
             Edit
@@ -68,29 +68,29 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Type
         </dt>
-        <dd className="text-[13px] text-ink">{ORG_TYPE_LABELS[org.org_type]}</dd>
+        <dd className="text-[14px] text-ink">{ORG_TYPE_LABELS[org.org_type]}</dd>
 
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Email
         </dt>
-        <dd className="text-[13px] text-ink">{org.email}</dd>
+        <dd className="text-[14px] text-ink">{org.email}</dd>
 
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Address
         </dt>
-        <dd className="text-[13px] text-ink">{org.address || "—"}</dd>
+        <dd className="text-[14px] text-ink">{org.address || "—"}</dd>
 
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Stores
         </dt>
-        <dd className="text-[13px] text-ink">
+        <dd className="text-[14px] text-ink">
           {org.active_stores} used of {org.number_of_stores} allocated
         </dd>
 
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Status
         </dt>
-        <dd className="text-[13px] text-ink">
+        <dd className="text-[14px] text-ink">
           {org.status === "ACTIVE"
             ? "Active"
             : org.status === "DISABLED"
@@ -101,14 +101,14 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Created
         </dt>
-        <dd className="text-[13px] text-ink">{formatDate(org.created_at)}</dd>
+        <dd className="text-[14px] text-ink">{formatDate(org.created_at)}</dd>
 
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Org Admin
         </dt>
-        <dd className="text-[13px] text-ink flex items-center gap-1.5">
+        <dd className="text-[14px] text-ink flex items-center gap-2">
           <span
-            className={`w-1.5 h-1.5 rounded-full ${actLabel.dot}`}
+            className={`w-2 h-2 rounded-full ${actLabel.dot}`}
             aria-hidden="true"
           />
           {actLabel.text}
@@ -117,14 +117,14 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Last invite
         </dt>
-        <dd className="text-[13px] text-ink">
+        <dd className="text-[14px] text-ink">
           {formatDateTime(org.last_invited_at)}
         </dd>
 
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Configurable sync depth
         </dt>
-        <dd className="text-[13px] text-ink">
+        <dd className="text-[14px] text-ink">
           {org.allow_custom_sync_depth ? "Enabled" : "Disabled"}
         </dd>
       </dl>

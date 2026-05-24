@@ -90,7 +90,7 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
   }
 
   const inputBase =
-    "w-full px-3 py-2 text-[13.5px] bg-white border rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
+    "w-full px-3 py-2 text-[14px] bg-white border rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
 
   return (
     <Modal
@@ -103,7 +103,7 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+            className="inline-flex items-center px-4 py-2 bg-white text-ink border border-line rounded-md text-[14px] font-normal hover:bg-line-soft"
             data-testid="edit-discard"
           >
             Discard Changes
@@ -112,12 +112,12 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
             type="submit"
             form="edit-org-form"
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-60"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[14px] font-semibold hover:bg-yellow-hover disabled:opacity-60"
             data-testid="edit-submit"
           >
             {submitting && (
               <span
-                className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin"
+                className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"
                 aria-hidden="true"
               />
             )}
