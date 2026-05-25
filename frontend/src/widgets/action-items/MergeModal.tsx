@@ -1,9 +1,27 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertCircle, AlertTriangle } from "lucide-react";
 import { Modal } from "../modal/Modal";
-import { mergeActionItems } from "./api";
+import { ApiError, mergeActionItems } from "./api";
 import { emitToast } from "../../lib/toast";
 import type { ActionItemListRow } from "./types";
+
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    const data = err.data;
+    if (Array.isArray(data) && typeof data[0] === "string") return data[0];
+    if (data && typeof data === "object") {
+      const obj = data as Record<string, unknown>;
+      const candidate =
+        (typeof obj.detail === "string" && obj.detail) ||
+        (Array.isArray(obj.non_field_errors) &&
+          typeof obj.non_field_errors[0] === "string" &&
+          (obj.non_field_errors[0] as string)) ||
+        (typeof obj.message === "string" && obj.message);
+      if (candidate) return candidate;
+    }
+  }
+  return "Could not merge items. Please try again.";
+}
 
 interface Props {
   open: boolean;
@@ -16,6 +34,7 @@ export function MergeModal({ open, selectedItems, onClose, onMerged }: Props) {
   const [primaryId, setPrimaryId] = useState<number | null>(null);
   const [step, setStep] = useState<"pick" | "confirm">("pick");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Reset internal state whenever the modal transitions to open.
   useEffect(() => {
@@ -23,6 +42,7 @@ export function MergeModal({ open, selectedItems, onClose, onMerged }: Props) {
       setPrimaryId(null);
       setStep("pick");
       setSaving(false);
+      setError(null);
     }
   }, [open]);
 
@@ -31,6 +51,7 @@ export function MergeModal({ open, selectedItems, onClose, onMerged }: Props) {
   const handleMergeConfirm = async () => {
     if (primaryId === null) return;
     setSaving(true);
+    setError(null);
     try {
       const duplicate_ids = selectedItems
         .filter((i) => i.id !== primaryId)
@@ -39,11 +60,8 @@ export function MergeModal({ open, selectedItems, onClose, onMerged }: Props) {
       emitToast({ kind: "success", title: "Items merged successfully" });
       onMerged();
       onClose();
-    } catch {
-      emitToast({
-        kind: "error",
-        title: "Could not merge items. Please try again.",
-      });
+    } catch (err) {
+      setError(extractErrorMessage(err));
       setSaving(false);
     }
   };
@@ -99,6 +117,16 @@ export function MergeModal({ open, selectedItems, onClose, onMerged }: Props) {
       footer={footer}
       dismissible={!saving}
     >
+      {error && (
+        <div
+          role="alert"
+          data-testid="merge-error-banner"
+          className="flex items-start gap-2 border-l-4 border-red bg-red-tint text-red rounded-md px-4 py-2 mb-4"
+        >
+          <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span className="text-[13px]">{error}</span>
+        </div>
+      )}
       {step === "pick" ? (
         <div className="space-y-4">
           <div>
