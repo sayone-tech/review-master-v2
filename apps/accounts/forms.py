@@ -15,7 +15,7 @@ class CustomAuthenticationForm(AuthenticationForm):
     """Authentication form with a generic error message (no email enumeration)."""
 
     error_messages: ClassVar[dict[str, str | StrPromise]] = {  # type: ignore[misc]
-        "invalid_login": "Invalid email or password.",
+        "invalid_login": "Incorrect credentials. Please check your email and password and try again.",
         "inactive": "Your account has been disabled. Contact your administrator.",
     }
 

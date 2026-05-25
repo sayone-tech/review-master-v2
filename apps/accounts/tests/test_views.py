@@ -47,14 +47,14 @@ def test_login_invalid(anon_client: Client, superadmin: User) -> None:
     # Turbo accepts the re-rendered form instead of throwing "Form responses
     # must redirect to another location".
     assert resp.status_code == 422
-    assert b"Invalid email or password" in resp.content
+    assert b"Incorrect credentials" in resp.content
 
 
 def test_login_no_enumeration(anon_client: Client) -> None:
     # Nonexistent email returns same error as wrong password
     resp = anon_client.post("/login/", {"username": "nope@example.com", "password": "whatever"})
     assert resp.status_code == 422  # see test_login_invalid for rationale
-    assert b"Invalid email or password" in resp.content
+    assert b"Incorrect credentials" in resp.content
     # Never leak "no such user"
     assert b"does not exist" not in resp.content
     assert b"no account" not in resp.content.lower()
