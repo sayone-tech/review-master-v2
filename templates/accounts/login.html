@@ -6,11 +6,17 @@
   <p class="text-sm text-subtle mb-6">Enter your credentials to access the admin panel.</p>
 
   {% if form.non_field_errors %}
-    <div role="alert" data-testid="login-error-banner"
-         class="flex items-start gap-2 border-l-4 border-red bg-red-tint text-red rounded-md px-4 py-2 mb-4">
-      <span class="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" data-lucide="alert-circle"></span>
-      <span class="text-[13px]">{{ form.non_field_errors.0 }}</span>
-    </div>
+    {% with err=form.non_field_errors.0 %}
+      <div role="alert" data-testid="login-error-banner"
+           class="flex items-start gap-2 border-l-4 border-red bg-red-tint text-red rounded-md px-4 py-2 mb-4">
+        <svg class="w-4 h-4 mt-0.5 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+        </svg>
+        <span class="text-[13px]">
+          {% if "Incorrect credentials." in err %}<strong>Incorrect credentials.</strong> Please check your email and password and try again.{% else %}{{ err }}{% endif %}
+        </span>
+      </div>
+    {% endwith %}
   {% endif %}
 
   {% for message in messages %}

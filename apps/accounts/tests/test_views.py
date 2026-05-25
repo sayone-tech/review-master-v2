@@ -47,14 +47,14 @@ def test_login_invalid(anon_client: Client, superadmin: User) -> None:
     # Turbo accepts the re-rendered form instead of throwing "Form responses
     # must redirect to another location".
     assert resp.status_code == 422
-    assert b"Invalid email or password" in resp.content
+    assert b"Incorrect credentials" in resp.content
 
 
 def test_login_no_enumeration(anon_client: Client) -> None:
     # Nonexistent email returns same error as wrong password
     resp = anon_client.post("/login/", {"username": "nope@example.com", "password": "whatever"})
     assert resp.status_code == 422  # see test_login_invalid for rationale
-    assert b"Invalid email or password" in resp.content
+    assert b"Incorrect credentials" in resp.content
     # Never leak "no such user"
     assert b"does not exist" not in resp.content
     assert b"no account" not in resp.content.lower()
@@ -804,7 +804,8 @@ def test_org_profile_update_name_invalid_renders_form_with_error() -> None:
         "/admin/org/profile/update-name/",
         {"full_name": "X"},  # too short (min 2 chars)
     )
-    assert response.status_code == 200
+    # 422 (not 200) so Hotwire Turbo accepts the re-rendered form.
+    assert response.status_code == 422
     # Original name unchanged
     user.refresh_from_db()
     assert user.full_name == "Original Name"
@@ -836,7 +837,8 @@ def test_org_profile_change_password_wrong_current_shows_error() -> None:
             "confirm_password": "newtestpass2345",
         },
     )
-    assert response.status_code == 200
+    # 422 (not 200) so Hotwire Turbo accepts the re-rendered form.
+    assert response.status_code == 422
     assert b"Current password is incorrect." in response.content
     # Original password still works
     assert authenticate(username=user.email, password="testpass1234") is not None
