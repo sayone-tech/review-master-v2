@@ -258,6 +258,14 @@ class CustomLoginView(LoginView):
             )
         return super().post(request, *args, **kwargs)
 
+    def form_invalid(self, form: CustomAuthenticationForm) -> HttpResponse:  # type: ignore[override]
+        # Hotwire Turbo requires 422 (not 200) on form-failure renders, else
+        # it throws "Form responses must redirect to another location" in the
+        # browser console. Django's default LoginView.form_invalid returns 200.
+        response = super().form_invalid(form)
+        response.status_code = 422
+        return response
+
     def form_valid(self, form: CustomAuthenticationForm) -> HttpResponse:  # type: ignore[override]
         remember = self.request.POST.get("remember_me")
         # Call super() FIRST — it logs the user in and creates the session.
@@ -285,6 +293,13 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
 
     template_name = "accounts/password_reset_confirm.html"
     success_url = reverse_lazy("login")
+
+    def form_invalid(self, form: Any) -> HttpResponse:
+        # Hotwire Turbo requires 422 (not 200) on form-failure renders.
+        # See CustomLoginView.form_invalid for the same fix.
+        response = super().form_invalid(form)
+        response.status_code = 422
+        return response
 
     def form_valid(self, form: Any) -> HttpResponse:
         response = super().form_valid(form)
@@ -343,7 +358,15 @@ def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
                         password=form.cleaned_data["password1"],
                     )
                 except ValidationError:
-                    return render(request, "accounts/invite_error.html", {"message": ACTV05_COPY})
+                    # Race: token used between is_used check and now. Return 422
+                    # so Hotwire Turbo treats it as a form-failure render-in-place
+                    # rather than throwing "Form responses must redirect …".
+                    return render(
+                        request,
+                        "accounts/invite_error.html",
+                        {"message": ACTV05_COPY},
+                        status=422,
+                    )
                 login(request, user)
                 return redirect(reverse("org_admin_dashboard"))
             # ORG_ADMIN path — existing code unchanged
@@ -357,7 +380,13 @@ def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
                 )
             except ValidationError:
                 # Race: someone else activated between is_used check and now.
-                return render(request, "accounts/invite_error.html", {"message": ACTV05_COPY})
+                # Status 422 — see note above.
+                return render(
+                    request,
+                    "accounts/invite_error.html",
+                    {"message": ACTV05_COPY},
+                    status=422,
+                )
             login(request, user)
             return redirect(reverse("org_admin_dashboard"))
     else:
@@ -387,6 +416,10 @@ def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
         email_to_show = organisation.email
         role_context = None
 
+    # Hotwire Turbo: form POST that re-renders the same page (validation
+    # failure) MUST return 422, otherwise Turbo throws
+    # "Form responses must redirect to another location". GET still returns 200.
+    status = 422 if request.method == "POST" else 200
     return render(
         request,
         template,
@@ -397,6 +430,7 @@ def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
             "role_context": role_context,
             "invitation": invitation,
         },
+        status=status,
     )
 
 
@@ -414,10 +448,12 @@ def update_name_view(request: HttpRequest) -> HttpResponse:
         )
         messages.success(request, "Name updated.")
         return redirect("profile")
+    # Hotwire Turbo requires 422 on form-failure renders.
     return render(
         request,
         "accounts/profile.html",
         {"name_form": form, "pw_form": ProfilePasswordChangeForm(), "page_title": "Profile"},
+        status=422,
     )
 
 
@@ -437,18 +473,22 @@ def change_password_view(request: HttpRequest) -> HttpResponse:
             )
         except ValueError:
             form.add_error("current_password", "Current password is incorrect.")
+            # Hotwire Turbo requires 422 on form-failure renders.
             return render(
                 request,
                 "accounts/profile.html",
                 {"name_form": ProfileNameForm(), "pw_form": form, "page_title": "Profile"},
+                status=422,
             )
         update_session_auth_hash(request, user)
         messages.success(request, "Password updated.")
         return redirect("profile")
+    # Form invalid (weak/new password mismatch / missing field) — 422 for Turbo.
     return render(
         request,
         "accounts/profile.html",
         {"name_form": ProfileNameForm(), "pw_form": form, "page_title": "Profile"},
+        status=422,
     )
 
 

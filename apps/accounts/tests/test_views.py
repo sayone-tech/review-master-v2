@@ -43,14 +43,17 @@ def test_login_success(anon_client: Client, superadmin: User) -> None:
 
 def test_login_invalid(anon_client: Client, superadmin: User) -> None:
     resp = anon_client.post("/login/", {"username": "super@example.com", "password": "wrong-pass"})
-    assert resp.status_code == 200
+    # 422 (not 200) — CustomLoginView.form_invalid bumps the status so Hotwire
+    # Turbo accepts the re-rendered form instead of throwing "Form responses
+    # must redirect to another location".
+    assert resp.status_code == 422
     assert b"Invalid email or password" in resp.content
 
 
 def test_login_no_enumeration(anon_client: Client) -> None:
     # Nonexistent email returns same error as wrong password
     resp = anon_client.post("/login/", {"username": "nope@example.com", "password": "whatever"})
-    assert resp.status_code == 200
+    assert resp.status_code == 422  # see test_login_invalid for rationale
     assert b"Invalid email or password" in resp.content
     # Never leak "no such user"
     assert b"does not exist" not in resp.content
@@ -467,7 +470,10 @@ def test_invite_accept_post_password_mismatch_rerenders_form(anon_client, db):
             "password2": "Different9!",
         },
     )
-    assert resp.status_code == 200
+    # 422 (not 200) — Hotwire Turbo accepts 422 as "re-render the form in place".
+    # Returning 200 here causes a "Form responses must redirect to another location"
+    # error in the browser. See invite_accept_view bottom for the rationale.
+    assert resp.status_code == 422
     assert b"Passwords do not match." in resp.content
     assert not User.objects.filter(email=inv.organisation.email).exists()
     inv.refresh_from_db()
@@ -486,7 +492,7 @@ def test_invite_accept_post_invalid_password_rerenders_form(anon_client, db):
             "password2": "password",
         },
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 422  # Hotwire Turbo — see test above for rationale
     # Password validator error should be rendered on form
     assert not User.objects.filter(email=inv.organisation.email).exists()
 
@@ -540,7 +546,8 @@ class TestProfileNameUpdate:
 
     def test_update_name_post_invalid(self, client_logged_in: Client) -> None:
         resp = client_logged_in.post("/admin/profile/update-name/", {"full_name": "A"})
-        assert resp.status_code == 200
+        # 422 (not 200) — Hotwire Turbo re-render-in-place semantics.
+        assert resp.status_code == 422
         assert b"at least 2" in resp.content
 
 
@@ -569,7 +576,8 @@ class TestPasswordChangeView:
                 "confirm_password": "NewStrongPass!2026",
             },
         )
-        assert resp.status_code == 200
+        # 422 (not 200) — Hotwire Turbo re-render-in-place semantics.
+        assert resp.status_code == 422
         assert b"Current password is incorrect" in resp.content
 
     def test_change_password_mismatch(self, client_logged_in: Client) -> None:
@@ -581,7 +589,7 @@ class TestPasswordChangeView:
                 "confirm_password": "DifferentPass!2026",
             },
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 422  # Hotwire Turbo — see above
         assert b"Passwords do not match" in resp.content
 
     def test_change_password_session_preserved(self, client_logged_in: Client) -> None:
