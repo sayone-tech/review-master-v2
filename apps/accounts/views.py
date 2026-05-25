@@ -516,10 +516,12 @@ def org_update_name_view(request: HttpRequest) -> HttpResponse:
         )
         messages.success(request, "Name updated.")
         return redirect("org_profile")
+    # Form invalid — 422 for Turbo.
     return render(
         request,
         "accounts/org_profile.html",
         {"name_form": form, "pw_form": ProfilePasswordChangeForm(), "page_title": "Profile"},
+        status=422,
     )
 
 
@@ -539,16 +541,20 @@ def org_change_password_view(request: HttpRequest) -> HttpResponse:
             )
         except ValueError:
             form.add_error("current_password", "Current password is incorrect.")
+            # Hotwire Turbo requires 422 on form-failure renders.
             return render(
                 request,
                 "accounts/org_profile.html",
                 {"name_form": ProfileNameForm(), "pw_form": form, "page_title": "Profile"},
+                status=422,
             )
         update_session_auth_hash(request, user)
         messages.success(request, "Password changed.")
         return redirect("org_profile")
+    # Form invalid (weak/mismatch/missing field) — 422 for Turbo.
     return render(
         request,
         "accounts/org_profile.html",
         {"name_form": ProfileNameForm(), "pw_form": form, "page_title": "Profile"},
+        status=422,
     )
