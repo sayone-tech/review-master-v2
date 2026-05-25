@@ -4,22 +4,72 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current Milestone: v0.5 Configurable Sync Depth
+## Current State: 🚀 Web Beta 1 (`web-beta-1`)
 
-**Goal:** Let Superadmins enable a per-org "configurable sync depth" flag; when enabled, Org Admins choose how far back the initial review backfill goes (1 year / 2 years / all time) at shop creation time — replacing the hard-coded 2-year default.
+**Web app is on maintenance footing as of 2026-05-24.** Seven milestones
+shipped end-to-end (v1.0, v0.2-org-admin, v0.3, v0.4, v0.5, v0.6, v0.7).
+21 phases, 115 plans, all marked complete. No new web feature work is
+planned — bug fixes and ops only — until after the mobile launch.
 
-**Target features:**
+## Next: Mobile App
 
-- Superadmin org form: "Allow configurable sync depth" toggle (create + edit)
-- Org Admin shop creation: conditional "Review History" selector (1 year / 2 years / all time) shown only when org allows it
-- Shop model: `sync_depth` field storing the chosen depth; shop detail shows current setting
-- Initial backfill task: reads `shop.sync_depth` to compute `start_date` (or no filter for all-time)
+The next milestone is the **mobile app**. Scope, requirements, and
+technical direction are still to be defined. Run `/gsd-new-milestone`
+once the brief is clear to kick off the standard
+discovery → requirements → roadmap flow for the first mobile milestone.
 
-## Current State
+Reasonable starting questions for that brief:
 
-**v0.4 shipped 2026-05-07** — Dashboard module complete. Org Admins and Staff can view a multi-widget analytics page with KPI cards, top-performing outlets, sentiment donut, and a filter bar backed by Redis-cached endpoints.
+- iOS-first, Android-first, or both day one? React Native vs native?
+- Which web flows does the mobile app need to reach parity on (reviews
+  list, reply, action items, dashboard)? Which can be deferred?
+- Is the API surface sufficient as-is, or do we expect a v2 API geared
+  for mobile (e.g. lighter payloads, offline-first sync)?
+- Auth model on mobile — same SimpleJWT, or move to OAuth/OIDC?
 
-**115/115 requirements delivered. 5 milestones shipped.**
+## Recently Shipped (Web)
+
+**v0.7 shipped 2026-05-24** — AI Safety & Governance complete. OpenAI
+Moderation API on every input and output, content length caps,
+sentence-boundary reply truncation, and a Staff-/Org-scoped Activity
+Log of reply + action item audit events.
+
+**v0.6 shipped 2026-05-22** — Tag Rework & Action Item Quality. ReviewTag
+relational model with multi-select filter UI; user-driven merge of
+duplicate AI-extracted action items; AI reply generation with tone
+selection in ReplyComposer.
+
+**v0.5 shipped 2026-05-16** — Configurable Sync Depth. Superadmin per-org
+toggle drives a conditional 1-year / 2-year / all-time selector at shop
+creation time, threaded through to the Celery backfill task.
+
+### What's shipped (v0.7, Phases 20–21)
+
+- Moderation API checks on every OpenAI call — high-severity category
+  blocking, fail-open with retry on outage
+- Content length truncation: review text capped at 4000 chars (env);
+  reply drafts capped at 300 words with sentence-boundary cleanup
+- `ContentModeratedException` → HTTP 422 with canonical user-facing copy
+- `AiUsageLog` records every moderated event with status `MODERATED`
+- Read-only Activity Log page (`/admin/org/activity-log/`) — cursor-
+  paginated, filterable by type / actor / date / shop; Staff scoped to
+  accessible shops + SHOP-scope action items only
+- Full archive: `.planning/milestones/v0.7-ROADMAP.md`
+
+### What's shipped (v0.6, Phases 17–19)
+
+- Relational `ReviewTag` model — replaces `Review.tags` JSONField; case-insensitive dedup per org; multi-select filter dropdown with search; clickable tag chips on review rows
+- Action item duplicate merge — checkbox-select multiple AI-extracted items, two-step merge modal; merged items hidden from list with "+N" badge on canonical; "Mark as duplicate of…" picker on single-item detail; merged items become read-only
+- AI reply generation — "Generate with AI" button in ReplyComposer with Professional / Friendly tone pills; GPT-4o-mini draft fills textarea for user review before manual submit; every call writes one `AiUsageLog` row; throttled 10/min per user
+- Full archive: `.planning/milestones/v0.6-ROADMAP.md`
+
+### What's shipped (v0.5, Phases 15–16)
+
+- `Organisation.allow_custom_sync_depth` BooleanField — Superadmin toggle on org create / edit / detail
+- `Shop.sync_depth` TextChoices field (`ONE_YEAR`, `TWO_YEARS`, `ALL_TIME`); shop detail shows current setting
+- Initial backfill Celery task computes `start_date` from per-shop sync_depth (no date filter when "All time")
+- Conditional UI: shop creation form shows Review History dropdown only when parent org has the flag enabled
+- Full archive: `.planning/milestones/v0.5-ROADMAP.md`
 
 ### What's shipped (v0.4, Phase 14)
 
