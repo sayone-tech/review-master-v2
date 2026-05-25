@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.conf import settings
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
@@ -50,7 +51,7 @@ urlpatterns = [
             html_email_template_name="emails/password_reset.html",
             subject_template_name="emails/password_reset_subject.txt",
             success_url="/password-reset/done/",
-            extra_email_context={"site_name": "Review Master"},
+            extra_email_context={"site_name": "Review Master", "static_url": settings.STATIC_URL},
         ),
         name="password_reset",
     ),
