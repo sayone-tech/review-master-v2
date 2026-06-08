@@ -28,4 +28,6 @@ deployment/terraform/.terraform/
 deployment/terraform/terraform.tfstate*
 deployment/terraform/.terraform.lock.hcl
 .superpowers/
-.claude/
+# Ignore local/personal Claude Code state, but keep shared project agents tracked
+.claude/*
+!.claude/agents/
