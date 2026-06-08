@@ -1,18 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: web-beta-1
-milestone_name: — Web app first beta (shipped, maintenance footing)
-status: beta_hold
-stopped_at: All web milestones v1.0..v0.7 archived; web on maintenance footing; mobile app is next focus
-last_updated: "2026-05-24T22:30:00.000Z"
-last_activity: 2026-05-24 -- v0.7 archived, web-beta-1 marker placed, mobile pivot
-next_milestone: TBD (mobile app — define with /gsd-new-milestone when ready)
+milestone: v0.8
+milestone_name: Canonical Tag System
+status: planning
+last_updated: "2026-06-08T09:11:53.547Z"
+last_activity: 2026-06-08
 progress:
-  total_phases: 21
-  completed_phases: 21
-  total_plans: 115
-  completed_plans: 115
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -26,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-05-15)
 
 ## Current Position
 
-Phase: 21 — COMPLETE
-Plan: 1 of 8
-Status: Phase 21 complete
-Last activity: 2026-05-23 -- Phase 21 marked complete
-
-Progress: [██████░░░░] 60%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-08 — Milestone v0.8 started
 
 ## Performance Metrics
 

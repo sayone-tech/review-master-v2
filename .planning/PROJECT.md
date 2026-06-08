@@ -4,28 +4,25 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current State: 🚀 Web Beta 1 (`web-beta-1`)
+## Current Milestone: v0.8 Canonical Tag System
 
-**Web app is on maintenance footing as of 2026-05-24.** Seven milestones
-shipped end-to-end (v1.0, v0.2-org-admin, v0.3, v0.4, v0.5, v0.6, v0.7).
-21 phases, 115 plans, all marked complete. No new web feature work is
-planned — bug fixes and ops only — until after the mobile launch.
+**Goal:** Normalise inconsistent AI-generated review tags into a self-organising, per-organisation canonical vocabulary so tag-based analytics (trending topics, dashboard charts, action-item grouping) are reliable across dashboards — without a hardcoded global tag list.
 
-## Next: Mobile App
+**Target features:**
+- Per-org `OrgCanonicalTag` vocabulary — auto-built and auto-evolving via the existing single GPT enrichment call (no extra API calls, no vector DB)
+- Canonical mapping folded into the enrichment prompt + post-enrichment lookup/insert on the relational `ReviewTag` model; English-only tags for any-language reviews
+- Three-type tag polarity (`always_positive` / `always_negative` / `mixed`) with a weekly DB-only auto-reclassification job (15% opposite-polarity threshold)
+- Four-step initial sync (Fetch → Build Tag Vocabulary → AI Enrichment → Finalising) with a 50-review sequential seed phase; split `ai-enrichment-high`/`-low` Celery queues + global OpenAI rate limit
+- Org Admin tag management — list, inline rename, and merge (batched Celery task with HTTP-polled progress); dashboard polarity split for mixed tags
+- Superadmin one-time data reset + re-sync for the pre-production 56-store brand
 
-The next milestone is the **mobile app**. Scope, requirements, and
-technical direction are still to be defined. Run `/gsd-new-milestone`
-once the brief is clear to kick off the standard
-discovery → requirements → roadmap flow for the first mobile milestone.
+**Source spec:** `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.docx` (v1.0, Final), reconciled against the live schema. Key correction: review tags are the **relational `ReviewTag` model** (v0.6 Phase 17), not the JSONB `tags` column the spec assumed, and no `canonical_tag_id` exists yet — canonical mapping attaches as a nullable FK on `ReviewTag`.
 
-Reasonable starting questions for that brief:
+**Key milestone decisions:** tag-merge progress uses **HTTP polling** (not a new WebSocket consumer — keeps the Channels surface narrow per §13.2); the Superadmin data reset is a **hard wipe**, accepted as a deliberate one-time pre-production exception to the §11 soft-delete rule.
 
-- iOS-first, Android-first, or both day one? React Native vs native?
-- Which web flows does the mobile app need to reach parity on (reviews
-  list, reply, action items, dashboard)? Which can be deferred?
-- Is the API surface sufficient as-is, or do we expect a v2 API geared
-  for mobile (e.g. lighter payloads, offline-first sync)?
-- Auth model on mobile — same SimpleJWT, or move to OAuth/OIDC?
+## Status / Next
+
+🚀 **Web Beta 1 (`web-beta-1`)** closed 2026-05-24 — seven milestones shipped end-to-end (v1.0, v0.2-org-admin, v0.3, v0.4, v0.5, v0.6, v0.7); 21 phases, 115 plans. The **mobile app** remains the planned milestone *after* v0.8 — scope and technical direction TBD via `/gsd-new-milestone` once the brief is clear.
 
 ## Recently Shipped (Web)
 
@@ -137,12 +134,14 @@ creation time, threaded through to the Celery backfill task.
 
 ### Active
 
-<!-- v0.5 Configurable Sync Depth — Phases 15–16 -->
+<!-- v0.8 Canonical Tag System — Phases 22+ (full REQ-IDs in .planning/REQUIREMENTS.md) -->
 
-- [ ] Superadmin can enable/disable "Allow configurable sync depth" per org (create + edit)
-- [ ] Org Admin sees "Review History" selector at shop creation when org allows custom depth
-- [ ] Shop stores `sync_depth` (ONE_YEAR / TWO_YEARS / ALL_TIME); shop detail shows current value
-- [ ] Initial backfill task reads `sync_depth` to compute `start_date`; all-time = no date filter
+- [ ] Per-org `OrgCanonicalTag` vocabulary auto-built and auto-evolving via the enrichment call
+- [ ] Canonical mapping + English-only enforcement folded into the single GPT prompt; `canonical_tag` FK populated on `ReviewTag`
+- [ ] Three-type polarity with weekly DB-only auto-reclassification (15% threshold → `mixed`)
+- [ ] Four-step initial sync with 50-review sequential seed phase; split `ai-enrichment` queues + global OpenAI rate limit
+- [ ] Org Admin tag management (list / inline rename / merge with HTTP-polled progress) + dashboard polarity split
+- [ ] Superadmin one-time data reset + re-sync (pre-production 56-store brand)
 
 ### Out of Scope
 
@@ -229,5 +228,22 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 </details>
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-Last updated: 2026-05-15 after v0.5 milestone started
+Last updated: 2026-06-08 — v0.8 Canonical Tag System milestone started
