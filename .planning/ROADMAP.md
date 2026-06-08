@@ -9,11 +9,14 @@
 - ✅ **v0.5 — Configurable Sync Depth** — Phases 15–16, 6 plans, 9/9 requirements, shipped 2026-05-16 → [archive](milestones/v0.5-ROADMAP.md)
 - ✅ **v0.6 — Tag Rework & Action Item Quality** — Phases 17–19, 11 plans, shipped 2026-05-22 → [archive](milestones/v0.6-ROADMAP.md)
 - ✅ **v0.7 — AI Safety & Governance** — Phases 20–21, 12 plans, shipped 2026-05-24 → [archive](milestones/v0.7-ROADMAP.md)
+- 🔵 **v0.8 — Canonical Tag System** — Phases 22–26, 25/25 requirements, in planning
 
-> 🚀 **Web Beta 1 (`web-beta-1`)** — v0.7 marks the close of the first
-> web beta. The web app is on **maintenance footing** as of
-> 2026-05-24; no new feature work until the mobile launch. Tag
-> `web-beta-1` points at this release for rollback / reference.
+> 🚀 **Web Beta 1 (`web-beta-1`)** — v0.7 marked the close of the first
+> web beta. v0.8 reopens web feature work for the canonical tag system
+> — a data-quality milestone that normalises AI-generated review tags
+> into a self-organising, per-org canonical vocabulary so tag analytics
+> become reliable. Tag `web-beta-1` still points at the v0.7 release for
+> rollback / reference.
 
 ## Next Up
 
@@ -91,10 +94,18 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 
 </details>
 
+### 🔵 v0.8 — Canonical Tag System (Phases 22–26) — IN PLANNING
+
+- [ ] **Phase 22: Canonical Tag Foundation & Mapping Pipeline** — `OrgCanonicalTag` model + nullable `canonical_tag` FK on `ReviewTag` + migration; canonical lookup/insert folded into the single GPT call and post-enrichment atomic block; English-only tags; one `AiUsageLog` row per call; global OpenAI rate limit.
+- [ ] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues.
+- [ ] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible.
+- [ ] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags.
+- [ ] **Phase 26: Superadmin Data Reset & Re-Sync** — One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync.
+
 ---
 
-🚀 **Web Beta 1 closed here (2026-05-24).** Web feature work paused;
-mobile app is the next focus.
+🚀 **Web Beta 1 closed 2026-05-24.** v0.8 (canonical tag system) reopens
+web feature work; mobile app remains the milestone after v0.8.
 
 ## Phase Details
 
@@ -127,6 +138,66 @@ Plans:
 > [`milestones/v0.6-ROADMAP.md`](milestones/v0.6-ROADMAP.md), and
 > [`milestones/v0.7-ROADMAP.md`](milestones/v0.7-ROADMAP.md).
 
+---
+
+### Phase 22: Canonical Tag Foundation & Mapping Pipeline
+**Goal**: Each organisation accrues a self-organising per-org canonical tag vocabulary that is built and evolved entirely inside the existing single GPT enrichment call — so every newly enriched review's tags are mapped to a stable canonical label without any extra API call, vector DB, or cost-per-call regression.
+**Depends on**: Phase 21 (v0.7 complete); builds directly on the v0.3 enrichment pipeline (`apps/integrations/openai/parser.py`, `prompts.py`, `apps/reviews/services/enrichment.py`) and the v0.6 relational `ReviewTag` model.
+**Requirements**: CTAG-01, CTAG-02, CTAG-03, CTAG-04, CTAG-05, CTAG-06, CTAG-07, CTAG-08, QUEUE-02
+**Success Criteria** (what must be TRUE):
+  1. A new `OrgCanonicalTag` row (Title Case label ≤3 words, `polarity_type`, `review_count`, timestamps, direct `organisation` FK, unique on `(organisation, label)`) is created the first time GPT proposes a new canonical label for that org, and re-used (with `review_count` incremented) on subsequent matches — all inside the existing enrichment `transaction.atomic()` block.
+  2. After enrichment, every `ReviewTag` row has its new nullable `canonical_tag` FK populated with the matched/created `OrgCanonicalTag` (matched → reuse, new → insert), resolving the org via `review.organisation_id`.
+  3. The org's current canonical vocabulary is injected into the single enrichment prompt, GPT maps each tag to an existing canonical label or proposes a new one in that same call, and all tags and action items come back in English regardless of the review's source language.
+  4. Each enrichment call still writes exactly one `AiUsageLog` row — canonicalisation adds no separate OpenAI call — and the enrichment task enforces a global, configurable Celery rate limit (default ~500/min) that holds across all workers.
+  5. Reviews enriched before this phase remain valid and queryable with a null `canonical_tag` (backward compatible); the migration adds the model and FK without backfilling or breaking existing rows.
+**Plans**: TBD
+
+### Phase 23: Four-Step Initial Sync, Seeding & Queue Split
+**Goal**: A store's initial sync visibly progresses through four named steps and seeds the org's canonical vocabulary in a careful sequential-then-parallel order, so the vocabulary is coherent from the first 50 reviews onward; daily incremental sync feeds new reviews through the same pipeline; and enrichment/merge work is isolated on dedicated Celery queues.
+**Depends on**: Phase 22 (canonical model, FK, and mapping pipeline must exist)
+**Requirements**: SEED-01, SEED-02, SEED-03, SEED-04, DSYNC-01, QUEUE-01
+**Success Criteria** (what must be TRUE):
+  1. During an initial sync, the user sees four progress steps per store — Fetching Reviews → Building Tag Vocabulary → AI Enrichment → Finalising — each with its own progress text (extending the existing `SyncProgressConsumer` from two to four stages; still no new WebSocket consumer).
+  2. The seed phase processes the first 50 reviews sequentially (all of them if fewer than 50), updating the canonical vocabulary before enriching the next review, so early canonical tags stabilise before the bulk phase.
+  3. The bulk phase enriches the remaining reviews in parallel against the current vocabulary and can still add new canonical tags; the finalising pass resolves residual duplicate tags by string match and backfills `canonical_tag` on any stragglers.
+  4. Daily incremental sync enriches new reviews through the same canonical pipeline (vocabulary injected, new canonical tags auto-added with no approval step) on the low-priority enrichment queue.
+  5. Enrichment work is split across `ai-enrichment-high` (initial sync) and `ai-enrichment-low` (daily sync), and a dedicated `tag-merge` queue exists and is wired through routes, `CELERY_QUEUE_NAMES`, and worker `-Q` args.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 24: Polarity Auto-Reclassification
+**Goal**: Canonical tags carry an accurate, self-maintaining polarity type so dashboards and analytics can trust whether a tag is consistently positive, consistently negative, or genuinely mixed — without any manual curation or extra GPT calls.
+**Depends on**: Phase 22 (canonical tags assigned a polarity at creation); benefits from Phase 23 review volume but does not require it
+**Requirements**: POL-01, POL-02, POL-03
+**Success Criteria** (what must be TRUE):
+  1. Every new canonical tag is assigned one of `always_positive` / `always_negative` / `mixed` by GPT at creation time.
+  2. A weekly Celery Beat job reclassifies an `always_*` canonical tag to `mixed` when the opposite polarity exceeds 15% of its reviews over the last 30 days, using pure DB aggregation with no GPT call.
+  3. Reclassification events are logged, and the current `polarity_type` is visible on the tag list page.
+**Plans**: TBD
+
+### Phase 25: Org Admin Tag Management & Dashboard Polarity
+**Goal**: Org Admins and Managers can directly curate their org's canonical vocabulary — viewing, renaming, and merging tags with safe, observable, reversible-where-possible operations — and the dashboard presents tag data with polarity-aware splits, so the self-organising vocabulary stays clean and the analytics reflect it.
+**Depends on**: Phase 22 (canonical model + mappings), Phase 23 (`tag-merge` queue), Phase 24 (`polarity_type` populated for badge display)
+**Requirements**: TMGT-01, TMGT-02, TMGT-03, TMGT-04, TMGT-05, TMGT-06, TDASH-01, TDASH-02
+**Success Criteria** (what must be TRUE):
+  1. Org Admin and Manager can reach a Tags page at `/admin/org/tags/` (sidebar under Settings) showing Label, Polarity Type badge, Review Count, and First Seen — sortable by column, paginated, on a query-count-bounded endpoint; Staff cannot reach it.
+  2. A canonical tag can be renamed inline (1–100 chars, unique within the org); saving updates `OrgCanonicalTag.label` and all mapped `ReviewTag` rows synchronously.
+  3. A canonical tag can be merged into another via a modal with a searchable target picker and an explicit "re-maps N reviews, cannot be undone" warning; the merge runs as a batched `merge_canonical_tags` Celery task on the `tag-merge` queue under a per-org lock, re-pointing all reviews, deleting the source tag, combining `review_count`, and posting a completion notification.
+  4. Merge progress is delivered via HTTP polling — an in-progress bar with dismiss, state that survives page reload, a completion toast, and a failure path that rolls back partial updates (no new WebSocket consumer).
+  5. Dashboard tag charts show a simple count for `always_positive` / `always_negative` canonical tags and a positive/negative split for `mixed` tags, and all canonical aggregation queries include only reviews where `canonical_tag` is set.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 26: Superadmin Data Reset & Re-Sync
+**Goal**: A Superadmin can fully reset one organisation's review data and sync state in a single deliberate, documented pre-production operation, so the pre-production 56-store brand can be re-synced cleanly through the full canonical pipeline and the whole milestone is validated end-to-end on real data.
+**Depends on**: Phases 22–25 (the full canonical pipeline + four-step sync must exist before a reset-and-re-sync proves value)
+**Requirements**: RESET-01, RESET-02, RESET-03
+**Success Criteria** (what must be TRUE):
+  1. A Superadmin can trigger a full data reset for one organisation that hard-deletes its Review, AiUsageLog, ActionItem, and OrgCanonicalTag rows — a documented one-time pre-production exception to the §11 soft-delete rule.
+  2. The reset clears each store's sync state (Redis progress snapshot + `Shop.connection_status`) so stores read as "Not synced".
+  3. After reset, the Org Admin can re-sync each store through the normal flow, running the full four-step initial sync and rebuilding the canonical vocabulary from scratch.
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -148,3 +219,8 @@ Plans:
 | 19. AI Reply Generation | v0.6 | 3/3 | ✅ Complete | 2026-05-22 |
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
+| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 0/TBD | ⬜ Not started | - |
+| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 0/TBD | ⬜ Not started | - |
+| 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
+| 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
+| 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |

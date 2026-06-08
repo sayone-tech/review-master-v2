@@ -82,7 +82,43 @@
 
 ## Traceability
 
-_Filled by the roadmapper — maps each REQ-ID to its phase._
+Every v0.8 requirement maps to exactly one phase. Phases 22–26 (continuing from v0.7's Phase 21).
+
+**Coverage: 25/25 requirements mapped ✓ — no orphans, no duplicates.**
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CTAG-01 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| CTAG-02 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| CTAG-03 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| CTAG-04 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| CTAG-05 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| CTAG-06 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| CTAG-07 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| CTAG-08 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| QUEUE-02 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| SEED-01 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
+| SEED-02 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
+| SEED-03 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
+| SEED-04 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
+| DSYNC-01 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
+| QUEUE-01 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
+| POL-01 | Phase 24 — Polarity Auto-Reclassification | Pending |
+| POL-02 | Phase 24 — Polarity Auto-Reclassification | Pending |
+| POL-03 | Phase 24 — Polarity Auto-Reclassification | Pending |
+| TMGT-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TMGT-02 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TMGT-03 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TMGT-04 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TMGT-05 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TMGT-06 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TDASH-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TDASH-02 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| RESET-01 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |
+| RESET-02 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |
+| RESET-03 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |
+
+**Note on CTAG-04 vs POL-01:** CTAG-04 (Phase 22) owns the in-call mapping behaviour — GPT mapping a tag to an existing canonical label *or proposing a new one*. POL-01 (Phase 24) owns the polarity-lifecycle requirement that the proposed new tag carries a GPT-assigned `polarity_type`. The phases share the same GPT call but the requirements are non-overlapping (mapping vs polarity assignment).
 
 ---
 
