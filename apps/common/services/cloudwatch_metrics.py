@@ -15,7 +15,7 @@ Dimension: QueueName ∈ {google-sync, ai-enrichment, default}
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 import boto3
 import redis
@@ -36,10 +36,15 @@ def _read_queue_depths(*, queue_names: list[str]) -> dict[str, int]:
     """
     client = redis.Redis.from_url(settings.CELERY_BROKER_URL)
     try:
-        # redis-py's LLEN return type is `int | Awaitable[int]` because the
-        # stubs cover both sync + async clients. Our sync client always
-        # returns int.
-        return {name: cast(int, client.llen(name)) for name in queue_names}
+        depths: dict[str, int] = {}
+        for name in queue_names:
+            # The sync Redis client always returns int from LLEN; the
+            # Awaitable union in the stubs only covers the async client.
+            # isinstance narrows it without a cast, so this stays valid
+            # whether the stubs type llen as int, the union, or Any.
+            depth = client.llen(name)
+            depths[name] = depth if isinstance(depth, int) else 0
+        return depths
     finally:
         client.close()
 
