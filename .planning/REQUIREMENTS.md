@@ -1,30 +1,101 @@
 # Requirements: Multi-Tenant Review Management Platform
 
-**Status:** all shipped web requirements are archived per milestone.
-**Next milestone:** mobile app — requirements TBD via `/gsd-new-milestone`.
+**Active milestone:** v0.8 — Canonical Tag System
+**Source spec:** `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.docx` (v1.0, Final), reconciled against the live schema (see `.planning/research/SUMMARY.md`).
+
+---
+
+## v0.8 Requirements — Canonical Tag System
+
+### CTAG — Canonical tag model & mapping pipeline
+
+- [ ] **CTAG-01**: Org Admin's organisation accrues a per-org `OrgCanonicalTag` vocabulary (label Title Case ≤3 words, `polarity_type`, `review_count`, timestamps; unique per `(organisation, label)`)
+- [ ] **CTAG-02**: Each `ReviewTag` carries a nullable `canonical_tag` FK that is populated with its canonical label/id once mapped
+- [ ] **CTAG-03**: The single enrichment GPT call has the org's existing canonical vocabulary injected into its prompt
+- [ ] **CTAG-04**: GPT maps each generated tag to an existing canonical label, or proposes a new canonical label with a `polarity_type`, in one call (no extra API calls)
+- [ ] **CTAG-05**: All tags (raw + canonical) and action items are emitted in English regardless of the review's language
+- [ ] **CTAG-06**: Post-enrichment, each tag is looked up in `OrgCanonicalTag`; matched → populate FK; new → insert canonical row + `review_count++`; all inside the existing enrichment `transaction.atomic()`
+- [ ] **CTAG-07**: Every enrichment call still writes exactly one `AiUsageLog` row (canonicalisation adds no separate call)
+- [ ] **CTAG-08**: Reviews enriched before canonicalisation remain valid with a null canonical mapping (backward compatible)
+
+### POL — Polarity types & auto-reclassification
+
+- [ ] **POL-01**: A new canonical tag is assigned one of `always_positive` / `always_negative` / `mixed` by GPT at creation time
+- [ ] **POL-02**: A weekly Celery Beat job reclassifies an `always_*` canonical tag to `mixed` when the opposite polarity exceeds 15% of its reviews over the last 30 days (pure DB aggregation, no GPT call)
+- [ ] **POL-03**: Reclassification events are logged and the current `polarity_type` is visible on the tag list page
+
+### SEED — Four-step initial sync & vocabulary seeding
+
+- [ ] **SEED-01**: Initial sync shows four steps per store — Fetching Reviews → Building Tag Vocabulary → AI Enrichment → Finalising — with progress text per step
+- [ ] **SEED-02**: The seed phase processes the first 50 reviews sequentially (all of them if fewer than 50), updating the canonical vocabulary before each next review
+- [ ] **SEED-03**: The bulk phase enriches the remaining reviews in parallel against the current vocabulary, still able to add new canonical tags
+- [ ] **SEED-04**: The finalising pass resolves residual duplicate tags by string match and backfills `canonical_tag` on any stragglers
+
+### DSYNC — Daily incremental sync
+
+- [ ] **DSYNC-01**: Daily incremental sync enriches new reviews through the same canonical pipeline (vocabulary injected, new canonical tags auto-added without approval) on the low-priority enrichment queue
+
+### QUEUE — Infrastructure (queues & rate limiting)
+
+- [ ] **QUEUE-01**: Enrichment work is split across `ai-enrichment-high` (initial sync) and `ai-enrichment-low` (daily sync); a dedicated `tag-merge` queue isolates merge jobs
+- [ ] **QUEUE-02**: The enrichment task enforces a global, configurable Celery rate limit (default ~500/min) that holds across all workers to stay within OpenAI TPM limits
+
+### TMGT — Org Admin tag management
+
+- [ ] **TMGT-01**: Org Admin and Manager can reach a Tags page at `/admin/org/tags/` (sidebar under Settings); Staff cannot
+- [ ] **TMGT-02**: The tag list shows Label, Polarity Type badge, Review Count, First Seen, and an Actions menu, sortable by column, on a paginated query-count-bounded endpoint
+- [ ] **TMGT-03**: A canonical tag can be renamed inline (1–100 chars, unique within the org); save updates `OrgCanonicalTag.label` and all mapped `ReviewTag` rows synchronously
+- [ ] **TMGT-04**: A canonical tag can be merged into another via a modal with a searchable target picker and an explicit "re-maps N reviews, cannot be undone" warning
+- [ ] **TMGT-05**: Merge runs as a batched `merge_canonical_tags` Celery task (tag-merge queue, per-org lock) that re-points all reviews, deletes the source tag, combines `review_count`, and posts a completion notification
+- [ ] **TMGT-06**: Merge progress is delivered via HTTP polling — in-progress bar with dismiss, state that survives page reload, a completion toast, and a failure path that rolls back partial updates
+
+### TDASH — Dashboard polarity presentation
+
+- [ ] **TDASH-01**: Dashboard tag charts show a simple count for `always_positive`/`always_negative` canonical tags and a positive/negative split for `mixed` tags
+- [ ] **TDASH-02**: Canonical aggregation queries include only reviews where `canonical_tag` is set
+
+### RESET — Superadmin data reset & re-sync (pre-production)
+
+- [ ] **RESET-01**: A Superadmin can trigger a full data reset for one organisation — hard-deleting its Review, AiUsageLog, ActionItem, and OrgCanonicalTag rows (documented one-time pre-production exception to the §11 soft-delete rule)
+- [ ] **RESET-02**: The reset clears each store's sync state (Redis progress snapshot + `Shop.connection_status`) so stores read as "Not synced"
+- [ ] **RESET-03**: After reset, the Org Admin re-syncs each store through the normal flow, running the full four-step initial sync
+
+---
+
+## Future Requirements (deferred)
+
+- **Cross-Org Insights** (doc Phase 5): top canonical tags across all orgs in a category, Superadmin analytics, cross-org benchmarking. Low priority.
+
+## Out of Scope (this milestone)
+
+| Excluded | Reason |
+|---|---|
+| Vector database / pgvector | GPT-native language understanding + a standard Postgres table suffice |
+| Superadmin approval workflow for new canonical tags | Auto-add is sufficient |
+| Platform-level shared canonical vocabulary across orgs | Each org self-organises its own vocabulary |
+| Cross-org tag benchmarking | Deferred to Future (doc Phase 5) |
+| Manual `polarity_type` override by Org Admin | Auto-assignment + weekly auto-reclassification handle it |
+| Hard delete of canonical tags | Org Admin must use merge instead |
+| Canonical tags for action items | Action items remain free text; canonical applies to review tags only |
+| Migration of orgs other than the pre-production 56-store brand | Not in scope for v0.8 |
+| Tag-merge progress over WebSocket | HTTP polling chosen to keep the Channels surface narrow (§13.2) |
+
+## Traceability
+
+_Filled by the roadmapper — maps each REQ-ID to its phase._
+
+---
 
 ## Archived per-milestone requirement sets
 
-All seven web milestones are sealed. Each has a frozen requirements
-snapshot under `milestones/`:
+All seven web milestones (Web Beta 1) are sealed. Frozen snapshots under `milestones/`:
 
 | Milestone | Theme | Requirements file |
 |---|---|---|
 | v1.0 | Superadmin Module | [`v1.0-REQUIREMENTS.md`](milestones/v1.0-REQUIREMENTS.md) |
 | v0.2-org-admin | Organisation Admin Module | [`v0.2-org-admin-REQUIREMENTS.md`](milestones/v0.2-org-admin-REQUIREMENTS.md) |
 | v0.3 | Reviews and Action Items | [`v0.3-REQUIREMENTS.md`](milestones/v0.3-REQUIREMENTS.md) |
-| v0.4 | Dashboard | [`v0.4-REQUIREMENTS.md`](milestones/v0.4-REQUIREMENTS.md) *(not yet archived)* |
+| v0.4 | Dashboard | _(not formally archived; in git history)_ |
 | v0.5 | Configurable Sync Depth | [`v0.5-REQUIREMENTS.md`](milestones/v0.5-REQUIREMENTS.md) |
 | v0.6 | Tag Rework & Action Item Quality | [`v0.6-REQUIREMENTS.md`](milestones/v0.6-REQUIREMENTS.md) |
 | v0.7 | AI Safety & Governance | [`v0.7-REQUIREMENTS.md`](milestones/v0.7-REQUIREMENTS.md) |
-
-> **Note:** the v0.4 requirements were never formally archived to
-> `milestones/v0.4-REQUIREMENTS.md` (v0.4 was the only milestone closed
-> without going through `/gsd-complete-milestone`). The historical
-> requirement text is still present in this file's git history if needed.
-
-## Active requirements
-
-**None.** The web app is on maintenance footing; the mobile milestone
-has not yet been scoped. Run `/gsd-new-milestone` to define the next
-set when ready.
