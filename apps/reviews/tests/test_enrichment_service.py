@@ -60,8 +60,18 @@ def _build_result() -> EnrichmentResult:
         {
             "sentiment": "positive",
             "tags": [
-                {"label": "fast service", "polarity": "positive"},
-                {"label": "limited menu", "polarity": "neutral"},
+                {
+                    "label": "fast service",
+                    "polarity": "positive",
+                    "canonical": "Fast Service",
+                    "polarity_type": "always_positive",
+                },
+                {
+                    "label": "limited menu",
+                    "polarity": "neutral",
+                    "canonical": "Limited Menu",
+                    "polarity_type": "mixed",
+                },
             ],
             "action_items": [
                 {
@@ -636,8 +646,18 @@ def test_re_enrichment_is_idempotent_deletes_old_tag_rows() -> None:
         {
             "sentiment": "positive",
             "tags": [
-                {"label": "old tag", "polarity": "positive"},
-                {"label": "another old", "polarity": "neutral"},
+                {
+                    "label": "old tag",
+                    "polarity": "positive",
+                    "canonical": "Old Tag",
+                    "polarity_type": "always_positive",
+                },
+                {
+                    "label": "another old",
+                    "polarity": "neutral",
+                    "canonical": "Another Old",
+                    "polarity_type": "mixed",
+                },
             ],
             "action_items": [],
         }
@@ -646,7 +666,12 @@ def test_re_enrichment_is_idempotent_deletes_old_tag_rows() -> None:
         {
             "sentiment": "negative",
             "tags": [
-                {"label": "fresh tag", "polarity": "negative"},
+                {
+                    "label": "fresh tag",
+                    "polarity": "negative",
+                    "canonical": "Fresh Tag",
+                    "polarity_type": "always_negative",
+                },
             ],
             "action_items": [],
         }
@@ -741,7 +766,7 @@ class TestEnrichReviewModeration:
             call_order.append("moderate")
             return "clean truncated text"
 
-        def _openai_side_effect(*, review):
+        def _openai_side_effect(*, review, canonical_vocab=None):
             call_order.append("openai")
             # The truncated text from moderate_input must be on the review.comment
             # in-memory before reaching the prompt assembly (D-21).

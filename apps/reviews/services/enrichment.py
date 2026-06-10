@@ -43,6 +43,7 @@ from apps.integrations.openai.guardrails import (
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
 from apps.reviews.models import Review, ReviewTag
+from apps.reviews.selectors.canonical_tags import get_org_vocabulary
 
 logger = logging.getLogger(__name__)
 
@@ -492,9 +493,20 @@ def enrich_review(*, review_id: int) -> None:
         # (WR-02).
         review_for_prompt = ReviewWithModeratedComment(review, truncated_text)
 
+        # Phase 22 (CTAG-03/D-02): inject the org's capped canonical vocabulary
+        # into the single prompt. organisation_id is already loaded via
+        # select_related("shop__organisation"), so this adds no extra org query
+        # beyond the bounded selector lookup.
+        canonical_vocab = get_org_vocabulary(
+            organisation_id=review.organisation_id,
+            limit=settings.CANONICAL_VOCAB_INJECT_LIMIT,
+        )
+
         # OpenAI call OUTSIDE the transaction (RESEARCH.md anti-pattern).
         try:
-            result, usage_data = call_openai_enrichment(review=review_for_prompt)
+            result, usage_data = call_openai_enrichment(
+                review=review_for_prompt, canonical_vocab=canonical_vocab
+            )
         except (OpenAITransientError, EnrichmentParseError) as exc:
             _persist_failure(review=review, usage_data=None, exc=exc)
             raise  # Celery autoretry_for picks this up
