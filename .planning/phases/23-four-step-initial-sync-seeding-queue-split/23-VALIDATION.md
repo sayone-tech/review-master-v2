@@ -46,10 +46,11 @@ created: 2026-06-10
 | Token-bucket global limiter (acquire/empty/expire) | DSYNC-01, QUEUE-01 | unit | `pytest apps/reviews/tests/test_rate_limit.py -q` | ⬜ pending |
 | enrich_review_task routes high vs low via apply_async(queue=) | QUEUE-01 | unit | `pytest apps/reviews/tests/test_tasks.py -k queue -q` | ⬜ pending |
 | Sequential seed loop (first N, vocab re-read each iter) | SEED-02 | integration | `pytest apps/reviews/tests/test_sync_service.py -k seed -q` | ⬜ pending |
+| Seed loop WAITs on depleted bucket; completes all N (no crash/restart) | SEED-02 | integration | `pytest apps/reviews/tests/test_sync_service.py -k depleted -q` | ⬜ pending |
 | Parallel bulk fan-out + finalising trigger | SEED-03 | integration | `pytest apps/reviews/tests/test_sync_service.py -k bulk -q` | ⬜ pending |
 | Finalising merge (FK re-point, higher-count winner, no N+1) | SEED-04 | unit + query-count | `pytest apps/reviews/tests/test_finalise.py -q` | ⬜ pending |
 | review_count cache refresh (aggregate) | SEED-04 | unit | `pytest apps/reviews/tests/test_finalise.py -k review_count -q` | ⬜ pending |
-| 4-step progress snapshot schema + event emitters | SEED-01 | unit + consumer | `pytest apps/reviews/tests/test_consumers.py apps/reviews/tests/test_progress.py -q` | ⬜ pending |
+| 4-step snapshot pass-through + reconnect repaint (step + per-step counters) | SEED-01 | unit + consumer | `pytest apps/reviews/tests/test_consumers.py apps/reviews/tests/test_progress.py -q` | ⬜ pending |
 | Daily incremental routes to ai-enrichment-low through pipeline | DSYNC-01 | integration | `pytest apps/reviews/tests/test_tasks.py -k incremental -q` | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
@@ -58,8 +59,10 @@ created: 2026-06-10
 
 ## Wave 0 Requirements
 
-- [ ] `apps/reviews/tests/test_rate_limit.py` — new test module for the Redis token bucket
-- [ ] `apps/reviews/tests/test_finalise.py` — new test module for the finalising merge + count refresh
+- [ ] `apps/reviews/tests/test_rate_limit.py` — token bucket + `_wait_for_openai_token` (Plan 01)
+- [ ] `apps/reviews/tests/test_finalise.py` — finalising merge + count refresh (Plan 02)
+- [ ] `apps/reviews/tests/test_consumers.py` — reconnect snapshot carries 4-step `step` + per-step counters (Plan 03 Task 4)
+- [ ] `apps/reviews/tests/test_progress.py` — write/read snapshot round-trip preserves 4-step keys (Plan 03 Task 4)
 
 *Existing infrastructure (pytest-django, factories, fakeredis/mock patterns, CaptureQueriesContext) covers the rest.*
 
