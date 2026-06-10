@@ -74,6 +74,17 @@ def test_initial_backfill_dispatched_to_google_sync_queue() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_enrich_review_task_has_rate_limit() -> None:
+    """QUEUE-02: enrich_review_task must carry rate_limit from settings.ENRICHMENT_RATE_LIMIT.
+
+    The rate_limit is PER WORKER INSTANCE (D-06), not global. This test only
+    asserts the configured per-worker value is wired from the setting.
+    """
+    from django.conf import settings
+
+    assert tasks.enrich_review_task.rate_limit == settings.ENRICHMENT_RATE_LIMIT
+
+
 def test_enrich_review_task_calls_service() -> None:
     """Task body is a thin wrapper — verify it calls enrich_review."""
     from apps.reviews.tests.factories import ReviewFactory

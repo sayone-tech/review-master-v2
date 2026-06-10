@@ -23,6 +23,7 @@ import random
 from typing import Any
 
 from celery import shared_task
+from django.conf import settings
 
 from apps.integrations.openai.exceptions import (
     EnrichmentParseError,
@@ -172,6 +173,7 @@ def enqueue_incremental_syncs_task() -> int:
     retry_backoff=30,
     retry_backoff_max=600,
     retry_jitter=True,
+    rate_limit=settings.ENRICHMENT_RATE_LIMIT,
 )
 def enrich_review_task(self: Any, review_id: int) -> None:
     """Phase 12 — Single-review enrichment task. Routes to ai-enrichment queue.
@@ -182,6 +184,14 @@ def enrich_review_task(self: Any, review_id: int) -> None:
     OpenAIPermanentError is NOT in autoretry_for — the service handles it
     silently (marks FAILED + returns). retry_failed_enrichments_task picks
     them up later (ENRCH-06).
+
+    Rate limiting (QUEUE-02 / D-06):
+    Celery ``rate_limit`` is enforced PER WORKER INSTANCE, not globally across
+    all workers. The configured value (``settings.ENRICHMENT_RATE_LIMIT``,
+    default "125/m") represents the platform target divided by the expected
+    worker count (e.g. 500 total ÷ 4 workers = 125/m per worker). A true
+    cross-worker global throttle (Redis token bucket) is deferred to Phase 23
+    (QUEUE-01). Do not interpret this setting as a global rate guarantee.
     """
     from apps.reviews.services.enrichment import enrich_review
 
