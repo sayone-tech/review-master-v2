@@ -120,8 +120,12 @@ CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.sync_shop_reviews_task": {"queue": "google-sync"},
     "apps.reviews.tasks.initial_backfill_task": {"queue": "google-sync"},
-    "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment"},
-    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment"},
+    # Conservative fallback — explicit queue= override at call site wins at dispatch time (D-09).
+    # Seed path uses ai-enrichment-high (apply_async override in sync.py);
+    # incremental and retry paths use ai-enrichment-low.
+    "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment-low"},
+    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment-low"},
+    "apps.reviews.tasks.finalize_canonical_tags_task": {"queue": "tag-merge"},
     "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
@@ -180,9 +184,19 @@ CANONICAL_VOCAB_INJECT_LIMIT = env.int("CANONICAL_VOCAB_INJECT_LIMIT", default=2
 # Celery rate limit for enrich_review_task (QUEUE-02 / D-06).
 # This is a PER-WORKER rate limit (Celery's rate_limit is per-worker, not global).
 # Default of "125/m" is computed as ~500/min target ÷ ~4 expected workers.
-# True cross-worker global throttling via a Redis token bucket is deferred to Phase 23.
+# The cross-worker global throttling is now live in Phase 23: OPENAI_GLOBAL_RATE_LIMIT
+# setting + rate:openai:org:{organisation_id} Redis token bucket in progress.py (D-08).
+# ENRICHMENT_RATE_LIMIT remains as the secondary per-worker guard.
 # Valid formats: "<n>/s", "<n>/m", "<n>/h" (see Celery docs).
 ENRICHMENT_RATE_LIMIT = env("ENRICHMENT_RATE_LIMIT", default="125/m")
+
+# Phase 23 — seed-phase size and global OpenAI rate limit (D-04, D-08).
+# SEED_PHASE_SIZE: number of reviews enriched synchronously during the initial seed pass
+# before handing remaining reviews off to the bulk ai-enrichment-high queue.
+SEED_PHASE_SIZE = env.int("SEED_PHASE_SIZE", default=50)
+# OPENAI_GLOBAL_RATE_LIMIT: per-org rolling 60-second call cap enforced by the
+# rate:openai:org:{organisation_id} Redis token bucket (progress.py). Works cross-worker.
+OPENAI_GLOBAL_RATE_LIMIT = env.int("OPENAI_GLOBAL_RATE_LIMIT", default=500)
 
 # ---------------------------------------------------------------------------
 # AWS — used by Celery queue-depth metric publisher (apps.common.services.
@@ -192,7 +206,15 @@ ENRICHMENT_RATE_LIMIT = env("ENRICHMENT_RATE_LIMIT", default="125/m")
 # ---------------------------------------------------------------------------
 AWS_REGION = env("AWS_REGION", default="ap-south-1")
 CLOUDWATCH_METRICS_ENABLED = env.bool("CLOUDWATCH_METRICS_ENABLED", default=False)
-CELERY_QUEUE_NAMES = ["google-sync", "ai-enrichment", "default"]
+# Phase 23 queue split (D-09): ai-enrichment split into high/low priority + tag-merge.
+# Workers must be started with -Q google-sync,ai-enrichment-high,ai-enrichment-low,tag-merge,default
+CELERY_QUEUE_NAMES = [
+    "google-sync",
+    "ai-enrichment-high",
+    "ai-enrichment-low",
+    "tag-merge",
+    "default",
+]
 
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/login/"
