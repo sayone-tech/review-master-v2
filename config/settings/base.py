@@ -173,6 +173,17 @@ ENRICHMENT_BATCH_SIZE = env.int("ENRICHMENT_BATCH_SIZE", default=10)
 INCREMENTAL_SYNC_INTERVAL_HOURS = env.int("INCREMENTAL_SYNC_INTERVAL_HOURS", default=6)
 INCREMENTAL_SYNC_JITTER_MINUTES = env.int("INCREMENTAL_SYNC_JITTER_MINUTES", default=30)
 
+# Canonical tag vocabulary injection cap (D-02 / CTAG-03) — top-N canonical tags injected
+# into the enrichment prompt; operational guardrail against unbounded prompt-token growth.
+CANONICAL_VOCAB_INJECT_LIMIT = env.int("CANONICAL_VOCAB_INJECT_LIMIT", default=200)
+
+# Celery rate limit for enrich_review_task (QUEUE-02 / D-06).
+# This is a PER-WORKER rate limit (Celery's rate_limit is per-worker, not global).
+# Default of "125/m" is computed as ~500/min target ÷ ~4 expected workers.
+# True cross-worker global throttling via a Redis token bucket is deferred to Phase 23.
+# Valid formats: "<n>/s", "<n>/m", "<n>/h" (see Celery docs).
+ENRICHMENT_RATE_LIMIT = env("ENRICHMENT_RATE_LIMIT", default="125/m")
+
 # ---------------------------------------------------------------------------
 # AWS — used by Celery queue-depth metric publisher (apps.common.services.
 # cloudwatch_metrics) and any future CloudWatch custom-metric writers.
