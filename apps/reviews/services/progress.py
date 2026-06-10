@@ -23,6 +23,7 @@ Snapshot schema (written by sync service, read by SyncProgressConsumer):
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 from django_redis import get_redis_connection
@@ -39,6 +40,16 @@ TTL_FAILED_SECONDS = 604800  # 7d after permanent failure
 GOOGLE_BUCKET_KEY = "rate:google:project"
 GOOGLE_BUCKET_WINDOW_SECONDS = 60
 GOOGLE_BUCKET_MAX_CALLS_PER_MINUTE = 1800  # Google's published QPM for GBP API
+
+# Phase 23 — per-org OpenAI token bucket (D-08, CLAUDE.md §7.7 rate:openai:org:* key convention)
+OPENAI_BUCKET_KEY_TMPL = "rate:openai:org:{organisation_id}"
+OPENAI_BUCKET_WINDOW_SECONDS = 60
+
+# Phase 23 — per-shop per-phase enrichment counters (D-04)
+# sync:vocab:{shop_id}  — reviews enriched during the seed (vocab-building) phase
+# sync:bulk:{shop_id}   — reviews dispatched to ai-enrichment-high bulk queue
+VOCAB_COUNTER_KEY_TMPL = "sync:vocab:{shop_id}"
+BULK_COUNTER_KEY_TMPL = "sync:bulk:{shop_id}"
 
 
 def _ttl_for_status(status: str) -> int:
@@ -74,7 +85,10 @@ def read_progress_snapshot(*, shop_id: int) -> dict[str, Any] | None:
 
 
 def clear_progress_snapshot(*, shop_id: int) -> None:
-    """Delete progress key and all per-sync counters (used when starting a fresh sync)."""
+    """Delete progress key and all per-sync counters (used when starting a fresh sync).
+
+    Phase 23: also deletes the vocab and bulk phase counters introduced in D-04.
+    """
     conn = get_redis_connection("default")
     conn.delete(
         PROGRESS_KEY_TMPL.format(shop_id=shop_id),
@@ -82,6 +96,8 @@ def clear_progress_snapshot(*, shop_id: int) -> None:
         ACTION_ITEMS_COUNTER_KEY_TMPL.format(shop_id=shop_id),
         BRAND_FLAG_KEY_TMPL.format(shop_id=shop_id),
         SYNC_COMPLETE_SENT_KEY_TMPL.format(shop_id=shop_id),
+        VOCAB_COUNTER_KEY_TMPL.format(shop_id=shop_id),
+        BULK_COUNTER_KEY_TMPL.format(shop_id=shop_id),
     )
 
 
@@ -196,3 +212,101 @@ def token_bucket_depleted(*, max_calls: int = GOOGLE_BUCKET_MAX_CALLS_PER_MINUTE
         return int(raw) >= max_calls
     except (TypeError, ValueError):
         return False
+
+
+# ---------------------------------------------------------------------------
+# Phase 23 — OpenAI token bucket (D-08, T-23-01 per-org isolation)
+# ---------------------------------------------------------------------------
+
+
+def increment_openai_token_bucket(*, organisation_id: int) -> int:
+    """Increment the per-org OpenAI call counter; refresh expiry to 60s window.
+
+    Key: rate:openai:org:{organisation_id} (CLAUDE.md §7.7).
+    Returns the new counter value.
+    """
+    key = OPENAI_BUCKET_KEY_TMPL.format(organisation_id=organisation_id)
+    conn = get_redis_connection("default")
+    pipe = conn.pipeline()
+    pipe.incrby(key, 1)
+    pipe.expire(key, OPENAI_BUCKET_WINDOW_SECONDS)
+    new_value, _ = pipe.execute()
+    return int(new_value)
+
+
+def openai_token_bucket_depleted(*, organisation_id: int, max_calls: int) -> bool:
+    """Return True when the per-org rolling 60-second counter is at/above max_calls.
+
+    Returns False when the key is absent (bucket is fresh — not depleted).
+    """
+    key = OPENAI_BUCKET_KEY_TMPL.format(organisation_id=organisation_id)
+    conn = get_redis_connection("default")
+    raw = conn.get(key)
+    if raw is None:
+        return False
+    try:
+        return int(raw) >= max_calls
+    except (TypeError, ValueError):
+        return False
+
+
+def _wait_for_openai_token(
+    *,
+    organisation_id: int,
+    max_calls: int,
+    max_wait_seconds: float = 30.0,
+    sleep_seconds: float = 0.5,
+) -> int:
+    """Seed-path WAIT helper — blocks until OpenAI bucket has headroom, then acquires.
+
+    Loops: while the bucket is depleted AND elapsed time < max_wait_seconds, sleep
+    and re-check. Once there is headroom (or the wait times out), increment the bucket
+    exactly once and return the new counter value.
+
+    This helper NEVER raises on depletion (T-23-12 / Pitfall 5 bounded best-effort).
+    If max_wait_seconds elapses and the bucket is still depleted, it proceeds with a
+    tolerated overage — the seed loop must not crash.
+
+    The bulk path uses a RAISE guard inside enrich_review (Plan 03) instead.
+    """
+    deadline = time.monotonic() + max_wait_seconds
+    while openai_token_bucket_depleted(organisation_id=organisation_id, max_calls=max_calls):
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(sleep_seconds)
+    return increment_openai_token_bucket(organisation_id=organisation_id)
+
+
+# ---------------------------------------------------------------------------
+# Phase 23 — per-phase enrichment counters (D-04)
+# ---------------------------------------------------------------------------
+
+
+def increment_vocab_counter(*, shop_id: int) -> int:
+    """Atomically increment the vocab-phase enrichment counter; return the new value.
+
+    Tracks reviews enriched during the seed (vocabulary-building) phase of initial sync.
+    TTL mirrors the active snapshot TTL; cleared by clear_progress_snapshot.
+    """
+    key = VOCAB_COUNTER_KEY_TMPL.format(shop_id=shop_id)
+    conn = get_redis_connection("default")
+    pipe = conn.pipeline()
+    pipe.incr(key)
+    pipe.expire(key, TTL_ACTIVE_SECONDS)
+    new_value, _ = pipe.execute()
+    return int(new_value)
+
+
+def increment_bulk_counter(*, shop_id: int) -> int:
+    """Atomically increment the bulk-phase enrichment counter; return the new value.
+
+    Tracks reviews dispatched to the ai-enrichment-high queue during the bulk phase
+    of initial sync.  TTL mirrors the active snapshot TTL; cleared by clear_progress_snapshot.
+    """
+    key = BULK_COUNTER_KEY_TMPL.format(shop_id=shop_id)
+    conn = get_redis_connection("default")
+    pipe = conn.pipeline()
+    pipe.incr(key)
+    pipe.expire(key, TTL_ACTIVE_SECONDS)
+    new_value, _ = pipe.execute()
+    return int(new_value)
