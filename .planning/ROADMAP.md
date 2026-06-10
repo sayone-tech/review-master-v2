@@ -199,7 +199,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 23-02-PLAN.md — Finalising pass: case-insensitive dedup merge + straggler backfill + review_count refresh on tag-merge queue (SEED-04)
+- [x] 23-02-PLAN.md — Finalising pass: case-insensitive dedup merge + straggler backfill + review_count refresh on tag-merge queue (SEED-04)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -269,7 +269,7 @@ Plans:
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
-| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 2/4 | In Progress|  |
+| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 3/4 | In Progress|  |
 | 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
