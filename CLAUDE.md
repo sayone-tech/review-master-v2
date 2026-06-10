@@ -1347,8 +1347,11 @@ celery -A config inspect reserved         # show queued tasks
 
 ## 24. When You (Claude Code) Are Asked to Add Code
 
+This repo ships purpose-built **subagents** (`.claude/agents/`, catalogued in §27) that already know these conventions. Use them: launch `architect` for the design **before** step 1 on any non-trivial feature, and the relevant review/test subagents at step 12. They are read-only advisors — apply their findings yourself.
+
 Follow this order, every time:
 
+0. **Design first (non-trivial change):** launch the `architect` subagent for a structure proposal, build order, and the §-constraints that apply, before writing code.
 1. **Read** the relevant app's existing `models.py`, `services/`, `selectors/`, `views.py`, `tasks.py`, `consumers.py` before writing anything.
 2. **Add models** → create migration → verify migration is reversible.
 3. **Write services and selectors** with full type annotations.
@@ -1360,7 +1363,7 @@ Follow this order, every time:
 9. **For real-time (Phase 3+):** if a new Channels consumer is needed, update §13 and get explicit sign-off — Channels surface area must stay small.
 10. **Verify query counts.** Add a `CaptureQueriesContext` test for every list endpoint.
 11. **Add/update** the OpenAPI schema (via `drf-spectacular`).
-12. **Run** `pre-commit run --all-files` and `pytest` before declaring done.
+12. **Review before PR.** Run `code-reviewer`, plus `orm-performance-auditor` for any query/model/serializer/migration change and `tenant-security-auditor` for any auth/scoping change (§27). Use `test-author` to fill coverage gaps. Then **run** `pre-commit run --all-files` and `pytest` before declaring done.
 
 ### Never
 - Skip tests "because it's small"
@@ -1424,3 +1427,25 @@ Located at `templates/registration/login.html`. Django's built-in `LoginView` se
 - `LOGIN_URL = "/accounts/login/"`
 - `LOGIN_REDIRECT_URL = "/dashboard/"`
 - `LOGOUT_REDIRECT_URL = "/accounts/login/"`
+
+---
+
+## 27. Subagents (`.claude/agents/`)
+
+This repo ships **purpose-built subagents** that encode the conventions in this file. Prefer them over ad-hoc exploration — they already know the architecture, the `code-review-graph` MCP tools, and the governance rules above. Launch one via the Task/Agent tool with the matching `subagent_type`. They have **no Edit/Write access** — they return findings, proposals, and context; you apply the changes.
+
+| Subagent | Invoke it… | When |
+|---|---|---|
+| `architect` | **Before** writing code for a new feature, module, or cross-cutting change — for a design proposal with trade-offs, build order, and the §-constraints that apply. Complements `code-reviewer` (after the fact); this works at design altitude before the fact. | design-time |
+| `code-reviewer` | **After** writing/changing backend code and **before** opening a PR — reviews against THIS file's conventions (thin views §5, services/selectors, DRF §8, permissions §9, throttling, pagination). | review-time |
+| `orm-performance-auditor` | After any change to models, selectors, serializers, list endpoints, migrations, or queryset-iterating templates — hunts N+1 (§6, blocker-level), missing indexes, unsafe migrations, and missing query-count tests. | review-time |
+| `tenant-security-auditor` | For **any** auth/scoping change — tenant isolation (§9), RBAC, action-item brand-vs-shop scope, Channels consumers (§13.4), Celery tasks handling user data (§22). The highest-risk surface in this repo. | review-time |
+| `test-author` | After adding a service/selector/view, or when coverage dips below the 85% target (§16) — writes pytest + pytest-django with factory-boy, query-count, and mocking conventions. | build-time |
+| `ai-enrichment-specialist` | **Before** touching anything under `apps/integrations/openai/` or reviews enrichment — the enrichment service/task, prompts, parser, `AiUsageLog`/`AiPricing` cost logging, LangSmith tracing, idempotency (§12.4, §14), or AI reply generation. | build-time |
+| `frontend-react-builder` | For embedded React widgets under `frontend/` — the Vite-per-widget entrypoint pattern, the Django bootstrap-data handoff, Tailwind, and the brand palette (§26). Any work in `frontend/src` or a React-backed template. | build-time |
+| `deployment-helper` | For GCP deploys — building/pushing the Docker image, the web/worker/beat Cloud Run services (§20), the GitHub Actions deploy workflow (§19), secrets, health checks, and release/rollback. | deploy-time |
+
+**Rules of thumb**
+- New feature → `architect` first, build per §24, then `code-reviewer` + the relevant auditor(s).
+- Any change touching queries → `orm-performance-auditor`. Any change touching auth/scope → `tenant-security-auditor`. These two are non-negotiable for their surfaces.
+- Adding a new subagent (or changing one's remit) → update this section so the catalogue stays the single source of truth.
