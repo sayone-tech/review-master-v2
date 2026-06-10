@@ -173,7 +173,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 22-05-PLAN.md — Enrichment fold-in: canonical FK resolution in _persist_success (CTAG-06/07)
+- [x] 22-05-PLAN.md — Enrichment fold-in: canonical FK resolution in _persist_success (CTAG-06/07)
 
 ### Phase 23: Four-Step Initial Sync, Seeding & Queue Split
 
@@ -254,7 +254,7 @@ Plans:
 | 19. AI Reply Generation | v0.6 | 3/3 | ✅ Complete | 2026-05-22 |
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
-| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 4/6 | In Progress|  |
+| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 5/6 | In Progress|  |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 0/TBD | ⬜ Not started | - |
 | 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
