@@ -1,10 +1,11 @@
 ---
 phase: 23
 slug: four-step-initial-sync-seeding-queue-split
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-10
+reviewed_at: 2026-06-10
 ---
 
 # Phase 23 — UI Design Contract
@@ -43,7 +44,8 @@ Matches the existing platform scale (multiples of 4). No new tokens needed.
 | xs | 4px | Icon-to-text gap within a step row |
 | sm | 8px | Gap between step label row and progress bar |
 | md | 16px | Gap between sibling step blocks |
-| lg | 24px | Modal content top/bottom padding (matches existing `space-y-5` ≈ 20px) |
+| lg | 24px | Modal content top/bottom padding |
+| step-gap | 20px | Vertical gap between the four step blocks (`space-y-5`) — preserves the existing ProgressModal rhythm; 20px = 5×4, on-grid |
 | xl | 32px | — (not used in this component) |
 | 2xl | 48px | — |
 | 3xl | 64px | — |
@@ -254,6 +256,8 @@ The subtitle remains accurate — fetching is the first visible step.
 | Element | Copy | Source |
 |---------|------|--------|
 | Step 1 eyebrow | "Fetched from Google" | Existing — unchanged |
+| _Note_ | The eyebrow labels are the component's per-step section headings and are intentionally distinct from the ROADMAP/CONTEXT D-01 step **names** ("Fetching Reviews", "AI Enrichment"). Steps 1 & 3 keep their existing eyebrow wording; only Steps 2 & 4 (new) adopt the verbatim D-01 names. This divergence is by design, not an oversight. | — |
+| _invalid_grant copy_ | The existing `invalid_grant` error body ("Your Google connection has expired.") has no inline solution path, unlike the other error variant. Out of scope to change existing copy here; flagged for a future copy pass. | — |
 | Step 2 eyebrow | "Building Tag Vocabulary" | CONTEXT.md D-01, ROADMAP SC #1 (verbatim) |
 | Step 3 eyebrow | "Analysing with Review Bee AI Engine" | Existing label for AI section — unchanged |
 | Step 4 eyebrow | "Finalising" | CONTEXT.md D-01, ROADMAP SC #1 (verbatim) |
