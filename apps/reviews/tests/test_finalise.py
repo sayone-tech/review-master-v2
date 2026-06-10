@@ -302,10 +302,14 @@ class TestRunFinaliseCanonicalTags:
                 shop_id=1,
             )
         update_queries = [q for q in ctx.captured_queries if "UPDATE" in q["sql"].upper()]
-        # FK re-point must be 1 UPDATE regardless of ReviewTag count
-        # Plus review_count bulk_update: total UPDATEs should be bounded
-        assert len(update_queries) <= 5, (
-            f"Expected at most 5 UPDATE queries, got {len(update_queries)}: "
+        # FK re-point must be 1 UPDATE regardless of ReviewTag count (CLAUDE.md §6.10).
+        # Bounded ceiling covers:
+        #   - 1 UPDATE ReviewTag to re-point FKs to winner (never N UPDATEs for N tags)
+        #   - 1 UPDATE from Django SET_NULL cascade on loser delete
+        #   - 1 bulk_update for review_count refresh
+        # If this grows beyond 7, something is N+1 — investigate immediately.
+        assert len(update_queries) <= 7, (
+            f"Expected at most 7 UPDATE queries, got {len(update_queries)}: "
             + str([q["sql"][:100] for q in update_queries])
         )
 
