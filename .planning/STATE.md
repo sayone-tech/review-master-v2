@@ -4,8 +4,8 @@ milestone: v0.8
 milestone_name: Canonical Tag System
 status: executing
 stopped_at: Phase 22 context gathered
-last_updated: "2026-06-10T06:39:43.629Z"
-last_activity: 2026-06-10 -- Phase 22 planning complete
+last_updated: "2026-06-10T06:41:34.065Z"
+last_activity: 2026-06-10 -- Phase 22 execution started
 progress:
   total_phases: 6
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** v0.8 Canonical Tag System — roadmap created (Phases 22–26); next step is `/gsd-plan-phase 22`.
+**Current focus:** Phase 22 — canonical-tag-foundation-mapping-pipeline
 
 ## Current Position
 
-Phase: 22 — Canonical Tag Foundation & Mapping Pipeline (not started)
-Plan: —
-Status: Ready to execute
-Last activity: 2026-06-10 -- Phase 22 planning complete
+Phase: 22 (canonical-tag-foundation-mapping-pipeline) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 22
+Last activity: 2026-06-10 -- Phase 22 execution started
 
 ### v0.8 phase map (Phases 22–26)
 

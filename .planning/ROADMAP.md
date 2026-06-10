@@ -162,8 +162,8 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 22-01-PLAN.md — Data model: OrgCanonicalTag + nullable ReviewTag.canonical_tag FK + migration (CTAG-01/02/08)
-- [ ] 22-02-PLAN.md — Settings: CANONICAL_VOCAB_INJECT_LIMIT + ENRICHMENT_RATE_LIMIT (D-02, QUEUE-02)
+- [x] 22-01-PLAN.md — Data model: OrgCanonicalTag + nullable ReviewTag.canonical_tag FK + migration (CTAG-01/02/08)
+- [x] 22-02-PLAN.md — Settings: CANONICAL_VOCAB_INJECT_LIMIT + ENRICHMENT_RATE_LIMIT (D-02, QUEUE-02)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -254,7 +254,7 @@ Plans:
 | 19. AI Reply Generation | v0.6 | 3/3 | ✅ Complete | 2026-05-22 |
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
-| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 0/6 | 🔵 Planned | - |
+| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 2/6 | In Progress|  |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 0/TBD | ⬜ Not started | - |
 | 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
