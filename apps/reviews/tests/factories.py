@@ -8,7 +8,7 @@ from factory.django import DjangoModelFactory
 
 from apps.common.models import AuditLog
 from apps.organisations.tests.factories import OrganisationFactory
-from apps.reviews.models import Review, ReviewTag
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag
 from apps.shops.tests.factories import ShopFactory
 
 
@@ -35,6 +35,16 @@ class ReviewFactory(DjangoModelFactory):
     extracted_action_items: ClassVar[list] = []
 
 
+class OrgCanonicalTagFactory(DjangoModelFactory):
+    class Meta:
+        model = OrgCanonicalTag
+
+    organisation = factory.SubFactory(OrganisationFactory)
+    label = factory.Sequence(lambda n: f"Canonical {n}")
+    polarity_type = OrgCanonicalTag.PolarityType.MIXED
+    review_count = 0
+
+
 class ReviewTagFactory(DjangoModelFactory):
     class Meta:
         model = ReviewTag
@@ -42,6 +52,7 @@ class ReviewTagFactory(DjangoModelFactory):
     review = factory.SubFactory(ReviewFactory)
     label = factory.Faker("word")
     polarity = "positive"
+    canonical_tag = None
 
 
 class AuditLogFactory(DjangoModelFactory):
