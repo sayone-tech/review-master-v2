@@ -96,7 +96,7 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 
 ### 🔵 v0.8 — Canonical Tag System (Phases 22–26) — IN PLANNING
 
-- [ ] **Phase 22: Canonical Tag Foundation & Mapping Pipeline** — `OrgCanonicalTag` model + nullable `canonical_tag` FK on `ReviewTag` + migration; canonical lookup/insert folded into the single GPT call and post-enrichment atomic block; English-only tags; one `AiUsageLog` row per call; global OpenAI rate limit.
+- [x] **Phase 22: Canonical Tag Foundation & Mapping Pipeline** — `OrgCanonicalTag` model + nullable `canonical_tag` FK on `ReviewTag` + migration; canonical lookup/insert folded into the single GPT call and post-enrichment atomic block; English-only tags; one `AiUsageLog` row per call; global OpenAI rate limit. (completed 2026-06-10)
 - [ ] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues.
 - [ ] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible.
 - [ ] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags.
@@ -169,7 +169,7 @@ Plans:
 
 - [x] 22-03-PLAN.md — Parser schema: Tag.canonical + nullable polarity_type + normalizer (CTAG-04/05)
 - [x] 22-04-PLAN.md — Prompt vocab injection + get_org_vocabulary selector + version bump (CTAG-03/05)
-- [ ] 22-06-PLAN.md — Per-worker rate_limit on enrich_review_task (QUEUE-02)
+- [x] 22-06-PLAN.md — Per-worker rate_limit on enrich_review_task (QUEUE-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -254,7 +254,7 @@ Plans:
 | 19. AI Reply Generation | v0.6 | 3/3 | ✅ Complete | 2026-05-22 |
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
-| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 5/6 | In Progress|  |
+| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 0/TBD | ⬜ Not started | - |
 | 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |

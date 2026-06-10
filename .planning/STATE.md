@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Canonical Tag System
-status: executing
-stopped_at: Phase 22 context gathered
-last_updated: "2026-06-10T06:41:34.065Z"
+status: ready_to_plan
+stopped_at: Phase 22 complete (6/6) — ready to discuss Phase 23
+last_updated: 2026-06-10T09:05:44.775Z
 last_activity: 2026-06-10 -- Phase 22 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 14
-  completed_plans: 8
+  completed_plans: 118
   percent: 17
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 22 — canonical-tag-foundation-mapping-pipeline
+**Current focus:** Phase 23 — four step initial sync, seeding & queue split
 
 ## Current Position
 
-Phase: 22 (canonical-tag-foundation-mapping-pipeline) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 22
-Last activity: 2026-06-10 -- Phase 22 execution started
+Phase: 23
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-06-10
 
 ### v0.8 phase map (Phases 22–26)
 
@@ -44,7 +44,7 @@ Last activity: 2026-06-10 -- Phase 22 execution started
 
 **Velocity (v0.3–v0.4 baseline):**
 
-- Total plans completed: 53
+- Total plans completed: 59
 - Average duration: ~9 minutes
 - Total execution time: ~6.75 hours
 
@@ -56,6 +56,7 @@ Last activity: 2026-06-10 -- Phase 22 execution started
 | v0.4 (phase 14) | 8 | ~72m | ~9m |
 | 17 | 4 | - | - |
 | 18 | 4 | - | - |
+| 22 | 6 | - | - |
 
 ## Accumulated Context
 

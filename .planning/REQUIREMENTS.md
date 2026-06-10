@@ -9,14 +9,14 @@
 
 ### CTAG — Canonical tag model & mapping pipeline
 
-- [ ] **CTAG-01**: Org Admin's organisation accrues a per-org `OrgCanonicalTag` vocabulary (label Title Case ≤3 words, `polarity_type`, `review_count`, timestamps; unique per `(organisation, label)`)
-- [ ] **CTAG-02**: Each `ReviewTag` carries a nullable `canonical_tag` FK that is populated with its canonical label/id once mapped
-- [ ] **CTAG-03**: The single enrichment GPT call has the org's existing canonical vocabulary injected into its prompt
-- [ ] **CTAG-04**: GPT maps each generated tag to an existing canonical label, or proposes a new canonical label with a `polarity_type`, in one call (no extra API calls)
-- [ ] **CTAG-05**: All tags (raw + canonical) and action items are emitted in English regardless of the review's language
-- [ ] **CTAG-06**: Post-enrichment, each tag is looked up in `OrgCanonicalTag`; matched → populate FK; new → insert canonical row + `review_count++`; all inside the existing enrichment `transaction.atomic()`
-- [ ] **CTAG-07**: Every enrichment call still writes exactly one `AiUsageLog` row (canonicalisation adds no separate call)
-- [ ] **CTAG-08**: Reviews enriched before canonicalisation remain valid with a null canonical mapping (backward compatible)
+- [x] **CTAG-01**: Org Admin's organisation accrues a per-org `OrgCanonicalTag` vocabulary (label Title Case ≤3 words, `polarity_type`, `review_count`, timestamps; unique per `(organisation, label)`)
+- [x] **CTAG-02**: Each `ReviewTag` carries a nullable `canonical_tag` FK that is populated with its canonical label/id once mapped
+- [x] **CTAG-03**: The single enrichment GPT call has the org's existing canonical vocabulary injected into its prompt
+- [x] **CTAG-04**: GPT maps each generated tag to an existing canonical label, or proposes a new canonical label with a `polarity_type`, in one call (no extra API calls)
+- [x] **CTAG-05**: All tags (raw + canonical) and action items are emitted in English regardless of the review's language
+- [x] **CTAG-06**: Post-enrichment, each tag is looked up in `OrgCanonicalTag`; matched → populate FK; new → insert canonical row + `review_count++`; all inside the existing enrichment `transaction.atomic()`
+- [x] **CTAG-07**: Every enrichment call still writes exactly one `AiUsageLog` row (canonicalisation adds no separate call)
+- [x] **CTAG-08**: Reviews enriched before canonicalisation remain valid with a null canonical mapping (backward compatible)
 
 ### POL — Polarity types & auto-reclassification
 
@@ -38,7 +38,7 @@
 ### QUEUE — Infrastructure (queues & rate limiting)
 
 - [ ] **QUEUE-01**: Enrichment work is split across `ai-enrichment-high` (initial sync) and `ai-enrichment-low` (daily sync); a dedicated `tag-merge` queue isolates merge jobs
-- [ ] **QUEUE-02**: The enrichment task enforces a global, configurable Celery rate limit (default ~500/min) that holds across all workers to stay within OpenAI TPM limits
+- [x] **QUEUE-02**: The enrichment task enforces a global, configurable Celery rate limit (default ~500/min) that holds across all workers to stay within OpenAI TPM limits
 
 ### TMGT — Org Admin tag management
 
@@ -88,15 +88,15 @@ Every v0.8 requirement maps to exactly one phase. Phases 22–26 (continuing fro
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CTAG-01 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
-| CTAG-02 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
-| CTAG-03 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
-| CTAG-04 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
-| CTAG-05 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
-| CTAG-06 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
-| CTAG-07 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
-| CTAG-08 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
-| QUEUE-02 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Pending |
+| CTAG-01 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
+| CTAG-02 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
+| CTAG-03 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
+| CTAG-04 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
+| CTAG-05 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
+| CTAG-06 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
+| CTAG-07 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
+| CTAG-08 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
+| QUEUE-02 | Phase 22 — Canonical Tag Foundation & Mapping Pipeline | Complete |
 | SEED-01 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
 | SEED-02 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
 | SEED-03 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
