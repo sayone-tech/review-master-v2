@@ -150,7 +150,15 @@ Plans:
   3. The org's current canonical vocabulary is injected into the single enrichment prompt, GPT maps each tag to an existing canonical label or proposes a new one in that same call, and all tags and action items come back in English regardless of the review's source language.
   4. Each enrichment call still writes exactly one `AiUsageLog` row — canonicalisation adds no separate OpenAI call — and the enrichment task enforces a global, configurable Celery rate limit (default ~500/min) that holds across all workers.
   5. Reviews enriched before this phase remain valid and queryable with a null `canonical_tag` (backward compatible); the migration adds the model and FK without backfilling or breaking existing rows.
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+- [ ] 22-01-PLAN.md — Data model: OrgCanonicalTag + nullable ReviewTag.canonical_tag FK + migration (CTAG-01/02/08)
+- [ ] 22-02-PLAN.md — Settings: CANONICAL_VOCAB_INJECT_LIMIT + ENRICHMENT_RATE_LIMIT (D-02, QUEUE-02)
+- [ ] 22-03-PLAN.md — Parser schema: Tag.canonical + nullable polarity_type + normalizer (CTAG-04/05)
+- [ ] 22-04-PLAN.md — Prompt vocab injection + get_org_vocabulary selector + version bump (CTAG-03/05)
+- [ ] 22-05-PLAN.md — Enrichment fold-in: canonical FK resolution in _persist_success (CTAG-06/07)
+- [ ] 22-06-PLAN.md — Per-worker rate_limit on enrich_review_task (QUEUE-02)
 
 ### Phase 23: Four-Step Initial Sync, Seeding & Queue Split
 **Goal**: A store's initial sync visibly progresses through four named steps and seeds the org's canonical vocabulary in a careful sequential-then-parallel order, so the vocabulary is coherent from the first 50 reviews onward; daily incremental sync feeds new reviews through the same pipeline; and enrichment/merge work is isolated on dedicated Celery queues.
@@ -219,7 +227,7 @@ Plans:
 | 19. AI Reply Generation | v0.6 | 3/3 | ✅ Complete | 2026-05-22 |
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
-| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 0/TBD | ⬜ Not started | - |
+| 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 0/6 | 🔵 Planned | - |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 0/TBD | ⬜ Not started | - |
 | 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
