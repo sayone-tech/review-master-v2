@@ -433,21 +433,19 @@ def test_enrich_review_query_count_bounded():
 
 **These four items need confirmation before becoming locked plan decisions** — especially A1 (QUEUE-02 semantics), which contradicts the literal CONTEXT.md discretion wording.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **QUEUE-02 acceptance bar**
    - What we know: `rate_limit` is per-worker; spec/CONTEXT want global ~500/min.
-   - What's unclear: Is per-worker division an acceptable P22 deliverable, or must P22 ship the Redis global token bucket?
-   - Recommendation: Ship per-worker `rate_limit` env setting in P22 + document the caveat; defer true-global to Phase 23 (QUEUE-01) where queues split anyway. Surface in discuss/plan review.
+   - **RESOLVED (→ D-06):** Ship per-worker `rate_limit` env setting in P22 + document the per-worker caveat; defer true-global Redis token bucket to Phase 23 (QUEUE-01) where queues split anyway. Confirmed with the user; implemented in 22-06.
 
 2. **Canonical-label unique-constraint case handling**
    - What we know: D-05 normalizes to Title Case before insert, so `(org, "Food Quality")` is deterministic.
-   - What's unclear: whether to additionally use a functional/`Lower` unique index as defense-in-depth.
-   - Recommendation: plain unique `(organisation, label)` is sufficient because normalization is server-side and deterministic; document the "normalize before lookup" invariant.
+   - **RESOLVED (→ D-05 / discretion):** plain unique `(organisation, label)` is sufficient because normalization is server-side and deterministic; document the "normalize before lookup" invariant. No functional `Lower` index. Implemented in 22-01.
 
 3. **Vocab-inject cap default**
    - What we know: D-02 says configurable, default ~200; spec §6.4 cites 300 tags ≈ 1,800 tokens as still cheap.
-   - Recommendation: default the setting to 200 (per D-02), name it e.g. `CANONICAL_VOCAB_INJECT_LIMIT`; env-overridable.
+   - **RESOLVED (→ D-02):** default the setting to 200, named `CANONICAL_VOCAB_INJECT_LIMIT`, env-overridable. Implemented in 22-02.
 
 ## Environment Availability
 
