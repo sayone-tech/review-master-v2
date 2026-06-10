@@ -31,6 +31,13 @@ def patched_dependencies():
     With CELERY_TASK_ALWAYS_EAGER=True, .delay() runs the task synchronously which
     requires Redis. Patching .delay() prevents unwanted Redis calls in sync tests
     that do not need to verify enrichment dispatch.
+
+    Phase 23-03: run_initial_backfill added Phase 2 (seed), Phase 3 (bulk), Phase 4
+    (finalize dispatch). Guards against Redis calls from those phases:
+    - _wait_for_openai_token, increment_vocab_counter, get_org_vocabulary (module-level)
+    - enrich_review (deferred import in function body)
+    - enrich_review_task.apply_async and finalize_canonical_tags_task.apply_async
+      (deferred imports — CELERY_TASK_ALWAYS_EAGER would run tasks synchronously)
     """
 
     @contextlib.contextmanager
@@ -45,7 +52,14 @@ def patched_dependencies():
         patch.object(sync_mod, "increment_google_token_bucket") as bump,
         patch.object(sync_mod, "token_bucket_depleted", return_value=False),
         patch.object(sync_mod, "emit_progress_event"),
+        # Phase 23-03 additions: guard seed/bulk/finalise phases from hitting Redis
+        patch.object(sync_mod, "_wait_for_openai_token"),
+        patch.object(sync_mod, "increment_vocab_counter"),
+        patch.object(sync_mod, "get_org_vocabulary"),
         patch("apps.reviews.tasks.enrich_review_task.delay"),
+        patch("apps.reviews.tasks.enrich_review_task.apply_async"),
+        patch("apps.reviews.tasks.finalize_canonical_tags_task.apply_async"),
+        patch("apps.reviews.services.enrichment.enrich_review"),
     ):
         yield {"write_progress_snapshot": wps, "increment_google_token_bucket": bump}
 
@@ -180,6 +194,9 @@ def test_token_bucket_incremented_per_page(patched_dependencies) -> None:
 
 
 def test_progress_snapshot_written_fetching_then_success(patched_dependencies) -> None:
+    # Phase 23: run_initial_backfill no longer writes a "success" snapshot — that is
+    # owned by run_finalise_canonical_tags (Plan 02). The backfill writes "fetching"
+    # (per-page progress), then "vocab" (seed phase), then "enriching" (bulk phase).
     shop = _make_shop()
     page = {"reviews": [_api_review("g-1")], "totalReviewCount": 1}
     with patch.object(sync_mod, "list_reviews", return_value=page):
@@ -187,7 +204,8 @@ def test_progress_snapshot_written_fetching_then_success(patched_dependencies) -
     write_calls = patched_dependencies["write_progress_snapshot"].call_args_list
     statuses = [c.kwargs["data"]["status"] for c in write_calls]
     assert "fetching" in statuses
-    assert "success" in statuses
+    # "enriching" snapshot is written when bulk phase starts (may be present if any PENDING remain)
+    assert any(s in ("enriching", "vocab") for s in statuses)
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +252,7 @@ def patched_backfill_deps():
         patch.object(sync_mod, "increment_google_token_bucket") as _bump,
         patch.object(sync_mod, "token_bucket_depleted", return_value=False),
         patch.object(sync_mod, "emit_progress_event"),
+        patch.object(sync_mod, "increment_vocab_counter"),
         patch("apps.reviews.tasks.enrich_review_task.delay"),
     ):
         yield _bump
@@ -258,10 +277,10 @@ def test_seed_loop_processes_newest_n_reviews_sequentially(patched_backfill_deps
 
     with (
         patch.object(sync_mod, "list_reviews", return_value=page),
-        patch("apps.reviews.services.sync.enrich_review", mock_enrich),
+        patch("apps.reviews.services.enrichment.enrich_review", mock_enrich),
         patch("apps.reviews.services.sync._wait_for_openai_token", mock_wait),
-        patch("apps.reviews.services.sync.enrich_review_task") as mock_task,
-        patch("apps.reviews.services.sync.finalize_canonical_tags_task"),
+        patch("apps.reviews.tasks.enrich_review_task") as mock_task,
+        patch("apps.reviews.tasks.finalize_canonical_tags_task"),
     ):
         mock_task.apply_async = mock_apply_async
         sync_mod.run_initial_backfill(shop_id=shop.pk)
@@ -290,10 +309,10 @@ def test_seed_processes_all_when_fewer_than_seed_phase_size(patched_backfill_dep
 
     with (
         patch.object(sync_mod, "list_reviews", return_value=page),
-        patch("apps.reviews.services.sync.enrich_review", mock_enrich),
+        patch("apps.reviews.services.enrichment.enrich_review", mock_enrich),
         patch("apps.reviews.services.sync._wait_for_openai_token", mock_wait),
-        patch("apps.reviews.services.sync.enrich_review_task") as mock_task,
-        patch("apps.reviews.services.sync.finalize_canonical_tags_task"),
+        patch("apps.reviews.tasks.enrich_review_task") as mock_task,
+        patch("apps.reviews.tasks.finalize_canonical_tags_task"),
     ):
         mock_task.apply_async = MagicMock()
         sync_mod.run_initial_backfill(shop_id=shop.pk)
@@ -313,7 +332,10 @@ def test_bulk_dispatched_to_ai_enrichment_high(patched_backfill_deps: Any) -> No
     shop = _make_shop()
     # Create 70 reviews when SEED_PHASE_SIZE=50 → 50 seeded, 20 bulk
     reviews_api = [
-        _api_review_with_time(f"g-{i:03d}", create_time=f"2026-0{(i // 30) + 1}-01T{i:02d}:00:00Z")
+        _api_review_with_time(
+            f"g-{i:03d}",
+            create_time=f"2026-{(i % 12) + 1:02d}-{(i % 28) + 1:02d}T00:00:00Z",
+        )
         for i in range(1, 71)
     ]
     page = {"reviews": reviews_api, "totalReviewCount": 70}
@@ -327,10 +349,10 @@ def test_bulk_dispatched_to_ai_enrichment_high(patched_backfill_deps: Any) -> No
 
     with (
         patch.object(sync_mod, "list_reviews", return_value=page),
-        patch("apps.reviews.services.sync.enrich_review", mock_enrich),
+        patch("apps.reviews.services.enrichment.enrich_review", mock_enrich),
         patch("apps.reviews.services.sync._wait_for_openai_token", mock_wait),
-        patch("apps.reviews.services.sync.enrich_review_task") as mock_task,
-        patch("apps.reviews.services.sync.finalize_canonical_tags_task"),
+        patch("apps.reviews.tasks.enrich_review_task") as mock_task,
+        patch("apps.reviews.tasks.finalize_canonical_tags_task"),
     ):
         mock_task.apply_async = _apply_async
         sync_mod.run_initial_backfill(shop_id=shop.pk)
@@ -352,10 +374,10 @@ def test_finalize_dispatched_to_tag_merge_with_countdown(patched_backfill_deps: 
 
     with (
         patch.object(sync_mod, "list_reviews", return_value=page),
-        patch("apps.reviews.services.sync.enrich_review", MagicMock()),
+        patch("apps.reviews.services.enrichment.enrich_review", MagicMock()),
         patch("apps.reviews.services.sync._wait_for_openai_token", MagicMock(return_value=1)),
-        patch("apps.reviews.services.sync.enrich_review_task") as _et,
-        patch("apps.reviews.services.sync.finalize_canonical_tags_task") as mock_finalize,
+        patch("apps.reviews.tasks.enrich_review_task") as _et,
+        patch("apps.reviews.tasks.finalize_canonical_tags_task") as mock_finalize,
     ):
         _et.apply_async = MagicMock()
         sync_mod.run_initial_backfill(shop_id=shop.pk)
@@ -381,10 +403,10 @@ def test_vocab_progress_event_emitted(patched_backfill_deps: Any) -> None:
 
     with (
         patch.object(sync_mod, "list_reviews", return_value=page),
-        patch("apps.reviews.services.sync.enrich_review", MagicMock()),
+        patch("apps.reviews.services.enrichment.enrich_review", MagicMock()),
         patch("apps.reviews.services.sync._wait_for_openai_token", MagicMock(return_value=1)),
-        patch("apps.reviews.services.sync.enrich_review_task") as _et,
-        patch("apps.reviews.services.sync.finalize_canonical_tags_task"),
+        patch("apps.reviews.tasks.enrich_review_task") as _et,
+        patch("apps.reviews.tasks.finalize_canonical_tags_task"),
         patch.object(sync_mod, "emit_progress_event", side_effect=_capture_emit),
     ):
         _et.apply_async = MagicMock()
@@ -445,13 +467,13 @@ def test_depleted_bucket_seed_completes_all_reviews(patched_backfill_deps: Any) 
 
     with (
         patch.object(sync_mod, "list_reviews", return_value=page),
-        patch("apps.reviews.services.sync.enrich_review", side_effect=_mock_enrich),
+        patch("apps.reviews.services.enrichment.enrich_review", side_effect=_mock_enrich),
         patch(
             "apps.reviews.services.sync._wait_for_openai_token",
             side_effect=_wait_that_pretends_to_wait,
         ),
-        patch("apps.reviews.services.sync.enrich_review_task") as _et,
-        patch("apps.reviews.services.sync.finalize_canonical_tags_task"),
+        patch("apps.reviews.tasks.enrich_review_task") as _et,
+        patch("apps.reviews.tasks.finalize_canonical_tags_task"),
     ):
         _et.apply_async = MagicMock()
         # Must not raise even with simulated delays
@@ -476,11 +498,11 @@ def test_get_org_vocabulary_called_per_seed_iteration(patched_backfill_deps: Any
 
     with (
         patch.object(sync_mod, "list_reviews", return_value=page),
-        patch("apps.reviews.services.sync.enrich_review", MagicMock()),
+        patch("apps.reviews.services.enrichment.enrich_review", MagicMock()),
         patch("apps.reviews.services.sync._wait_for_openai_token", MagicMock(return_value=1)),
         patch("apps.reviews.services.sync.get_org_vocabulary", side_effect=_mock_get_vocab),
-        patch("apps.reviews.services.sync.enrich_review_task") as _et,
-        patch("apps.reviews.services.sync.finalize_canonical_tags_task"),
+        patch("apps.reviews.tasks.enrich_review_task") as _et,
+        patch("apps.reviews.tasks.finalize_canonical_tags_task"),
     ):
         _et.apply_async = MagicMock()
         sync_mod.run_initial_backfill(shop_id=shop.pk)
@@ -574,6 +596,11 @@ def test_pagination_halts_when_bucket_depleted(patched_dependencies) -> None:
     with (
         patch.object(sync_mod, "token_bucket_depleted", return_value=True),
         patch.object(sync_mod, "list_reviews", return_value=page) as list_mock,
+        # Phase 23-03: run_initial_backfill always dispatches finalize_canonical_tags_task
+        # even when 0 reviews were fetched. Guard against CELERY_TASK_ALWAYS_EAGER triggering
+        # the real task (which hits Redis) by patching the deferred-import call site.
+        patch("apps.reviews.tasks.finalize_canonical_tags_task.apply_async"),
+        patch.object(sync_mod, "increment_vocab_counter"),
     ):
         sync_mod.run_initial_backfill(shop_id=shop.pk)
 
@@ -614,7 +641,12 @@ def _build_api_review(*, review_id: str, comment: str, rating: str = "FIVE") -> 
 def test_fetch_and_persist_enqueues_enrichment_for_pending_reviews(
     patched_dependencies,
 ) -> None:
-    """ENRCH-02 sync wiring: every upserted PENDING review receives an enrich_review_task dispatch."""
+    """ENRCH-02 sync wiring: every upserted PENDING review receives an enrich_review_task dispatch.
+
+    Phase 23: enrichment dispatch is trigger-gated. trigger="initial" skips dispatch
+    (run_initial_backfill owns seed/bulk phases). trigger="incremental" still dispatches
+    enrich_review_task.apply_async to the ai-enrichment-low queue.
+    """
     shop = _make_shop()
     page = {
         "reviews": [
@@ -628,12 +660,15 @@ def test_fetch_and_persist_enqueues_enrichment_for_pending_reviews(
         patch.object(sync_mod, "list_reviews", return_value=page),
         # enrich_review_task is imported locally inside fetch_and_persist_reviews
         # to avoid a circular import. Patch at the tasks module level.
-        patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay,
+        patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply,
     ):
-        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+        # Phase 23: use trigger="incremental" — this trigger dispatches enrichment.
+        # trigger="initial" does NOT dispatch (run_initial_backfill owns that path).
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
 
-    assert mock_delay.call_count == 3
-    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    assert mock_apply.call_count == 3
+    # apply_async is called as enrich_review_task.apply_async(args=[review_id], queue=...)
+    enqueued_ids = {call.kwargs["args"][0] for call in mock_apply.call_args_list}
     persisted = list(
         Review.objects.filter(shop=shop, google_review_id__startswith="g-rev-").values_list(
             "id", flat=True
@@ -644,11 +679,12 @@ def test_fetch_and_persist_enqueues_enrichment_for_pending_reviews(
 
 @pytest.mark.django_db
 def test_fetch_and_persist_emits_sync_complete(patched_dependencies) -> None:
-    """fetch_and_persist_reviews must emit sync.complete on success so the UI updates.
+    """fetch_and_persist_reviews emits sync.complete on success for incremental syncs.
 
-    Previously the success path only wrote the Redis snapshot but never sent
-    the WebSocket event, leaving the progress bar frozen at the last fetch-progress
-    value. The fix adds emit_progress_event in the success path.
+    Phase 23: sync.complete is NO LONGER emitted by fetch_and_persist_reviews for
+    trigger="initial" — that event is now owned by run_finalise_canonical_tags (Plan 02).
+    For trigger="incremental" (and other non-initial triggers), sync.complete is still
+    emitted as before so the UI updates after a periodic sync.
     """
     shop = _make_shop()
     page = {
@@ -663,10 +699,12 @@ def test_fetch_and_persist_emits_sync_complete(patched_dependencies) -> None:
     with (
         patch.object(sync_mod, "list_reviews", return_value=page),
         # enrich_review_task is imported locally; patch at tasks module level
-        patch("apps.reviews.tasks.enrich_review_task.delay"),
+        patch("apps.reviews.tasks.enrich_review_task.apply_async"),
         patch.object(sync_mod, "emit_progress_event", side_effect=_capture_emit),
     ):
-        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+        # Phase 23: use trigger="incremental" — this trigger still emits sync.complete.
+        # trigger="initial" does NOT emit sync.complete (run_finalise_canonical_tags owns it).
+        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
 
     emitted_types = [p["type"] for p in captured_emit]
     # sync.fetch.progress emitted during fetch, sync.complete emitted on success
