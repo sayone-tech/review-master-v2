@@ -188,8 +188,22 @@ Plans:
   4. Daily incremental sync enriches new reviews through the same canonical pipeline (vocabulary injected, new canonical tags auto-added with no approval step) on the low-priority enrichment queue.
   5. Enrichment work is split across `ai-enrichment-high` (initial sync) and `ai-enrichment-low` (daily sync), and a dedicated `tag-merge` queue exists and is wired through routes, `CELERY_QUEUE_NAMES`, and worker `-Q` args.
 
-**Plans**: TBD
+**Plans**: 4 plans
 **UI hint**: yes
+
+Plans:
+**Wave 1**
+
+- [ ] 23-01-PLAN.md — Queue split + SEED_PHASE_SIZE/OPENAI_GLOBAL_RATE_LIMIT settings + global OpenAI Redis token bucket (QUEUE-01, DSYNC-01)
+- [ ] 23-04-PLAN.md — Four-step ProgressModal + TopbarSyncIndicator UI extension (SEED-01)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 23-02-PLAN.md — Finalising pass: case-insensitive dedup merge + straggler backfill + review_count refresh on tag-merge queue (SEED-04)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 23-03-PLAN.md — Four-phase initial backfill (seed/bulk/finalise dispatch) + incremental ai-enrichment-low routing + global token-bucket guard (SEED-01/02/03, DSYNC-01, QUEUE-01)
 
 ### Phase 24: Polarity Auto-Reclassification
 
@@ -255,7 +269,7 @@ Plans:
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
-| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 0/TBD | ⬜ Not started | - |
+| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 0/4 | ⬜ Not started | - |
 | 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
