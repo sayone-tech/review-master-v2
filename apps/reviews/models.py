@@ -125,6 +125,52 @@ class Review(TimeStampedModel):
         return f"Review({self.pk}, shop={self.shop_id}, stars={self.star_rating})"
 
 
+class OrgCanonicalTag(TimeStampedModel):
+    """Per-organisation canonical tag vocabulary entry.
+
+    One row per unique (organisation, label) pair. The `review_count` column is
+    a DENORMALIZED CACHE only — populated at 0, NEVER incremented in the
+    enrichment hot path (D-03 derive-on-read; refreshed only by the Phase 24
+    weekly job / Phase 25 merge).
+    """
+
+    class PolarityType(models.TextChoices):
+        ALWAYS_POSITIVE = "always_positive", "Always Positive"
+        ALWAYS_NEGATIVE = "always_negative", "Always Negative"
+        MIXED = "mixed", "Mixed"
+
+    organisation = models.ForeignKey(
+        "organisations.Organisation",
+        on_delete=models.CASCADE,
+        related_name="canonical_tags",
+        db_index=True,
+    )
+    label = models.CharField(max_length=100)
+    polarity_type = models.CharField(max_length=20, choices=PolarityType.choices)
+    # DENORMALIZED CACHE — default 0. NEVER incremented in the enrichment hot
+    # path (D-03). Refreshed only by the Phase 24 weekly reclassification job
+    # and Phase 25 merge operations.
+    review_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "reviews_orgcanonicaltag"
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(
+                fields=["organisation", "label"],
+                name="uniq_orgcanonicaltag_org_label",
+            ),
+        ]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(
+                fields=["organisation", "-review_count"],
+                name="orgcanon_org_count_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.label} (org={self.organisation_id})"
+
+
 class ReviewTag(models.Model):
     class Polarity(models.TextChoices):
         POSITIVE = "positive", "Positive"
@@ -138,6 +184,14 @@ class ReviewTag(models.Model):
     )
     label = models.CharField(max_length=100, db_index=True)
     polarity = models.CharField(max_length=10, choices=Polarity.choices)
+    canonical_tag = models.ForeignKey(
+        "reviews.OrgCanonicalTag",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="review_tags",
+        db_index=True,
+    )
 
     class Meta:
         db_table = "reviews_reviewtag"
@@ -149,6 +203,8 @@ class ReviewTag(models.Model):
             # duplicate (review, label, polarity) rows; with it the second
             # bulk_create fails at the DB layer and the second transaction
             # rolls back cleanly.
+            # NOTE: canonical_tag is intentionally excluded from this constraint
+            # to preserve the delete-then-bulk_create race guard (Phase 22).
             models.UniqueConstraint(
                 fields=["review", "label", "polarity"],
                 name="uniq_reviewtag_review_label_polarity",

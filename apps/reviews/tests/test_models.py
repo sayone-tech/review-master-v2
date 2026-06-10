@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import pytest
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.common.models import AuditLog
-from apps.reviews.models import Review, ReviewTag
+from apps.organisations.tests.factories import OrganisationFactory
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag
 from apps.reviews.tests.factories import (
     AuditLogFactory,
+    OrgCanonicalTagFactory,
     ReviewFactory,
     ReviewTagFactory,
 )
@@ -109,3 +111,54 @@ class TestReviewTagModel:
         ReviewTagFactory(review=review, label="B", polarity="negative")
         labels = set(review.tags.values_list("label", flat=True))
         assert labels == {"A", "B"}
+
+
+class TestOrgCanonicalTagModel:
+    """Phase 22 — OrgCanonicalTag model tests (CTAG-01, CTAG-02, CTAG-08)."""
+
+    def test_canonical_tag_creation_and_timestamps(self) -> None:
+        """CTAG-01: OrgCanonicalTagFactory creates a row with timestamps and review_count=0."""
+        tag = OrgCanonicalTagFactory()
+        assert tag.pk is not None
+        assert tag.label != ""
+        assert tag.polarity_type in OrgCanonicalTag.PolarityType.values
+        assert tag.review_count == 0
+        assert tag.created_at is not None
+        assert tag.updated_at is not None
+
+    def test_canonical_tag_polarity_type_mixed(self) -> None:
+        """CTAG-01: PolarityType.MIXED == 'mixed'."""
+        assert OrgCanonicalTag.PolarityType.MIXED == "mixed"
+        assert OrgCanonicalTag.PolarityType.ALWAYS_POSITIVE == "always_positive"
+        assert OrgCanonicalTag.PolarityType.ALWAYS_NEGATIVE == "always_negative"
+
+    def test_canonical_tag_unique_org_label_constraint(self) -> None:
+        """CTAG-01: same (organisation, label) pair raises IntegrityError."""
+        org = OrganisationFactory()
+        OrgCanonicalTagFactory(organisation=org, label="Food Quality")
+        with pytest.raises(IntegrityError), transaction.atomic():
+            OrgCanonicalTagFactory(organisation=org, label="Food Quality")
+
+    def test_canonical_tag_cross_org_same_label_allowed(self) -> None:
+        """CTAG-01: unique constraint is per-org; different orgs may share a label."""
+        org1 = OrganisationFactory()
+        org2 = OrganisationFactory()
+        tag1 = OrgCanonicalTagFactory(organisation=org1, label="Food Quality")
+        tag2 = OrgCanonicalTagFactory(organisation=org2, label="Food Quality")
+        assert tag1.pk != tag2.pk
+
+    def test_null_canonical_tag_review_tag_valid(self) -> None:
+        """CTAG-08: a ReviewTag without canonical_tag is valid (null FK pre-phase rows)."""
+        tag = ReviewTagFactory()
+        assert tag.canonical_tag is None
+        # Re-fetch from DB to confirm null is persisted
+        fetched = ReviewTag.objects.get(pk=tag.pk)
+        assert fetched.canonical_tag is None
+
+    def test_review_tag_with_canonical_tag_resolves_fk(self) -> None:
+        """CTAG-02: a ReviewTag pointed at an OrgCanonicalTag resolves the FK correctly."""
+        canonical = OrgCanonicalTagFactory()
+        review_tag = ReviewTagFactory(canonical_tag=canonical)
+        fetched = ReviewTag.objects.select_related("canonical_tag").get(pk=review_tag.pk)
+        assert fetched.canonical_tag == canonical
+        assert fetched.canonical_tag.label == canonical.label
