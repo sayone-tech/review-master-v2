@@ -194,8 +194,8 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 23-01-PLAN.md — Queue split + SEED_PHASE_SIZE/OPENAI_GLOBAL_RATE_LIMIT settings + global OpenAI Redis token bucket (QUEUE-01, DSYNC-01)
-- [ ] 23-04-PLAN.md — Four-step ProgressModal + TopbarSyncIndicator UI extension (SEED-01)
+- [x] 23-01-PLAN.md — Queue split + SEED_PHASE_SIZE/OPENAI_GLOBAL_RATE_LIMIT settings + global OpenAI Redis token bucket (QUEUE-01, DSYNC-01)
+- [x] 23-04-PLAN.md — Four-step ProgressModal + TopbarSyncIndicator UI extension (SEED-01)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -269,7 +269,7 @@ Plans:
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
-| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 0/4 | ⬜ Not started | - |
+| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 2/4 | In Progress|  |
 | 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
