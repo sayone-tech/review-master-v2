@@ -224,6 +224,74 @@ def enrich_review_task(self: Any, review_id: int) -> None:
     )
 
 
+@shared_task(  # type: ignore[misc]
+    bind=True,
+    max_retries=3,
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=600,
+    retry_jitter=True,
+)
+def finalize_canonical_tags_task(
+    self: Any, *, organisation_id: int, shop_id: int
+) -> dict[str, Any]:
+    """Phase 23 — Canonical tag finalising pass (SEED-04, Step 4).
+
+    Deduplicates case-insensitive OrgCanonicalTag pairs, re-points ReviewTag FKs
+    to the winner, backfills null canonical_tag stragglers, and refreshes
+    review_count from the aggregate. Routes to tag-merge queue (Plan 01 settings).
+
+    Uses retry_backoff=60 (longer than the 30s hot-path default) since this is
+    a non-time-critical finalising step. Business logic lives in
+    run_finalise_canonical_tags (CLAUDE.md §12.3 — no logic in task body).
+    """
+    from apps.reviews.services.finalise import run_finalise_canonical_tags
+
+    task_id = self.request.id
+    attempt = self.request.retries + 1
+    logger.info(
+        "finalize_canonical_tags_task.start task_id=%s organisation_id=%s shop_id=%s attempt=%s",
+        task_id,
+        organisation_id,
+        shop_id,
+        attempt,
+    )
+    try:
+        result = run_finalise_canonical_tags(organisation_id=organisation_id, shop_id=shop_id)
+    except Exception as exc:
+        logger.error(
+            "finalize_canonical_tags_task.error task_id=%s organisation_id=%s "
+            "shop_id=%s attempt=%s max_retries=%s error=%r",
+            task_id,
+            organisation_id,
+            shop_id,
+            attempt,
+            self.max_retries,
+            exc,
+            exc_info=True,
+        )
+        raise
+    if result.get("skipped"):
+        logger.info(
+            "finalize_canonical_tags_task.skipped task_id=%s organisation_id=%s "
+            "shop_id=%s reason=lock_held",
+            task_id,
+            organisation_id,
+            shop_id,
+        )
+    else:
+        logger.info(
+            "finalize_canonical_tags_task.success task_id=%s organisation_id=%s "
+            "shop_id=%s merged_groups=%s stragglers_backfilled=%s",
+            task_id,
+            organisation_id,
+            shop_id,
+            result.get("merged_groups", 0),
+            result.get("stragglers_backfilled", 0),
+        )
+    return result
+
+
 @shared_task  # type: ignore[misc]
 def retry_failed_enrichments_task() -> int:
     """Phase 12 ENRCH-06 — Beat-scheduled, every 6h.
