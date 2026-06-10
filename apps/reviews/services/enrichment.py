@@ -42,7 +42,7 @@ from apps.integrations.openai.guardrails import (
 )
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
-from apps.reviews.models import Review, ReviewTag
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag
 from apps.reviews.selectors.canonical_tags import get_org_vocabulary
 
 logger = logging.getLogger(__name__)
@@ -103,12 +103,56 @@ def _persist_success(
         # bulk_create makes re-enrichment idempotent (D-09); both calls inside the
         # transaction so a bulk_create failure rolls back the Review update.
         ReviewTag.objects.filter(review_id=review.pk).delete()
+
+        # Phase 22 (CTAG-06/CTAG-07/D-01/D-03): resolve each tag's canonical FK
+        # inside this same atomic block. Strategy (RESEARCH.md Pitfalls 3+4):
+        # one batch SELECT + bulk_create(ignore_conflicts=True) + a re-SELECT of
+        # only the missing labels. This keeps the query count FIXED regardless of
+        # tag count (no N+1) and is race-safe — ignore_conflicts does NOT abort
+        # the outer transaction the way per-tag get_or_create would. review_count
+        # is NEVER written here (D-03 — derived on read; touching it would
+        # double-count on re-enrichment).
+        org_id = review.organisation_id
+        # Distinct normalized canonical labels (already Title-Cased by the 22-03
+        # validator). Remember the polarity_type proposed for any NEW label
+        # (first proposal wins), defaulting to MIXED when GPT left it null.
+        proposed_polarity: dict[str, str] = {}
+        for tag in result.tags:
+            proposed_polarity.setdefault(
+                tag.canonical,
+                tag.polarity_type or OrgCanonicalTag.PolarityType.MIXED,
+            )
+        labels = list(proposed_polarity)
+        canonical_map = {
+            ct.label: ct
+            for ct in OrgCanonicalTag.objects.filter(organisation_id=org_id, label__in=labels)
+        }
+        missing = [label for label in labels if label not in canonical_map]
+        if missing:
+            OrgCanonicalTag.objects.bulk_create(
+                [
+                    OrgCanonicalTag(
+                        organisation_id=org_id,
+                        label=label,
+                        polarity_type=proposed_polarity[label],
+                    )
+                    for label in missing
+                ],
+                ignore_conflicts=True,
+            )
+            # Re-SELECT only the missing labels to fetch their FKs — also picks up
+            # rows another worker inserted concurrently (the (org,label) unique
+            # constraint is authoritative).
+            for ct in OrgCanonicalTag.objects.filter(organisation_id=org_id, label__in=missing):
+                canonical_map[ct.label] = ct
+
         ReviewTag.objects.bulk_create(
             [
                 ReviewTag(
                     review_id=review.pk,
                     label=tag.label.title(),
                     polarity=tag.polarity,
+                    canonical_tag=canonical_map[tag.canonical],
                 )
                 for tag in result.tags
             ]
