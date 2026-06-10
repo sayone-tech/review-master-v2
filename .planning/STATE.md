@@ -4,8 +4,8 @@ milestone: v0.8
 milestone_name: Canonical Tag System
 status: executing
 stopped_at: Phase 23 UI-SPEC approved
-last_updated: "2026-06-10T12:08:00.884Z"
-last_activity: 2026-06-10 -- Phase 23 planning complete
+last_updated: "2026-06-10T15:56:22.001Z"
+last_activity: 2026-06-10 -- Phase 23 execution started
 progress:
   total_phases: 6
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 23 — four step initial sync, seeding & queue split
+**Current focus:** Phase 23 — four-step-initial-sync-seeding-queue-split
 
 ## Current Position
 
-Phase: 23
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-06-10 -- Phase 23 planning complete
+Phase: 23 (four-step-initial-sync-seeding-queue-split) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 23
+Last activity: 2026-06-10 -- Phase 23 execution started
 
 ### v0.8 phase map (Phases 22–26)
 
