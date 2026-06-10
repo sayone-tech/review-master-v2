@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Canonical Tag System
 status: planning
-stopped_at: Phase 23 context gathered
-last_updated: "2026-06-10T11:24:04.386Z"
+stopped_at: Phase 23 UI-SPEC approved
+last_updated: "2026-06-10T11:31:34.332Z"
 last_activity: 2026-06-10
 progress:
   total_phases: 6
@@ -83,6 +83,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-06-10T11:24:04.381Z
-Stopped at: Phase 23 context gathered
-Resume file: .planning/phases/23-four-step-initial-sync-seeding-queue-split/23-CONTEXT.md
+Last session: 2026-06-10T11:31:34.327Z
+Stopped at: Phase 23 UI-SPEC approved
+Resume file: .planning/phases/23-four-step-initial-sync-seeding-queue-split/23-UI-SPEC.md
