@@ -97,7 +97,7 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 ### 🔵 v0.8 — Canonical Tag System (Phases 22–26) — IN PLANNING
 
 - [x] **Phase 22: Canonical Tag Foundation & Mapping Pipeline** — `OrgCanonicalTag` model + nullable `canonical_tag` FK on `ReviewTag` + migration; canonical lookup/insert folded into the single GPT call and post-enrichment atomic block; English-only tags; one `AiUsageLog` row per call; global OpenAI rate limit. (completed 2026-06-10)
-- [ ] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues.
+- [x] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues. (completed 2026-06-11)
 - [ ] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible.
 - [ ] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags.
 - [ ] **Phase 26: Superadmin Data Reset & Re-Sync** — One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync.
@@ -203,7 +203,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 23-03-PLAN.md — Four-phase initial backfill (seed/bulk/finalise dispatch) + incremental ai-enrichment-low routing + global token-bucket guard (SEED-01/02/03, DSYNC-01, QUEUE-01)
+- [x] 23-03-PLAN.md — Four-phase initial backfill (seed/bulk/finalise dispatch) + incremental ai-enrichment-low routing + global token-bucket guard (SEED-01/02/03, DSYNC-01, QUEUE-01)
 
 ### Phase 24: Polarity Auto-Reclassification
 
@@ -269,7 +269,7 @@ Plans:
 | 20. AI Guardrails | v0.7 | 8/8 | ✅ Complete | 2026-05-23 |
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
-| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 3/4 | In Progress|  |
+| 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
 | 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
