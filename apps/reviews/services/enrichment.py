@@ -449,12 +449,16 @@ def _emit_enrichment_progress(*, review: Review) -> None:
         )
 
 
-def enrich_review(*, review_id: int) -> None:
+def enrich_review(*, review_id: int, skip_rate_limit_guard: bool = False) -> None:
     """Enrich a review with three-layer idempotency. See module docstring.
 
     Returns None. Raises OpenAITransientError or EnrichmentParseError so
     Celery autoretry_for can apply exponential backoff. OpenAIPermanentError
     is caught silently (ENRCH-04: no retry on 4xx other than 429).
+
+    skip_rate_limit_guard: when True, bypass the OpenAI token-bucket RAISE guard
+    (Phase 23 seed loop pre-acquires the token via _wait_for_openai_token and passes
+    this flag to avoid double-counting). Task 2 (23-03) wires the guard logic.
     """
     lock_key = LOCK_KEY_TMPL.format(review_id=review_id)
     with distributed_lock(lock_key, timeout=LOCK_TIMEOUT_SECONDS) as acquired:

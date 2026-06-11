@@ -39,10 +39,13 @@ from apps.integrations.google.exceptions import (
 from apps.integrations.google.oauth import _refresh_access_token
 from apps.integrations.google.reviews_client import list_reviews
 from apps.reviews.models import Review
+from apps.reviews.selectors.canonical_tags import get_org_vocabulary
 from apps.reviews.services.progress import (
+    _wait_for_openai_token,
     bulk_increment_enriched_counter,
     clear_progress_snapshot,
     increment_google_token_bucket,
+    increment_vocab_counter,
     token_bucket_depleted,
     write_progress_snapshot,
 )
@@ -421,6 +424,10 @@ def fetch_and_persist_reviews(
                 # dispatching tasks (avoids flooding ai-enrichment queue with
                 # no-op idempotent tasks when a shop is re-synced after a
                 # previous full enrichment run).
+                #
+                # Phase 23 (DSYNC-01): incremental syncs route to ai-enrichment-low.
+                # Initial trigger (trigger="initial") skips dispatch here — run_initial_backfill
+                # handles the seed/bulk phases directly after the fetch loop completes.
                 if ids:
                     from apps.reviews.tasks import enrich_review_task
 
@@ -431,18 +438,22 @@ def fetch_and_persist_reviews(
                             deleted_at__isnull=True,
                         ).values_list("id", "enrichment_status")
                     )
-                    pending_ids = [
-                        r_id
-                        for r_id, status in page_statuses
-                        if status == Review.EnrichmentStatus.PENDING
-                    ]
                     already_enriched = sum(
                         1
                         for _, status in page_statuses
                         if status == Review.EnrichmentStatus.SUCCESS
                     )
-                    for review_id in pending_ids:
-                        enrich_review_task.delay(review_id)
+                    if trigger != "initial":
+                        # Incremental sync: dispatch to ai-enrichment-low (D-10/DSYNC-01)
+                        pending_ids = [
+                            r_id
+                            for r_id, status in page_statuses
+                            if status == Review.EnrichmentStatus.PENDING
+                        ]
+                        for review_id in pending_ids:
+                            enrich_review_task.apply_async(
+                                args=[review_id], queue="ai-enrichment-low"
+                            )
                     if already_enriched:
                         bulk_increment_enriched_counter(shop_id=shop_id, count=already_enriched)
 
@@ -481,28 +492,47 @@ def fetch_and_persist_reviews(
                 _schedule_new_review_dispatch(shop=shop, new_google_review_ids=all_new_google_ids)
 
             duration = (dj_timezone.now() - started_at).total_seconds()
-            success_payload = {
-                "shop_id": shop_id,
-                "status": "success",
-                "fetched": total_persisted,
-                "total_estimate": total_estimate or total_persisted,
-                "enriched": 0,
-                "started_at": started_at.isoformat(),
-                "last_update_at": dj_timezone.now().isoformat(),
-                "duration_seconds": duration,
-                "page_count": page_count,
-            }
-            write_progress_snapshot(shop_id=shop_id, data=success_payload)
-            emit_progress_event(
-                shop_id=shop_id,
-                payload={
-                    "type": "sync.complete",
+
+            if trigger == "initial":
+                # Phase 23: for initial sync, leave the snapshot in "fetching" state and
+                # DON'T emit sync.complete — run_initial_backfill takes over from here
+                # for the seed/bulk/finalising phases. sync.complete is owned by
+                # run_finalise_canonical_tags (Plan 02).
+                fetch_end_snapshot = {
                     "shop_id": shop_id,
-                    "total_fetched": total_persisted,
+                    "status": "fetching",
+                    "fetched": total_persisted,
                     "total_estimate": total_estimate or total_persisted,
+                    "enriched": 0,
+                    "started_at": started_at.isoformat(),
+                    "last_update_at": dj_timezone.now().isoformat(),
                     "duration_seconds": duration,
-                },
-            )
+                    "page_count": page_count,
+                }
+                write_progress_snapshot(shop_id=shop_id, data=fetch_end_snapshot)
+            else:
+                success_payload = {
+                    "shop_id": shop_id,
+                    "status": "success",
+                    "fetched": total_persisted,
+                    "total_estimate": total_estimate or total_persisted,
+                    "enriched": 0,
+                    "started_at": started_at.isoformat(),
+                    "last_update_at": dj_timezone.now().isoformat(),
+                    "duration_seconds": duration,
+                    "page_count": page_count,
+                }
+                write_progress_snapshot(shop_id=shop_id, data=success_payload)
+                emit_progress_event(
+                    shop_id=shop_id,
+                    payload={
+                        "type": "sync.complete",
+                        "shop_id": shop_id,
+                        "total_fetched": total_persisted,
+                        "total_estimate": total_estimate or total_persisted,
+                        "duration_seconds": duration,
+                    },
+                )
             _audit(
                 shop=shop,
                 action="sync.completed",
@@ -560,10 +590,163 @@ def fetch_and_persist_reviews(
 
 
 def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
-    """Initial backfill — same engine, trigger="initial"."""
-    return fetch_and_persist_reviews(shop_id=shop_id, trigger="initial")
+    """Phase 23 — Four-phase initial backfill orchestrator (SEED-01/02/03, D-01).
+
+    Phase 1 — Fetch: call fetch_and_persist_reviews(trigger="initial") which persists
+              reviews but does NOT dispatch enrichment (trigger-gated). Early-return
+              on skip (lock held, auth error, etc.).
+
+    Phase 2 — Seed (vocab-building, D-03/D-04): query the newest SEED_PHASE_SIZE PENDING
+              review IDs, process sequentially. Before each enrich_review call:
+                1. Re-read org vocabulary (get_org_vocabulary — each iteration sees
+                   canonical tags added by earlier seed reviews).
+                2. Pre-acquire a global OpenAI token via _wait_for_openai_token (D-08).
+                   This helper WAITs/sleeps-and-retries and NEVER raises on depletion
+                   (Blocker 2 fix — seed loop must not crash on a depleted bucket).
+                3. Call enrich_review(skip_rate_limit_guard=True) so the service does
+                   not re-check / double-count the token.
+              Emits sync.vocab.progress after each commit (AFTER the enrich call,
+              never inside a transaction — T-23-08).
+
+    Phase 3 — Bulk (parallel dispatch, SEED-03): query remaining PENDING review IDs,
+              dispatch each via enrich_review_task.apply_async(queue="ai-enrichment-high").
+              No skip_rate_limit_guard — the bulk/task path uses enrich_review's RAISE guard
+              so Celery autoretry re-queues on depletion.
+
+    Phase 4 — Finalising dispatch: dispatch finalize_canonical_tags_task to tag-merge
+              queue with a countdown (allows bulk enrichments to land first).
+    """
+    from django.conf import settings
+
+    from apps.reviews.services.enrichment import enrich_review
+    from apps.reviews.tasks import enrich_review_task, finalize_canonical_tags_task
+
+    # Phase 1: Google fetch (no enrichment dispatch for initial trigger)
+    result = fetch_and_persist_reviews(shop_id=shop_id, trigger="initial")
+    if result.get("skipped"):
+        return result
+
+    # Resolve org_id from the shop (fetch_and_persist_reviews fetched the shop already,
+    # but we need a lightweight lookup here; single SELECT, not N+1).
+    shop = Shop.objects.only("organisation_id").get(pk=shop_id)
+    org_id = shop.organisation_id
+    seed_size = getattr(settings, "SEED_PHASE_SIZE", 50)
+    openai_rate_limit = getattr(settings, "OPENAI_GLOBAL_RATE_LIMIT", 500)
+
+    # Phase 2: Seed — newest SEED_PHASE_SIZE PENDING reviews, sequential (D-03)
+    seed_ids = list(
+        Review.objects.filter(
+            shop_id=shop_id,
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+            deleted_at__isnull=True,
+        )
+        .order_by("-review_create_time")
+        .values_list("id", flat=True)[:seed_size]
+    )
+    seed_total = len(seed_ids)
+
+    # Update snapshot to show "vocab" step is starting
+    snapshot = {
+        "shop_id": shop_id,
+        "status": "vocab",
+        "step": "vocab",
+        "fetched": result.get("fetched", 0),
+        "total_estimate": result.get("fetched", 0),
+        "enriched": 0,
+        "vocab_enriched": 0,
+        "vocab_total": seed_total,
+        "finalising_processed": 0,
+        "finalising_total": 0,
+        "last_update_at": dj_timezone.now().isoformat(),
+    }
+    write_progress_snapshot(shop_id=shop_id, data=snapshot)
+
+    for i, review_id in enumerate(seed_ids, start=1):
+        # D-04: re-read org vocabulary each iteration (new canonical tags from prior seed
+        # reviews are now queryable).
+        get_org_vocabulary(
+            organisation_id=org_id, limit=getattr(settings, "CANONICAL_VOCAB_INJECT_LIMIT", 200)
+        )
+        # D-08: pre-acquire a global token (WAIT, never raise) so the seed loop survives
+        # a depleted bucket (Blocker 2).
+        _wait_for_openai_token(organisation_id=org_id, max_calls=openai_rate_limit)
+        # Call enrich_review directly (not .delay) with skip flag — token already acquired above.
+        enrich_review(review_id=review_id, skip_rate_limit_guard=True)
+        # Increment vocab counter and update snapshot (emit AFTER enrich commit — T-23-08).
+        increment_vocab_counter(shop_id=shop_id)
+        vocab_snapshot = {
+            **snapshot,
+            "vocab_enriched": i,
+            "last_update_at": dj_timezone.now().isoformat(),
+        }
+        write_progress_snapshot(shop_id=shop_id, data=vocab_snapshot)
+        emit_progress_event(
+            shop_id=shop_id,
+            payload={
+                "type": "sync.vocab.progress",
+                "shop_id": shop_id,
+                "enriched": i,
+                "total": seed_total,
+            },
+        )
+
+    # Phase 3: Bulk — remaining PENDING reviews to ai-enrichment-high (SEED-03)
+    # Re-query to pick up only still-PENDING (seed loop may have enriched some).
+    seed_id_set = set(seed_ids)
+    bulk_ids = list(
+        Review.objects.filter(
+            shop_id=shop_id,
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+            deleted_at__isnull=True,
+        )
+        .exclude(pk__in=seed_id_set)
+        .values_list("id", flat=True)
+    )
+    # Update snapshot to show "enriching" step
+    enriching_snapshot = (
+        {
+            **vocab_snapshot,
+            "status": "enriching",
+            "step": "enriching",
+            "last_update_at": dj_timezone.now().isoformat(),
+        }
+        if seed_ids
+        else {
+            **snapshot,
+            "status": "enriching",
+            "step": "enriching",
+            "last_update_at": dj_timezone.now().isoformat(),
+        }
+    )
+    write_progress_snapshot(shop_id=shop_id, data=enriching_snapshot)
+
+    for review_id in bulk_ids:
+        # No skip_rate_limit_guard — bulk path uses the RAISE guard inside enrich_review
+        # so Celery autoretry handles re-queue on a depleted bucket (D-08, RESEARCH Pattern 1).
+        enrich_review_task.apply_async(args=[review_id], queue="ai-enrichment-high")
+
+    # Phase 4: Dispatch finalising pass with countdown to allow bulk enrichments to land (D-09)
+    finalize_canonical_tags_task.apply_async(
+        kwargs={"organisation_id": org_id, "shop_id": shop_id},
+        queue="tag-merge",
+        countdown=300,
+    )
+
+    logger.info(
+        "run_initial_backfill.phases_dispatched shop_id=%s org_id=%s seed_count=%s bulk_count=%s",
+        shop_id,
+        org_id,
+        seed_total,
+        len(bulk_ids),
+    )
+    return result
 
 
 def run_incremental_sync(*, shop_id: int) -> dict[str, Any]:
-    """6-hour incremental sync — same engine, trigger="incremental"."""
+    """6-hour incremental sync — same engine, trigger="incremental".
+
+    Phase 23 (DSYNC-01/D-10): enrichment dispatched to ai-enrichment-low inside
+    fetch_and_persist_reviews when trigger="incremental". New canonical tags
+    continue to auto-add (no approval gate).
+    """
     return fetch_and_persist_reviews(shop_id=shop_id, trigger="incremental")
