@@ -222,3 +222,118 @@ def test_retry_failed_enrichments_includes_other_failure_codes() -> None:
     for review in reviews:
         assert review.pk in enqueued_ids, f"code={review.enrichment_error_code!r} should retry"
     assert count == len(codes)
+
+
+# ---------------------------------------------------------------------------
+# Phase 23 Task 2 — token-bucket guard in enrich_review + sync.complete decoupling
+# ---------------------------------------------------------------------------
+
+
+def test_enrich_review_bulk_path_raises_on_depleted_bucket() -> None:
+    """Bulk path (skip_rate_limit_guard=False): depleted bucket → raises OpenAITransientError."""
+    from apps.integrations.openai.exceptions import OpenAITransientError
+    from apps.reviews.models import Review
+    from apps.reviews.services.enrichment import enrich_review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+        comment="test comment",
+    )
+    with (
+        patch(
+            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
+            return_value=True,
+        ),
+        pytest.raises(OpenAITransientError),
+    ):
+        enrich_review(review_id=review.pk)
+
+
+def test_enrich_review_seed_path_does_not_raise_on_depleted_bucket() -> None:
+    """Seed path (skip_rate_limit_guard=True): depleted bucket → NO raise, NO increment."""
+    from apps.reviews.models import Review
+    from apps.reviews.services.enrichment import enrich_review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+        comment="",  # no-comment path for simplicity
+    )
+    with (
+        patch(
+            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
+            return_value=True,
+        ) as mock_depleted,
+        patch("apps.reviews.services.enrichment.increment_openai_token_bucket") as mock_incr,
+    ):
+        # Should complete without raising
+        enrich_review(review_id=review.pk, skip_rate_limit_guard=True)
+
+    # Token bucket must NOT have been checked or incremented on the seed path
+    mock_depleted.assert_not_called()
+    mock_incr.assert_not_called()
+
+
+def test_enrich_review_bulk_path_increments_bucket_when_not_depleted() -> None:
+    """Bulk path: bucket has headroom → increments once then proceeds to call_openai_enrichment."""
+    from apps.reviews.models import Review
+    from apps.reviews.services.enrichment import enrich_review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+        comment="",  # no-comment path avoids actual OpenAI call
+    )
+    with (
+        patch(
+            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
+            return_value=False,
+        ) as mock_depleted,
+        patch("apps.reviews.services.enrichment.increment_openai_token_bucket") as mock_incr,
+    ):
+        enrich_review(review_id=review.pk)  # skip_rate_limit_guard=False (default)
+
+    mock_depleted.assert_called_once()
+    mock_incr.assert_called_once()
+
+
+def test_emit_enrichment_progress_does_not_emit_sync_complete_when_enriched_gte_fetched() -> None:
+    """_emit_enrichment_progress must NOT emit sync.complete even when enriched >= fetched.
+
+    sync.complete ownership has moved to the finalising pass (run_finalise_canonical_tags).
+    """
+
+    from apps.reviews.models import Review
+    from apps.reviews.services.enrichment import _emit_enrichment_progress
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.SUCCESS)
+    shop_id = review.shop_id
+
+    # Write a snapshot with fetched=1 so enriched >= fetched will be true after 1 increment
+    from apps.reviews.services.progress import (
+        clear_progress_snapshot,
+        write_progress_snapshot,
+    )
+
+    clear_progress_snapshot(shop_id=shop_id)
+    write_progress_snapshot(
+        shop_id=shop_id,
+        data={"shop_id": shop_id, "status": "enriching", "fetched": 1, "enriched": 0},
+    )
+
+    emitted_types: list[str] = []
+
+    def _capture_event(*, shop_id: int, payload: dict) -> None:  # type: ignore[type-arg]
+        emitted_types.append(payload.get("type", ""))
+
+    with patch(
+        "apps.reviews.services.enrichment.emit_progress_event",
+        side_effect=_capture_event,
+    ):
+        _emit_enrichment_progress(review=review)
+
+    assert "sync.complete" not in emitted_types, (
+        "sync.complete must not be emitted by _emit_enrichment_progress (moved to finalise.py)"
+    )
