@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from unittest.mock import patch
 
 import pytest
@@ -229,10 +230,17 @@ def test_retry_failed_enrichments_includes_other_failure_codes() -> None:
 # ---------------------------------------------------------------------------
 
 
+@contextlib.contextmanager
+def _acquired_lock(_key: str, timeout: int = 300):  # type: ignore[type-arg]
+    """Context manager that always yields True (lock acquired) without Redis."""
+    yield True
+
+
 def test_enrich_review_bulk_path_raises_on_depleted_bucket() -> None:
     """Bulk path (skip_rate_limit_guard=False): depleted bucket → raises OpenAITransientError."""
     from apps.integrations.openai.exceptions import OpenAITransientError
     from apps.reviews.models import Review
+    from apps.reviews.services import enrichment as enrichment_mod
     from apps.reviews.services.enrichment import enrich_review
     from apps.reviews.tests.factories import ReviewFactory
 
@@ -241,10 +249,8 @@ def test_enrich_review_bulk_path_raises_on_depleted_bucket() -> None:
         comment="test comment",
     )
     with (
-        patch(
-            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
-            return_value=True,
-        ),
+        patch.object(enrichment_mod, "distributed_lock", _acquired_lock),
+        patch.object(enrichment_mod, "openai_token_bucket_depleted", return_value=True),
         pytest.raises(OpenAITransientError),
     ):
         enrich_review(review_id=review.pk)
@@ -253,44 +259,62 @@ def test_enrich_review_bulk_path_raises_on_depleted_bucket() -> None:
 def test_enrich_review_seed_path_does_not_raise_on_depleted_bucket() -> None:
     """Seed path (skip_rate_limit_guard=True): depleted bucket → NO raise, NO increment."""
     from apps.reviews.models import Review
+    from apps.reviews.services import enrichment as enrichment_mod
     from apps.reviews.services.enrichment import enrich_review
     from apps.reviews.tests.factories import ReviewFactory
 
     review = ReviewFactory(
         enrichment_status=Review.EnrichmentStatus.PENDING,
-        comment="",  # no-comment path for simplicity
+        comment="",  # no-comment path: avoids OpenAI call, lock is still needed
     )
+    mock_depleted = patch.object(enrichment_mod, "openai_token_bucket_depleted", return_value=True)
+    mock_incr = patch.object(enrichment_mod, "increment_openai_token_bucket")
+    # Patch progress functions used by _persist_success_no_comment → _emit_enrichment_progress
+    mock_read = patch("apps.reviews.services.progress.read_progress_snapshot", return_value=None)
     with (
-        patch(
-            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
-            return_value=True,
-        ) as mock_depleted,
-        patch("apps.reviews.services.enrichment.increment_openai_token_bucket") as mock_incr,
+        patch.object(enrichment_mod, "distributed_lock", _acquired_lock),
+        mock_depleted as depleted_mock,
+        mock_incr as incr_mock,
+        mock_read,
     ):
-        # Should complete without raising
         enrich_review(review_id=review.pk, skip_rate_limit_guard=True)
 
     # Token bucket must NOT have been checked or incremented on the seed path
-    mock_depleted.assert_not_called()
-    mock_incr.assert_not_called()
+    depleted_mock.assert_not_called()
+    incr_mock.assert_not_called()
 
 
 def test_enrich_review_bulk_path_increments_bucket_when_not_depleted() -> None:
-    """Bulk path: bucket has headroom → increments once then proceeds to call_openai_enrichment."""
+    """Bulk path: bucket has headroom → increments once then proceeds to call_openai_enrichment.
+
+    Uses a review with a comment so it reaches the token-bucket guard (the no-comment
+    path early-returns before the guard runs). Mocks moderate_input + call_openai_enrichment
+    so no real OpenAI call is made, and _persist_success so no DB writes are needed.
+    """
+    from unittest.mock import MagicMock
+
     from apps.reviews.models import Review
+    from apps.reviews.services import enrichment as enrichment_mod
     from apps.reviews.services.enrichment import enrich_review
     from apps.reviews.tests.factories import ReviewFactory
 
     review = ReviewFactory(
         enrichment_status=Review.EnrichmentStatus.PENDING,
-        comment="",  # no-comment path avoids actual OpenAI call
+        comment="A real comment so the no-comment path is NOT taken.",
     )
+    fake_result = MagicMock()
+    fake_usage: dict[str, int] = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
     with (
-        patch(
-            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
-            return_value=False,
+        patch.object(enrichment_mod, "distributed_lock", _acquired_lock),
+        patch.object(
+            enrichment_mod, "openai_token_bucket_depleted", return_value=False
         ) as mock_depleted,
-        patch("apps.reviews.services.enrichment.increment_openai_token_bucket") as mock_incr,
+        patch.object(enrichment_mod, "increment_openai_token_bucket") as mock_incr,
+        patch.object(enrichment_mod, "moderate_input", return_value="truncated text"),
+        patch.object(
+            enrichment_mod, "call_openai_enrichment", return_value=(fake_result, fake_usage)
+        ),
+        patch.object(enrichment_mod, "_persist_success"),
     ):
         enrich_review(review_id=review.pk)  # skip_rate_limit_guard=False (default)
 
@@ -303,7 +327,6 @@ def test_emit_enrichment_progress_does_not_emit_sync_complete_when_enriched_gte_
 
     sync.complete ownership has moved to the finalising pass (run_finalise_canonical_tags).
     """
-
     from apps.reviews.models import Review
     from apps.reviews.services.enrichment import _emit_enrichment_progress
     from apps.reviews.tests.factories import ReviewFactory
@@ -311,26 +334,29 @@ def test_emit_enrichment_progress_does_not_emit_sync_complete_when_enriched_gte_
     review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.SUCCESS)
     shop_id = review.shop_id
 
-    # Write a snapshot with fetched=1 so enriched >= fetched will be true after 1 increment
-    from apps.reviews.services.progress import (
-        clear_progress_snapshot,
-        write_progress_snapshot,
-    )
-
-    clear_progress_snapshot(shop_id=shop_id)
-    write_progress_snapshot(
-        shop_id=shop_id,
-        data={"shop_id": shop_id, "status": "enriching", "fetched": 1, "enriched": 0},
-    )
+    # Mock Redis helpers so the test runs without a real Redis backend.
+    # The snapshot has fetched=1; enriched will reach 1 after 1 increment.
+    fake_snapshot = {"shop_id": shop_id, "status": "enriching", "fetched": 1, "enriched": 0}
 
     emitted_types: list[str] = []
 
     def _capture_event(*, shop_id: int, payload: dict) -> None:  # type: ignore[type-arg]
         emitted_types.append(payload.get("type", ""))
 
-    with patch(
-        "apps.reviews.services.enrichment.emit_progress_event",
-        side_effect=_capture_event,
+    with (
+        patch(
+            "apps.reviews.services.progress.read_progress_snapshot",
+            return_value=fake_snapshot,
+        ),
+        patch(
+            "apps.reviews.services.progress.increment_enriched_counter",
+            return_value=1,
+        ),
+        patch("apps.reviews.services.progress.write_progress_snapshot"),
+        patch(
+            "apps.reviews.services.sync.emit_progress_event",
+            side_effect=_capture_event,
+        ),
     ):
         _emit_enrichment_progress(review=review)
 

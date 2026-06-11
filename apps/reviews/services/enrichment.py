@@ -44,6 +44,10 @@ from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
 from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag
 from apps.reviews.selectors.canonical_tags import get_org_vocabulary
+from apps.reviews.services.progress import (
+    increment_openai_token_bucket,
+    openai_token_bucket_depleted,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -384,22 +388,20 @@ def _dispatch_sync_complete_notifications(*, review: Review, total_fetched: int)
 
 
 def _emit_enrichment_progress(*, review: Review) -> None:
-    """Phase 12 progress emission after a successful enrichment.
+    """Phase 12/23 progress emission after a successful enrichment.
 
     Reads sync:progress:{shop_id} from Redis. If absent (incremental sync with
     no live ProgressModal client), returns silently — no WebSocket event.
 
     On success, increments the snapshot's `enriched` counter, writes it back,
-    and emits sync.enrichment.progress. When enriched >= fetched (and
-    fetched > 0), also emits sync.complete — the SOLE source of sync.complete
-    in Phase 12 (CONTEXT.md decision; the fetch loop in sync.py no longer
-    emits it).
+    and emits sync.enrichment.progress. The snapshot status is set to "enriching"
+    (NOT "success") — sync.complete ownership has moved to the finalising pass
+    (run_finalise_canonical_tags in finalise.py, Phase 23 D-02).
 
     MUST be called AFTER transaction.atomic() commits in _persist_success
     (RESEARCH.md anti-pattern: do not emit events from within a transaction).
     """
     from apps.reviews.services.progress import (
-        claim_sync_complete,
         increment_enriched_counter,
         read_progress_snapshot,
         write_progress_snapshot,
@@ -418,11 +420,10 @@ def _emit_enrichment_progress(*, review: Review) -> None:
     enriched = increment_enriched_counter(shop_id=shop_id)
     fetched = int(snapshot.get("fetched", 0))
 
-    new_snapshot = {**snapshot, "enriched": enriched}
-    if fetched > 0 and enriched >= fetched:
-        new_snapshot["status"] = "success"
-    else:
-        new_snapshot["status"] = "enriching"
+    # Phase 23 (D-02): status stays "enriching" until the finalising pass emits
+    # sync.complete. This function NO LONGER sets status="success" or emits
+    # sync.complete — that responsibility belongs to run_finalise_canonical_tags.
+    new_snapshot = {**snapshot, "enriched": enriched, "status": "enriching", "step": "enriching"}
     write_progress_snapshot(shop_id=shop_id, data=new_snapshot)
 
     emit_progress_event(
@@ -435,30 +436,24 @@ def _emit_enrichment_progress(*, review: Review) -> None:
         },
     )
 
-    if fetched > 0 and enriched >= fetched and claim_sync_complete(shop_id=shop_id):
-        _dispatch_sync_complete_notifications(review=review, total_fetched=fetched)
-        emit_progress_event(
-            shop_id=shop_id,
-            payload={
-                "type": "sync.complete",
-                "shop_id": shop_id,
-                "total_fetched": fetched,
-                "total_enriched": enriched,
-                "duration_seconds": snapshot.get("duration_seconds"),
-            },
-        )
-
 
 def enrich_review(*, review_id: int, skip_rate_limit_guard: bool = False) -> None:
     """Enrich a review with three-layer idempotency. See module docstring.
 
+    Args:
+        review_id: PK of the Review to enrich.
+        skip_rate_limit_guard: When True (seed-loop path), the global OpenAI token
+            bucket check AND increment are both skipped. The seed loop pre-acquires
+            a token via _wait_for_openai_token before calling this function, so
+            re-checking here would double-count and could crash the seed loop on a
+            depleted bucket (Blocker 2 / Phase 23 D-08). When False (bulk/task path,
+            the default), the guard runs: if the bucket is depleted,
+            raises OpenAITransientError so Celery autoretry re-queues with
+            exponential backoff (RESEARCH Pattern 1).
+
     Returns None. Raises OpenAITransientError or EnrichmentParseError so
     Celery autoretry_for can apply exponential backoff. OpenAIPermanentError
     is caught silently (ENRCH-04: no retry on 4xx other than 429).
-
-    skip_rate_limit_guard: when True, bypass the OpenAI token-bucket RAISE guard
-    (Phase 23 seed loop pre-acquires the token via _wait_for_openai_token and passes
-    this flag to avoid double-counting). Task 2 (23-03) wires the guard logic.
     """
     lock_key = LOCK_KEY_TMPL.format(review_id=review_id)
     with distributed_lock(lock_key, timeout=LOCK_TIMEOUT_SECONDS) as acquired:
@@ -549,6 +544,24 @@ def enrich_review(*, review_id: int, skip_rate_limit_guard: bool = False) -> Non
             organisation_id=review.organisation_id,
             limit=settings.CANONICAL_VOCAB_INJECT_LIMIT,
         )
+
+        # Phase 23 (D-08) — global cross-worker OpenAI token-bucket guard.
+        # Bulk / task path (skip_rate_limit_guard=False): if the per-org rolling-minute
+        # counter is at/above OPENAI_GLOBAL_RATE_LIMIT, raise OpenAITransientError so
+        # Celery autoretry re-queues with exponential backoff (RESEARCH Pattern 1).
+        # Seed-loop path (skip_rate_limit_guard=True): the caller already pre-acquired a
+        # token via _wait_for_openai_token, so we skip BOTH the check AND the increment
+        # to avoid double-counting and to prevent crashing the seed loop (Blocker 2).
+        if not skip_rate_limit_guard:
+            org_id = review.organisation_id
+            if openai_token_bucket_depleted(
+                organisation_id=org_id,
+                max_calls=settings.OPENAI_GLOBAL_RATE_LIMIT,
+            ):
+                raise OpenAITransientError(
+                    f"openai_global_rate_limit: bucket depleted for org {org_id}; Celery will retry"
+                )
+            increment_openai_token_bucket(organisation_id=org_id)
 
         # OpenAI call OUTSIDE the transaction (RESEARCH.md anti-pattern).
         try:
