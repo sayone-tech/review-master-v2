@@ -232,7 +232,7 @@ def test_sync_complete_never_dispatched_from_emit_enrichment_progress() -> None:
 
     dispatch_calls: list[dict] = []
 
-    def _capture_dispatch(*, review: object, total_fetched: int) -> None:
+    def _capture_dispatch(*, shop_id: int, organisation_id: int, total_fetched: int) -> None:
         dispatch_calls.append({"total_fetched": total_fetched})
 
     # Simulate 10 concurrent enrichment completions where enriched > fetched.

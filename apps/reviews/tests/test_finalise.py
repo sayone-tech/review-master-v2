@@ -20,6 +20,7 @@ from apps.reviews.tests.factories import (
     ReviewFactory,
     ReviewTagFactory,
 )
+from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -131,10 +132,19 @@ def _mock_emit() -> MagicMock:
 
 @pytest.fixture
 def patched_finalise():
-    """Patch distributed_lock to always be acquired and emit_progress_event to a mock."""
+    """Patch distributed_lock to always be acquired and emit_progress_event to a mock.
+
+    Also patches read_progress_snapshot (returns a minimal snapshot with fetched=5,
+    enriched=5) and write_progress_snapshot so tests do not require a live Redis
+    connection. The snapshot values are small defaults sufficient for most tests;
+    tests that need specific values can override via additional patches.
+    """
     lock_cm = MagicMock()
     lock_cm.__enter__ = MagicMock(return_value=True)
     lock_cm.__exit__ = MagicMock(return_value=False)
+    # CR-01 fix: _run_finalise now calls read_progress_snapshot to get accumulated
+    # fetched/enriched counts for the sync.complete payload.
+    _default_snap = {"fetched": 5, "enriched": 5, "status": "enriching"}
     with (
         patch(
             "apps.reviews.services.finalise.distributed_lock",
@@ -145,6 +155,16 @@ def patched_finalise():
         ) as mock_emit,
         patch(
             "apps.reviews.services.finalise.write_progress_snapshot",
+        ),
+        patch(
+            "apps.reviews.services.finalise.read_progress_snapshot",
+            return_value=_default_snap,
+        ),
+        # CR-02 fix: _dispatch_sync_complete_notifications is now called from
+        # _run_finalise via a local import from enrichment; patch at source module so
+        # all call paths are intercepted.
+        patch(
+            "apps.reviews.services.enrichment._dispatch_sync_complete_notifications",
         ),
     ):
         yield mock_emit
@@ -313,6 +333,45 @@ class TestRunFinaliseCanonicalTags:
             + str([q["sql"][:100] for q in update_queries])
         )
 
+    def test_straggler_backfill_no_n_plus_one(self, db, patched_finalise) -> None:
+        """Straggler backfill issues O(distinct canonical_tag_ids) UPDATEs, not O(stragglers) (CR-03).
+
+        Creates multiple reviews so each can carry one ReviewTag per label (unique per review).
+        Verifies the UPDATE count does not scale with the number of straggler rows.
+        """
+        # Need one Review per ReviewTag (unique constraint: review_id + label + polarity).
+        shop = ShopFactory()
+        org = shop.organisation
+        canonical_a = OrgCanonicalTagFactory(organisation=org, label="Food Quality")
+        canonical_b = OrgCanonicalTagFactory(organisation=org, label="Service Speed")
+
+        # 5 stragglers mapping to canonical_a (one per review to avoid UNIQUE violation)
+        reviews_a = [ReviewFactory(shop=shop, organisation=org) for _ in range(5)]
+        for r in reviews_a:
+            ReviewTagFactory(review=r, label="food quality", canonical_tag=None)
+
+        # 5 stragglers mapping to canonical_b
+        reviews_b = [ReviewFactory(shop=shop, organisation=org) for _ in range(5)]
+        for r in reviews_b:
+            ReviewTagFactory(review=r, label="service speed", canonical_tag=None)
+
+        with CaptureQueriesContext(connection) as ctx:
+            run_finalise_canonical_tags(
+                organisation_id=shop.organisation_id,
+                shop_id=shop.pk,
+            )
+        update_queries = [q for q in ctx.captured_queries if "UPDATE" in q["sql"].upper()]
+        # With 10 stragglers across 2 canonical tags: must be 2 batch UPDATEs (one per group),
+        # not 10 individual UPDATEs. Overall ceiling of 10 covers straggler UPDATEs +
+        # bulk_update for review_count and any cascade updates.
+        assert len(update_queries) <= 10, (
+            f"Expected at most 10 UPDATE queries (O(groups) not O(stragglers)), "
+            f"got {len(update_queries)}: " + str([q["sql"][:100] for q in update_queries])
+        )
+        # Verify both canonical tags got the FK assigned
+        assert ReviewTag.objects.filter(canonical_tag=canonical_a).count() == 5
+        assert ReviewTag.objects.filter(canonical_tag=canonical_b).count() == 5
+
     def test_early_return_when_lock_not_acquired(self, db) -> None:
         """Service returns immediately (skipped) when distributed lock is not acquired."""
         lock_cm = MagicMock()
@@ -370,6 +429,13 @@ class TestRunFinaliseCanonicalTags:
                 "apps.reviews.services.finalise.emit_progress_event",
             ) as mock_emit,
             patch("apps.reviews.services.finalise.write_progress_snapshot"),
+            # CR-01: read_progress_snapshot is now called in _run_finalise
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 3, "enriched": 3, "status": "enriching"},
+            ),
+            # CR-02: notifications are now dispatched from _run_finalise
+            patch("apps.reviews.services.enrichment._dispatch_sync_complete_notifications"),
         ):
             run_finalise_canonical_tags(
                 organisation_id=tag.organisation_id,
@@ -378,6 +444,81 @@ class TestRunFinaliseCanonicalTags:
         event_types = [call.kwargs["payload"]["type"] for call in mock_emit.call_args_list]
         assert "sync.finalising.progress" in event_types
         assert "sync.complete" in event_types
+
+    def test_sync_complete_payload_includes_required_fields(self, db, patched_finalise) -> None:
+        """sync.complete payload must contain total_fetched, total_enriched, duration_seconds (CR-01)."""
+        tag = OrgCanonicalTagFactory(label="Food Quality")
+        run_finalise_canonical_tags(
+            organisation_id=tag.organisation_id,
+            shop_id=99,
+        )
+        # patched_finalise yields mock_emit; find the sync.complete call
+        complete_calls = [
+            call
+            for call in patched_finalise.call_args_list
+            if call.kwargs.get("payload", {}).get("type") == "sync.complete"
+        ]
+        assert len(complete_calls) == 1, "Expected exactly one sync.complete event"
+        payload = complete_calls[0].kwargs["payload"]
+        assert "total_fetched" in payload, "sync.complete must include total_fetched"
+        assert "total_enriched" in payload, "sync.complete must include total_enriched"
+        assert "duration_seconds" in payload, "sync.complete must include duration_seconds"
+        # Values must be drawn from the snapshot (patched to fetched=5, enriched=5)
+        assert payload["total_fetched"] == 5
+        assert payload["total_enriched"] == 5
+        assert isinstance(payload["duration_seconds"], float)
+
+    def test_notifications_dispatched_when_total_fetched_nonzero(self, db) -> None:
+        """_dispatch_sync_complete_notifications is called when total_fetched > 0 (CR-02)."""
+        lock_cm = MagicMock()
+        lock_cm.__enter__ = MagicMock(return_value=True)
+        lock_cm.__exit__ = MagicMock(return_value=False)
+        tag = OrgCanonicalTagFactory(label="Food Quality")
+        with (
+            patch("apps.reviews.services.finalise.distributed_lock", return_value=lock_cm),
+            patch("apps.reviews.services.finalise.emit_progress_event"),
+            patch("apps.reviews.services.finalise.write_progress_snapshot"),
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 10, "enriched": 10, "status": "enriching"},
+            ),
+            patch(
+                "apps.reviews.services.enrichment._dispatch_sync_complete_notifications",
+            ) as mock_notify,
+        ):
+            run_finalise_canonical_tags(
+                organisation_id=tag.organisation_id,
+                shop_id=7,
+            )
+        mock_notify.assert_called_once_with(
+            shop_id=7,
+            organisation_id=tag.organisation_id,
+            total_fetched=10,
+        )
+
+    def test_notifications_not_dispatched_when_total_fetched_zero(self, db) -> None:
+        """_dispatch_sync_complete_notifications is NOT called when fetched=0 (no reviews)."""
+        lock_cm = MagicMock()
+        lock_cm.__enter__ = MagicMock(return_value=True)
+        lock_cm.__exit__ = MagicMock(return_value=False)
+        tag = OrgCanonicalTagFactory(label="Food Quality")
+        with (
+            patch("apps.reviews.services.finalise.distributed_lock", return_value=lock_cm),
+            patch("apps.reviews.services.finalise.emit_progress_event"),
+            patch("apps.reviews.services.finalise.write_progress_snapshot"),
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 0, "enriched": 0, "status": "enriching"},
+            ),
+            patch(
+                "apps.reviews.services.enrichment._dispatch_sync_complete_notifications",
+            ) as mock_notify,
+        ):
+            run_finalise_canonical_tags(
+                organisation_id=tag.organisation_id,
+                shop_id=7,
+            )
+        mock_notify.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +542,13 @@ class TestFinaliseCanonicalTagsTask:
             ),
             patch("apps.reviews.services.finalise.emit_progress_event"),
             patch("apps.reviews.services.finalise.write_progress_snapshot"),
+            # CR-01: read_progress_snapshot is now called in _run_finalise
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 0, "enriched": 0, "status": "enriching"},
+            ),
+            # CR-02: notifications dispatched from _run_finalise
+            patch("apps.reviews.services.enrichment._dispatch_sync_complete_notifications"),
         ):
             result = finalize_canonical_tags_task(organisation_id=tag.organisation_id, shop_id=1)
         assert isinstance(result, dict)

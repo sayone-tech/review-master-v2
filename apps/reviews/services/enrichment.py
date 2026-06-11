@@ -335,12 +335,19 @@ def _persist_failure(
         )
 
 
-def _dispatch_sync_complete_notifications(*, review: Review, total_fetched: int) -> None:
+def _dispatch_sync_complete_notifications(
+    *, shop_id: int, organisation_id: int, total_fetched: int
+) -> None:
     """Dispatch the two consolidated notifications that fire once at sync.complete.
 
-    Called by _emit_enrichment_progress when enriched >= fetched. Dispatches:
+    Called by run_finalise_canonical_tags (finalise.py) after sync.complete is emitted.
+    Dispatches:
       1. new_action_item — "N action items found" (all items from this sync batch)
       2. new_review — "N reviews synced at <shop>" (summary of the full initial sync)
+
+    Signature uses (shop_id, organisation_id, total_fetched) directly to remove the
+    coupling to a Review proxy object (IN-01 / CLAUDE.md §5 — services operate at
+    org/shop level, not review level for this concern).
 
     Both use function-local imports to avoid circular dependencies.
     """
@@ -348,8 +355,7 @@ def _dispatch_sync_complete_notifications(*, review: Review, total_fetched: int)
     from apps.reviews.services.progress import pop_action_item_summary
     from apps.shops.models import Shop
 
-    shop_id = review.shop_id
-    org_id = review.organisation_id
+    org_id = organisation_id
     shop = Shop.objects.filter(pk=shop_id).first()
 
     # 1. Consolidated action items notification.

@@ -20,6 +20,7 @@ Progress events emitted AFTER the atomic block commits (RESEARCH.md anti-pattern
 from __future__ import annotations
 
 import logging
+import time as _time
 from typing import Any
 
 from django.db import transaction
@@ -31,7 +32,7 @@ from apps.reviews.selectors.canonical_tags import (
     get_duplicate_canonical_tag_groups,
     get_null_straggler_review_tags,
 )
-from apps.reviews.services.progress import write_progress_snapshot
+from apps.reviews.services.progress import read_progress_snapshot, write_progress_snapshot
 from apps.reviews.services.sync import emit_progress_event
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ def run_finalise_canonical_tags(*, organisation_id: int, shop_id: int) -> dict[s
 
 def _run_finalise(*, organisation_id: int, shop_id: int) -> dict[str, Any]:
     """Inner finalising logic — called only when the distributed lock is held."""
+    _finalise_start = _time.monotonic()
     merged_groups = 0
     stragglers_backfilled = 0
 
@@ -117,13 +119,23 @@ def _run_finalise(*, organisation_id: int, shop_id: int) -> dict[str, Any]:
     _refresh_review_counts(organisation_id=organisation_id)
 
     # -------------------------------------------------------------------
-    # Emit sync.complete AFTER all mutations are committed
+    # Emit sync.complete AFTER all mutations are committed (CR-01)
     # -------------------------------------------------------------------
+    # Read accumulated counters from the Redis snapshot — these carry fetched
+    # and enriched counts that were written by sync.py / enrichment.py.
+    snap = read_progress_snapshot(shop_id=shop_id) or {}
+    total_fetched = int(snap.get("fetched", 0))
+    total_enriched = int(snap.get("enriched", 0))
+    duration_seconds = round(_time.monotonic() - _finalise_start, 1)
+
     write_progress_snapshot(
         shop_id=shop_id,
         data={
             "shop_id": shop_id,
             "status": "success",
+            "fetched": total_fetched,
+            "enriched": total_enriched,
+            "duration_seconds": duration_seconds,
             "last_update_at": _now_iso(),
         },
     )
@@ -141,10 +153,27 @@ def _run_finalise(*, organisation_id: int, shop_id: int) -> dict[str, Any]:
         payload={
             "type": "sync.complete",
             "shop_id": shop_id,
+            "total_fetched": total_fetched,
+            "total_enriched": total_enriched,
+            "duration_seconds": duration_seconds,
             "merged_groups": merged_groups,
             "stragglers_backfilled": stragglers_backfilled,
         },
     )
+
+    # Dispatch consolidated notifications (CR-02): "N action items found" + "N reviews synced".
+    # Must be called AFTER sync.complete is emitted so the UI transitions before notifications
+    # fire (belt-and-suspenders ordering).
+    if total_fetched > 0:
+        from apps.reviews.services.enrichment import (
+            _dispatch_sync_complete_notifications,
+        )
+
+        _dispatch_sync_complete_notifications(
+            shop_id=shop_id,
+            organisation_id=organisation_id,
+            total_fetched=total_fetched,
+        )
 
     logger.info(
         "run_finalise_canonical_tags.done organisation_id=%s shop_id=%s "
@@ -192,13 +221,14 @@ def _merge_group(*, organisation_id: int, lower_label: str) -> None:
             ReviewTag.objects.filter(canonical_tag=loser).update(canonical_tag=winner)
             loser.delete()
 
-    logger.debug(
-        "_merge_group organisation_id=%s lower_label=%r winner_id=%s losers=%s",
-        organisation_id,
-        lower_label,
-        winner.pk,
-        [loser_row.pk for loser_row in losers],
-    )
+        # WR-04: log inside the atomic block where winner/losers are guaranteed in-scope.
+        logger.debug(
+            "_merge_group organisation_id=%s lower_label=%r winner_id=%s losers=%s",
+            organisation_id,
+            lower_label,
+            winner.pk,
+            [loser_row.pk for loser_row in losers],
+        )
 
 
 def _backfill_stragglers(*, organisation_id: int) -> int:
@@ -227,13 +257,21 @@ def _backfill_stragglers(*, organisation_id: int) -> int:
     if not stragglers:
         return 0
 
+    # CR-03: group by canonical_tag_id and issue one UPDATE per group, not per row
+    # (CLAUDE.md §6 N+1 is a blocker-level bug; §6.10 use bulk UPDATE).
+    from collections import defaultdict
+
+    groups: dict[int, list[int]] = defaultdict(list)
+    for rt in stragglers:
+        canonical_id = vocab_map.get(rt.label.lower())
+        if canonical_id is not None:
+            groups[canonical_id].append(rt.pk)
+
     updated = 0
     with transaction.atomic():
-        for rt in stragglers:
-            canonical_id = vocab_map.get(rt.label.lower())
-            if canonical_id is not None:
-                ReviewTag.objects.filter(pk=rt.pk).update(canonical_tag_id=canonical_id)
-                updated += 1
+        for canonical_id, pk_list in groups.items():
+            cnt = ReviewTag.objects.filter(pk__in=pk_list).update(canonical_tag_id=canonical_id)
+            updated += cnt
 
     logger.debug(
         "_backfill_stragglers organisation_id=%s total_stragglers=%s updated=%s",
