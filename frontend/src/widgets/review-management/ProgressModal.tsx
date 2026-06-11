@@ -19,6 +19,8 @@ interface SnapshotState {
   vocab_total?: number;
   finalising_processed?: number;
   finalising_total?: number;
+  /** CR-04: the step that was active when the sync.error event arrived. */
+  error_at_step?: "fetching" | "vocab" | "enriching" | "finalising";
 }
 
 interface Props {
@@ -141,6 +143,11 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             shop_id: prev?.shop_id ?? shopId,
             status: "failed",
             step: "failed",
+            // CR-04: capture the step that was active when the error arrived so
+            // getStepState can show exactly which steps completed vs which errored.
+            error_at_step: (prev?.step === "success" || prev?.step === "failed")
+              ? "fetching"
+              : (prev?.step ?? "fetching"),
             fetched: prev?.fetched ?? 0,
             total_estimate: prev?.total_estimate ?? null,
             enriched: prev?.enriched ?? 0,
@@ -202,9 +209,12 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
   function getStepState(stepName: "fetching" | "vocab" | "enriching" | "finalising"): "pending" | "active" | "complete" {
     const stepIdx = stepOrder.indexOf(stepName);
     if (isError) {
-      // In error state, show steps up to current as complete/active, rest pending
-      if (stepIdx < currentStepIndex) return "complete";
-      if (stepIdx === currentStepIndex) return "active";
+      // CR-04: use error_at_step (the step active when sync.error fired) to determine
+      // which steps completed before the error. Without this, currentStep="failed" at
+      // index 5 made all four visible steps (indices 0-3) show "complete" always.
+      const errorAtIdx = stepOrder.indexOf(snapshot?.error_at_step ?? "fetching");
+      if (stepIdx < errorAtIdx) return "complete";
+      if (stepIdx === errorAtIdx) return "active";
       return "pending";
     }
     if (isComplete) return "complete";
