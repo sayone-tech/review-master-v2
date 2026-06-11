@@ -302,6 +302,9 @@ def test_promote_then_dispatch_via_enrichment_flow():
         patch.object(enrichment_mod, "_emit_enrichment_progress"),
         # No progress snapshot → incremental path → dispatch per review immediately.
         patch("apps.reviews.services.progress.read_progress_snapshot", return_value=None),
+        # Phase 23 token-bucket guard — mock so tests don't need a live Redis.
+        patch.object(enrichment_mod, "openai_token_bucket_depleted", return_value=False),
+        patch.object(enrichment_mod, "increment_openai_token_bucket"),
     ):
         enrichment_mod.enrich_review(review_id=review.pk)
 
@@ -374,7 +377,8 @@ def test_sync_dispatches_new_review_notification_per_new_row():
         patch.object(sync_mod, "increment_google_token_bucket"),
         patch.object(sync_mod, "token_bucket_depleted", return_value=False),
         patch.object(sync_mod, "emit_progress_event"),
-        patch("apps.reviews.tasks.enrich_review_task.delay"),
+        # Phase 23: sync.py dispatches via apply_async (not .delay)
+        patch("apps.reviews.tasks.enrich_review_task.apply_async"),
     ):
         # incremental trigger so notification dispatch is NOT suppressed
         sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
