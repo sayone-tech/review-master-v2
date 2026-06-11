@@ -47,6 +47,11 @@ MAX_TOTAL_ENRICH_ATTEMPTS = 3
     retry_backoff=30,
     retry_backoff_max=600,
     retry_jitter=True,
+    # Phase 23 (Pitfall 1 / Open Question 2): the sequential seed loop + token-wait can
+    # exceed the global 300s soft limit. Raise to 540s soft / 600s hard so the seed loop
+    # completes without SoftTimeLimitExceeded.
+    soft_time_limit=540,
+    time_limit=600,
 )
 def initial_backfill_task(self: Any, shop_id: int) -> dict[str, Any]:
     """Initial historical review backfill for a shop, dispatched after OAuth."""
@@ -319,7 +324,11 @@ def retry_failed_enrichments_task() -> int:
         .values_list("id", flat=True)[:500]
     )
     for review_id in ids:
-        enrich_review_task.delay(review_id)
+        # Phase 23 (Pitfall 6): route to ai-enrichment-low (retry traffic is lower priority
+        # than new initial-sync bulk traffic which routes to ai-enrichment-high).
+        # Using apply_async with an explicit queue avoids routing to the removed
+        # monolithic ai-enrichment queue.
+        enrich_review_task.apply_async(args=[review_id], queue="ai-enrichment-low")
     logger.info(
         "retry_failed_enrichments_task.dispatched reviews_count=%s",
         len(ids),

@@ -24,11 +24,17 @@ def test_eager_in_test_settings() -> None:
 
 
 def test_routes_present() -> None:
+    """Phase 23 (D-09): enrich_review_task default route is ai-enrichment-low.
+    Seed path overrides to ai-enrichment-high at call site; retry path uses ai-enrichment-low.
+    """
     routes = settings.CELERY_TASK_ROUTES
     assert routes["apps.reviews.tasks.sync_shop_reviews_task"]["queue"] == "google-sync"
     assert routes["apps.reviews.tasks.initial_backfill_task"]["queue"] == "google-sync"
-    assert routes["apps.reviews.tasks.enrich_review_task"]["queue"] == "ai-enrichment"
-    assert routes["apps.reviews.tasks.retry_failed_enrichments_task"]["queue"] == "ai-enrichment"
+    # Conservative fallback queue — actual dispatch queue is set at call site via apply_async.
+    assert routes["apps.reviews.tasks.enrich_review_task"]["queue"] == "ai-enrichment-low"
+    assert (
+        routes["apps.reviews.tasks.retry_failed_enrichments_task"]["queue"] == "ai-enrichment-low"
+    )
 
 
 def test_broker_uses_db_3() -> None:

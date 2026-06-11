@@ -48,15 +48,29 @@ from apps.reviews.tests.factories import (
 
 @pytest.fixture(autouse=True)
 def no_progress_snapshot():
-    """Phase 12-06: suppress Redis reads in _emit_enrichment_progress.
+    """Phase 12-06 / 23-03: suppress all Redis reads in enrichment helpers.
 
-    _persist_success now calls _emit_enrichment_progress which reads from Redis.
-    Returning None makes the helper exit silently so these tests focus on DB
-    state and AiUsageLog — not WebSocket progress events.
+    _persist_success → _emit_enrichment_progress reads from Redis.
+    enrich_review (Phase 23 D-08) calls openai_token_bucket_depleted +
+    increment_openai_token_bucket which also use Redis. All are mocked here
+    so these tests focus on DB state and AiUsageLog — not WebSocket progress
+    events or rate-limiting behaviour (those are tested in test_tasks.py).
+
+    Token bucket is mocked as not-depleted (False) so the bulk-path guard
+    does not raise and the normal success/failure paths remain exercisable.
     """
-    with patch(
-        "apps.reviews.services.progress.read_progress_snapshot",
-        return_value=None,
+    with (
+        patch(
+            "apps.reviews.services.progress.read_progress_snapshot",
+            return_value=None,
+        ),
+        patch(
+            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
+            return_value=False,
+        ),
+        patch(
+            "apps.reviews.services.enrichment.increment_openai_token_bucket",
+        ),
     ):
         yield
 
