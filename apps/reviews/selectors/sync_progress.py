@@ -18,7 +18,16 @@ def get_progress_snapshot(*, shop_id: Any) -> dict[str, Any] | None:
     Reads from Redis key sync:progress:{shop_id} via the sync helper
     in apps.reviews.services.progress.read_progress_snapshot.
 
-    Returns None if Redis is unavailable (e.g. in tests with locmem cache).
+    The full snapshot dict is returned verbatim — no key allowlist or filtering.
+    Phase 23 four-step keys are passed through transparently (SEED-01):
+      - step: "fetching" | "vocab" | "enriching" | "finalising" | "success" | "failed"
+      - vocab_enriched: int — reviews enriched during the seed (vocabulary-building) phase
+      - vocab_total: int — total seed-phase reviews
+      - finalising_processed: int — canonical-tag groups processed during finalising
+      - finalising_total: int — total canonical-tag groups to process
+
+    Returns None if Redis is unavailable (e.g. in tests with locmem cache),
+    or if no snapshot exists for this shop.
     """
     from apps.reviews.services.progress import read_progress_snapshot
 

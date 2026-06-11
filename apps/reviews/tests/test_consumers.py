@@ -214,3 +214,61 @@ async def test_no_snapshot_sent_when_redis_empty() -> None:
         assert received_snapshot is False
         # Note: after a timeout, the communicator may be in a cancelled state.
         # We simply assert that no message was received without disconnecting.
+
+
+# ---------------------------------------------------------------------------
+# Phase 23 Task 4 — reconnect repaint (SEED-01): 4-step snapshot pass-through
+# ---------------------------------------------------------------------------
+
+
+async def test_reconnect_snapshot_carries_4step_keys() -> None:
+    """On reconnect, the consumer delivers the full 4-step snapshot verbatim.
+
+    The consumer sends whatever get_progress_snapshot returns; get_progress_snapshot
+    delegates to read_progress_snapshot with no key filtering. This test seeds a
+    snapshot with the Phase 23 step discriminator and per-step counters, connects an
+    authenticated in-org user, and asserts the first on-connect message carries every
+    4-step field unchanged — confirming the modal's reconnect-repaint path works
+    end to end (SEED-01 / T-23-09 cross-tenant: auth/tenant-scope left unchanged).
+    """
+    from unittest.mock import patch
+
+    org = await sync_to_async(OrganisationFactory)()
+    shop = await sync_to_async(ShopFactory)(organisation=org)
+    user = await sync_to_async(UserFactory)(organisation=org)
+
+    # A 4-step snapshot mid-way through the finalising phase.
+    four_step_snapshot = {
+        "shop_id": shop.pk,
+        "status": "finalising",
+        "step": "finalising",
+        "fetched": 120,
+        "enriched": 70,
+        "vocab_enriched": 50,
+        "vocab_total": 50,
+        "finalising_processed": 3,
+        "finalising_total": 7,
+        "last_update_at": "2026-06-11T10:00:00Z",
+    }
+
+    with patch(
+        "apps.reviews.services.progress.read_progress_snapshot",
+        return_value=four_step_snapshot,
+    ):
+        communicator = await _make_communicator(shop.pk, user)
+        connected, _ = await communicator.connect()
+        assert connected is True, "Authenticated same-org user must be accepted"
+
+        msg = await communicator.receive_json_from(timeout=2)
+
+        # The consumer must relay the full snapshot verbatim (SEED-01 reconnect repaint).
+        assert msg["step"] == "finalising", "step discriminator must be present"
+        assert msg["vocab_enriched"] == 50
+        assert msg["vocab_total"] == 50
+        assert msg["finalising_processed"] == 3
+        assert msg["finalising_total"] == 7
+        # Core existing fields must survive too (no key stripping).
+        assert msg["fetched"] == 120
+        assert msg["enriched"] == 70
+
+        await communicator.disconnect()
