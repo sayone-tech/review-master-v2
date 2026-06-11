@@ -47,11 +47,16 @@ MAX_TOTAL_ENRICH_ATTEMPTS = 3
     retry_backoff=30,
     retry_backoff_max=600,
     retry_jitter=True,
-    # Phase 23 (Pitfall 1 / Open Question 2): the sequential seed loop + token-wait can
-    # exceed the global 300s soft limit. Raise to 540s soft / 600s hard so the seed loop
-    # completes without SoftTimeLimitExceeded.
-    soft_time_limit=540,
-    time_limit=600,
+    # WR-02: the sequential seed loop can run SEED_PHASE_SIZE (50) x (max_wait=30s + ~5s
+    # OpenAI call) = 1,750s in the worst case (bucket depleted on every iteration).
+    # At p95 (avg ~10s/review): 50 x 10s = 500s + fetch overhead + bulk dispatch headroom.
+    # soft_time_limit=900 (15 min) covers p95 with headroom; hard limit at 960s gives a
+    # 60s grace period for clean exit. True worst-case exhaustion still exceeds this —
+    # the long-term fix is a resumable seed loop with a Redis cursor (sync:seed_cursor:{shop_id}).
+    # autoretry_for=(Exception,) catches SoftTimeLimitExceeded; the per-shop lock (TTL 300s)
+    # will have expired on the retry, so the full fetch re-runs — acceptable for Phase 23.
+    soft_time_limit=900,
+    time_limit=960,
 )
 def initial_backfill_task(self: Any, shop_id: int) -> dict[str, Any]:
     """Initial historical review backfill for a shop, dispatched after OAuth."""

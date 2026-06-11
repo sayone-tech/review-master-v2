@@ -55,7 +55,8 @@ def patched_dependencies():
         # Phase 23-03 additions: guard seed/bulk/finalise phases from hitting Redis
         patch.object(sync_mod, "_wait_for_openai_token"),
         patch.object(sync_mod, "increment_vocab_counter"),
-        patch.object(sync_mod, "get_org_vocabulary"),
+        # WR-01: get_org_vocabulary is no longer imported/called in sync.py's seed loop
+        # (the redundant call was removed — vocabulary is re-queried inside enrich_review).
         patch("apps.reviews.tasks.enrich_review_task.delay"),
         patch("apps.reviews.tasks.enrich_review_task.apply_async"),
         patch("apps.reviews.tasks.finalize_canonical_tags_task.apply_async"),
@@ -483,33 +484,19 @@ def test_depleted_bucket_seed_completes_all_reviews(patched_backfill_deps: Any) 
     assert wait_calls == 3, f"_wait_for_openai_token called once per seed review, got {wait_calls}"
 
 
-def test_get_org_vocabulary_called_per_seed_iteration(patched_backfill_deps: Any) -> None:
-    """D-04: re-read org vocabulary before each seed review."""
-    from unittest.mock import MagicMock, patch
+def test_seed_loop_does_not_call_get_org_vocabulary_directly(patched_backfill_deps: Any) -> None:
+    """WR-01: sync.py's seed loop must NOT call get_org_vocabulary directly.
 
-    shop = _make_shop()
-    page = {"reviews": [_api_review(f"g-{i}") for i in range(1, 4)], "totalReviewCount": 3}
+    The vocabulary is re-queried inside enrich_review() on every call (D-04).
+    The previously redundant call in the seed loop was removed — this test confirms
+    that the sync module no longer imports or calls it, preventing one wasted DB
+    round-trip per seed review.
+    """
+    import apps.reviews.services.sync as _sync_mod
 
-    vocab_calls: list[int] = []
-
-    def _mock_get_vocab(*, organisation_id: int, **kwargs: Any) -> list[str]:
-        vocab_calls.append(organisation_id)
-        return []
-
-    with (
-        patch.object(sync_mod, "list_reviews", return_value=page),
-        patch("apps.reviews.services.enrichment.enrich_review", MagicMock()),
-        patch("apps.reviews.services.sync._wait_for_openai_token", MagicMock(return_value=1)),
-        patch("apps.reviews.services.sync.get_org_vocabulary", side_effect=_mock_get_vocab),
-        patch("apps.reviews.tasks.enrich_review_task") as _et,
-        patch("apps.reviews.tasks.finalize_canonical_tags_task"),
-    ):
-        _et.apply_async = MagicMock()
-        sync_mod.run_initial_backfill(shop_id=shop.pk)
-
-    # Called at least once per seed review (3 reviews)
-    assert len(vocab_calls) >= 3, (
-        f"get_org_vocabulary must be called per seed review, got {len(vocab_calls)}"
+    assert not hasattr(_sync_mod, "get_org_vocabulary"), (
+        "get_org_vocabulary must not be imported at sync module level (WR-01 fix: "
+        "removed dead call from seed loop; vocabulary is re-read inside enrich_review)"
     )
 
 

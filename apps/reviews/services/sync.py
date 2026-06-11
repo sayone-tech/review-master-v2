@@ -39,7 +39,6 @@ from apps.integrations.google.exceptions import (
 from apps.integrations.google.oauth import _refresh_access_token
 from apps.integrations.google.reviews_client import list_reviews
 from apps.reviews.models import Review
-from apps.reviews.selectors.canonical_tags import get_org_vocabulary
 from apps.reviews.services.progress import (
     _wait_for_openai_token,
     bulk_increment_enriched_counter,
@@ -598,8 +597,8 @@ def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
 
     Phase 2 — Seed (vocab-building, D-03/D-04): query the newest SEED_PHASE_SIZE PENDING
               review IDs, process sequentially. Before each enrich_review call:
-                1. Re-read org vocabulary (get_org_vocabulary — each iteration sees
-                   canonical tags added by earlier seed reviews).
+                1. enrich_review() internally re-reads the org vocabulary on every call, so
+                   each seed review sees canonical tags added by earlier seed reviews (D-04).
                 2. Pre-acquire a global OpenAI token via _wait_for_openai_token (D-08).
                    This helper WAITs/sleeps-and-retries and NEVER raises on depletion
                    (Blocker 2 fix — seed loop must not crash on a depleted bucket).
@@ -662,11 +661,9 @@ def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
     write_progress_snapshot(shop_id=shop_id, data=snapshot)
 
     for i, review_id in enumerate(seed_ids, start=1):
-        # D-04: re-read org vocabulary each iteration (new canonical tags from prior seed
-        # reviews are now queryable).
-        get_org_vocabulary(
-            organisation_id=org_id, limit=getattr(settings, "CANONICAL_VOCAB_INJECT_LIMIT", 200)
-        )
+        # D-04: the org vocabulary is re-read inside enrich_review() on every call —
+        # calling get_org_vocabulary() here again is redundant (WR-01: discarded return
+        # value resulted in one wasted DB round-trip per seed review).
         # D-08: pre-acquire a global token (WAIT, never raise) so the seed loop survives
         # a depleted bucket (Blocker 2).
         _wait_for_openai_token(organisation_id=org_id, max_calls=openai_rate_limit)
@@ -725,11 +722,25 @@ def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
         # so Celery autoretry handles re-queue on a depleted bucket (D-08, RESEARCH Pattern 1).
         enrich_review_task.apply_async(args=[review_id], queue="ai-enrichment-high")
 
-    # Phase 4: Dispatch finalising pass with countdown to allow bulk enrichments to land (D-09)
+    # Phase 4: Dispatch finalising pass with countdown to allow bulk enrichments to land (D-09).
+    # WR-03: countdown=300 was a fixed guess. Derive from bulk count: each bulk review takes
+    # ~10s p95 (OpenAI latency + queue wait), but ai-enrichment-high workers process them in
+    # parallel. With 4 workers: ~ceil(bulk_count / 4) x 10s. Floor at 300s for small shops,
+    # cap at 1200s (20 min) for very large ones. This is a heuristic — if bulk enrichments
+    # haven't settled by then, _refresh_review_counts will miss them. The accurate long-term
+    # fix is a Celery chord that fires finalize_canonical_tags_task only after all bulk subtasks
+    # complete. That requires tracking all bulk task IDs and is deferred to Phase 24+.
+    _bulk_count = len(bulk_ids)
+    _workers_estimate = 4
+    _seconds_per_review_p95 = 10
+    _finalise_countdown = max(
+        300,
+        min(1200, (_bulk_count // max(_workers_estimate, 1) + 1) * _seconds_per_review_p95),
+    )
     finalize_canonical_tags_task.apply_async(
         kwargs={"organisation_id": org_id, "shop_id": shop_id},
         queue="tag-merge",
-        countdown=300,
+        countdown=_finalise_countdown,
     )
 
     logger.info(

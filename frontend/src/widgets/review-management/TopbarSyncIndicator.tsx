@@ -95,14 +95,18 @@ export function TopbarBell() {
             ),
           );
         } else if (data.type === "sync.fetch.progress") {
-          // Default stage; once a shop has progressed to enriching, do NOT
-          // regress to fetching even if a stale fetch event arrives.
+          // IN-02: extend the regression guard to cover all later stages, not just
+          // "enriching". A stale sync.fetch.progress event must not regress a shop
+          // that has already advanced to vocab/enriching/finalising.
+          const STAGE_ORDER: Array<SyncingShop["stage"]> = ["fetching", "vocab", "enriching", "finalising"];
           setActive((prev) =>
-            prev.map((s) =>
-              s.shop_id === shop.shop_id && s.stage !== "enriching"
+            prev.map((s) => {
+              const currentIdx = STAGE_ORDER.indexOf(s.stage ?? "fetching");
+              const fetchingIdx = STAGE_ORDER.indexOf("fetching");
+              return s.shop_id === shop.shop_id && currentIdx <= fetchingIdx
                 ? { ...s, stage: "fetching" }
-                : s,
-            ),
+                : s;
+            }),
           );
         } else if (data.type === "sync.complete") {
           setActive((prev) => prev.filter((s) => s.shop_id !== shop.shop_id));
