@@ -128,13 +128,13 @@ def test_retry_failed_enrichments_task_enqueues_failed_reviews() -> None:
         deleted_at=timezone.now(),
     )
 
-    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply:
         count = tasks.retry_failed_enrichments_task()
 
     assert count == 1
-    mock_delay.assert_called_once_with(candidate.pk)
+    mock_apply.assert_called_once_with(args=[candidate.pk], queue="ai-enrichment-low")
     # Verify none of the others were enqueued
-    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    enqueued_ids = {call.kwargs["args"][0] for call in mock_apply.call_args_list}
     assert at_cap.pk not in enqueued_ids
     assert success.pk not in enqueued_ids
     assert pending.pk not in enqueued_ids
@@ -146,7 +146,7 @@ def test_retry_failed_enrichments_task_returns_zero_when_no_candidates() -> None
     from apps.reviews.tests.factories import ReviewFactory
 
     ReviewFactory(enrichment_status=Review.EnrichmentStatus.SUCCESS)
-    with patch("apps.reviews.tasks.enrich_review_task.delay"):
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async"):
         assert tasks.retry_failed_enrichments_task() == 0
 
 
@@ -161,10 +161,10 @@ def test_retry_failed_enrichments_task_caps_at_500_per_run() -> None:
         enrichment_status=Review.EnrichmentStatus.FAILED,
         enrichment_version=0,
     )
-    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply:
         count = tasks.retry_failed_enrichments_task()
     assert count == 500
-    assert mock_delay.call_count == 500
+    assert mock_apply.call_count == 500
 
 
 def test_retry_failed_enrichments_excludes_moderated() -> None:
@@ -191,10 +191,10 @@ def test_retry_failed_enrichments_excludes_moderated() -> None:
         enrichment_error_code="",
     )
 
-    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply:
         count = tasks.retry_failed_enrichments_task()
 
-    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    enqueued_ids = {call.kwargs["args"][0] for call in mock_apply.call_args_list}
     assert moderated.pk not in enqueued_ids, "content_moderated must not be retried (D-25)"
     assert transient.pk in enqueued_ids
     assert legacy.pk in enqueued_ids
@@ -216,10 +216,10 @@ def test_retry_failed_enrichments_includes_other_failure_codes() -> None:
         for code in codes
     ]
 
-    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply:
         count = tasks.retry_failed_enrichments_task()
 
-    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    enqueued_ids = {call.kwargs["args"][0] for call in mock_apply.call_args_list}
     for review in reviews:
         assert review.pk in enqueued_ids, f"code={review.enrichment_error_code!r} should retry"
     assert count == len(codes)
