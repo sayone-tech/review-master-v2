@@ -147,6 +147,11 @@ class OrgCanonicalTag(TimeStampedModel):
     )
     label = models.CharField(max_length=100)
     polarity_type = models.CharField(max_length=20, choices=PolarityType.choices)
+    # Denormalised cache stamped by the Phase 24 weekly reclassification job.
+    # Null means never auto-reclassified. AuditLog remains authoritative.
+    # Provides Phase 25 tag-list display a cheap last-reclassified value
+    # without requiring an AuditLog JOIN.
+    polarity_reclassified_at = models.DateTimeField(null=True, blank=True)
     # DENORMALIZED CACHE — default 0. NEVER incremented in the enrichment hot
     # path (D-03). Refreshed only by the Phase 24 weekly reclassification job
     # and Phase 25 merge operations.
