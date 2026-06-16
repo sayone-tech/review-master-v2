@@ -14,11 +14,13 @@ from apps.dashboard.selectors.aggregations import (
     dashboard_highlights,
     dashboard_kpis,
     dashboard_sentiment_distribution,
+    dashboard_tag_polarity,
     dashboard_top_performing,
     dashboard_your_store,
 )
 from apps.dashboard.tests.conftest import make_review
-from apps.reviews.models import Review
+from apps.reviews.models import OrgCanonicalTag, Review
+from apps.reviews.tests.factories import OrgCanonicalTagFactory, ReviewTagFactory
 from apps.shops.tests.factories import ShopFactory
 
 SUCCESS = Review.EnrichmentStatus.SUCCESS
@@ -431,3 +433,74 @@ def test_highlights_query_count(accessible_shops, org):
         dashboard_highlights(org_id=org.id, params=params)
 
     assert len(ctx.captured_queries) == 1, f"Expected 1 query, got {len(ctx.captured_queries)}"
+
+
+# ===========================================================================
+# dashboard_tag_polarity (TDASH-01, TDASH-02)
+# ===========================================================================
+
+
+@pytest.mark.django_db
+def test_tag_polarity_basic(org):
+    """TDASH-01: mixed tag returns pos/neg split; always_positive tag returns negative_count==0."""
+    # Create a mixed tag with both positive and negative ReviewTags
+    mixed_tag = OrgCanonicalTagFactory(
+        organisation=org, polarity_type=OrgCanonicalTag.PolarityType.MIXED
+    )
+    review = make_review(shop=ShopFactory(organisation=org), star_rating=3)
+    ReviewTagFactory(review=review, polarity="positive", canonical_tag=mixed_tag)
+    ReviewTagFactory(review=review, polarity="negative", canonical_tag=mixed_tag)
+    ReviewTagFactory(review=review, polarity="positive", canonical_tag=mixed_tag)
+
+    # Create an always_positive tag with only positive ReviewTags
+    pos_tag = OrgCanonicalTagFactory(
+        organisation=org, polarity_type=OrgCanonicalTag.PolarityType.ALWAYS_POSITIVE
+    )
+    ReviewTagFactory(review=review, polarity="positive", canonical_tag=pos_tag)
+
+    result = dashboard_tag_polarity(organisation_id=org.id)
+
+    # Find the mixed tag in results
+    mixed_result = next((t for t in result["tags"] if t["label"] == mixed_tag.label), None)
+    assert mixed_result is not None
+    assert mixed_result["positive_count"] > 0
+    assert mixed_result["negative_count"] > 0
+
+    # Find the always_positive tag in results
+    pos_result = next((t for t in result["tags"] if t["label"] == pos_tag.label), None)
+    assert pos_result is not None
+    assert pos_result["negative_count"] == 0
+
+
+@pytest.mark.django_db
+def test_tag_polarity_excludes_null_canonical(org):
+    """TDASH-02: ReviewTag rows with canonical_tag=None are NOT counted."""
+    review = make_review(shop=ShopFactory(organisation=org), star_rating=4)
+    # ReviewTag with no canonical tag — must not appear in results
+    ReviewTagFactory(review=review, polarity="positive", canonical_tag=None)
+
+    result = dashboard_tag_polarity(organisation_id=org.id)
+    assert result["tags"] == []
+    assert result["has_more"] is False
+
+
+@pytest.mark.django_db
+def test_tag_polarity_query_count(org):
+    """TDASH-02: dashboard_tag_polarity runs in ≤2 DB queries (no N+1)."""
+    shop = ShopFactory(organisation=org)
+    review = make_review(shop=shop, star_rating=4)
+    for _ in range(5):
+        tag = OrgCanonicalTagFactory(
+            organisation=org, polarity_type=OrgCanonicalTag.PolarityType.MIXED
+        )
+        ReviewTagFactory(review=review, polarity="positive", canonical_tag=tag)
+        ReviewTagFactory(review=review, polarity="negative", canonical_tag=tag)
+
+    with CaptureQueriesContext(connection) as ctx:
+        result = dashboard_tag_polarity(organisation_id=org.id)
+
+    assert len(ctx.captured_queries) <= 2, (
+        f"Expected ≤2 queries, got {len(ctx.captured_queries)}: "
+        f"{[q['sql'][:80] for q in ctx.captured_queries]}"
+    )
+    assert len(result["tags"]) == 5
