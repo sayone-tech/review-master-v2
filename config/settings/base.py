@@ -126,6 +126,8 @@ CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment-low"},
     "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment-low"},
     "apps.reviews.tasks.finalize_canonical_tags_task": {"queue": "tag-merge"},
+    # Phase 25 TMGT-05 — user-directed canonical tag merge; per-org locked, all-or-nothing.
+    "apps.reviews.tasks.merge_canonical_tags_task": {"queue": "tag-merge"},
     # Phase 24 POL-02 — weekly polarity reclassification; low-frequency, low-concurrency.
     "apps.reviews.tasks.reclassify_polarity_task": {"queue": "default"},
     "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},

@@ -123,11 +123,12 @@ def test_merge_bulk_update_no_n_plus_one(db) -> None:
     org_tag_target = OrgCanonicalTagFactory(
         organisation=org_tag_source.organisation, label="Target Tag", review_count=2
     )
-    review = ReviewFactory(organisation=org_tag_source.organisation)
-    # Create several ReviewTag rows pointing to source
+    # Create 5 ReviewTag rows pointing to source — each on a distinct review to
+    # avoid the UniqueConstraint on (review, label, polarity).
     for _ in range(5):
+        r = ReviewFactory(organisation=org_tag_source.organisation)
         ReviewTagFactory(
-            review=review, label="source tag", polarity="positive", canonical_tag=org_tag_source
+            review=r, label="source tag", polarity="positive", canonical_tag=org_tag_source
         )
 
     job = TagMergeJobFactory(
@@ -154,16 +155,24 @@ def test_merge_bulk_update_no_n_plus_one(db) -> None:
     assert not ReviewTag.objects.filter(canonical_tag=org_tag_source).exists()
     assert ReviewTag.objects.filter(canonical_tag=org_tag_target).count() == 5
 
-    # The FK re-point must be a single UPDATE (not N per-row updates).
-    # Allowance: SELECT job (1) + SELECT FOR UPDATE (1) + UPDATE status (1) +
-    # UPDATE reviewtag (1 bulk) + DELETE source (1) + SELECT counts + bulk_update counts (2)
-    # + UPDATE job success (1) = bounded, not proportional to 5 rows
+    # The FK re-point must be a single bulk UPDATE (not one UPDATE per row).
+    # Django's on_delete=SET_NULL cascade generates a second SET_NULL statement
+    # during source.delete() — that's expected and constant regardless of row count.
+    # What we must NOT have is 5 individual per-row updates.
     update_queries = [q for q in ctx.captured_queries if "UPDATE" in q["sql"].upper()]
-    # The ReviewTag FK re-point must be exactly 1 UPDATE statement (not 5)
     reviewtag_updates = [q for q in update_queries if "reviews_reviewtag" in q["sql"].lower()]
-    assert len(reviewtag_updates) == 1, (
-        f"Expected exactly 1 bulk UPDATE for ReviewTag FK re-point, "
+    # Must be ≤ 2 statements: 1 bulk re-point + 1 SET NULL cascade (constant, not proportional to 5)
+    assert len(reviewtag_updates) <= 2, (
+        f"Expected ≤2 UPDATE statements for ReviewTag FK re-point (1 bulk + 1 cascade SET_NULL), "
         f"got {len(reviewtag_updates)}: {[q['sql'] for q in reviewtag_updates]}"
+    )
+    # The re-point statement must target all rows at once (SET canonical_tag_id = target)
+    repoint_updates = [
+        q for q in reviewtag_updates if "set" in q["sql"].lower() and "null" not in q["sql"].lower()
+    ]
+    assert len(repoint_updates) == 1, (
+        f"Expected exactly 1 non-null bulk UPDATE for ReviewTag re-point, "
+        f"got {len(repoint_updates)}: {[q['sql'] for q in repoint_updates]}"
     )
 
 

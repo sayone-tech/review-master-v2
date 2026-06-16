@@ -47,6 +47,19 @@ def get_duplicate_canonical_tag_groups(*, organisation_id: int) -> list[str]:
     )
 
 
+def list_canonical_tags_for_org(*, organisation_id: int) -> QuerySet[OrgCanonicalTag]:
+    """Return all org canonical tags for the paginated tag list endpoint (TMGT-02).
+
+    One query — no prefetch needed (no nested FKs in the response shape).
+    Default ordering: highest review_count first, then alphabetical by label.
+    The viewset's OrderingFilter overrides ordering via ?ordering= query param.
+    Query ceiling: 1 COUNT + 1 SELECT = 2 queries max for a paginated response (§6.9).
+    """
+    return OrgCanonicalTag.objects.filter(organisation_id=organisation_id).order_by(
+        "-review_count", "label"
+    )
+
+
 def get_null_straggler_review_tags(*, organisation_id: int, limit: int) -> QuerySet[ReviewTag]:
     """Return ReviewTag rows with null canonical_tag whose review belongs to the org.
 

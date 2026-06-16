@@ -302,6 +302,51 @@ def finalize_canonical_tags_task(
     return result
 
 
+@shared_task(  # type: ignore[misc]
+    bind=True,
+    max_retries=3,
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=600,
+    retry_jitter=True,
+)
+def merge_canonical_tags_task(self: Any, job_id: int) -> None:
+    """Phase 25 — User-directed canonical tag merge. Routes to tag-merge queue.
+
+    Thin wrapper — all business logic in merge_canonical_tags() service (CLAUDE.md §12.3).
+    Per-org distributed_lock acquired inside the service (§7.6).
+    job_id (not model instance) per §12.3.
+    """
+    from apps.reviews.services.tag_management import merge_canonical_tags
+
+    task_id = self.request.id
+    attempt = self.request.retries + 1
+    logger.info(
+        "merge_canonical_tags_task.start task_id=%s job_id=%s attempt=%s",
+        task_id,
+        job_id,
+        attempt,
+    )
+    try:
+        merge_canonical_tags(job_id=job_id)
+    except Exception as exc:
+        logger.error(
+            "merge_canonical_tags_task.error task_id=%s job_id=%s attempt=%s error=%r",
+            task_id,
+            job_id,
+            attempt,
+            exc,
+            exc_info=True,
+        )
+        raise
+    logger.info(
+        "merge_canonical_tags_task.success task_id=%s job_id=%s attempt=%s",
+        task_id,
+        job_id,
+        attempt,
+    )
+
+
 @shared_task  # type: ignore[misc]
 def reclassify_polarity_task() -> dict[str, int]:
     """Phase 24 POL-02 — Weekly polarity auto-reclassification, Beat-scheduled.
