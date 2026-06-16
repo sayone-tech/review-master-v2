@@ -99,7 +99,7 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 - [x] **Phase 22: Canonical Tag Foundation & Mapping Pipeline** — `OrgCanonicalTag` model + nullable `canonical_tag` FK on `ReviewTag` + migration; canonical lookup/insert folded into the single GPT call and post-enrichment atomic block; English-only tags; one `AiUsageLog` row per call; global OpenAI rate limit. (completed 2026-06-10)
 - [x] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues. (completed 2026-06-11)
 - [x] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible. (completed 2026-06-16)
-- [ ] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags.
+- [x] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags. (completed 2026-06-16)
 - [ ] **Phase 26: Superadmin Data Reset & Re-Sync** — One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync.
 
 ---
@@ -255,7 +255,7 @@ Plans:
 
 **Wave 3** *(blocked on 25-02)*
 
-- [ ] 25-03-PLAN.md — Tag-management React widget: sortable table, inline rename, merge modal, 2s HTTP-polled progress banner (TMGT-02/03/04/06)
+- [x] 25-03-PLAN.md — Tag-management React widget: sortable table, inline rename, merge modal, 2s HTTP-polled progress banner (TMGT-02/03/04/06)
 
 ### Phase 26: Superadmin Data Reset & Re-Sync
 
@@ -294,5 +294,5 @@ Plans:
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
 | 24. Polarity Auto-Reclassification | v0.8 | 2/2 | Complete    | 2026-06-16 |
-| 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 3/4 | In Progress|  |
+| 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 4/4 | Complete   | 2026-06-16 |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |

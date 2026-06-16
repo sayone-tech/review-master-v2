@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Canonical Tag System
-status: executing
+status: verifying
 stopped_at: Phase 25 UI-SPEC approved
-last_updated: "2026-06-16T11:43:02.629Z"
+last_updated: "2026-06-16T11:52:03.312Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 24
-  completed_plans: 23
-  percent: 67
+  completed_plans: 24
+  percent: 83
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-08)
 Phase: 25 (org-admin-tag-management-dashboard-polarity) — EXECUTING
 Plan: 4 of 4
 Next: Phase 24 (polarity-auto-reclassification) — discussing
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-16
 
 ### v0.8 phase map (Phases 22–26)
@@ -59,6 +59,7 @@ Last activity: 2026-06-16
 | 18 | 4 | - | - |
 | 22 | 6 | - | - |
 | 24 | 2 | - | - |
+| Phase 25 P03 | 20 | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,7 @@ Decisions carried forward (relevant to v0.8):
 - [v0.8 reconciliation]: Canonical lookup/insert folds into the existing single GPT call + post-enrichment `ReviewTag` write inside enrichment.py's existing `transaction.atomic()`; exactly one `AiUsageLog` row per call — never a separate GPT call for mapping
 - [v0.4]: Cache key MUST include `accessible_shop_ids` hash — cross-user cache isolation (DASH-C1)
 - [v0.4]: `IsOrgScoped` used on APIView directly, not TenantScopedViewSet — for pure-read views
+- [Phase ?]: emitToast uses {kind, title, msg} not {kind, title, body} — matched actual lib/toast.ts signature
 
 ### Pending Todos
 
@@ -85,6 +87,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-06-16T11:43:02.625Z
+Last session: 2026-06-16T11:51:58.956Z
 Stopped at: Phase 25 UI-SPEC approved
 Resume file: None
