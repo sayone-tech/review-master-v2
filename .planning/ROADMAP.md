@@ -240,8 +240,22 @@ Plans:
   4. Merge progress is delivered via HTTP polling — an in-progress bar with dismiss, state that survives page reload, a completion toast, and a failure path that rolls back partial updates (no new WebSocket consumer).
   5. Dashboard tag charts show a simple count for `always_positive` / `always_negative` canonical tags and a positive/negative split for `mixed` tags, and all canonical aggregation queries include only reviews where `canonical_tag` is set.
 
-**Plans**: TBD
+**Plans**: 4 plans
 **UI hint**: yes
+
+Plans:
+**Wave 1**
+
+- [ ] 25-01-PLAN.md — Backend data + rename/merge services + merge_canonical_tags_task (tag-merge queue) + TagMergeJob model + TAG_MERGE_COMPLETE (TMGT-03/05/06)
+- [ ] 25-04-PLAN.md — Dashboard polarity: dashboard_tag_polarity selector + view + TagPolarityChart stacked bar (TDASH-01/02)
+
+**Wave 2** *(blocked on 25-01)*
+
+- [ ] 25-02-PLAN.md — Tag-management API: viewsets (list/rename/merge), tag-merge-job poll/dismiss, ORG_ADMIN tags page + sidebar (TMGT-01/02/04/05/06)
+
+**Wave 3** *(blocked on 25-02)*
+
+- [ ] 25-03-PLAN.md — Tag-management React widget: sortable table, inline rename, merge modal, 2s HTTP-polled progress banner (TMGT-02/03/04/06)
 
 ### Phase 26: Superadmin Data Reset & Re-Sync
 
@@ -280,5 +294,5 @@ Plans:
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
 | 24. Polarity Auto-Reclassification | v0.8 | 2/2 | Complete    | 2026-06-16 |
-| 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
+| 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/4 | ⬜ Not started | - |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
