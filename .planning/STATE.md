@@ -4,13 +4,13 @@ milestone: v0.8
 milestone_name: Canonical Tag System
 status: executing
 stopped_at: Phase 25 UI-SPEC approved
-last_updated: "2026-06-16T10:46:12.071Z"
-last_activity: 2026-06-16 -- Phase 25 planning complete
+last_updated: "2026-06-16T11:13:36.420Z"
+last_activity: 2026-06-16
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 24
-  completed_plans: 20
+  completed_plans: 21
   percent: 67
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 25 — org admin tag management & dashboard polarity
+**Current focus:** Phase 25 — org-admin-tag-management-dashboard-polarity
 
 ## Current Position
 
-Phase: 25
-Plan: Not started
+Phase: 25 (org-admin-tag-management-dashboard-polarity) — EXECUTING
+Plan: 2 of 4
 Next: Phase 24 (polarity-auto-reclassification) — discussing
 Status: Ready to execute
-Last activity: 2026-06-16 -- Phase 25 planning complete
+Last activity: 2026-06-16
 
 ### v0.8 phase map (Phases 22–26)
 
@@ -85,6 +85,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-06-16T09:40:39.528Z
+Last session: 2026-06-16T11:13:36.415Z
 Stopped at: Phase 25 UI-SPEC approved
-Resume file: .planning/phases/25-org-admin-tag-management-dashboard-polarity/25-UI-SPEC.md
+Resume file: None
