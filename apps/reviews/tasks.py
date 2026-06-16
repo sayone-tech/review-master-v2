@@ -303,6 +303,29 @@ def finalize_canonical_tags_task(
 
 
 @shared_task  # type: ignore[misc]
+def reclassify_polarity_task() -> dict[str, int]:
+    """Phase 24 POL-02 — Weekly polarity auto-reclassification, Beat-scheduled.
+
+    Thin wrapper around run_polarity_reclassification() — all business logic
+    lives in the service (CLAUDE.md §12.3, no logic in task body).
+
+    No autoretry: the job is idempotent and weekly; a failed run re-runs next
+    Sunday at 03:00 UTC without any loss of data integrity.
+    Routes to the default queue (D-05, §12.5).
+    """
+    from apps.reviews.services.reclassify import run_polarity_reclassification
+
+    result = run_polarity_reclassification()
+    logger.info(
+        "reclassify_polarity_task.complete flipped=%s skipped_low_sample=%s evaluated=%s",
+        result["flipped"],
+        result["skipped_low_sample"],
+        result["evaluated"],
+    )
+    return result
+
+
+@shared_task  # type: ignore[misc]
 def retry_failed_enrichments_task() -> int:
     """Phase 12 ENRCH-06 — Beat-scheduled, every 6h.
 
