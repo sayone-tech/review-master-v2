@@ -84,3 +84,19 @@ export interface DashboardBootstrap {
   shops: Shop[];
   isSingleShop: boolean;
 }
+
+// Tag polarity chart types (TDASH-01)
+export type PolarityType = "always_positive" | "always_negative" | "mixed";
+
+export interface TagPolarityBar {
+  label: string;
+  polarity_type: PolarityType;
+  positive_count: number;
+  negative_count: number;
+  total_count: number;
+}
+
+export interface TagPolarityResponse {
+  tags: TagPolarityBar[];
+  has_more: boolean;
+}

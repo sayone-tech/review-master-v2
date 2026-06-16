@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { FilterBar } from "./FilterBar";
 import { KpiCards } from "./KpiCards";
 import { SentimentDonut } from "./SentimentDonut";
+import { TagPolarityChart } from "./TagPolarityChart";
 import { TopPerformingSection } from "./TopPerformingSection";
 import { YourStore } from "./YourStore";
 import { useFilterState } from "./useFilterState";
@@ -257,6 +258,11 @@ function DashboardInner() {
           />
         )}
         <SentimentDonut filters={fullFilters} />
+      </div>
+
+      {/* Tag distribution — full-width third row (TDASH-01, 25-04) */}
+      <div style={{ marginTop: 16 }}>
+        <TagPolarityChart />
       </div>
     </div>
   );

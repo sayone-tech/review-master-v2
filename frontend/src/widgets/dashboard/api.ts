@@ -3,6 +3,7 @@ import type {
   HighlightsResponse,
   KpisResponse,
   SentimentResponse,
+  TagPolarityResponse,
   TopPerformingResponse,
   YourStoreResponse,
 } from "./types";
@@ -97,4 +98,12 @@ export async function fetchYourStore(
     { credentials: "same-origin" },
   );
   return handle<YourStoreResponse>(r);
+}
+
+// TDASH-01: Tag polarity aggregation — no filter params (aggregates full canonical vocabulary).
+export async function fetchTagPolarity(): Promise<TagPolarityResponse> {
+  const r = await fetch("/api/v1/dashboard/tag-polarity/", {
+    credentials: "same-origin",
+  });
+  return handle<TagPolarityResponse>(r);
 }
