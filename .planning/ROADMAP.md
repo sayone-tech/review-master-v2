@@ -98,7 +98,7 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 
 - [x] **Phase 22: Canonical Tag Foundation & Mapping Pipeline** — `OrgCanonicalTag` model + nullable `canonical_tag` FK on `ReviewTag` + migration; canonical lookup/insert folded into the single GPT call and post-enrichment atomic block; English-only tags; one `AiUsageLog` row per call; global OpenAI rate limit. (completed 2026-06-10)
 - [x] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues. (completed 2026-06-11)
-- [ ] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible.
+- [x] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible. (completed 2026-06-16)
 - [ ] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags.
 - [ ] **Phase 26: Superadmin Data Reset & Re-Sync** — One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync.
 
@@ -225,7 +225,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 24-02-PLAN.md — run_polarity_reclassification service (single-pass aggregate, one-way flip to mixed, atomic AuditLog) + thin weekly Beat task + CrontabSchedule seed migration 0013 (POL-02, POL-03)
+- [x] 24-02-PLAN.md — run_polarity_reclassification service (single-pass aggregate, one-way flip to mixed, atomic AuditLog) + thin weekly Beat task + CrontabSchedule seed migration 0013 (POL-02, POL-03)
 
 ### Phase 25: Org Admin Tag Management & Dashboard Polarity
 
@@ -279,6 +279,6 @@ Plans:
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
-| 24. Polarity Auto-Reclassification | v0.8 | 1/2 | In Progress|  |
+| 24. Polarity Auto-Reclassification | v0.8 | 2/2 | Complete   | 2026-06-16 |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
