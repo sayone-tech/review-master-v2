@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Canonical Tag System
 status: planning
-stopped_at: Phase 25 context gathered
-last_updated: "2026-06-16T07:06:12.727Z"
+stopped_at: Phase 25 UI-SPEC approved
+last_updated: "2026-06-16T09:40:39.538Z"
 last_activity: 2026-06-16
 progress:
   total_phases: 6
@@ -85,6 +85,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-06-16T07:06:12.719Z
-Stopped at: Phase 25 context gathered
-Resume file: .planning/phases/25-org-admin-tag-management-dashboard-polarity/25-CONTEXT.md
+Last session: 2026-06-16T09:40:39.528Z
+Stopped at: Phase 25 UI-SPEC approved
+Resume file: .planning/phases/25-org-admin-tag-management-dashboard-polarity/25-UI-SPEC.md
