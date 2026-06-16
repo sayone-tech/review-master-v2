@@ -329,13 +329,16 @@ class TestRunFinaliseCanonicalTags:
             )
         update_queries = [q for q in ctx.captured_queries if "UPDATE" in q["sql"].upper()]
         # FK re-point must be 1 UPDATE regardless of ReviewTag count (CLAUDE.md §6.10).
-        # Bounded ceiling covers:
+        # Bounded ceiling covers fixed-cost UPDATEs only (all O(1) w.r.t. ReviewTag count):
         #   - 1 UPDATE ReviewTag to re-point FKs to winner (never N UPDATEs for N tags)
-        #   - 1 UPDATE from Django SET_NULL cascade on loser delete
+        #   - 3 UPDATEs from Django SET_NULL cascades on the loser OrgCanonicalTag delete:
+        #       ReviewTag.canonical_tag, TagMergeJob.source_tag, TagMergeJob.target_tag
+        #       (TagMergeJob added in Phase 25 — its two SET_NULL FKs add 2 fixed nullify
+        #       UPDATEs per canonical-tag delete; batched IN-clause, not per-row, so no N+1)
         #   - 1 bulk_update for review_count refresh
-        # If this grows beyond 7, something is N+1 — investigate immediately.
-        assert len(update_queries) <= 7, (
-            f"Expected at most 7 UPDATE queries, got {len(update_queries)}: "
+        # If this grows beyond 9, something is N+1 — investigate immediately.
+        assert len(update_queries) <= 9, (
+            f"Expected at most 9 UPDATE queries, got {len(update_queries)}: "
             + str([q["sql"][:100] for q in update_queries])
         )
 
