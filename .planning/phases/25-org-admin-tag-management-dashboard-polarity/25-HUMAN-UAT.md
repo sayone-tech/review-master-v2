@@ -29,11 +29,11 @@ expected: While a merge is in progress, reload the page — the in-progress bann
 result: [pending]
 
 ### 5. Dashboard polarity chart visual
-expected: On the dashboard, the tag-distribution chart shows `always_positive`/`always_negative` tags as single colored count bars and `mixed` tags as a stacked positive/negative split.
+expected: On the dashboard as an ORG_ADMIN, the tag-distribution chart shows `always_positive`/`always_negative` tags as single colored count bars and `mixed` tags as a stacked positive/negative split. As a STAFF_ADMIN, the chart is NOT shown (ORG_ADMIN-only per Phase 25 follow-up — the `/api/v1/dashboard/tag-polarity/` endpoint returns 403 and the chart is not rendered).
 result: [pending]
 
 ### 6. Staff admin access guard
-expected: As a STAFF_ADMIN, the Tags nav item is absent from the sidebar, and navigating directly to `/admin/org/tags/` redirects (no access).
+expected: As a STAFF_ADMIN, the Tags nav item is absent from the sidebar, navigating directly to `/admin/org/tags/` redirects (no access), and the dashboard tag-polarity chart is not rendered.
 result: [pending]
 
 ## Summary
