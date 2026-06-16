@@ -1,10 +1,11 @@
 ---
 phase: 25
 slug: org-admin-tag-management-dashboard-polarity
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-16
+reviewed_at: 2026-06-16
 ---
 
 # Phase 25 — UI Design Contract
@@ -18,6 +19,10 @@ created: 2026-06-16
 > 3. Merge modal — searchable target picker + irreversibility warning
 > 4. Merge progress — HTTP-polled in-progress bar + completion toast + failure path
 > 5. Dashboard polarity — extend existing tag chart with stacked mixed-polarity split
+>
+> **Primary focal point:** The tag data table card on the Tags page — it spans the full
+> content width and is the only interactive surface on the page. All other surfaces
+> (rename input, merge modal, progress banner) are overlaid on or adjacent to this card.
 
 ---
 
@@ -39,19 +44,21 @@ pattern, dashboard recharts). No design system change required.
 
 ## Spacing Scale
 
-Matches the existing platform scale (multiples of 4). No new tokens introduced.
+Matches the existing platform scale (multiples of 4). Token `12px` (gap-3 / px-3 / py-3)
+is added explicitly because it appears in multiple surfaces in this phase.
 
 | Token | Value | Usage in this phase |
 |-------|-------|---------------------|
 | xs | 4px | Icon-to-text gap in polarity badge; rename input side padding |
-| sm | 8px | Gap between table header and filter row; badge internal padding |
+| sm | 8px | Gap between table header and filter row; badge internal padding; tooltip dot margin (`mr-2`) |
+| — | 12px | Modal inner section gap (`py-3`); footer divider top padding (`pt-3`); section heading bottom margin (`mb-3`) |
 | md | 16px | Table cell horizontal padding (inherits `px-4` from DataTable); modal section gap |
 | lg | 24px | Modal `px-6` horizontal padding (inherited from `Modal.tsx`); page heading bottom margin |
 | xl | 32px | Page-level section gaps between heading, filter bar, and table card |
 | 2xl | 48px | Empty state top/bottom padding (`py-12`) |
 | 3xl | 64px | — (not used in this phase) |
 
-Exceptions:
+Exceptions (non-spacing, renderer-level):
 - Progress bar height is 8px (`h-2`) — matches the existing ProgressModal convention; not a spacing token.
 - Rename inline input height is 32px (`h-8`) — tight height to fit within the table row without disrupting row height.
 - Search input inside merge modal is 40px tall (`h-10`) — consistent with existing filter inputs across the platform.
@@ -61,22 +68,26 @@ Exceptions:
 
 ## Typography
 
-All sizes are existing platform type styles from prior phases. No new type ramp entries.
+Declared type ramp: **4 steps — 12 / 14 / 18 / 20px**. Weights: regular (400) + semibold (600).
+
+The existing DataTable body size is `text-[13.5px]` in platform source. For this spec all
+body/cell copy is declared at the **14px step** (the nearest ramp value). Executors may
+retain `text-[13.5px]` only where they inherit it unmodified from an existing shared
+component (`DataTable`, `Modal`) — new code in this phase targets 14px.
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Page heading | 20px | 600 (semibold) | 1.2 | "Tags" page heading — matches `AuditLogWidget` h1 `text-[20px] font-semibold` |
-| Table header eyebrow | 12px | 600 (semibold) | 1.4 | Column headers in `DataTable` — uppercase, `tracking-[0.05em]`, `text-subtle` |
-| Body / cell text | 13.5px | 400 (regular) | 1.5 | Tag label cells, review count, first seen — `text-[13.5px] text-text` (DataTable default) |
-| Supporting / meta text | 12px | 400 (regular) | 1.5 | Badge labels, merge-progress sub-text, empty state body, poll interval note |
-| Modal title | 18px | 600 (semibold) | 1.2 | `Modal` title prop — inherited unchanged |
-| Modal subtitle / section heading | 13.5px | 400 (regular) | 1.5 | `Modal` subtitle prop; section labels inside merge modal |
-| Inline section label (uppercase) | 12px | 600 (semibold) | 1.4 | "Pick the target tag" section heading inside merge modal — mirrors `MergeModal.tsx` `text-[12px] font-semibold uppercase tracking-[0.05em] text-muted` |
-| Inline rename input | 13.5px | 400 (regular) | 1.5 | Input field text; matches surrounding cell text size |
-| In-progress counter | 14px | 600 (semibold) | 1.4 | Merge progress "processed / total" counter — mirrors ProgressModal counter style |
+| Page heading | 20px | 600 (semibold) | 1.2 | "Tags" page heading — matches `AuditLogWidget` h1 |
+| Modal title / confirm heading | 18px | 600 (semibold) | 1.2 | `Modal` title prop; Step 2 confirm h3 |
+| In-progress counter / body | 14px | 600 (semibold) | 1.4 | Merge progress "processed / total" counter; proceed-button label |
+| Body / cell text | 14px | 400 (regular) | 1.5 | Tag label cells, review count, first seen, modal body copy, dropdown items, search input |
+| Supporting / meta text | 12px | 400 (regular) | 1.5 | Badge labels, merge-progress sub-text, empty state body, pagination footer, error alerts, column headers |
+| Column headers (uppercase) | 12px | 600 (semibold) | 1.4 | `DataTable` `<th>` — uppercase, `tracking-[0.05em]`, `text-subtle` |
+| Section labels (uppercase) | 12px | 600 (semibold) | 1.4 | "Merge into" section heading inside merge modal |
 
-Declared sizes: 12, 13.5, 14, 18, 20 (five sizes — within the 3–4 contracted range because 13.5px is a fractional alias for the DataTable's house body size, not a new step; effective distinct design steps are 12 / 14 / 18 / 20).
-Declared weights: regular (400) + semibold (600).
+Chart axis ticks (recharts SVG, renderer-controlled — cannot use Tailwind classes): **12px**
+consistently for both XAxis and YAxis. Legend text: **12px**. These are the only values
+outside Tailwind; they stay on the 12px ramp step.
 
 ---
 
@@ -88,7 +99,7 @@ All values are existing platform tokens from `tailwind.config.js`. No new colors
 |------|-------|-----|-------|
 | Dominant (60%) | `bg` / `white` | #FAFAFA / #FFFFFF | Page surface, table rows, modal background |
 | Secondary (30%) | `line` / `line-soft` | #E4E4E7 / #F4F4F5 | Table borders, modal footer bg, progress track, rename input border |
-| Accent (10%) | `yellow` | #FACC15 | Selected-target radio highlight (`border-yellow bg-yellow-tint`); merge confirm CTA button; rename save button; checkbox `accent-[#FACC15]` |
+| Accent (10%) | `yellow` | #FACC15 | Selected-target radio highlight; merge confirm CTA; rename save button; checkbox `accent-[#FACC15]` |
 | always_positive badge | `green` / `green-tint` | #16A34A / #DCFCE7 | Polarity badge bg/text for `always_positive` |
 | always_negative badge | `red` / `red-tint` | #DC2626 / #FEE2E2 | Polarity badge bg/text for `always_negative` |
 | mixed badge | `amber` / `amber-tint` | #D97706 / #FEF3C7 | Polarity badge bg/text for `mixed` |
@@ -143,10 +154,10 @@ interface TagManagementBootstrap {
 
 | Column key | Header | Width hint | Cell content |
 |------------|--------|------------|--------------|
-| `label` | LABEL | flexible | Tag label text `text-[13.5px] text-text`; when rename is active for this row, replaced by `<RenameInput>` (see Surface 2) |
+| `label` | LABEL | flexible | Tag label text `text-[14px] text-text`; when rename is active for this row, replaced by `<RenameInput>` (see Surface 2) |
 | `polarity_type` | POLARITY | 140px | `<PolarityBadge polarity={row.polarity_type} />` |
-| `review_count` | REVIEWS | 88px | `text-[13.5px] text-text tabular-nums` right-aligned integer |
-| `first_seen` | FIRST SEEN | 120px | Formatted date `text-[13.5px] text-subtle` (e.g. "12 Jan 2026") |
+| `review_count` | REVIEWS | 88px | `text-[14px] text-text tabular-nums` right-aligned integer |
+| `first_seen` | FIRST SEEN | 120px | Formatted date `text-[14px] text-subtle` (e.g. "12 Jan 2026") |
 | actions | (no header) | 48px (w-12) | `<TagActionsMenu row={row} />` — three-dot `MoreHorizontal` 16px icon, `opacity-35 group-hover:opacity-100` (existing DataTable `renderRowActions` pattern) |
 
 **Sorting:** Client requests `?ordering=label|-label|review_count|-review_count|created_at|-created_at`. Clicking an active-sort column header toggles direction. Active sort column header shows a `ChevronUp`/`ChevronDown` 12px icon inline after the label text (`text-muted`). Default sort: `?ordering=-review_count` (highest volume first).
@@ -165,18 +176,18 @@ const BADGE: Record<PolarityType, { label: string; cls: string }> = {
   mixed:           { label: "Mixed",           cls: "bg-amber-tint text-[#92400E]" },
 };
 // Rendered as:
-// <span class="inline-flex items-center px-2 py-0.5 rounded-sm text-[12px] font-medium {cls}">
+// <span class="inline-flex items-center px-2 py-1 rounded-sm text-[12px] font-medium {cls}">
 //   {label}
 // </span>
 ```
 
 **TagActionsMenu component:**
 
-Opens a dropdown (positioned below the `MoreHorizontal` button). Two items:
+The trigger is an icon-only button — the `MoreHorizontal` (three-dot) icon — and MUST carry `aria-label="Tag actions"` (icon-only buttons require a text-equivalent for screen readers). Opens a dropdown (positioned below the `MoreHorizontal` button). Two items:
 1. "Rename" — sets `renamingId` state, puts the row into inline-rename mode
 2. "Merge into…" — opens `TagMergeModal` for this tag as the source
 
-Dropdown uses the existing platform dropdown pattern (`rounded-menu shadow-[0_4px_16px_rgba(0,0,0,0.10)]`, `bg-white border border-line`). Items: `text-[13.5px] text-text px-3 py-2 hover:bg-line-soft cursor-pointer`. Destructive styling is NOT applied to either action (merge is warned inside the modal, not at menu level).
+Dropdown uses the existing platform dropdown pattern (`rounded-menu shadow-[0_4px_16px_rgba(0,0,0,0.10)]`, `bg-white border border-line`). Items: `text-[14px] text-text px-3 py-2 hover:bg-line-soft cursor-pointer`. Destructive styling is NOT applied to either action (merge is warned inside the modal, not at menu level).
 
 ---
 
@@ -189,7 +200,7 @@ Dropdown uses the existing platform dropdown pattern (`rounded-menu shadow-[0_4p
 ```
 <input
   type="text"
-  class="w-full h-8 px-2 py-1 text-[13.5px] text-ink bg-white border border-line rounded-sm
+  class="w-full h-8 px-2 py-1 text-[14px] text-ink bg-white border border-line rounded-sm
          focus:outline-none focus:border-yellow focus:ring-1 focus:ring-yellow/40"
   aria-label="Rename tag"
   maxLength={100}
@@ -216,23 +227,23 @@ Focus is placed on the input immediately on activation.
 Error appears directly below the input, within the same cell. The cell expands vertically to accommodate it.
 
 **Keyboard interactions:**
-- `Enter` → submit rename (same as clicking Save)
+- `Enter` → submit rename (same as clicking Save Label)
 - `Escape` → cancel rename, restore original label, clear error
 
 **Save / Cancel buttons (appear to the right of the input, inline in the cell):**
 
 ```
 <button class="ml-2 px-3 py-1 bg-yellow text-black text-[12px] font-semibold rounded-sm
-               hover:bg-yellow-hover disabled:opacity-50" aria-label="Save rename">
-  Save
+               hover:bg-yellow-hover disabled:opacity-50" aria-label="Save label">
+  Save Label
 </button>
-<button class="ml-1 px-3 py-1 bg-white text-ink border border-line text-[12px] rounded-sm
+<button class="ml-2 px-3 py-1 bg-white text-ink border border-line text-[12px] rounded-sm
                hover:bg-line-soft" aria-label="Cancel rename">
   Cancel
 </button>
 ```
 
-**Loading state:** While save is in-flight, the Save button shows "Saving…" and is `disabled`. The Cancel button is also `disabled`. Input is `readOnly` during save.
+**Loading state:** While save is in-flight, the Save Label button shows "Saving…" and is `disabled`. The Cancel button is also `disabled`. Input is `readOnly` during save.
 
 **Success:** Row reverts to read mode with the new label displayed. No toast — the label change is immediately visible in context.
 
@@ -273,18 +284,18 @@ Error appears directly below the input, within the same cell. The cell expands v
   <input
     type="search"
     placeholder="Search tags…"
-    class="w-full h-10 px-3 text-[13.5px] bg-white border border-line rounded-md
+    class="w-full h-10 px-3 text-[14px] bg-white border border-line rounded-md
            focus:outline-none focus:border-yellow focus:ring-1 focus:ring-yellow/40"
     aria-label="Search tags"
   />
   <div class="max-h-[240px] overflow-y-auto border border-line rounded-md divide-y divide-line-soft">
     {/* Filtered tag options */}
-    <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-line-soft
+    <label class="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-line-soft
                    [&:has(input:checked)]:border-yellow [&:has(input:checked)]:bg-yellow-tint">
       <input type="radio" name="merge-target" value={tag.id}
              class="w-4 h-4 accent-[#FACC15] cursor-pointer" />
       <div class="flex-1 min-w-0">
-        <div class="text-[13.5px] text-ink truncate">{tag.label}</div>
+        <div class="text-[14px] text-ink truncate">{tag.label}</div>
         <div class="text-[12px] text-muted">{tag.review_count} reviews</div>
       </div>
       <PolarityBadge polarity={tag.polarity_type} />
@@ -294,7 +305,7 @@ Error appears directly below the input, within the same cell. The cell expands v
 ```
 
 - Tag list is fetched once on modal open from `GET /api/v1/reviews/canonical-tags/?page_size=200` (all org tags excluding source). Filtered client-side by the search input.
-- When search yields no results: show `<p class="text-[13.5px] text-muted px-3 py-4">No tags match.</p>` inside the scrollable list.
+- When search yields no results: show `<p class="text-[14px] text-muted px-3 py-4">No tags match.</p>` inside the scrollable list.
 - When loading the tag list: 4-row skeleton inside the scrollable container.
 
 **Step 1 footer buttons:**
@@ -341,8 +352,8 @@ Icon is `red` (not `amber`) to signal irreversibility — this is a destructive 
 ```
 <div role="alert"
      class="flex items-start gap-2 border-l-4 border-red bg-red-tint text-red rounded-md px-4 py-2 mb-4">
-  <AlertCircle size={16} class="mt-0.5 shrink-0" aria-hidden="true" />
-  <span class="text-[13px]">{errorMessage}</span>
+  <AlertCircle size={16} class="mt-1 shrink-0" aria-hidden="true" />
+  <span class="text-[12px]">{errorMessage}</span>
 </div>
 ```
 
@@ -417,10 +428,10 @@ When the poll returns `status === "FAILED"`:
 <div role="alert"
      class="rounded-card border border-red bg-red-tint p-4 flex flex-col gap-3">
   <div class="flex items-start gap-3">
-    <AlertCircle size={16} class="text-red mt-0.5 shrink-0" aria-hidden="true" />
+    <AlertCircle size={16} class="text-red mt-1 shrink-0" aria-hidden="true" />
     <div class="flex-1 min-w-0">
       <span class="text-[14px] font-semibold text-red">Merge failed — changes rolled back</span>
-      <p class="text-[13px] text-muted mt-1">
+      <p class="text-[12px] text-muted mt-1">
         {job.error_message ?? "Something went wrong. The merge was rolled back. No reviews were affected."}
       </p>
     </div>
@@ -489,7 +500,7 @@ export interface TagPolarityResponse {
 <BarChart data={tags} barCategoryGap="35%" margin={{ bottom: 48 }}>
   <XAxis
     dataKey="label"
-    tick={{ fontSize: 10, fill: "#71717A" }}
+    tick={{ fontSize: 12, fill: "#71717A" }}
     tickFormatter={(name: string) => name.length > 14 ? name.slice(0, 13) + "…" : name}
     angle={-35}
     textAnchor="end"
@@ -499,14 +510,14 @@ export interface TagPolarityResponse {
     interval={0}
   />
   <YAxis
-    tick={{ fontSize: 11, fill: "#A1A1AA" }}
+    tick={{ fontSize: 12, fill: "#A1A1AA" }}
     axisLine={false}
     tickLine={false}
     width={28}
   />
   <Tooltip content={<TagPolarityTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
   <Legend verticalAlign="top" height={28} iconSize={8} iconType="circle"
-          formatter={(value) => <span class="text-[11px] text-subtle">{value}</span>} />
+          formatter={(value) => <span style={{ fontSize: 12, color: "#71717A" }}>{value}</span>} />
   {/* Stack positive on bottom, negative on top */}
   <Bar dataKey="positive_count" name="Positive" stackId="a" fill="#16A34A" radius={[0,0,0,0]} />
   <Bar dataKey="negative_count" name="Negative" stackId="a" fill="#DC2626" radius={[4,4,0,0]} />
@@ -518,17 +529,17 @@ Note: `always_positive` bars will have `negative_count === 0` and `always_negati
 **Tooltip (`TagPolarityTooltip`):**
 
 ```
-<div class="bg-white rounded-lg shadow border border-line p-2.5 text-[13px]">
+<div class="bg-white rounded-lg shadow border border-line p-2 text-[14px]">
   <div class="font-semibold text-ink mb-1">{tag.label}</div>
   <div class="text-[12px] text-subtle capitalize mb-1">{polarityLabel}</div>
   {tag.polarity_type === "mixed" && (
     <>
       <div class="text-[12px]">
-        <span class="inline-block w-2 h-2 rounded-full bg-green mr-1.5" />
+        <span class="inline-block w-2 h-2 rounded-full bg-green mr-2" />
         Positive: {positive_count}
       </div>
       <div class="text-[12px]">
-        <span class="inline-block w-2 h-2 rounded-full bg-red mr-1.5" />
+        <span class="inline-block w-2 h-2 rounded-full bg-red mr-2" />
         Negative: {negative_count}
       </div>
     </>
@@ -542,20 +553,20 @@ Note: `always_positive` bars will have `negative_count === 0` and `always_negati
 **Section card:**
 
 ```
-<section class="bg-white border border-line rounded-[14px] p-5 flex flex-col">
-  <div class="mb-3.5">
-    <h2 class="text-[15px] font-semibold text-ink tracking-[-0.01em] mb-0.5">
+<section class="bg-white border border-line rounded-[14px] p-4 flex flex-col">
+  <div class="mb-3">
+    <h2 class="text-[18px] font-semibold text-ink tracking-[-0.01em] mb-1">
       Tag Distribution
     </h2>
-    <p class="text-[12.5px] text-subtle">
+    <p class="text-[12px] text-subtle">
       Top tags by review volume · canonical tags only
     </p>
   </div>
   {/* chart */}
   {has_more && (
-    <div class="mt-3.5 pt-3.5 border-t border-line-soft">
+    <div class="mt-3 pt-3 border-t border-line-soft">
       <a href="/admin/org/tags/"
-         class="inline-flex items-center gap-1.5 text-[13px] text-ink hover:text-muted transition-colors">
+         class="inline-flex items-center gap-1 text-[14px] text-ink hover:text-muted transition-colors">
         <Tag size={14} aria-hidden="true" />
         See all tags
       </a>
@@ -567,7 +578,7 @@ Note: `always_positive` bars will have `negative_count === 0` and `always_negati
 **Empty state (no canonical tags set):**
 
 ```
-<p class="text-[13.5px] text-muted text-center py-10">
+<p class="text-[14px] text-muted text-center py-8">
   No canonical tags yet. Tags will appear as reviews are enriched.
 </p>
 ```
@@ -607,8 +618,8 @@ The `{% if user.role != "STAFF_ADMIN" %}` guard is the belt-and-braces UI layer 
 | Filtered empty body | "Try clearing your search or adjusting filters." | Tags table filtered empty state p |
 | Table load error | "Could not load tags" | Tags table error state h3 |
 | Table load error body | "Something went wrong. Please try again." | Tags table error state p |
-| Table retry CTA | "Retry" | Tags table error state button |
-| Rename save CTA | "Save" | Inline rename button |
+| Table reload CTA | "Reload Tags" | Tags table error state button |
+| Rename save CTA | "Save Label" | Inline rename button (aria-label="Save label") |
 | Rename saving state | "Saving…" | Inline rename button (in-flight) |
 | Rename cancel CTA | "Cancel" | Inline rename cancel button |
 | Rename error (duplicate) | "A tag with that name already exists. Use Merge to combine tags." | Inline rename error p |
@@ -659,7 +670,7 @@ The `{% if user.role != "STAFF_ADMIN" %}` guard is the belt-and-braces UI layer 
 ### Inline Rename
 - Input: `aria-label="Rename tag"`.
 - Error: `role="alert"` on the error `<p>` so screen readers announce it immediately on appearance.
-- Save button: `aria-label="Save rename"`. Cancel: `aria-label="Cancel rename"`.
+- Save button: `aria-label="Save label"`. Cancel: `aria-label="Cancel rename"`.
 
 ### Merge Modal
 - `Modal` component already provides `role="dialog" aria-modal="true" aria-label={title}` and `FocusTrap`.
@@ -687,8 +698,8 @@ The `{% if user.role != "STAFF_ADMIN" %}` guard is the belt-and-braces UI layer 
 ```
 idle → [click Rename] → editing
 editing → [Escape / Cancel] → idle
-editing → [Enter / Save, invalid] → editing (with error message)
-editing → [Enter / Save, in-flight] → saving
+editing → [Enter / Save Label, invalid] → editing (with error message)
+editing → [Enter / Save Label, in-flight] → saving
 saving → [200 OK] → idle (label updated)
 saving → [400 duplicate] → editing (with duplicate error)
 saving → [other error] → editing (with generic error)
