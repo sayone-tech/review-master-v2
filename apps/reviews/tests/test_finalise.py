@@ -312,9 +312,15 @@ class TestRunFinaliseCanonicalTags:
         loser = OrgCanonicalTagFactory(
             organisation=review.organisation, label="food quality", review_count=2
         )
-        # Create many ReviewTags pointing to the loser
-        for _ in range(20):
-            ReviewTagFactory(review=review, canonical_tag=loser)
+        # Create many ReviewTags pointing to the loser. Each needs a distinct
+        # label so the (review_id, label, polarity) unique constraint never
+        # collides — factory-default Faker("word") labels can repeat depending
+        # on the global Faker sequence position (which shifts as other test
+        # modules are added to the suite), making this test order-fragile.
+        for i in range(20):
+            ReviewTagFactory(
+                review=review, canonical_tag=loser, label=f"finalise tag {i}", polarity="positive"
+            )
 
         with CaptureQueriesContext(connection) as ctx:
             run_finalise_canonical_tags(
