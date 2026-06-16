@@ -1,7 +1,7 @@
 # Requirements: Multi-Tenant Review Management Platform
 
 **Active milestone:** v0.8 — Canonical Tag System
-**Source spec:** `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.docx` (v1.0, Final), reconciled against the live schema (see `.planning/research/SUMMARY.md`).
+**Source spec:** `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (v1.0, Final), reconciled against the live schema (see `.planning/research/SUMMARY.md`).
 
 ---
 

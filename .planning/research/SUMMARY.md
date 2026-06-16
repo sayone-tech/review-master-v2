@@ -1,6 +1,6 @@
 # Research Summary — v0.8 Canonical Tag System
 
-> This milestone is driven by a **frozen spec**: `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.docx` (v1.0, Final). No open-ended domain research was needed. This summary captures the **codebase reconciliation** of that spec against the live schema — the authoritative grounding for roadmapping. Prior (v0.4-era) dimension files in this directory are stale.
+> This milestone is driven by a **frozen spec**: `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (v1.0, Final). No open-ended domain research was needed. This summary captures the **codebase reconciliation** of that spec against the live schema — the authoritative grounding for roadmapping. Prior (v0.4-era) dimension files in this directory are stale.
 
 ## The problem
 

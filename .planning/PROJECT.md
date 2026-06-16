@@ -16,7 +16,7 @@ A multi-tenant SaaS platform for managing organisations, their stores, and Googl
 - Org Admin tag management — list, inline rename, and merge (batched Celery task with HTTP-polled progress); dashboard polarity split for mixed tags
 - Superadmin one-time data reset + re-sync for the pre-production 56-store brand
 
-**Source spec:** `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.docx` (v1.0, Final), reconciled against the live schema. Key correction: review tags are the **relational `ReviewTag` model** (v0.6 Phase 17), not the JSONB `tags` column the spec assumed, and no `canonical_tag_id` exists yet — canonical mapping attaches as a nullable FK on `ReviewTag`.
+**Source spec:** `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (v1.0, Final), reconciled against the live schema. Key correction: review tags are the **relational `ReviewTag` model** (v0.6 Phase 17), not the JSONB `tags` column the spec assumed, and no `canonical_tag_id` exists yet — canonical mapping attaches as a nullable FK on `ReviewTag`.
 
 **Key milestone decisions:** tag-merge progress uses **HTTP polling** (not a new WebSocket consumer — keeps the Channels surface narrow per §13.2); the Superadmin data reset is a **hard wipe**, accepted as a deliberate one-time pre-production exception to the §11 soft-delete rule.
 
