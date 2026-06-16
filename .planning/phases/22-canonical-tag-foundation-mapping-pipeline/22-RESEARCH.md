@@ -527,7 +527,7 @@ def test_enrich_review_query_count_bounded():
 - Codebase (direct reads): `apps/integrations/openai/parser.py`, `prompts.py`, `client.py`; `apps/reviews/services/enrichment.py`, `models.py`, `tasks.py`, `tests/factories.py`, `tests/test_enrichment_service.py`; `apps/integrations/openai/tests/test_parser.py`, `factories.py`, `fixtures/enrichment_success.json`; `config/settings/base.py`; `pyproject.toml` — verified versions (openai 2.33.0, pydantic 2.13.3) and exact integration seams.
 - `.planning/research/SUMMARY.md` — relational `ReviewTag` ground truth; no `canonical_tag_id` exists.
 - `.planning/phases/22-.../22-CONTEXT.md` — locked decisions D-01..D-05 + discretion.
-- `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.md` §6.4 (token cost ~150–300/review; 300 tags ≈ 1,800 tokens) — extracted via XML.
+- `docs/in-progress/ReviewBee_Canonical_Tag_Requirements_v1.0.md` §6.4 (token cost ~150–300/review; 300 tags ≈ 1,800 tokens) — extracted via XML.
 - OpenAI Structured Outputs guide — required-fields / nullable-union rule. https://developers.openai.com/api/docs/guides/structured-outputs
 - Celery Tasks docs — `rate_limit` is per-worker-instance, not global; formats `/s` `/m` `/h`. https://docs.celeryq.dev/en/stable/userguide/tasks.html
 

@@ -1472,18 +1472,19 @@ Product requirement specs live under `docs/` and are **Markdown only — never `
 
 - **Markdown is the source of truth.** No `.docx` (or other binary office formats) in the repo. If a spec arrives as `.docx`, convert it to `.md` and **delete the `.docx`** in the same change.
   - There is no pandoc/python-docx in this project's env; a dependency-free stdlib converter (`zipfile` + `xml.etree` over `word/document.xml`) is sufficient for these structured specs — preserve headings, tables, lists, and bold, and strip redundant bold from heading lines.
-- **Active vs completed layout:**
-  - `docs/` — the spec for the **current / in-progress milestone** (e.g. the v0.8 Canonical Tag spec).
-  - `docs/completed/` — specs for **shipped milestones** (Superadmin, OrgAdmin, phase-3, Dashboard, Direct Reviews, …).
-  - When a milestone completes, **move its spec from `docs/` → `docs/completed/`**.
-- **Keep references in sync.** When converting or moving a spec, update every `.planning/` reference (PROJECT.md, REQUIREMENTS.md, `research/SUMMARY.md`, and any phase `*-CONTEXT.md` / `*-RESEARCH.md` / `*-UI-SPEC.md`) to the new `.md` path. Section anchors (`§4.1`, `§6.4`) keep working because the conversion preserves the numbered headings. Verify with `grep -rn '\.docx' .planning/` returning nothing.
-- `docs/` may also hold derived working notes (e.g. `cost.md`); those are not milestone specs and stay where they are.
+- **Three-folder spec layout** (by lifecycle status):
+  - `docs/in-progress/` — the spec for the **milestone currently being built** (e.g. the v0.8 Canonical Tag spec).
+  - `docs/pending/` — specs for milestones **not started / not done yet** (backlog / future work, e.g. Direct Reviews).
+  - `docs/completed/` — specs for **shipped milestones** (Superadmin, OrgAdmin, phase-3, Dashboard, …).
+  - As a milestone moves through its lifecycle, **move its spec between these folders**: `pending/` → `in-progress/` when work starts, `in-progress/` → `completed/` when it ships.
+- **Keep references in sync on every convert/move.** Update every `.planning/` reference (PROJECT.md, REQUIREMENTS.md, `research/SUMMARY.md`, any phase `*-CONTEXT.md` / `*-RESEARCH.md` / `*-UI-SPEC.md`) **and** any §29-style CLAUDE.md mention to the new `.md` path. Section anchors (`§4.1`, `§6.4`) keep working because conversion preserves the numbered headings. Verify with `grep -rn '\.docx' .planning/` returning nothing, and that no reference points at a stale folder.
+- The base `docs/` folder holds **non-spec** working material (e.g. `cost.md`, `sre/`, `superpowers/`) — those are not milestone specs and stay where they are.
 
 ---
 
 ## 29. Canonical Tag System (v0.8 — milestone "Canonical Tag System")
 
-A per-organisation, self-organising canonical tag vocabulary, built and evolved **inside the existing single GPT enrichment call** — no extra API call, no vector DB. Spans Phases 22–26. This section is the authoritative summary; the binding spec is `docs/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (read with the relational reconciliation in `.planning/research/SUMMARY.md` — the spec's §4 JSONB shape is superseded).
+A per-organisation, self-organising canonical tag vocabulary, built and evolved **inside the existing single GPT enrichment call** — no extra API call, no vector DB. Spans Phases 22–26. This section is the authoritative summary; the binding spec is `docs/in-progress/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (read with the relational reconciliation in `.planning/research/SUMMARY.md` — the spec's §4 JSONB shape is superseded).
 
 ### 29.1 Data model (`apps/reviews/models.py`)
 
