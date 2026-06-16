@@ -1,6 +1,10 @@
 {% extends "base_org.html" %}
-{% load static %}
+{% load static django_vite %}
 
 {% block content %}
   <div id="tag-management-root"></div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/tag-management.tsx' %}
 {% endblock %}
