@@ -1477,7 +1477,10 @@ Product requirement specs live under `docs/` and are **Markdown only — never `
   - `docs/pending/` — specs for milestones **not started / not done yet** (backlog / future work, e.g. Direct Reviews).
   - `docs/completed/` — specs for **shipped milestones** (Superadmin, OrgAdmin, phase-3, Dashboard, …).
   - As a milestone moves through its lifecycle, **move its spec between these folders**: `pending/` → `in-progress/` when work starts, `in-progress/` → `completed/` when it ships.
-- **Keep references in sync on every convert/move.** Update every `.planning/` reference (PROJECT.md, REQUIREMENTS.md, `research/SUMMARY.md`, any phase `*-CONTEXT.md` / `*-RESEARCH.md` / `*-UI-SPEC.md`) **and** any §29-style CLAUDE.md mention to the new `.md` path. Section anchors (`§4.1`, `§6.4`) keep working because conversion preserves the numbered headings. Verify with `grep -rn '\.docx' .planning/` returning nothing, and that no reference points at a stale folder.
+- **Tie spec moves to the GSD milestone lifecycle (REQUIRED):**
+  - When a **new milestone starts** (e.g. `/gsd-new-milestone`), move its spec `docs/pending/<spec>.md` → `docs/in-progress/`.
+  - When a **milestone completes** (e.g. `/gsd-complete-milestone`, all its phases verified + archived), move its spec `docs/in-progress/<spec>.md` → `docs/completed/` **as part of the completion change**, and update every reference (see next bullet). Completing a milestone without relocating its spec leaves `docs/in-progress/` falsely advertising shipped work.
+- **Keep references in sync on every convert/move.** Update every `.planning/` reference (PROJECT.md, REQUIREMENTS.md, `research/SUMMARY.md`, any phase `*-CONTEXT.md` / `*-RESEARCH.md` / `*-UI-SPEC.md`) **and** any §29-style CLAUDE.md mention to the new `.md` path. Section anchors (`§4.1`, `§6.4`) keep working because conversion preserves the numbered headings. Verify with `grep -rn '\.docx' .planning/` returning nothing, and that no reference points at a stale folder (`grep -rn 'docs/in-progress' .planning/` after a completion should return nothing for the just-shipped spec).
 - The base `docs/` folder holds **non-spec** working material (e.g. `cost.md`, `sre/`, `superpowers/`) — those are not milestone specs and stay where they are.
 
 ---
