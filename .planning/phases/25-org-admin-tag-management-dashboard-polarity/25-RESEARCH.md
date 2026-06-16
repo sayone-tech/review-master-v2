@@ -860,7 +860,7 @@ Step 2.6: SKIPPED — no external tools or CLI utilities beyond the project's ow
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Dashboard placement of TagPolarityChart**
    - What we know: `DashboardWidget.tsx` has a two-column grid with `TopPerformingSection` (or `YourStore`) + `SentimentDonut`. The new chart is a third card.
