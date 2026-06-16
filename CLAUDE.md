@@ -1363,6 +1363,12 @@ This repo ships purpose-built **subagents** (`.claude/agents/`, catalogued in §
 
 Follow this order, every time:
 
+**Requirements first (MANDATORY — before step 0, no exceptions).** When a user asks for a feature, do **not** start building it until it is captured as a requirement:
+
+- Confirm it maps to a REQ-ID in `.planning/REQUIREMENTS.md` (or the active spec under `docs/in-progress/`). If it does, proceed.
+- If it does **not** exist yet, **add/update the requirement first** — a REQ-ID (+ acceptance criteria) in `.planning/REQUIREMENTS.md` and, where it belongs to a milestone/spec, the relevant spec doc and `ROADMAP.md` — then build. For substantial features this means routing through the GSD flow (`/gsd-new-milestone` or `/gsd-phase` → discuss → plan → execute), not ad-hoc coding.
+- **Never ship a feature that isn't in the requirements registry.** Building outside it is exactly how the off-roadmap features in `docs/completed/Off-Roadmap_Features.md` (Reports, Reply Templates, Review Targets, Mobile/JWT, Action Item Categories) ended up untraceable. If a one-off side-track (e.g. a `superpowers` plan/spec) is unavoidable, **fold it back into `.planning/REQUIREMENTS.md` + ROADMAP in the same change.**
+
 0. **Design first (non-trivial change):** launch the `architect` subagent for a structure proposal, build order, and the §-constraints that apply, before writing code.
 1. **Read** the relevant app's existing `models.py`, `services/`, `selectors/`, `views.py`, `tasks.py`, `consumers.py` before writing anything.
 2. **Add models** → create migration → verify migration is reversible.
