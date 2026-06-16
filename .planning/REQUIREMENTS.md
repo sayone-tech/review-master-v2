@@ -51,8 +51,8 @@
 
 ### TDASH — Dashboard polarity presentation
 
-- [ ] **TDASH-01**: Dashboard tag charts show a simple count for `always_positive`/`always_negative` canonical tags and a positive/negative split for `mixed` tags
-- [ ] **TDASH-02**: Canonical aggregation queries include only reviews where `canonical_tag` is set
+- [x] **TDASH-01**: Dashboard tag charts show a simple count for `always_positive`/`always_negative` canonical tags and a positive/negative split for `mixed` tags
+- [x] **TDASH-02**: Canonical aggregation queries include only reviews where `canonical_tag` is set
 
 ### RESET — Superadmin data reset & re-sync (pre-production)
 
@@ -112,8 +112,8 @@ Every v0.8 requirement maps to exactly one phase. Phases 22–26 (continuing fro
 | TMGT-04 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
 | TMGT-05 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
 | TMGT-06 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
-| TDASH-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
-| TDASH-02 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TDASH-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
+| TDASH-02 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
 | RESET-01 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |
 | RESET-02 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |
 | RESET-03 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |

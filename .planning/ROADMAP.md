@@ -247,7 +247,7 @@ Plans:
 **Wave 1**
 
 - [x] 25-01-PLAN.md — Backend data + rename/merge services + merge_canonical_tags_task (tag-merge queue) + TagMergeJob model + TAG_MERGE_COMPLETE (TMGT-03/05/06)
-- [ ] 25-04-PLAN.md — Dashboard polarity: dashboard_tag_polarity selector + view + TagPolarityChart stacked bar (TDASH-01/02)
+- [x] 25-04-PLAN.md — Dashboard polarity: dashboard_tag_polarity selector + view + TagPolarityChart stacked bar (TDASH-01/02)
 
 **Wave 2** *(blocked on 25-01)*
 
@@ -294,5 +294,5 @@ Plans:
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
 | 24. Polarity Auto-Reclassification | v0.8 | 2/2 | Complete    | 2026-06-16 |
-| 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 1/4 | In Progress|  |
+| 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 2/4 | In Progress|  |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
