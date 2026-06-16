@@ -13,6 +13,7 @@ from apps.dashboard.selectors.aggregations import (
     dashboard_highlights,
     dashboard_kpis,
     dashboard_sentiment_distribution,
+    dashboard_tag_polarity,
     dashboard_top_performing,
     dashboard_your_store,
 )
@@ -100,3 +101,14 @@ class YourStoreView(DashboardApiView):
         self, *, org_id: int, params: DashboardFilterParams, user: User
     ) -> dict[str, Any] | None:
         return dashboard_your_store(org_id=org_id, params=params)
+
+
+class DashboardTagPolarityView(DashboardApiView):
+    endpoint_name = "tag-polarity"
+
+    def _fetch(
+        self, *, org_id: int, params: DashboardFilterParams, user: User
+    ) -> dict[str, Any] | None:
+        # Ignores date/shop filter params per TDASH-02 — aggregates the full
+        # canonical vocabulary for the org (not a filtered review window).
+        return dashboard_tag_polarity(organisation_id=org_id)

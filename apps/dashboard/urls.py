@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.dashboard.views import (
+    DashboardTagPolarityView,
     HighlightsView,
     KpisView,
     SentimentView,
@@ -16,4 +17,5 @@ urlpatterns = [
     path("top-performing/", TopPerformingView.as_view(), name="top-performing"),
     path("highlights/", HighlightsView.as_view(), name="highlights"),
     path("your-store/", YourStoreView.as_view(), name="your-store"),
+    path("tag-polarity/", DashboardTagPolarityView.as_view(), name="tag-polarity"),
 ]
