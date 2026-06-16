@@ -1552,3 +1552,16 @@ Committed, glob-scoped instruction files that load **only when a matching file i
 - **Don't duplicate.** CLAUDE.md sections are the **canonical, always-on policy** (your baseline when designing before any file is open). A scoped rule is a **concise per-file checklist that references its CLAUDE.md section** — not a second copy. When a rule and its section conflict, the CLAUDE.md section wins; fix the rule.
 - Keep rule bodies short and actionable. Adding a new rule (or changing its `paths:`) → add a row here so this catalogue stays the single source of truth (mirrors §27 for subagents).
 - Rules live under `.claude/rules/` and are **committed** (un-ignored in `.gitignore`, like `.claude/agents/`) so the whole team gets them. Personal/local Claude state stays ignored.
+
+---
+
+## 31. Project Skills (`.claude/skills/`)
+
+User-invocable workflows (`/<name>`) that **orchestrate** the subagents (§27) + the knowledge graph + the conventions in this file. Committed and shared (un-ignored in `.gitignore`). A skill = a `SKILL.md` with frontmatter (`name`, `description` with clear WHEN triggers) + an actionable body.
+
+| Skill | Invoke when… | What it does |
+|---|---|---|
+| `security-checklist` | before a PR / merging any auth, scoping, query, OpenAI, Channels, or deploy change; "security review", "check tenant isolation", "audit permissions" | Runs the project §22 + multi-tenant + Channels/Celery/OpenAI-PII checklist over the diff; delegates to `tenant-security-auditor` / `orm-performance-auditor`; runs bandit/pip-audit; blocks on HIGH. Complements the built-in `/security-review` (generic). |
+| `feature-impact` | after building a feature, before "done"/PR; "check impact", "what else needs updating", "run regressions", "did I miss anything" | Computes blast radius via the code-review-graph impact tools, walks the model→…→test→docs layer checklist, runs affected + **full** test suite + `makemigrations --check`, delegates to `orm-performance-auditor` / `tenant-security-auditor` / `test-author`. |
+
+**Conventions:** keep skills as orchestration (don't re-implement what a subagent or `/gsd-*` flow already does); descriptions need explicit trigger phrases so they surface at the right moment; adding/changing a skill → update this catalogue. Skills compose with §24's requirements-first gate, §27 subagents, and §30 rules.

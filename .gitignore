@@ -32,3 +32,4 @@ deployment/terraform/.terraform.lock.hcl
 .claude/*
 !.claude/agents/
 !.claude/rules/
+!.claude/skills/
