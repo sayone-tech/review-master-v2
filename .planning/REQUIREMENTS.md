@@ -54,11 +54,19 @@
 - [x] **TDASH-01**: Dashboard tag charts show a simple count for `always_positive`/`always_negative` canonical tags and a positive/negative split for `mixed` tags
 - [x] **TDASH-02**: Canonical aggregation queries include only reviews where `canonical_tag` is set
 
-### RESET — Superadmin data reset & re-sync (pre-production)
+### RESET — Superadmin data reset & re-sync (pre-production) — **DEFERRED**
 
-- [ ] **RESET-01**: A Superadmin can trigger a full data reset for one organisation — hard-deleting its Review, AiUsageLog, ActionItem, and OrgCanonicalTag rows (documented one-time pre-production exception to the §11 soft-delete rule)
-- [ ] **RESET-02**: The reset clears each store's sync state (Redis progress snapshot + `Shop.connection_status`) so stores read as "Not synced"
-- [ ] **RESET-03**: After reset, the Org Admin re-syncs each store through the normal flow, running the full four-step initial sync
+> **Deferred 2026-06-16 (pre-launch).** No production deployment exists yet, so the §11
+> soft-delete constraint that motivates an in-app Superadmin reset does not apply during
+> testing — dev data is reset directly via `manage.py flush` / DB drop-recreate + `make
+> migrate` + `make seed`, and Redis sync-state via `flushdb`. Building the Superadmin reset
+> feature now would be over-engineering. Revisit **before go-live**, when hard-deleting one
+> live org's data becomes a real operational need (e.g. the pre-production 56-store brand
+> re-sync). v0.8 ships as Phases 22–25; Phase 26 is parked, not cancelled.
+
+- [~] **RESET-01** *(deferred)*: A Superadmin can trigger a full data reset for one organisation — hard-deleting its Review, AiUsageLog, ActionItem, and OrgCanonicalTag rows (documented one-time pre-production exception to the §11 soft-delete rule)
+- [~] **RESET-02** *(deferred)*: The reset clears each store's sync state (Redis progress snapshot + `Shop.connection_status`) so stores read as "Not synced"
+- [~] **RESET-03** *(deferred)*: After reset, the Org Admin re-syncs each store through the normal flow, running the full four-step initial sync
 
 ---
 
@@ -85,6 +93,8 @@
 Every v0.8 requirement maps to exactly one phase. Phases 22–26 (continuing from v0.7's Phase 21).
 
 **Coverage: 25/25 requirements mapped ✓ — no orphans, no duplicates.**
+
+**Delivery scope:** v0.8 ships as Phases 22–25 (22 of 25 requirements). **Phase 26 / RESET-01..03 are deferred to pre-launch** (no production deployment yet — see the RESET section above). The milestone closes on the canonical-tag system + dashboard polarity; the Superadmin reset is parked, not cancelled.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -114,9 +124,9 @@ Every v0.8 requirement maps to exactly one phase. Phases 22–26 (continuing fro
 | TMGT-06 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
 | TDASH-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
 | TDASH-02 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
-| RESET-01 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |
-| RESET-02 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |
-| RESET-03 | Phase 26 — Superadmin Data Reset & Re-Sync | Pending |
+| RESET-01 | Phase 26 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
+| RESET-02 | Phase 26 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
+| RESET-03 | Phase 26 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
 
 **Note on CTAG-04 vs POL-01:** CTAG-04 (Phase 22) owns the in-call mapping behaviour — GPT mapping a tag to an existing canonical label *or proposing a new one*. POL-01 (Phase 24) owns the polarity-lifecycle requirement that the proposed new tag carries a GPT-assigned `polarity_type`. The phases share the same GPT call but the requirements are non-overlapping (mapping vs polarity assignment).
 

@@ -100,7 +100,7 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 - [x] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues. (completed 2026-06-11)
 - [x] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible. (completed 2026-06-16)
 - [x] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags. (completed 2026-06-16)
-- [ ] **Phase 26: Superadmin Data Reset & Re-Sync** — One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync.
+- [~] **Phase 26: Superadmin Data Reset & Re-Sync** — **DEFERRED (pre-launch, 2026-06-16).** One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync. Parked while there is no production deployment — dev resets use `manage.py flush` / DB recreate + `make seed` / Redis `flushdb`. Revisit before go-live.
 
 ---
 
@@ -257,7 +257,15 @@ Plans:
 
 - [x] 25-03-PLAN.md — Tag-management React widget: sortable table, inline rename, merge modal, 2s HTTP-polled progress banner (TMGT-02/03/04/06)
 
-### Phase 26: Superadmin Data Reset & Re-Sync
+### Phase 26: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
+
+> **Deferred while there is no production deployment.** The feature's premise — needing an
+> in-app Superadmin path to hard-delete a *live* org's data despite the §11 soft-delete rule —
+> does not apply during testing, where data is reset directly (`manage.py flush` / DB
+> recreate + `make seed`, Redis `flushdb`). Building it now would be over-engineering.
+> Revisit before go-live (the pre-production 56-store brand re-sync is the likely trigger).
+> If a repeatable testing wipe is wanted sooner, a thin `manage.py reset_org_data <org_id>`
+> command is the minimal stand-in — far less than the full phase. v0.8 ships as Phases 22–25.
 
 **Goal**: A Superadmin can fully reset one organisation's review data and sync state in a single deliberate, documented pre-production operation, so the pre-production 56-store brand can be re-synced cleanly through the full canonical pipeline and the whole milestone is validated end-to-end on real data.
 **Depends on**: Phases 22–25 (the full canonical pipeline + four-step sync must exist before a reset-and-re-sync proves value)
