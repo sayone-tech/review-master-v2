@@ -1531,3 +1531,24 @@ The general-purpose audit/event model (Phase 21), surfaced in the Org Activity L
 | `POLARITY_RECLASSIFY_THRESHOLD` | 0.15 | Opposite-polarity fraction that flips `always_*` → `mixed` (strict `>`) |
 | `POLARITY_RECLASSIFY_WINDOW_DAYS` | 30 | Trailing window (by `Review.review_create_time`) |
 | `POLARITY_RECLASSIFY_MIN_REVIEWS` | 10 | Minimum sample before the weekly job acts |
+
+---
+
+## 30. Path-Scoped Rules (`.claude/rules/`)
+
+Committed, glob-scoped instruction files that load **only when a matching file is in context** — keeping the always-loaded CLAUDE.md lean while surfacing per-file reminders exactly when relevant. Each has YAML frontmatter `paths:` (globs) + a short body.
+
+| Rule | `paths:` (loads when working on…) | Reinforces |
+|---|---|---|
+| `testing-python.md` | `apps/**/tests/*.py`, `**/conftest.py` | §16, §6.9 |
+| `testing-frontend.md` | `frontend/**/*.test.tsx` | §16, §26 |
+| `selectors.md` | `apps/**/selectors/*.py` | §5, §6 |
+| `drf-views.md` | `apps/**/views.py` / `serializers.py` / `*urls.py` | §5, §8, §9, §22 |
+| `migrations.md` | `apps/**/migrations/*.py` | §6, §18 |
+| `openai-enrichment.md` | `apps/integrations/openai/**`, reviews enrichment/reclassify/finalise services | §14, §29 |
+
+**Convention (so rules and CLAUDE.md don't drift):**
+
+- **Don't duplicate.** CLAUDE.md sections are the **canonical, always-on policy** (your baseline when designing before any file is open). A scoped rule is a **concise per-file checklist that references its CLAUDE.md section** — not a second copy. When a rule and its section conflict, the CLAUDE.md section wins; fix the rule.
+- Keep rule bodies short and actionable. Adding a new rule (or changing its `paths:`) → add a row here so this catalogue stays the single source of truth (mirrors §27 for subagents).
+- Rules live under `.claude/rules/` and are **committed** (un-ignored in `.gitignore`, like `.claude/agents/`) so the whole team gets them. Personal/local Claude state stays ignored.
