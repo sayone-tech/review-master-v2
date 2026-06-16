@@ -71,7 +71,7 @@ Error pages (branded 404/500) are also in scope as self-contained templates.
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Requirements
-- `docs/Requirements_Phase4_Dashboard.docx` — Primary requirements doc. All acceptance criteria, filter scope rules, widget data definitions, API endpoint shapes, performance targets, and out-of-scope list. This is the binding spec.
+- `docs/completed/Requirements_Dashboard.md` — Primary requirements doc. All acceptance criteria, filter scope rules, widget data definitions, API endpoint shapes, performance targets, and out-of-scope list. This is the binding spec.
 - `.planning/REQUIREMENTS.md` — REQ-ID index of all 38 Phase 14 requirements (FILT-01–10, TOP-01–07, STORE-01–03, KPI-01–05, SENT-01–06, TECH-01–06, ERR-01–02)
 
 ### Architecture and Research

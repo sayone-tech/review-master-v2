@@ -69,7 +69,7 @@ Requirements: DSYS-01 through DSYS-08.
 - `.planning/REQUIREMENTS.md` — 50 v1 requirements with IDs; Phase 1 covers DSYS-01 through DSYS-08
 
 ### External specs
-- `docs/Requirements_Phase1_Superadmin.docx` — Original requirements document (v1.0, April 2026); contains design detail for DSYS components beyond what REQUIREMENTS.md captures
+- `docs/completed/Requirements_Superadmin.md` — Original requirements document (v1.0, April 2026); contains design detail for DSYS components beyond what REQUIREMENTS.md captures
 
 ### Key constraints from CLAUDE.md
 - §3 File & Folder Structure — exact directory layout to follow (config/, apps/, templates/, static/, frontend/)

@@ -1449,3 +1449,20 @@ This repo ships **purpose-built subagents** that encode the conventions in this 
 - New feature → `architect` first, build per §24, then `code-reviewer` + the relevant auditor(s).
 - Any change touching queries → `orm-performance-auditor`. Any change touching auth/scope → `tenant-security-auditor`. These two are non-negotiable for their surfaces.
 - Adding a new subagent (or changing one's remit) → update this section so the catalogue stays the single source of truth.
+
+---
+
+## 28. Requirements & Spec Docs (`docs/`)
+
+Product requirement specs live under `docs/` and are **Markdown only — never `.docx`**.
+
+### Doc conventions
+
+- **Markdown is the source of truth.** No `.docx` (or other binary office formats) in the repo. If a spec arrives as `.docx`, convert it to `.md` and **delete the `.docx`** in the same change.
+  - There is no pandoc/python-docx in this project's env; a dependency-free stdlib converter (`zipfile` + `xml.etree` over `word/document.xml`) is sufficient for these structured specs — preserve headings, tables, lists, and bold, and strip redundant bold from heading lines.
+- **Active vs completed layout:**
+  - `docs/` — the spec for the **current / in-progress milestone** (e.g. the v0.8 Canonical Tag spec).
+  - `docs/completed/` — specs for **shipped milestones** (Superadmin, OrgAdmin, phase-3, Dashboard, Direct Reviews, …).
+  - When a milestone completes, **move its spec from `docs/` → `docs/completed/`**.
+- **Keep references in sync.** When converting or moving a spec, update every `.planning/` reference (PROJECT.md, REQUIREMENTS.md, `research/SUMMARY.md`, and any phase `*-CONTEXT.md` / `*-RESEARCH.md` / `*-UI-SPEC.md`) to the new `.md` path. Section anchors (`§4.1`, `§6.4`) keep working because the conversion preserves the numbered headings. Verify with `grep -rn '\.docx' .planning/` returning nothing.
+- `docs/` may also hold derived working notes (e.g. `cost.md`); those are not milestone specs and stay where they are.
