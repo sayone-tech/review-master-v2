@@ -126,6 +126,8 @@ CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment-low"},
     "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment-low"},
     "apps.reviews.tasks.finalize_canonical_tags_task": {"queue": "tag-merge"},
+    # Phase 24 POL-02 — weekly polarity reclassification; low-frequency, low-concurrency.
+    "apps.reviews.tasks.reclassify_polarity_task": {"queue": "default"},
     "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
@@ -197,6 +199,15 @@ SEED_PHASE_SIZE = env.int("SEED_PHASE_SIZE", default=50)
 # OPENAI_GLOBAL_RATE_LIMIT: per-org rolling 60-second call cap enforced by the
 # rate:openai:org:{organisation_id} Redis token bucket (progress.py). Works cross-worker.
 OPENAI_GLOBAL_RATE_LIMIT = env.int("OPENAI_GLOBAL_RATE_LIMIT", default=500)
+
+# Phase 24 — polarity auto-reclassification (POL-02)
+# POLARITY_RECLASSIFY_THRESHOLD: opposite-polarity fraction that triggers flip to mixed.
+# A tag flips always_positive→mixed when negative/total > threshold (strict >; D-02).
+POLARITY_RECLASSIFY_THRESHOLD = float(env("POLARITY_RECLASSIFY_THRESHOLD", default="0.15"))
+# POLARITY_RECLASSIFY_WINDOW_DAYS: trailing window for Review.review_create_time filter.
+POLARITY_RECLASSIFY_WINDOW_DAYS = env.int("POLARITY_RECLASSIFY_WINDOW_DAYS", default=30)
+# POLARITY_RECLASSIFY_MIN_REVIEWS: minimum sample guard — denominator must be >= this.
+POLARITY_RECLASSIFY_MIN_REVIEWS = env.int("POLARITY_RECLASSIFY_MIN_REVIEWS", default=10)
 
 # ---------------------------------------------------------------------------
 # AWS — used by Celery queue-depth metric publisher (apps.common.services.
