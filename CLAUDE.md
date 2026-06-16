@@ -689,7 +689,7 @@ Beat tasks are stored in the database via `django-celery-beat`. Seed initial sch
 - Celery worker, Celery Beat, and the web server run as **separate Cloud Run services** (or separate processes in a GKE pod set).
 - All three use the **same Docker image**; the entry command differs per service.
 - **Beat instance count: exactly 1.** Multiple Beat instances = duplicate jobs. Enforce at the deployment template.
-- **Worker instance count:** scales horizontally per queue based on queue depth. Different scaling profiles per queue (e.g., `ai-enrichment` workers can scale slower since OpenAI is the bottleneck).
+- **Worker instance count:** scales horizontally per queue based on queue depth. Different scaling profiles per queue (e.g., `ai-enrichment-*` workers can scale slower since OpenAI is the bottleneck; `ai-enrichment-high` is prioritised for initial sync).
 - **Sentry integration** captures task failures with full traceback and task arguments.
 
 ### 12.7 Monitoring
