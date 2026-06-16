@@ -771,7 +771,7 @@ A composite index on `ReviewTag (canonical_tag_id, review_id)` would marginally 
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`polarity_reclassified_at` field addition**
    - What we know: AuditLog row is the authoritative record; Phase 25 will need to display the last reclassification date.
