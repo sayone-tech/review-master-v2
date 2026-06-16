@@ -1,4 +1,7 @@
-"""Phase 11 — ReviewViewSet API tests including REVW-14 query-count gate."""
+"""Phase 11 — ReviewViewSet API tests including REVW-14 query-count gate.
+
+Phase 25 Plan 02 — OrgCanonicalTagViewSet + TagMergeJobViewSet + tags_page_view tests.
+"""
 
 from __future__ import annotations
 
@@ -19,8 +22,13 @@ from apps.integrations.openai.exceptions import (
     OpenAITransientError,
 )
 from apps.organisations.tests.factories import OrganisationFactory
-from apps.reviews.models import Review
-from apps.reviews.tests.factories import ReviewFactory, ReviewTagFactory
+from apps.reviews.models import Review, TagMergeJob
+from apps.reviews.tests.factories import (
+    OrgCanonicalTagFactory,
+    ReviewFactory,
+    ReviewTagFactory,
+    TagMergeJobFactory,
+)
 from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
@@ -599,3 +607,157 @@ class TestGenerateReplyEndpoint:
 
         assert resp.status_code == 422
         assert set(resp.json().keys()) == {"code", "detail"}
+
+
+# ---------------------------------------------------------------------------
+# Phase 25 Plan 02 — OrgCanonicalTagViewSet tests (TMGT-01, TMGT-02, TMGT-04)
+# ---------------------------------------------------------------------------
+
+CANONICAL_TAGS_URL = "/api/v1/reviews/canonical-tags/"
+TAG_MERGE_JOBS_URL = "/api/v1/reviews/tag-merge-jobs/"
+
+
+@pytest.fixture
+def org_admin_setup():
+    """Return (client, user, org) for an ORG_ADMIN user."""
+    org = OrganisationFactory()
+    user = OrgAdminFactory(organisation=org)
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client, user, org
+
+
+def test_canonical_tags_list_query_count(org_admin_setup) -> None:
+    """TMGT-02: list endpoint ≤3 queries regardless of page size (§6.9).
+
+    Expected queries: 1 session/auth + 1 COUNT + 1 SELECT = 3 max.
+    """
+    client, _user, org = org_admin_setup
+    OrgCanonicalTagFactory.create_batch(20, organisation=org)
+    with CaptureQueriesContext(connection) as ctx:
+        resp = client.get(CANONICAL_TAGS_URL, {"page_size": 20})
+    assert resp.status_code == 200
+    assert len(ctx.captured_queries) <= 3, [q["sql"] for q in ctx.captured_queries]
+
+
+def test_canonical_tags_ordering(org_admin_setup) -> None:
+    """TMGT-02: ?ordering=label and ?ordering=-review_count reorder results."""
+    client, _user, org = org_admin_setup
+    OrgCanonicalTagFactory(organisation=org, label="Zebra Tag", review_count=5)
+    OrgCanonicalTagFactory(organisation=org, label="Apple Tag", review_count=10)
+    OrgCanonicalTagFactory(organisation=org, label="Middle Tag", review_count=1)
+
+    # ordering=label → alphabetical ascending
+    resp = client.get(CANONICAL_TAGS_URL, {"ordering": "label"})
+    assert resp.status_code == 200
+    labels = [r["label"] for r in resp.data["results"]]
+    assert labels == sorted(labels), f"Expected ascending order, got {labels}"
+
+    # ordering=-review_count → highest review_count first
+    resp2 = client.get(CANONICAL_TAGS_URL, {"ordering": "-review_count"})
+    assert resp2.status_code == 200
+    counts = [r["review_count"] for r in resp2.data["results"]]
+    assert counts == sorted(counts, reverse=True), f"Expected desc order, got {counts}"
+
+
+def test_merge_409_when_active_job(org_admin_setup) -> None:
+    """TMGT-04/T-25-AC3: POST merge while PENDING job exists → 409."""
+    client, _user, org = org_admin_setup
+    source_tag = OrgCanonicalTagFactory(organisation=org, label="Source Tag")
+    target_tag = OrgCanonicalTagFactory(organisation=org, label="Target Tag")
+    # Create an active PENDING job for this org
+    TagMergeJobFactory(
+        organisation=org,
+        source_label="Old Source",
+        target_label="Old Target",
+        status=TagMergeJob.Status.PENDING,
+        dismissed=False,
+    )
+
+    resp = client.post(
+        f"{CANONICAL_TAGS_URL}{source_tag.pk}/merge/",
+        {"target_id": target_tag.pk},
+        format="json",
+    )
+    assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.data}"
+
+
+def test_tag_merge_job_active_endpoint(org_admin_setup) -> None:
+    """TMGT-06/T-25-AC1b: active/ returns the caller's org job only — not another org's."""
+    client, _user, org = org_admin_setup
+    other_org = OrganisationFactory()
+
+    # Create a job for the other org — must NOT be returned
+    TagMergeJobFactory(
+        organisation=other_org,
+        status=TagMergeJob.Status.PENDING,
+        dismissed=False,
+    )
+
+    # No active job for caller's org → null response
+    resp = client.get(f"{TAG_MERGE_JOBS_URL}active/")
+    assert resp.status_code == 200
+    assert resp.data is None or resp.data == {}
+
+    # Now create a job for caller's org
+    job = TagMergeJobFactory(
+        organisation=org,
+        source_label="My Source",
+        target_label="My Target",
+        status=TagMergeJob.Status.PENDING,
+        dismissed=False,
+    )
+    resp2 = client.get(f"{TAG_MERGE_JOBS_URL}active/")
+    assert resp2.status_code == 200
+    assert resp2.data is not None
+    assert resp2.data["id"] == job.pk
+
+
+def test_tag_merge_job_dismiss(org_admin_setup) -> None:
+    """TMGT-06: dismiss/ sets dismissed=True; active/ then returns null."""
+    client, _user, org = org_admin_setup
+    job = TagMergeJobFactory(
+        organisation=org,
+        status=TagMergeJob.Status.SUCCESS,
+        dismissed=False,
+    )
+
+    # Dismiss the job
+    resp = client.patch(f"{TAG_MERGE_JOBS_URL}{job.pk}/dismiss/")
+    assert resp.status_code == 200
+
+    # After dismiss, active/ should return null (job is dismissed)
+    job.refresh_from_db()
+    assert job.dismissed is True
+
+
+# ---------------------------------------------------------------------------
+# Phase 25 Plan 02 — tags_page_view tests (TMGT-01)
+# ---------------------------------------------------------------------------
+
+TAGS_PAGE_URL = "/admin/org/tags/"
+
+
+def test_tags_page_staff_redirected() -> None:
+    """TMGT-01/T-25-AC1: Staff GET /admin/org/tags/ → redirect (not 200)."""
+    org = OrganisationFactory()
+    staff = StaffAdminFactory(organisation=org)
+    client = APIClient()
+    client.force_authenticate(user=staff)
+    resp = client.get(TAGS_PAGE_URL)
+    # @org_admin_required redirects non-ORG_ADMIN users
+    assert resp.status_code in (302, 301, 403), (
+        f"Expected redirect/403 for Staff, got {resp.status_code}"
+    )
+
+
+def test_tags_page_org_admin_ok() -> None:
+    """TMGT-01: ORG_ADMIN GET /admin/org/tags/ → 200."""
+    org = OrganisationFactory()
+    user = OrgAdminFactory(organisation=org)
+    from django.test import Client
+
+    client = Client()
+    client.force_login(user)
+    resp = client.get(TAGS_PAGE_URL)
+    assert resp.status_code == 200

@@ -13,7 +13,7 @@ from apps.organisations.views import OrganisationViewSet
 from apps.regions.views import RegionViewSet
 from apps.reply_templates.views import ReplyTemplateViewSet
 from apps.reports.urls import api_urlpatterns as reports_api_urls
-from apps.reviews.views import ReviewViewSet
+from apps.reviews.views import OrgCanonicalTagViewSet, ReviewViewSet, TagMergeJobViewSet
 from apps.shops.views import ReviewTargetViewSet, ShopViewSet
 
 # SimpleRouter avoids creating a browsable API-root at "/" which would conflict
@@ -28,6 +28,10 @@ router.register(
     basename="shop-target",
 )
 router.register(r"api/v1/shops", ShopViewSet, basename="shop")
+# Phase 25 Plan 02: canonical-tags + tag-merge-jobs MUST be registered BEFORE
+# reviews so the router prefix /api/v1/reviews/<pk>/ doesn't swallow these routes.
+router.register(r"api/v1/reviews/canonical-tags", OrgCanonicalTagViewSet, basename="canonical-tags")
+router.register(r"api/v1/reviews/tag-merge-jobs", TagMergeJobViewSet, basename="tag-merge-jobs")
 router.register(r"api/v1/reviews", ReviewViewSet, basename="review")
 router.register(r"api/v1/audit-logs", AuditLogViewSet, basename="audit-log")
 
