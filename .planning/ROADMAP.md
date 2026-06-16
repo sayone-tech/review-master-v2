@@ -221,7 +221,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 24-01-PLAN.md — Settings (POLARITY_RECLASSIFY_THRESHOLD/WINDOW_DAYS/MIN_REVIEWS) + default-queue route + nullable polarity_reclassified_at field/migration 0012 + Wave-0 failing test suite & POL-01 re-confirmation (POL-01, POL-02)
+- [x] 24-01-PLAN.md — Settings (POLARITY_RECLASSIFY_THRESHOLD/WINDOW_DAYS/MIN_REVIEWS) + default-queue route + nullable polarity_reclassified_at field/migration 0012 + Wave-0 failing test suite & POL-01 re-confirmation (POL-01, POL-02)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -279,6 +279,6 @@ Plans:
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
-| 24. Polarity Auto-Reclassification | v0.8 | 0/2 | ⬜ Not started | - |
+| 24. Polarity Auto-Reclassification | v0.8 | 1/2 | In Progress|  |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
