@@ -24,6 +24,7 @@ class Notification(TimeStampedModel):
         NEW_REVIEW = "new_review", "New Review"
         NEW_ACTION_ITEM = "new_action_item", "New Action Item"
         ACTION_ITEM_ASSIGNED = "action_item_assigned", "Action Item Assigned"
+        TAG_MERGE_COMPLETE = "tag_merge_complete", "Tag Merge Complete"
 
     organisation = models.ForeignKey(
         "organisations.Organisation",

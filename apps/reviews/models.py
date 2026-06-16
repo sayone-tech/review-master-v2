@@ -176,6 +176,72 @@ class OrgCanonicalTag(TimeStampedModel):
         return f"{self.label} (org={self.organisation_id})"
 
 
+class TagMergeJob(TimeStampedModel):
+    """Durable record of a user-initiated canonical tag merge (D-08).
+
+    source_tag FK becomes null after the merge (on_delete=SET_NULL — source is deleted).
+    source_label / target_label are denormalized for display after deletion.
+    Poll endpoint filters by (organisation, dismissed, status) using tagmergejob_org_status_idx.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        IN_PROGRESS = "IN_PROGRESS", "In Progress"
+        SUCCESS = "SUCCESS", "Success"
+        FAILED = "FAILED", "Failed"
+
+    organisation = models.ForeignKey(
+        "organisations.Organisation",
+        on_delete=models.CASCADE,
+        db_index=True,
+        related_name="tag_merge_jobs",
+    )
+    source_tag = models.ForeignKey(
+        "reviews.OrgCanonicalTag",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    source_label = models.CharField(max_length=100)  # denormalized — source deleted on success
+    target_tag = models.ForeignKey(
+        "reviews.OrgCanonicalTag",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    target_label = models.CharField(max_length=100)  # denormalized for display
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    processed = models.PositiveIntegerField(default=0)
+    total = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True, default="")
+    dismissed = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(
+                fields=["organisation", "status"],
+                name="tagmergejob_org_status_idx",
+            ),
+            models.Index(
+                fields=["organisation", "-created_at"],
+                name="tagmergejob_org_date_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"TagMergeJob({self.pk}, org={self.organisation_id}, "
+            f"{self.source_label!r}→{self.target_label!r}, status={self.status})"
+        )
+
+
 class ReviewTag(models.Model):
     class Polarity(models.TextChoices):
         POSITIVE = "positive", "Positive"

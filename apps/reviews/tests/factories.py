@@ -8,7 +8,7 @@ from factory.django import DjangoModelFactory
 
 from apps.common.models import AuditLog
 from apps.organisations.tests.factories import OrganisationFactory
-from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag, TagMergeJob
 from apps.shops.tests.factories import ShopFactory
 
 
@@ -53,6 +53,22 @@ class ReviewTagFactory(DjangoModelFactory):
     label = factory.Faker("word")
     polarity = "positive"
     canonical_tag = None
+
+
+class TagMergeJobFactory(DjangoModelFactory):
+    class Meta:
+        model = TagMergeJob
+
+    organisation = factory.SubFactory(OrganisationFactory)
+    source_tag = None
+    source_label = factory.Sequence(lambda n: f"Source Tag {n}")
+    target_tag = None
+    target_label = factory.Sequence(lambda n: f"Target Tag {n}")
+    status = TagMergeJob.Status.PENDING
+    processed = 0
+    total = 0
+    error_message = ""
+    dismissed = False
 
 
 class AuditLogFactory(DjangoModelFactory):
