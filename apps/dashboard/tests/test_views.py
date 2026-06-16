@@ -18,7 +18,7 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.accounts.tests.factories import OrgAdminFactory
+from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
 from apps.dashboard.tests.conftest import make_review
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.shops.tests.factories import ShopFactory
@@ -170,3 +170,25 @@ def test_your_store_view_200_multi_shop_returns_empty(db, api_client, org_with_u
     api_client.force_authenticate(user=user)
     resp = api_client.get("/api/v1/dashboard/your-store/")
     assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# /api/v1/dashboard/tag-polarity/ — ORG_ADMIN-only (Phase 25 follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_tag_polarity_view_200_for_org_admin(db, api_client, org_with_user_and_shop):
+    """The canonical tag-polarity chart endpoint returns 200 for an ORG_ADMIN."""
+    user = org_with_user_and_shop["user"]
+    api_client.force_authenticate(user=user)
+    resp = api_client.get("/api/v1/dashboard/tag-polarity/")
+    assert resp.status_code == 200
+    assert "tags" in resp.json()
+
+
+def test_tag_polarity_view_403_for_staff(db, api_client, org_with_user_and_shop):
+    """Staff must NOT reach the org-wide canonical tag-polarity aggregate (§9/§22)."""
+    staff = StaffAdminFactory(organisation=org_with_user_and_shop["org"])
+    api_client.force_authenticate(user=staff)
+    resp = api_client.get("/api/v1/dashboard/tag-polarity/")
+    assert resp.status_code == 403

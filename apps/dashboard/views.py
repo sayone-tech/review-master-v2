@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from apps.accounts.permissions import IsOrgAdmin
 from apps.common.permissions import IsOrgScoped
 from apps.dashboard.filters import DashboardFilterParams, validate_filter_params
 from apps.dashboard.selectors.aggregations import (
@@ -105,6 +106,10 @@ class YourStoreView(DashboardApiView):
 
 class DashboardTagPolarityView(DashboardApiView):
     endpoint_name = "tag-polarity"
+    # Canonical vocabulary is an org-level, ORG_ADMIN-only surface (Phase 25
+    # follow-up): the aggregate is org-wide and intentionally ignores a Staff
+    # user's accessible_shop_ids, so Staff must not reach it (§9/§22).
+    permission_classes = [IsOrgAdmin]  # noqa: RUF012
 
     def _fetch(
         self, *, org_id: int, params: DashboardFilterParams, user: User

@@ -260,10 +260,14 @@ function DashboardInner() {
         <SentimentDonut filters={fullFilters} />
       </div>
 
-      {/* Tag distribution — full-width third row (TDASH-01, 25-04) */}
-      <div style={{ marginTop: 16 }}>
-        <TagPolarityChart />
-      </div>
+      {/* Tag distribution — full-width third row (TDASH-01, 25-04).
+          ORG_ADMIN-only: the canonical vocabulary is org-level and the endpoint
+          is restricted to org admins, so Staff never see this chart. */}
+      {bootstrap.isOrgAdmin && (
+        <div style={{ marginTop: 16 }}>
+          <TagPolarityChart />
+        </div>
+      )}
     </div>
   );
 }
