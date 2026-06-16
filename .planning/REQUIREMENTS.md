@@ -42,10 +42,10 @@
 
 ### TMGT — Org Admin tag management
 
-- [ ] **TMGT-01**: Org Admin and Manager can reach a Tags page at `/admin/org/tags/` (sidebar under Settings); Staff cannot
-- [ ] **TMGT-02**: The tag list shows Label, Polarity Type badge, Review Count, First Seen, and an Actions menu, sortable by column, on a paginated query-count-bounded endpoint
+- [x] **TMGT-01**: Org Admin and Manager can reach a Tags page at `/admin/org/tags/` (sidebar under Settings); Staff cannot
+- [x] **TMGT-02**: The tag list shows Label, Polarity Type badge, Review Count, First Seen, and an Actions menu, sortable by column, on a paginated query-count-bounded endpoint
 - [x] **TMGT-03**: A canonical tag can be renamed inline (1–100 chars, unique within the org); save updates `OrgCanonicalTag.label` and all mapped `ReviewTag` rows synchronously
-- [ ] **TMGT-04**: A canonical tag can be merged into another via a modal with a searchable target picker and an explicit "re-maps N reviews, cannot be undone" warning
+- [x] **TMGT-04**: A canonical tag can be merged into another via a modal with a searchable target picker and an explicit "re-maps N reviews, cannot be undone" warning
 - [x] **TMGT-05**: Merge runs as a batched `merge_canonical_tags` Celery task (tag-merge queue, per-org lock) that re-points all reviews, deletes the source tag, combines `review_count`, and posts a completion notification
 - [x] **TMGT-06**: Merge progress is delivered via HTTP polling — in-progress bar with dismiss, state that survives page reload, a completion toast, and a failure path that rolls back partial updates
 
@@ -106,10 +106,10 @@ Every v0.8 requirement maps to exactly one phase. Phases 22–26 (continuing fro
 | POL-01 | Phase 24 — Polarity Auto-Reclassification | Complete |
 | POL-02 | Phase 24 — Polarity Auto-Reclassification | Complete |
 | POL-03 | Phase 24 — Polarity Auto-Reclassification | Complete |
-| TMGT-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
-| TMGT-02 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TMGT-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
+| TMGT-02 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
 | TMGT-03 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
-| TMGT-04 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
+| TMGT-04 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
 | TMGT-05 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
 | TMGT-06 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
 | TDASH-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Complete |
