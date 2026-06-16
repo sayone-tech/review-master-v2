@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Canonical Tag System
-status: executing
-stopped_at: Phase 24 context gathered
-last_updated: "2026-06-16T06:10:47.950Z"
+status: ready_to_plan
+stopped_at: Phase 24 complete (2/2) — ready to discuss Phase 25
+last_updated: 2026-06-16T06:35:12.899Z
 last_activity: 2026-06-16 -- Phase 24 execution started
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 20
-  completed_plans: 18
+  completed_plans: 124
   percent: 50
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 24 — polarity-auto-reclassification
+**Current focus:** Phase 25 — org admin tag management & dashboard polarity
 
 ## Current Position
 
-Phase: 24 (polarity-auto-reclassification) — EXECUTING
-Plan: 1 of 2
+Phase: 25
+Plan: Not started
 Next: Phase 24 (polarity-auto-reclassification) — discussing
-Status: Executing Phase 24
-Last activity: 2026-06-16 -- Phase 24 execution started
+Status: Ready to plan
+Last activity: 2026-06-16
 
 ### v0.8 phase map (Phases 22–26)
 
@@ -45,7 +45,7 @@ Last activity: 2026-06-16 -- Phase 24 execution started
 
 **Velocity (v0.3–v0.4 baseline):**
 
-- Total plans completed: 59
+- Total plans completed: 61
 - Average duration: ~9 minutes
 - Total execution time: ~6.75 hours
 
@@ -58,6 +58,7 @@ Last activity: 2026-06-16 -- Phase 24 execution started
 | 17 | 4 | - | - |
 | 18 | 4 | - | - |
 | 22 | 6 | - | - |
+| 24 | 2 | - | - |
 
 ## Accumulated Context
 

@@ -20,9 +20,9 @@
 
 ### POL — Polarity types & auto-reclassification
 
-- [ ] **POL-01**: A new canonical tag is assigned one of `always_positive` / `always_negative` / `mixed` by GPT at creation time
-- [ ] **POL-02**: A weekly Celery Beat job reclassifies an `always_*` canonical tag to `mixed` when the opposite polarity exceeds 15% of its reviews over the last 30 days (pure DB aggregation, no GPT call)
-- [ ] **POL-03**: Reclassification events are logged and the current `polarity_type` is visible on the tag list page
+- [x] **POL-01**: A new canonical tag is assigned one of `always_positive` / `always_negative` / `mixed` by GPT at creation time
+- [x] **POL-02**: A weekly Celery Beat job reclassifies an `always_*` canonical tag to `mixed` when the opposite polarity exceeds 15% of its reviews over the last 30 days (pure DB aggregation, no GPT call)
+- [x] **POL-03**: Reclassification events are logged and the current `polarity_type` is visible on the tag list page
 
 ### SEED — Four-step initial sync & vocabulary seeding
 
@@ -103,9 +103,9 @@ Every v0.8 requirement maps to exactly one phase. Phases 22–26 (continuing fro
 | SEED-04 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
 | DSYNC-01 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
 | QUEUE-01 | Phase 23 — Four-Step Initial Sync, Seeding & Queue Split | Pending |
-| POL-01 | Phase 24 — Polarity Auto-Reclassification | Pending |
-| POL-02 | Phase 24 — Polarity Auto-Reclassification | Pending |
-| POL-03 | Phase 24 — Polarity Auto-Reclassification | Pending |
+| POL-01 | Phase 24 — Polarity Auto-Reclassification | Complete |
+| POL-02 | Phase 24 — Polarity Auto-Reclassification | Complete |
+| POL-03 | Phase 24 — Polarity Auto-Reclassification | Complete |
 | TMGT-01 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
 | TMGT-02 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
 | TMGT-03 | Phase 25 — Org Admin Tag Management & Dashboard Polarity | Pending |
