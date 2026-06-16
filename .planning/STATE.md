@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Canonical Tag System
-status: ready_to_plan
-stopped_at: Phase 24 complete (2/2) — ready to discuss Phase 25
-last_updated: 2026-06-16T06:35:12.899Z
-last_activity: 2026-06-16 -- Phase 24 execution started
+status: planning
+stopped_at: Phase 25 context gathered
+last_updated: "2026-06-16T07:06:12.727Z"
+last_activity: 2026-06-16
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 20
-  completed_plans: 124
-  percent: 50
+  completed_plans: 20
+  percent: 67
 ---
 
 # Project State
@@ -85,6 +85,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-06-16T04:09:48.175Z
-Stopped at: Phase 24 context gathered
-Resume file: .planning/phases/24-polarity-auto-reclassification/24-CONTEXT.md
+Last session: 2026-06-16T07:06:12.719Z
+Stopped at: Phase 25 context gathered
+Resume file: .planning/phases/25-org-admin-tag-management-dashboard-polarity/25-CONTEXT.md
