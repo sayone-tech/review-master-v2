@@ -216,7 +216,16 @@ Plans:
   2. A weekly Celery Beat job reclassifies an `always_*` canonical tag to `mixed` when the opposite polarity exceeds 15% of its reviews over the last 30 days, using pure DB aggregation with no GPT call.
   3. Reclassification events are logged, and the current `polarity_type` is visible on the tag list page.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 24-01-PLAN.md — Settings (POLARITY_RECLASSIFY_THRESHOLD/WINDOW_DAYS/MIN_REVIEWS) + default-queue route + nullable polarity_reclassified_at field/migration 0012 + Wave-0 failing test suite & POL-01 re-confirmation (POL-01, POL-02)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 24-02-PLAN.md — run_polarity_reclassification service (single-pass aggregate, one-way flip to mixed, atomic AuditLog) + thin weekly Beat task + CrontabSchedule seed migration 0013 (POL-02, POL-03)
 
 ### Phase 25: Org Admin Tag Management & Dashboard Polarity
 
@@ -270,6 +279,6 @@ Plans:
 | 21. Audit Log Viewer | v0.7 | 4/4 | ✅ Complete | 2026-05-24 |
 | 22. Canonical Tag Foundation & Mapping Pipeline | v0.8 | 6/6 | Complete    | 2026-06-10 |
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
-| 24. Polarity Auto-Reclassification | v0.8 | 0/TBD | ⬜ Not started | - |
+| 24. Polarity Auto-Reclassification | v0.8 | 0/2 | ⬜ Not started | - |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 0/TBD | ⬜ Not started | - |
 | 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
