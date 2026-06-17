@@ -123,8 +123,13 @@ apps/
 ### Start everything
 
 ```bash
-docker-compose up -d
+docker-compose -p review-master up
 ```
+
+> Runs in the foreground so you see logs in the terminal. Add `-d` to run detached.
+> The `-p review-master` flag pins the Compose **project name** so container and volume
+> names (e.g. `review-master_static_css`) stay stable regardless of the directory you cloned
+> into. `make up` and the other `make` targets apply this automatically.
 
 This starts: `db` (PostgreSQL 16), `redis` (Redis 7), `mailhog` (email capture), `vite` (Tailwind + React dev server), `web` (Django), `worker` (Celery), `beat` (Celery Beat).
 
@@ -133,7 +138,7 @@ Django automatically runs migrations on startup. The app is available at **http:
 ### Create a superadmin
 
 ```bash
-docker-compose exec web python manage.py createsuperuser
+docker-compose -p review-master exec web python manage.py createsuperuser
 ```
 
 ### Seed demo data (optional)
@@ -155,8 +160,8 @@ This creates a GPT-4o-mini pricing row at the published rates ($0.15 / $0.60 / $
 ### Common make targets
 
 ```bash
-make up              # docker-compose up -d
-make down            # docker-compose down
+make up              # docker-compose -p review-master up  (foreground — shows logs)
+make down            # docker-compose -p review-master down
 make rebuild         # clean rebuild — removes stale static volume, rebuilds images, starts stack
 make migrate         # run migrations
 make makemigrations  # create new migrations
@@ -228,7 +233,7 @@ cp .env.example .env
 ```bash
 make test
 # or with coverage
-docker-compose exec web pytest apps/ --cov=apps --cov-report=term-missing
+docker-compose -p review-master exec web pytest apps/ --cov=apps --cov-report=term-missing
 ```
 
 - Minimum 85% line coverage on services, selectors, and permissions — enforced in CI

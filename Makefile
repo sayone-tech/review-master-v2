@@ -1,46 +1,50 @@
 .PHONY: up down rebuild migrate makemigrations shell test lint typecheck seed fmt worker beat flower
 
+# Pin the Compose project name so container/volume names (e.g. review-master_static_css
+# referenced by `rebuild`) stay stable regardless of the checkout directory name.
+COMPOSE := docker-compose -p review-master
+
 up:
-	docker-compose up -d
+	$(COMPOSE) up
 
 down:
-	docker-compose down
+	$(COMPOSE) down
 
 rebuild:
-	docker-compose down
+	$(COMPOSE) down
 	docker volume rm review-master_static_css 2>/dev/null || true
-	docker-compose up -d --build
+	$(COMPOSE) up -d --build
 
 migrate:
-	docker-compose exec web python manage.py migrate
+	$(COMPOSE) exec web python manage.py migrate
 
 makemigrations:
-	docker-compose exec web python manage.py makemigrations
+	$(COMPOSE) exec web python manage.py makemigrations
 
 shell:
-	docker-compose exec web python manage.py shell
+	$(COMPOSE) exec web python manage.py shell
 
 test:
-	docker-compose exec web pytest apps/ -x -q
+	$(COMPOSE) exec web pytest apps/ -x -q
 
 lint:
 	pre-commit run --all-files
 
 typecheck:
-	docker-compose exec web mypy .
+	$(COMPOSE) exec web mypy .
 
 fmt:
 	uv run ruff format .
 	uv run ruff check --fix .
 
 seed:
-	docker-compose exec web python manage.py loaddata fixtures/demo.json
+	$(COMPOSE) exec web python manage.py loaddata fixtures/demo.json
 
 worker:
-	docker-compose up worker
+	$(COMPOSE) up worker
 
 beat:
-	docker-compose up beat
+	$(COMPOSE) up beat
 
 flower:
-	docker-compose up flower
+	$(COMPOSE) up flower
