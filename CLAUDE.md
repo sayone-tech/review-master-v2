@@ -1383,6 +1383,13 @@ Follow this order, every time:
 11. **Add/update** the OpenAPI schema (via `drf-spectacular`).
 12. **Review before PR.** Run `code-reviewer`, plus `orm-performance-auditor` for any query/model/serializer/migration change and `tenant-security-auditor` for any auth/scoping change (§27). Use `test-author` to fill coverage gaps. Then **run** `pre-commit run --all-files` and `pytest` before declaring done.
 
+### Simplicity & surgical scope
+
+Two standing disciplines, on top of the build order above — they apply to **every** change:
+
+- **Simplicity first.** Ship the minimum that satisfies the requirement; nothing speculative. No abstractions for single-use code, no configurability nobody asked for, no error handling for impossible states. If the change could be meaningfully smaller, make it smaller — and prefer **deferring or cutting** unneeded scope over building it (record the deferral in `.planning/`, per this section's requirements gate and §28). Ask: "would a senior engineer call this overcomplicated?"
+- **Surgical changes.** Touch only what the task requires. Don't refactor, reformat, or "improve" adjacent code; match the surrounding style even if you'd do it differently. Remove only the imports/variables your own change orphaned — **surface** pre-existing dead code, don't delete it. Every changed line should trace to the request.
+
 ### Never
 - Skip tests "because it's small"
 - Call `.objects.filter()` directly from a view for anything beyond trivial read
