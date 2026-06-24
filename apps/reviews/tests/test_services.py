@@ -4,10 +4,14 @@ Wave 0 RED tests: all tests in this file import from
 apps.reviews.services.tag_management which is implemented in Task 3.
 Running these tests before Task 3 should produce a failure (ImportError
 or assertion failure) — that is the expected RED state per TDD.
+
+Phase 26 (SEED-06/D-05): also covers trigger-gate regression for
+fetch_and_persist_reviews and per-step timing fields in the sync snapshot.
 """
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
@@ -22,6 +26,7 @@ from apps.reviews.tests.factories import (
     ReviewTagFactory,
     TagMergeJobFactory,
 )
+from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -304,3 +309,164 @@ def test_merge_dispatches_notification(db) -> None:
     assert call_kwargs["notification_type"] == "tag_merge_complete"
     assert call_kwargs["org_admins_only"] is True
     assert call_kwargs["organisation_id"] == org_tag_source.organisation_id
+
+
+# ---------------------------------------------------------------------------
+# Phase 26 — SEED-06 trigger gate + SEED-05b per-step timing (D-04, D-05)
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _mock_sync_infrastructure(shop, *, page_reviews=None):
+    """Context manager that patches all external dependencies for fetch_and_persist_reviews.
+
+    Patches: distributed_lock (acquired), _refresh_access_token (returns token),
+    list_reviews (one page, no next token), token_bucket_depleted (False),
+    increment_google_token_bucket, _persist_page (returns (0, set(), set())),
+    _soft_delete_absent (returns 0), AuditLog.objects.create.
+    """
+    if page_reviews is None:
+        page_reviews = []
+    fake_page = {"reviews": page_reviews, "totalReviewCount": 0}
+
+    @contextmanager
+    def _lock(key, timeout=None, blocking=True):
+        yield True
+
+    with (
+        patch(
+            "apps.reviews.services.sync.distributed_lock",
+            side_effect=_lock,
+        ),
+        patch(
+            "apps.reviews.services.sync._refresh_access_token",
+            return_value="fake-token",
+        ),
+        patch(
+            "apps.reviews.services.sync.list_reviews",
+            return_value=fake_page,
+        ),
+        patch("apps.reviews.services.sync.token_bucket_depleted", return_value=False),
+        patch("apps.reviews.services.sync.increment_google_token_bucket"),
+        patch(
+            "apps.reviews.services.sync._persist_page",
+            return_value=(0, set(), set()),
+        ),
+        patch("apps.reviews.services.sync._soft_delete_absent", return_value=0),
+        patch("apps.reviews.services.sync.AuditLog") as _audit_mock,
+    ):
+        yield _audit_mock
+
+
+def test_fetch_and_persist_reviews_incremental_no_initial_snapshot_writes(db) -> None:
+    """SEED-06 (D-05): incremental trigger must NOT write the initial "fetching" snapshot
+    or clear the progress key. The per-page loop writes/emits are gated on initial.
+
+    clear_progress_snapshot: 0 calls (initial-only).
+    The else: success write+emit are intentional for incremental and are NOT gated.
+    This ensures an overlapping incremental sync can never clobber an in-progress
+    initial-sync modal by resetting it to "fetching" state (§13.2).
+    """
+    from apps.reviews.services.sync import fetch_and_persist_reviews
+
+    shop = ShopFactory(
+        connection_status="connected",
+        google_refresh_token="fake-token",
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+
+    with (
+        _mock_sync_infrastructure(shop),
+        patch("apps.reviews.services.sync.write_progress_snapshot") as mock_write,
+        patch("apps.reviews.services.sync.clear_progress_snapshot") as mock_clear,
+        patch("apps.reviews.services.sync.emit_progress_event"),
+    ):
+        result = fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
+
+    # clear_progress_snapshot is always initial-only — must be 0 for incremental
+    assert mock_clear.call_count == 0, (
+        f"clear_progress_snapshot called {mock_clear.call_count} times for incremental sync"
+    )
+    # write_progress_snapshot: the else: success write is intentional (≤1 call),
+    # but the initial "fetching" snapshot write (lines 309-322) must NOT fire.
+    # With our single-page mock, only the else: success write fires (1 call).
+    # The key guard: none of the written snapshots should have status="fetching"
+    # (that's the initial "fetching" clobber snapshot that SEED-06 gates).
+    for mock_call in mock_write.call_args_list:
+        data = mock_call.kwargs.get("data", {})
+        assert data.get("status") != "fetching", (
+            f"Incremental sync wrote a 'fetching' status snapshot — SEED-06 gate failed: {data}"
+        )
+    assert result.get("skipped") is None, "Incremental sync should not be skipped in this test"
+
+
+def test_fetch_and_persist_reviews_initial_writes_progress(db) -> None:
+    """SEED-06 (D-05): initial trigger MUST write and emit progress state.
+
+    write_progress_snapshot and clear_progress_snapshot must each be called ≥1
+    time when trigger="initial".
+    """
+    from apps.reviews.services.sync import fetch_and_persist_reviews
+
+    shop = ShopFactory(
+        connection_status="connected",
+        google_refresh_token="fake-token",
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+
+    with (
+        _mock_sync_infrastructure(shop),
+        patch("apps.reviews.services.sync.write_progress_snapshot") as mock_write,
+        patch("apps.reviews.services.sync.clear_progress_snapshot") as mock_clear,
+        patch("apps.reviews.services.sync.emit_progress_event"),
+    ):
+        fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+
+    # Initial: snapshot must be written and cleared at least once
+    assert mock_clear.call_count >= 1, "clear_progress_snapshot not called for initial sync"
+    assert mock_write.call_count >= 1, "write_progress_snapshot not called for initial sync"
+
+
+def test_fetch_and_persist_reviews_initial_snapshot_has_timing_fields(db) -> None:
+    """SEED-05b (D-04): initial sync snapshot contains fetch_started_at and
+    fetch_duration_seconds so the frontend can render per-step elapsed time.
+    """
+    from apps.reviews.services.sync import fetch_and_persist_reviews
+
+    shop = ShopFactory(
+        connection_status="connected",
+        google_refresh_token="fake-token",
+        google_account_name="accounts/123",
+        google_location_name="accounts/123/locations/456",
+    )
+
+    written_snapshots: list[dict] = []
+
+    def _capture_write(*, shop_id: int, data: dict) -> None:
+        written_snapshots.append(data)
+
+    with (
+        _mock_sync_infrastructure(shop),
+        patch(
+            "apps.reviews.services.sync.write_progress_snapshot",
+            side_effect=_capture_write,
+        ),
+        patch("apps.reviews.services.sync.clear_progress_snapshot"),
+        patch("apps.reviews.services.sync.emit_progress_event"),
+    ):
+        fetch_and_persist_reviews(shop_id=shop.pk, trigger="initial")
+
+    # At least one snapshot must have been written
+    assert written_snapshots, "No snapshot written for initial sync"
+
+    # The fetch_end_snapshot (written at trigger=="initial" branch) should have timing fields
+    # It is the LAST write for the fetch phase (trigger==initial path)
+    final_snapshot = written_snapshots[-1]
+    assert "fetch_started_at" in final_snapshot, (
+        f"fetch_started_at missing from snapshot keys: {list(final_snapshot.keys())}"
+    )
+    assert "fetch_duration_seconds" in final_snapshot, (
+        f"fetch_duration_seconds missing from snapshot keys: {list(final_snapshot.keys())}"
+    )
