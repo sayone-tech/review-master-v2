@@ -100,7 +100,7 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 - [x] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues. (completed 2026-06-11)
 - [x] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible. (completed 2026-06-16)
 - [x] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags. (completed 2026-06-16)
-- [ ] **Phase 26: v0.8 Post-UAT Polish & Sync Fixes** — Tags page search filter + header count + "Showing X–Y of N" footer (match `/admin/org/team/`); sync progress "Fetching from Google" label + per-stage completion timing; and the SEED-06 fix so an incremental sync can't reset an in-progress initial-sync modal. Captured from Phase 22–25 UAT; to be planned after the testing round.
+- [x] **Phase 26: v0.8 Post-UAT Polish & Sync Fixes** — Tags page search filter + header count + "Showing X–Y of N" footer (match `/admin/org/team/`); sync progress "Fetching from Google" label + per-stage completion timing; and the SEED-06 fix so an incremental sync can't reset an in-progress initial-sync modal. Captured from Phase 22–25 UAT; to be planned after the testing round. (completed 2026-06-24)
 - [~] **Phase 27: Superadmin Data Reset & Re-Sync** — **DEFERRED (pre-launch, 2026-06-16).** One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync. Parked while there is no production deployment — dev resets use `manage.py flush` / DB recreate + `make seed` / Redis `flushdb`. Revisit before go-live.
 
 ---
@@ -283,7 +283,7 @@ Plans:
 
 **Wave 2** *(blocked on 26-01 — consumes the `search` param + snapshot timing fields)*
 
-- [ ] 26-02-PLAN.md — Tag-management widget: debounced search box (TMGT-07), "Tags (N)" header + "Showing X–Y of N · Rows: N" footer (TMGT-08), ProgressModal "Fetching from Google" label + per-stage durations (SEED-05) (TMGT-07, TMGT-08, SEED-05)
+- [x] 26-02-PLAN.md — Tag-management widget: debounced search box (TMGT-07), "Tags (N)" header + "Showing X–Y of N · Rows: N" footer (TMGT-08), ProgressModal "Fetching from Google" label + per-stage durations (SEED-05) (TMGT-07, TMGT-08, SEED-05)
 
 ### Phase 27: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
 
@@ -331,4 +331,4 @@ Plans:
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
 | 24. Polarity Auto-Reclassification | v0.8 | 2/2 | Complete    | 2026-06-16 |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 4/4 | Complete   | 2026-06-16 |
-| 26. v0.8 Post-UAT Polish & Sync Fixes | v0.8 | 1/2 | In Progress|  |
+| 26. v0.8 Post-UAT Polish & Sync Fixes | v0.8 | 2/2 | Complete   | 2026-06-24 |
