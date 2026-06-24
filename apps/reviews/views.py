@@ -483,7 +483,10 @@ class OrgCanonicalTagViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):  #
         org_id = getattr(self.request.user, "organisation_id", None)
         if org_id is None:
             return OrgCanonicalTag.objects.none()
-        return list_canonical_tags_for_org(organisation_id=org_id)
+        return list_canonical_tags_for_org(
+            organisation_id=org_id,
+            search=self.request.query_params.get("search", ""),
+        )
 
     @action(detail=True, methods=["patch"], url_path="rename")
     def rename(self, request: Request, pk: int | None = None) -> Response:
