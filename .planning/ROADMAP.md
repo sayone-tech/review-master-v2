@@ -9,7 +9,7 @@
 - ✅ **v0.5 — Configurable Sync Depth** — Phases 15–16, 6 plans, 9/9 requirements, shipped 2026-05-16 → [archive](milestones/v0.5-ROADMAP.md)
 - ✅ **v0.6 — Tag Rework & Action Item Quality** — Phases 17–19, 11 plans, shipped 2026-05-22 → [archive](milestones/v0.6-ROADMAP.md)
 - ✅ **v0.7 — AI Safety & Governance** — Phases 20–21, 12 plans, shipped 2026-05-24 → [archive](milestones/v0.7-ROADMAP.md)
-- 🔵 **v0.8 — Canonical Tag System** — Phases 22–26, 25/25 requirements, in planning
+- 🔵 **v0.8 — Canonical Tag System** — Phases 22–27, 25/25 core requirements, in planning
 
 > 🚀 **Web Beta 1 (`web-beta-1`)** — v0.7 marked the close of the first
 > web beta. v0.8 reopens web feature work for the canonical tag system
@@ -94,14 +94,14 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 
 </details>
 
-### 🔵 v0.8 — Canonical Tag System (Phases 22–26) — IN PLANNING
+### 🔵 v0.8 — Canonical Tag System (Phases 22–27) — IN PLANNING
 
 - [x] **Phase 22: Canonical Tag Foundation & Mapping Pipeline** — `OrgCanonicalTag` model + nullable `canonical_tag` FK on `ReviewTag` + migration; canonical lookup/insert folded into the single GPT call and post-enrichment atomic block; English-only tags; one `AiUsageLog` row per call; global OpenAI rate limit. (completed 2026-06-10)
 - [x] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues. (completed 2026-06-11)
 - [x] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible. (completed 2026-06-16)
 - [x] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags. (completed 2026-06-16)
-- [~] **Phase 26: Superadmin Data Reset & Re-Sync** — **DEFERRED (pre-launch, 2026-06-16).** One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync. Parked while there is no production deployment — dev resets use `manage.py flush` / DB recreate + `make seed` / Redis `flushdb`. Revisit before go-live.
-- [ ] **Phase 27: v0.8 Post-UAT Polish & Sync Fixes** — Tags page search filter + header count + "Showing X–Y of N" footer (match `/admin/org/team/`); sync progress "Fetching from Google" label + per-stage completion timing; and the SEED-06 fix so an incremental sync can't reset an in-progress initial-sync modal. Captured from Phase 22–25 UAT; to be planned after the testing round.
+- [ ] **Phase 26: v0.8 Post-UAT Polish & Sync Fixes** — Tags page search filter + header count + "Showing X–Y of N" footer (match `/admin/org/team/`); sync progress "Fetching from Google" label + per-stage completion timing; and the SEED-06 fix so an incremental sync can't reset an in-progress initial-sync modal. Captured from Phase 22–25 UAT; to be planned after the testing round.
+- [~] **Phase 27: Superadmin Data Reset & Re-Sync** — **DEFERRED (pre-launch, 2026-06-16).** One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync. Parked while there is no production deployment — dev resets use `manage.py flush` / DB recreate + `make seed` / Redis `flushdb`. Revisit before go-live.
 
 ---
 
@@ -258,7 +258,25 @@ Plans:
 
 - [x] 25-03-PLAN.md — Tag-management React widget: sortable table, inline rename, merge modal, 2s HTTP-polled progress banner (TMGT-02/03/04/06)
 
-### Phase 26: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
+### Phase 26: v0.8 Post-UAT Polish & Sync Fixes
+
+**Goal**: Close the small UX gaps and the one sync-progress defect surfaced while UAT-testing Phases 22–25, so the canonical-tag surface and the initial-sync experience feel finished — without expanding scope into new capabilities.
+**Depends on**: Phases 23 (sync progress modal + fetch path) and 25 (Tags page React widget)
+**Requirements**: TMGT-07, TMGT-08, SEED-05, SEED-06
+**Success Criteria** (what must be TRUE):
+
+  1. The Tags page has a label search filter (server-side, debounced, query-count-bounded) matching the `/admin/org/team/` search UX.
+  2. The Tags page header shows a total count ("Tags (N)") and the list shows a "Showing X–Y of N · Rows: N" pagination footer, matching `/admin/org/team/`.
+  3. The sync progress modal labels step 1 "Fetching from Google" (gerund-consistent) and shows each stage's wall-clock duration when it completes.
+  4. An incremental or manual sync never clears or overwrites the initial-sync progress snapshot (§13.2); the `enqueue_incremental_syncs` beat is re-enabled once this is fixed.
+
+**Open decisions** (settle at planning):
+  - **Incremental cadence** — keep hourly (`0 * * * *` UTC, ~1h review freshness) vs 6-hourly vs off-peak/daily (lower Google/OpenAI load + cost, higher lag). Lean hourly or 6-hourly for a review platform; decide on freshness-vs-cost. Also resolve the doc drift (one setting implies 6h, the beat is hourly) and the timezone (UTC vs IST — local 00:00 IST = `30 18 * * *` UTC). SEED-06 is the actual fix; cadence is independent.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 27: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
 
 > **Deferred while there is no production deployment.** The feature's premise — needing an
 > in-app Superadmin path to hard-delete a *live* org's data despite the §11 soft-delete rule —
@@ -278,24 +296,6 @@ Plans:
   3. After reset, the Org Admin can re-sync each store through the normal flow, running the full four-step initial sync and rebuilding the canonical vocabulary from scratch.
 
 **Plans**: TBD
-
-### Phase 27: v0.8 Post-UAT Polish & Sync Fixes
-
-**Goal**: Close the small UX gaps and the one sync-progress defect surfaced while UAT-testing Phases 22–25, so the canonical-tag surface and the initial-sync experience feel finished — without expanding scope into new capabilities.
-**Depends on**: Phases 23 (sync progress modal + fetch path) and 25 (Tags page React widget)
-**Requirements**: TMGT-07, TMGT-08, SEED-05, SEED-06
-**Success Criteria** (what must be TRUE):
-
-  1. The Tags page has a label search filter (server-side, debounced, query-count-bounded) matching the `/admin/org/team/` search UX.
-  2. The Tags page header shows a total count ("Tags (N)") and the list shows a "Showing X–Y of N · Rows: N" pagination footer, matching `/admin/org/team/`.
-  3. The sync progress modal labels step 1 "Fetching from Google" (gerund-consistent) and shows each stage's wall-clock duration when it completes.
-  4. An incremental or manual sync never clears or overwrites the initial-sync progress snapshot (§13.2); the `enqueue_incremental_syncs` beat is re-enabled once this is fixed.
-
-**Open decisions** (settle at planning):
-  - **Incremental cadence** — keep hourly (`0 * * * *` UTC, ~1h review freshness) vs 6-hourly vs off-peak/daily (lower Google/OpenAI load + cost, higher lag). Lean hourly or 6-hourly for a review platform; decide on freshness-vs-cost. Also resolve the doc drift (one setting implies 6h, the beat is hourly) and the timezone (UTC vs IST — local 00:00 IST = `30 18 * * *` UTC). SEED-06 is the actual fix; cadence is independent.
-
-**Plans**: TBD
-**UI hint**: yes
 
 ## Progress
 
