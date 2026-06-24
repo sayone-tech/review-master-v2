@@ -594,3 +594,224 @@ class TestFinaliseCanonicalTagsTask:
         ):
             result = finalize_canonical_tags_task(organisation_id=tag.organisation_id, shop_id=1)
         assert isinstance(result, dict)
+
+
+# ---------------------------------------------------------------------------
+# Phase 27 Plan 01 — completion-gate self-reschedule tests (SYNC-REL-02)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def patched_finalise_with_apply_async(patched_finalise):
+    """Extend patched_finalise with a mock for finalize_canonical_tags_task.apply_async.
+
+    The patched_finalise fixture already patches distributed_lock, emit_progress_event,
+    write_progress_snapshot, read_progress_snapshot, and _dispatch_sync_complete_notifications.
+    This fixture adds the apply_async mock on the task so we can assert re-dispatch calls.
+    """
+    with patch("apps.reviews.services.finalise.finalize_canonical_tags_task") as mock_task:
+        mock_task.apply_async = MagicMock()
+        yield patched_finalise, mock_task
+
+
+class TestFinaliseGate:
+    """Tests for the PENDING/IN_PROGRESS completion gate (SYNC-REL-02, D-03)."""
+
+    def test_gate_redispatches_while_reviews_pending(self, db) -> None:
+        """While any review is PENDING, finalize re-dispatches itself (no dedup/backfill yet)."""
+        from apps.reviews.services.finalise import run_finalise_canonical_tags
+
+        shop = ShopFactory()
+        org = shop.organisation
+        OrgCanonicalTagFactory(organisation=org)
+        # Create a PENDING review so the gate fires
+        ReviewFactory(
+            shop=shop,
+            organisation=org,
+            enrichment_status="PENDING",
+        )
+
+        lock_cm = MagicMock()
+        lock_cm.__enter__ = MagicMock(return_value=True)
+        lock_cm.__exit__ = MagicMock(return_value=False)
+
+        mock_task = MagicMock()
+        mock_task.apply_async = MagicMock()
+
+        with (
+            patch("apps.reviews.services.finalise.distributed_lock", return_value=lock_cm),
+            patch("apps.reviews.services.finalise.emit_progress_event"),
+            patch("apps.reviews.services.finalise.write_progress_snapshot"),
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 1, "enriched": 0, "status": "enriching"},
+            ),
+            patch("apps.reviews.services.enrichment._dispatch_sync_complete_notifications"),
+            # Patch the lazy import inside run_finalise_canonical_tags
+            patch("apps.reviews.tasks.finalize_canonical_tags_task", mock_task),
+            patch("apps.reviews.services.finalise._refresh_review_counts") as mock_refresh,
+        ):
+            result = run_finalise_canonical_tags(
+                organisation_id=org.pk,
+                shop_id=shop.pk,
+                attempt=1,
+            )
+
+        # Must have re-dispatched
+        mock_task.apply_async.assert_called_once()
+        call_kwargs = mock_task.apply_async.call_args
+        assert call_kwargs.kwargs.get("queue") == "tag-merge", (
+            f"Expected queue=tag-merge in apply_async call: {call_kwargs}"
+        )
+        # _refresh_review_counts must NOT have been called yet
+        mock_refresh.assert_not_called()
+        # Return value signals rescheduled
+        assert result.get("rescheduled") is True
+
+    def test_gate_redispatches_while_reviews_in_progress(self, db) -> None:
+        """IN_PROGRESS reviews also keep the gate closed (D-03 discretion)."""
+        from apps.reviews.services.finalise import run_finalise_canonical_tags
+
+        shop = ShopFactory()
+        org = shop.organisation
+
+        ReviewFactory(
+            shop=shop,
+            organisation=org,
+            enrichment_status="IN_PROGRESS",
+        )
+
+        lock_cm = MagicMock()
+        lock_cm.__enter__ = MagicMock(return_value=True)
+        lock_cm.__exit__ = MagicMock(return_value=False)
+
+        mock_task = MagicMock()
+        mock_task.apply_async = MagicMock()
+
+        with (
+            patch("apps.reviews.services.finalise.distributed_lock", return_value=lock_cm),
+            patch("apps.reviews.services.finalise.emit_progress_event"),
+            patch("apps.reviews.services.finalise.write_progress_snapshot"),
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 1, "enriched": 0, "status": "enriching"},
+            ),
+            patch("apps.reviews.services.enrichment._dispatch_sync_complete_notifications"),
+            patch("apps.reviews.tasks.finalize_canonical_tags_task", mock_task),
+            patch("apps.reviews.services.finalise._refresh_review_counts") as mock_refresh,
+        ):
+            result = run_finalise_canonical_tags(
+                organisation_id=org.pk,
+                shop_id=shop.pk,
+                attempt=1,
+            )
+
+        mock_task.apply_async.assert_called_once()
+        mock_refresh.assert_not_called()
+        assert result.get("rescheduled") is True
+
+    def test_gate_proceeds_when_all_reviews_terminal(self, db) -> None:
+        """When all reviews are SUCCESS/FAILED, the gate opens and finalise runs to completion."""
+        from apps.reviews.services.finalise import run_finalise_canonical_tags
+
+        shop = ShopFactory()
+        org = shop.organisation
+        OrgCanonicalTagFactory(organisation=org, label="Food")
+
+        # All reviews terminal
+        ReviewFactory(shop=shop, organisation=org, enrichment_status="SUCCESS")
+        ReviewFactory(shop=shop, organisation=org, enrichment_status="FAILED")
+
+        lock_cm = MagicMock()
+        lock_cm.__enter__ = MagicMock(return_value=True)
+        lock_cm.__exit__ = MagicMock(return_value=False)
+
+        mock_task = MagicMock()
+        mock_task.apply_async = MagicMock()
+
+        with (
+            patch("apps.reviews.services.finalise.distributed_lock", return_value=lock_cm),
+            patch("apps.reviews.services.finalise.emit_progress_event"),
+            patch("apps.reviews.services.finalise.write_progress_snapshot"),
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 2, "enriched": 1, "status": "enriching"},
+            ),
+            patch("apps.reviews.services.enrichment._dispatch_sync_complete_notifications"),
+            patch("apps.reviews.tasks.finalize_canonical_tags_task", mock_task),
+            patch("apps.reviews.services.finalise._refresh_review_counts") as mock_refresh,
+        ):
+            result = run_finalise_canonical_tags(
+                organisation_id=org.pk,
+                shop_id=shop.pk,
+                attempt=1,
+            )
+
+        # No re-dispatch; finalise ran
+        mock_task.apply_async.assert_not_called()
+        mock_refresh.assert_called_once_with(organisation_id=org.pk)
+        # Normal finalise return (not rescheduled)
+        assert "rescheduled" not in result
+
+    def test_gate_bounded_cap_proceeds_despite_pending(self, db) -> None:
+        """At FINALISE_GATE_MAX_ATTEMPTS, finalise proceeds even with PENDING reviews (T-27-05)."""
+        from apps.reviews.services.finalise import run_finalise_canonical_tags
+
+        shop = ShopFactory()
+        org = shop.organisation
+        OrgCanonicalTagFactory(organisation=org)
+
+        # A PENDING review that would normally re-dispatch
+        ReviewFactory(shop=shop, organisation=org, enrichment_status="PENDING")
+
+        lock_cm = MagicMock()
+        lock_cm.__enter__ = MagicMock(return_value=True)
+        lock_cm.__exit__ = MagicMock(return_value=False)
+
+        # Use attempt=max_attempts so the cap is hit
+        from django.conf import settings as dj_settings
+
+        max_attempts = dj_settings.FINALISE_GATE_MAX_ATTEMPTS
+
+        mock_task = MagicMock()
+        mock_task.apply_async = MagicMock()
+
+        with (
+            patch("apps.reviews.services.finalise.distributed_lock", return_value=lock_cm),
+            patch("apps.reviews.services.finalise.emit_progress_event"),
+            patch("apps.reviews.services.finalise.write_progress_snapshot"),
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 1, "enriched": 0, "status": "enriching"},
+            ),
+            patch("apps.reviews.services.enrichment._dispatch_sync_complete_notifications"),
+            patch("apps.reviews.tasks.finalize_canonical_tags_task", mock_task),
+            patch("apps.reviews.services.finalise._refresh_review_counts") as mock_refresh,
+        ):
+            result = run_finalise_canonical_tags(
+                organisation_id=org.pk,
+                shop_id=shop.pk,
+                attempt=max_attempts,
+            )
+
+        # At cap: proceeds, no re-dispatch
+        mock_task.apply_async.assert_not_called()
+        mock_refresh.assert_called_once()
+        assert "rescheduled" not in result
+
+    def test_gate_lock_behaviour_unchanged(self, db) -> None:
+        """Per-org lock + skipped-on-lock idempotency is unchanged (§7.6/§12.4)."""
+        from apps.reviews.services.finalise import run_finalise_canonical_tags
+
+        lock_cm = MagicMock()
+        lock_cm.__enter__ = MagicMock(return_value=False)  # lock NOT acquired
+        lock_cm.__exit__ = MagicMock(return_value=False)
+        tag = OrgCanonicalTagFactory()
+
+        with patch("apps.reviews.services.finalise.distributed_lock", return_value=lock_cm):
+            result = run_finalise_canonical_tags(
+                organisation_id=tag.organisation_id,
+                shop_id=1,
+                attempt=1,
+            )
+        assert result.get("skipped") is True

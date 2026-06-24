@@ -23,11 +23,12 @@ import logging
 import time as _time
 from typing import Any
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Count
 
 from apps.common.locks import distributed_lock
-from apps.reviews.models import OrgCanonicalTag, ReviewTag
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag
 from apps.reviews.selectors.canonical_tags import (
     get_duplicate_canonical_tag_groups,
     get_null_straggler_review_tags,
@@ -44,14 +45,26 @@ LOCK_TIMEOUT_SECONDS = 300
 STRAGGLER_BATCH_SIZE = 500
 
 
-def run_finalise_canonical_tags(*, organisation_id: int, shop_id: int) -> dict[str, Any]:
+def run_finalise_canonical_tags(
+    *, organisation_id: int, shop_id: int, attempt: int = 1
+) -> dict[str, Any]:
     """Dedup canonical tags, backfill stragglers, refresh review_count cache.
 
-    Returns a dict with summary counters. Returns ``{"skipped": True}`` when
-    the per-org Redis lock is already held by another worker.
+    Phase 27 SYNC-REL-02 (D-03): completion-gating via bounded self-reschedule.
+    If any of the shop's reviews are still PENDING or IN_PROGRESS and the attempt
+    count is below FINALISE_GATE_MAX_ATTEMPTS, re-dispatches
+    finalize_canonical_tags_task with a short countdown and returns early.
+    Once all reviews are terminal (SUCCESS/FAILED), or the cap is reached, runs
+    the full dedup → backfill → count-refresh → sync.complete flow.
+
+    Returns a dict with summary counters.
+    Returns ``{"skipped": True}`` when the per-org Redis lock is already held.
+    Returns ``{"rescheduled": True}`` when the gate fires and re-dispatch is done.
 
     Thread-safety: per-org distributed lock prevents two concurrent finalising
     or Phase-25 merge tasks from colliding on the same org (T-23-04).
+    Re-dispatch decision is made INSIDE the lock so two workers cannot both
+    re-dispatch simultaneously (T-27-06).
     """
     lock_key = LOCK_KEY_TMPL.format(organisation_id=organisation_id)
     with distributed_lock(lock_key, timeout=LOCK_TIMEOUT_SECONDS) as acquired:
@@ -62,6 +75,54 @@ def run_finalise_canonical_tags(*, organisation_id: int, shop_id: int) -> dict[s
                 shop_id,
             )
             return {"skipped": True}
+
+        # -------------------------------------------------------------------
+        # Phase 27 SYNC-REL-02 — completion gate (D-03)
+        # Gate lives INSIDE the lock so concurrent workers cannot both re-dispatch.
+        # -------------------------------------------------------------------
+        max_attempts: int = getattr(settings, "FINALISE_GATE_MAX_ATTEMPTS", 30)
+        countdown_seconds: int = getattr(settings, "FINALISE_GATE_COUNTDOWN_SECONDS", 20)
+
+        still_working = Review.objects.filter(
+            shop_id=shop_id,
+            enrichment_status__in=[
+                Review.EnrichmentStatus.PENDING,
+                Review.EnrichmentStatus.IN_PROGRESS,
+            ],
+        ).exists()
+
+        if still_working and attempt < max_attempts:
+            logger.info(
+                "run_finalise_canonical_tags.gate_pending organisation_id=%s shop_id=%s "
+                "attempt=%s/%s countdown=%ss",
+                organisation_id,
+                shop_id,
+                attempt,
+                max_attempts,
+                countdown_seconds,
+            )
+            # Import here to avoid circular import (tasks -> services -> tasks).
+            from apps.reviews.tasks import finalize_canonical_tags_task
+
+            finalize_canonical_tags_task.apply_async(
+                kwargs={
+                    "organisation_id": organisation_id,
+                    "shop_id": shop_id,
+                    "attempt": attempt + 1,
+                },
+                queue="tag-merge",
+                countdown=countdown_seconds,
+            )
+            return {"rescheduled": True}
+
+        if still_working and attempt >= max_attempts:
+            logger.warning(
+                "run_finalise_canonical_tags.gate_cap_reached organisation_id=%s shop_id=%s "
+                "attempt=%s — proceeding despite pending reviews (T-27-05)",
+                organisation_id,
+                shop_id,
+                attempt,
+            )
 
         return _run_finalise(organisation_id=organisation_id, shop_id=shop_id)
 

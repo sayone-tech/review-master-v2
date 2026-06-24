@@ -741,25 +741,21 @@ def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
         # so Celery autoretry handles re-queue on a depleted bucket (D-08, RESEARCH Pattern 1).
         enrich_review_task.apply_async(args=[review_id], queue="ai-enrichment-high")
 
-    # Phase 4: Dispatch finalising pass with countdown to allow bulk enrichments to land (D-09).
-    # WR-03: countdown=300 was a fixed guess. Derive from bulk count: each bulk review takes
-    # ~10s p95 (OpenAI latency + queue wait), but ai-enrichment-high workers process them in
-    # parallel. With 4 workers: ~ceil(bulk_count / 4) x 10s. Floor at 300s for small shops,
-    # cap at 1200s (20 min) for very large ones. This is a heuristic — if bulk enrichments
-    # haven't settled by then, _refresh_review_counts will miss them. The accurate long-term
-    # fix is a Celery chord that fires finalize_canonical_tags_task only after all bulk subtasks
-    # complete. That requires tracking all bulk task IDs and is deferred to Phase 24+.
-    _bulk_count = len(bulk_ids)
-    _workers_estimate = 4
-    _seconds_per_review_p95 = 10
-    _finalise_countdown = max(
-        300,
-        min(1200, (_bulk_count // max(_workers_estimate, 1) + 1) * _seconds_per_review_p95),
-    )
+    # Phase 4: Dispatch finalising pass (D-09).
+    # Phase 27 SYNC-REL-02 (D-03/D-04): The fixed-countdown heuristic (_finalise_countdown)
+    # has been REMOVED. finalize_canonical_tags_task now self-reschedules (short countdown,
+    # bounded by FINALISE_GATE_MAX_ATTEMPTS) while any of the shop's reviews are still
+    # PENDING or IN_PROGRESS, then proceeds once all are terminal.  A Celery chord was
+    # considered but NOT built — the self-reschedule guard is the chosen approach (D-04).
+    # Initial dispatch uses a short countdown (FINALISE_GATE_COUNTDOWN_SECONDS) so the
+    # first check happens promptly; subsequent re-dispatches use the same countdown.
+    from django.conf import settings as _settings
+
+    _initial_countdown = getattr(_settings, "FINALISE_GATE_COUNTDOWN_SECONDS", 20)
     finalize_canonical_tags_task.apply_async(
-        kwargs={"organisation_id": org_id, "shop_id": shop_id},
+        kwargs={"organisation_id": org_id, "shop_id": shop_id, "attempt": 1},
         queue="tag-merge",
-        countdown=_finalise_countdown,
+        countdown=_initial_countdown,
     )
 
     logger.info(

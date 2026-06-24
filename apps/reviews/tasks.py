@@ -243,13 +243,17 @@ def enrich_review_task(self: Any, review_id: int) -> None:
     retry_jitter=True,
 )
 def finalize_canonical_tags_task(
-    self: Any, *, organisation_id: int, shop_id: int
+    self: Any, *, organisation_id: int, shop_id: int, attempt: int = 1
 ) -> dict[str, Any]:
     """Phase 23 — Canonical tag finalising pass (SEED-04, Step 4).
 
     Deduplicates case-insensitive OrgCanonicalTag pairs, re-points ReviewTag FKs
     to the winner, backfills null canonical_tag stragglers, and refreshes
     review_count from the aggregate. Routes to tag-merge queue (Plan 01 settings).
+
+    Phase 27 SYNC-REL-02 (D-03): accepts an `attempt` kwarg forwarded from
+    run_finalise_canonical_tags for the bounded self-reschedule gate. The
+    service owns the gate logic (CLAUDE.md §12.3 — no logic in task body).
 
     Uses retry_backoff=60 (longer than the 30s hot-path default) since this is
     a non-time-critical finalising step. Business logic lives in
@@ -258,16 +262,20 @@ def finalize_canonical_tags_task(
     from apps.reviews.services.finalise import run_finalise_canonical_tags
 
     task_id = self.request.id
-    attempt = self.request.retries + 1
+    celery_attempt = self.request.retries + 1
     logger.info(
-        "finalize_canonical_tags_task.start task_id=%s organisation_id=%s shop_id=%s attempt=%s",
+        "finalize_canonical_tags_task.start task_id=%s organisation_id=%s shop_id=%s "
+        "attempt=%s celery_attempt=%s",
         task_id,
         organisation_id,
         shop_id,
         attempt,
+        celery_attempt,
     )
     try:
-        result = run_finalise_canonical_tags(organisation_id=organisation_id, shop_id=shop_id)
+        result = run_finalise_canonical_tags(
+            organisation_id=organisation_id, shop_id=shop_id, attempt=attempt
+        )
     except Exception as exc:
         logger.error(
             "finalize_canonical_tags_task.error task_id=%s organisation_id=%s "
@@ -288,6 +296,15 @@ def finalize_canonical_tags_task(
             task_id,
             organisation_id,
             shop_id,
+        )
+    elif result.get("rescheduled"):
+        logger.info(
+            "finalize_canonical_tags_task.rescheduled task_id=%s organisation_id=%s "
+            "shop_id=%s attempt=%s reason=reviews_still_pending (SYNC-REL-02)",
+            task_id,
+            organisation_id,
+            shop_id,
+            attempt,
         )
     else:
         logger.info(
