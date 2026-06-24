@@ -378,13 +378,12 @@ def seed_periodic_tasks(apps, schema_editor) -> None:
 ```python
 def revert_to_hourly_disabled(apps, schema_editor) -> None:
     CrontabSchedule = apps.get_model("django_celery_beat", "CrontabSchedule")
-    PeriodicTask = apps.get_model("django_celery_beat", "CrontabSchedule")
+    PeriodicTask = apps.get_model("django_celery_beat", "PeriodicTask")
     # Re-create the hourly schedule and set enabled=False
     crontab, _ = CrontabSchedule.objects.get_or_create(
         minute="0", hour="*", day_of_week="*",
         day_of_month="*", month_of_year="*", timezone="UTC",
     )
-    PeriodicTask = apps.get_model("django_celery_beat", "PeriodicTask")
     PeriodicTask.objects.filter(name="enqueue_incremental_syncs").update(
         crontab=crontab, enabled=False
     )
