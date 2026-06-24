@@ -660,6 +660,30 @@ def test_canonical_tags_ordering(org_admin_setup) -> None:
     assert counts == sorted(counts, reverse=True), f"Expected desc order, got {counts}"
 
 
+def test_canonical_tags_staff_returns_403() -> None:
+    """TMGT-01/T-26: STAFF_ADMIN is rejected at the view boundary (IsOrgAdmin)."""
+    org = OrganisationFactory()
+    staff = StaffAdminFactory(organisation=org)
+    OrgCanonicalTagFactory(organisation=org, label="Food Quality")
+    client = APIClient()
+    client.force_authenticate(user=staff)
+    resp = client.get(CANONICAL_TAGS_URL)
+    assert resp.status_code == 403
+
+
+def test_canonical_tags_search_excludes_other_org(org_admin_setup) -> None:
+    """TMGT-07/T-26: ?search= over the HTTP boundary never returns another org's tag."""
+    client, _user, org = org_admin_setup
+    OrgCanonicalTagFactory(organisation=org, label="Food Quality")
+    other_org = OrganisationFactory()
+    OrgCanonicalTagFactory(organisation=other_org, label="Food Quality")  # same label, other org
+    resp = client.get(CANONICAL_TAGS_URL, {"search": "food"})
+    assert resp.status_code == 200
+    labels = [r["label"] for r in resp.data["results"]]
+    assert labels == ["Food Quality"], labels  # exactly the caller-org's single match
+    assert resp.data["count"] == 1
+
+
 def test_merge_409_when_active_job(org_admin_setup) -> None:
     """TMGT-04/T-25-AC3: POST merge while PENDING job exists → 409."""
     client, _user, org = org_admin_setup
