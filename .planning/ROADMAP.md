@@ -101,6 +101,7 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 - [x] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible. (completed 2026-06-16)
 - [x] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags. (completed 2026-06-16)
 - [~] **Phase 26: Superadmin Data Reset & Re-Sync** — **DEFERRED (pre-launch, 2026-06-16).** One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync. Parked while there is no production deployment — dev resets use `manage.py flush` / DB recreate + `make seed` / Redis `flushdb`. Revisit before go-live.
+- [ ] **Phase 27: v0.8 Post-UAT Polish & Sync Fixes** — Tags page search filter + header count + "Showing X–Y of N" footer (match `/admin/org/team/`); sync progress "Fetching from Google" label + per-stage completion timing; and the SEED-06 fix so an incremental sync can't reset an in-progress initial-sync modal. Captured from Phase 22–25 UAT; to be planned after the testing round.
 
 ---
 
@@ -277,6 +278,21 @@ Plans:
   3. After reset, the Org Admin can re-sync each store through the normal flow, running the full four-step initial sync and rebuilding the canonical vocabulary from scratch.
 
 **Plans**: TBD
+
+### Phase 27: v0.8 Post-UAT Polish & Sync Fixes
+
+**Goal**: Close the small UX gaps and the one sync-progress defect surfaced while UAT-testing Phases 22–25, so the canonical-tag surface and the initial-sync experience feel finished — without expanding scope into new capabilities.
+**Depends on**: Phases 23 (sync progress modal + fetch path) and 25 (Tags page React widget)
+**Requirements**: TMGT-07, TMGT-08, SEED-05, SEED-06
+**Success Criteria** (what must be TRUE):
+
+  1. The Tags page has a label search filter (server-side, debounced, query-count-bounded) matching the `/admin/org/team/` search UX.
+  2. The Tags page header shows a total count ("Tags (N)") and the list shows a "Showing X–Y of N · Rows: N" pagination footer, matching `/admin/org/team/`.
+  3. The sync progress modal labels step 1 "Fetching from Google" (gerund-consistent) and shows each stage's wall-clock duration when it completes.
+  4. An incremental or manual sync never clears or overwrites the initial-sync progress snapshot (§13.2); the hourly incremental beat is re-enabled once this is fixed.
+
+**Plans**: TBD
+**UI hint**: yes
 
 ## Progress
 
