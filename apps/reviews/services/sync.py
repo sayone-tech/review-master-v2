@@ -649,7 +649,11 @@ def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
     vocab_step_start = _time.monotonic()
     vocab_started_at = dj_timezone.now().isoformat()
 
-    # Update snapshot to show "vocab" step is starting
+    # Update snapshot to show "vocab" step is starting.
+    # SEED-05b: carry the fetch step's completion time forward — the vocab snapshot is a
+    # fresh dict, so without this the fetch_duration_seconds written by fetch_and_persist
+    # is wiped and the "Fetching from Google" step shows no elapsed time once vocab starts.
+    fetch_duration_seconds = round(result.get("duration_seconds", 0) or 0, 1)
     snapshot = {
         "shop_id": shop_id,
         "status": "vocab",
@@ -661,6 +665,7 @@ def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
         "vocab_total": seed_total,
         "finalising_processed": 0,
         "finalising_total": 0,
+        "fetch_duration_seconds": fetch_duration_seconds,  # SEED-05b carry-forward
         "vocab_started_at": vocab_started_at,  # SEED-05b
         "last_update_at": dj_timezone.now().isoformat(),
     }

@@ -135,9 +135,12 @@ def _run_finalise(*, organisation_id: int, shop_id: int) -> dict[str, Any]:
     total_enriched = int(snap.get("enriched", 0))
     duration_seconds = round(_time.monotonic() - _finalise_start, 1)
 
+    # SEED-05b: spread the prior snapshot so the per-stage durations (fetch_duration_seconds,
+    # vocab_duration_seconds) survive onto the completion screen — a bare dict here wipes them.
     write_progress_snapshot(
         shop_id=shop_id,
         data={
+            **snap,
             "shop_id": shop_id,
             "status": "success",
             "fetched": total_fetched,
