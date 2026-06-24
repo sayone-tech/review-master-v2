@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Canonical Tag System
-status: verifying
-stopped_at: Phase 25 UI-SPEC approved
-last_updated: "2026-06-24T10:04:56.016Z"
+status: ready_to_plan
+stopped_at: Phase 27 complete (2/2) — ready to discuss Phase 28
+last_updated: 2026-06-24T10:09:43.911Z
 last_activity: 2026-06-24
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 28
-  completed_plans: 28
+  completed_plans: 132
   percent: 88
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 27 — Sync Progress Reliability
+**Current focus:** Phase 28 — superadmin data reset & re sync — **deferred (pre launch, 2026 06 16)**
 
 ## Current Position
 
-Phase: 27 (Sync Progress Reliability) — EXECUTING
-Plan: 2 of 2
+Phase: 28
+Plan: Not started
 Next: Phase 24 (polarity-auto-reclassification) — discussing
-Status: Phase complete — ready for verification
+Status: Ready to plan
 Last activity: 2026-06-24
 
 ### v0.8 phase map (Phases 22–26)
@@ -45,7 +45,7 @@ Last activity: 2026-06-24
 
 **Velocity (v0.3–v0.4 baseline):**
 
-- Total plans completed: 61
+- Total plans completed: 63
 - Average duration: ~9 minutes
 - Total execution time: ~6.75 hours
 
@@ -62,6 +62,7 @@ Last activity: 2026-06-24
 | Phase 25 P03 | 20 | 3 tasks | 13 files |
 | Phase 26 P01 | 34 | 3 tasks | 6 files |
 | Phase 27-sync-progress-reliability P01 | 45m | 2 tasks | 8 files |
+| 27 | 2 | - | - |
 
 ## Accumulated Context
 
