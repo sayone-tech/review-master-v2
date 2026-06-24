@@ -270,11 +270,20 @@ Plans:
   3. The sync progress modal labels step 1 "Fetching from Google" (gerund-consistent) and shows each stage's wall-clock duration when it completes.
   4. An incremental or manual sync never clears or overwrites the initial-sync progress snapshot (§13.2); the `enqueue_incremental_syncs` beat is re-enabled once this is fixed.
 
-**Open decisions** (settle at planning):
-  - **Incremental cadence** — keep hourly (`0 * * * *` UTC, ~1h review freshness) vs 6-hourly vs off-peak/daily (lower Google/OpenAI load + cost, higher lag). Lean hourly or 6-hourly for a review platform; decide on freshness-vs-cost. Also resolve the doc drift (one setting implies 6h, the beat is hourly) and the timezone (UTC vs IST — local 00:00 IST = `30 18 * * *` UTC). SEED-06 is the actual fix; cadence is independent.
+**Resolved decisions** (D-06, settled at planning):
+  - **Incremental cadence → 6-hourly** (`0 */6 * * *` UTC), re-enabled, via beat data migration `0015_beat_incremental_6h`. Aligns the schedule with `INCREMENTAL_SYNC_INTERVAL_HOURS=6`, resolving the hourly-vs-6h doc/impl drift. SEED-06 (the trigger gate) is the actual fix; cadence is the independent freshness-vs-cost call.
 
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+**Wave 1** (backend — search filter, SEED-06 gate + timing fields, beat migration)
+
+- [ ] 26-01-PLAN.md — Canonical-tag `search` filter (TMGT-07 backend) + SEED-06 `trigger == "initial"` gate & regression test + per-step snapshot timing fields (SEED-05b backend) + `0015_beat_incremental_6h` 6-hourly/re-enabled migration (TMGT-07, SEED-05, SEED-06)
+
+**Wave 2** *(blocked on 26-01 — consumes the `search` param + snapshot timing fields)*
+
+- [ ] 26-02-PLAN.md — Tag-management widget: debounced search box (TMGT-07), "Tags (N)" header + "Showing X–Y of N · Rows: N" footer (TMGT-08), ProgressModal "Fetching from Google" label + per-stage durations (SEED-05) (TMGT-07, TMGT-08, SEED-05)
 
 ### Phase 27: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
 
@@ -322,4 +331,4 @@ Plans:
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
 | 24. Polarity Auto-Reclassification | v0.8 | 2/2 | Complete    | 2026-06-16 |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 4/4 | Complete   | 2026-06-16 |
-| 26. Superadmin Data Reset & Re-Sync | v0.8 | 0/TBD | ⬜ Not started | - |
+| 26. v0.8 Post-UAT Polish & Sync Fixes | v0.8 | 0/2 | ⬜ Not started | - |
