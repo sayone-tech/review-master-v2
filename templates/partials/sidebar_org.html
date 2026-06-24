@@ -27,21 +27,17 @@
       </span>
       <ul role="list">
         {% include "partials/_nav_item.html" with href="/admin/org/dashboard/" icon="layout-dashboard" label="Dashboard" %}
-        {% if user.role != "STAFF_ADMIN" %}
-          {% include "partials/_nav_item.html" with href="/admin/org/shops/" icon="store" label="Shops" %}
-        {% endif %}
         {% include "partials/_nav_item.html" with href="/admin/org/reviews/" icon="star" label="Reviews" %}
         {% include "partials/_nav_item.html" with href="/admin/org/action-items/" icon="clipboard-list" label="Action Items" %}
         {% if user.role != "STAFF_ADMIN" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/reports/" icon="bar-chart-2" label="Reports" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/shops/" icon="store" label="Shops" %}
           {% include "partials/_nav_item.html" with href="/admin/org/regions/" icon="map-pin" label="Regions" %}
+          {% include "partials/_nav_item.html" with href="/admin/org/tags/" icon="tags" label="Tags" %}
           {% include "partials/_nav_item.html" with href="/admin/org/reply-templates/" icon="file-text" label="Templates" %}
           {% include "partials/_nav_item.html" with href="/admin/org/team/" icon="users" label="Team" %}
-          {% include "partials/_nav_item.html" with href="/admin/org/reports/" icon="bar-chart-2" label="Reports" %}
         {% endif %}
         {% include "partials/_nav_item.html" with href="/admin/org/activity-log/" icon="clock" label="Activity Log" %}
-        {% if user.role != "STAFF_ADMIN" %}
-          {% include "partials/_nav_item.html" with href="/admin/org/tags/" icon="tags" label="Tags" %}
-        {% endif %}
       </ul>
     </nav>
 
