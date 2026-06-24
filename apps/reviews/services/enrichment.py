@@ -429,7 +429,16 @@ def _emit_enrichment_progress(*, review: Review) -> None:
     # Phase 23 (D-02): status stays "enriching" until the finalising pass emits
     # sync.complete. This function NO LONGER sets status="success" or emits
     # sync.complete — that responsibility belongs to run_finalise_canonical_tags.
-    new_snapshot = {**snapshot, "enriched": enriched, "status": "enriching", "step": "enriching"}
+    # Bump last_update_at so the progress modal's "Last updated Ns ago" reflects live
+    # bulk activity — without it the timestamp stays frozen at the last transition for
+    # the whole (~20 min) bulk phase, making an actively-draining sync look stuck.
+    new_snapshot = {
+        **snapshot,
+        "enriched": enriched,
+        "status": "enriching",
+        "step": "enriching",
+        "last_update_at": dj_timezone.now().isoformat(),
+    }
     write_progress_snapshot(shop_id=shop_id, data=new_snapshot)
 
     emit_progress_event(

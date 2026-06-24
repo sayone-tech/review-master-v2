@@ -91,6 +91,15 @@ def test_emit_enrichment_progress_increments_and_emits() -> None:
     written = written_snapshots[0]
     assert written["enriched"] == 3
     assert written["status"] == "enriching"
+    # last_update_at is bumped to a fresh timestamp (not the stale inherited value) so
+    # the progress modal's "Last updated Ns ago" reflects live bulk activity instead of
+    # freezing at the last transition for the whole bulk phase.
+    from datetime import datetime
+
+    assert written["last_update_at"] != snapshot["last_update_at"]
+    assert datetime.fromisoformat(written["last_update_at"]) > datetime.fromisoformat(
+        snapshot["last_update_at"]
+    )
     # One sync.enrichment.progress event, no sync.complete
     assert len(emitted_payloads) == 1
     payload = emitted_payloads[0]
