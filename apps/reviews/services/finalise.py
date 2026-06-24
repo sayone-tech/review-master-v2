@@ -75,11 +75,18 @@ def _run_finalise(*, organisation_id: int, shop_id: int) -> dict[str, Any]:
     # -------------------------------------------------------------------
     # Emit finalising.progress snapshot (step = finalising)
     # -------------------------------------------------------------------
+    # Preserve the accumulated fetched/enriched counts from the prior snapshot.
+    # Writing a bare dict here wipes them, which then zeroes the fetched/enriched
+    # values read back for the sync.complete totals below — surfacing as "N of 0"
+    # in the progress UI and a "0 reviews" completion screen.
+    prior = read_progress_snapshot(shop_id=shop_id) or {}
     write_progress_snapshot(
         shop_id=shop_id,
         data={
+            **prior,
             "shop_id": shop_id,
             "status": "finalising",
+            "step": "finalising",
             "last_update_at": _now_iso(),
         },
     )

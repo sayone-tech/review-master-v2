@@ -477,6 +477,39 @@ class TestRunFinaliseCanonicalTags:
         assert payload["total_enriched"] == 5
         assert isinstance(payload["duration_seconds"], float)
 
+    def test_finalising_snapshot_preserves_fetched_and_enriched(self, db) -> None:
+        """The finalising-step snapshot carries forward fetched/enriched, not wipes them.
+
+        Regression: a bare-dict write here dropped the counts, so the fetched/enriched
+        values read back for the sync.complete totals were 0 — surfacing as "N of 0" in
+        the progress UI and a "0 reviews" completion screen.
+        """
+        lock_cm = MagicMock()
+        lock_cm.__enter__ = MagicMock(return_value=True)
+        lock_cm.__exit__ = MagicMock(return_value=False)
+        tag = OrgCanonicalTagFactory(label="Food Quality")
+        with (
+            patch(
+                "apps.reviews.services.finalise.distributed_lock",
+                return_value=lock_cm,
+            ),
+            patch("apps.reviews.services.finalise.emit_progress_event"),
+            patch(
+                "apps.reviews.services.finalise.write_progress_snapshot",
+            ) as mock_write,
+            patch(
+                "apps.reviews.services.finalise.read_progress_snapshot",
+                return_value={"fetched": 3387, "enriched": 3387, "status": "enriching"},
+            ),
+            patch("apps.reviews.services.enrichment._dispatch_sync_complete_notifications"),
+        ):
+            run_finalise_canonical_tags(organisation_id=tag.organisation_id, shop_id=7)
+        # The first write is the finalising-start snapshot — it MUST preserve the counts.
+        first_write = mock_write.call_args_list[0].kwargs["data"]
+        assert first_write["status"] == "finalising"
+        assert first_write["fetched"] == 3387, "finalising snapshot wiped fetched"
+        assert first_write["enriched"] == 3387, "finalising snapshot wiped enriched"
+
     def test_notifications_dispatched_when_total_fetched_nonzero(self, db) -> None:
         """_dispatch_sync_complete_notifications is called when total_fetched > 0 (CR-02)."""
         lock_cm = MagicMock()
