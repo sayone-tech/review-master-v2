@@ -289,7 +289,10 @@ Plans:
   1. The Tags page has a label search filter (server-side, debounced, query-count-bounded) matching the `/admin/org/team/` search UX.
   2. The Tags page header shows a total count ("Tags (N)") and the list shows a "Showing X–Y of N · Rows: N" pagination footer, matching `/admin/org/team/`.
   3. The sync progress modal labels step 1 "Fetching from Google" (gerund-consistent) and shows each stage's wall-clock duration when it completes.
-  4. An incremental or manual sync never clears or overwrites the initial-sync progress snapshot (§13.2); the hourly incremental beat is re-enabled once this is fixed.
+  4. An incremental or manual sync never clears or overwrites the initial-sync progress snapshot (§13.2); the `enqueue_incremental_syncs` beat is re-enabled once this is fixed.
+
+**Open decisions** (settle at planning):
+  - **Incremental cadence** — keep hourly (`0 * * * *` UTC, ~1h review freshness) vs 6-hourly vs off-peak/daily (lower Google/OpenAI load + cost, higher lag). Lean hourly or 6-hourly for a review platform; decide on freshness-vs-cost. Also resolve the doc drift (one setting implies 6h, the beat is hourly) and the timezone (UTC vs IST — local 00:00 IST = `30 18 * * *` UTC). SEED-06 is the actual fix; cadence is independent.
 
 **Plans**: TBD
 **UI hint**: yes
