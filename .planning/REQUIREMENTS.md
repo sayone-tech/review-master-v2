@@ -73,10 +73,10 @@
 > Surfaced during v0.8 (Phases 22–25) UAT. Small, well-scoped enhancements plus one
 > deferred sync-progress fix. To be planned/built via the GSD flow after UAT wraps.
 
-- [ ] **TMGT-07**: The Tags page provides a label **search filter** (server-side, debounced), matching the `/admin/org/team/` search UX
+- [x] **TMGT-07**: The Tags page provides a label **search filter** (server-side, debounced), matching the `/admin/org/team/` search UX
 - [ ] **TMGT-08**: The Tags page shows a **header count** ("Tags (N)") and a **"Showing X–Y of N · Rows: N"** pagination footer, matching `/admin/org/team/`
-- [ ] **SEED-05**: The sync progress modal uses a **"Fetching from Google"** label (gerund-consistent with the other steps) and shows each stage's **completion time** when it finishes
-- [ ] **SEED-06**: An incremental or manual sync must **not** clear or overwrite the initial-sync progress snapshot (§13.2) — fix `fetch_and_persist_reviews` so an overlapping incremental can't reset an in-progress initial-sync modal (UAT bug #4; mitigated for now by disabling the hourly incremental beat). *Open decision at planning:* the incremental **cadence** (hourly vs 6-hourly vs off-peak/daily) + timezone — independent of the fix; see Phase 26 ROADMAP "Open decisions".
+- [x] **SEED-05**: The sync progress modal uses a **"Fetching from Google"** label (gerund-consistent with the other steps) and shows each stage's **completion time** when it finishes
+- [x] **SEED-06**: An incremental or manual sync must **not** clear or overwrite the initial-sync progress snapshot (§13.2) — fix `fetch_and_persist_reviews` so an overlapping incremental can't reset an in-progress initial-sync modal (UAT bug #4; mitigated for now by disabling the hourly incremental beat). *Open decision at planning:* the incremental **cadence** (hourly vs 6-hourly vs off-peak/daily) + timezone — independent of the fix; see Phase 26 ROADMAP "Open decisions".
 
 ---
 

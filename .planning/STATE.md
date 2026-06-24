@@ -4,13 +4,13 @@ milestone: v0.8
 milestone_name: Canonical Tag System
 status: executing
 stopped_at: Phase 25 UI-SPEC approved
-last_updated: "2026-06-24T06:59:43.711Z"
-last_activity: 2026-06-24 -- Phase 26 planning complete
+last_updated: "2026-06-24T07:13:20.381Z"
+last_activity: 2026-06-24
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 26
-  completed_plans: 24
+  completed_plans: 25
   percent: 71
 ---
 
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 25 — org-admin-tag-management-dashboard-polarity
+**Current focus:** Phase 26 — v0-8-post-uat-polish-sync-fixes
 
 ## Current Position
 
-Phase: 25 (org-admin-tag-management-dashboard-polarity) — EXECUTING
-Plan: 4 of 4
+Phase: 26 (v0-8-post-uat-polish-sync-fixes) — EXECUTING
+Plan: 2 of 2
 Next: Phase 24 (polarity-auto-reclassification) — discussing
 Status: Ready to execute
-Last activity: 2026-06-24 -- Phase 26 planning complete
+Last activity: 2026-06-24
 
 ### v0.8 phase map (Phases 22–26)
 
@@ -60,6 +60,7 @@ Last activity: 2026-06-24 -- Phase 26 planning complete
 | 22 | 6 | - | - |
 | 24 | 2 | - | - |
 | Phase 25 P03 | 20 | 3 tasks | 13 files |
+| Phase 26 P01 | 34 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-06-16T11:51:58.956Z
+Last session: 2026-06-24T07:13:20.375Z
 Stopped at: Phase 25 UI-SPEC approved
 Resume file: None

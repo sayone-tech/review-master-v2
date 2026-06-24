@@ -279,7 +279,7 @@ Plans:
 Plans:
 **Wave 1** (backend — search filter, SEED-06 gate + timing fields, beat migration)
 
-- [ ] 26-01-PLAN.md — Canonical-tag `search` filter (TMGT-07 backend) + SEED-06 `trigger == "initial"` gate & regression test + per-step snapshot timing fields (SEED-05b backend) + `0015_beat_incremental_6h` 6-hourly/re-enabled migration (TMGT-07, SEED-05, SEED-06)
+- [x] 26-01-PLAN.md — Canonical-tag `search` filter (TMGT-07 backend) + SEED-06 `trigger == "initial"` gate & regression test + per-step snapshot timing fields (SEED-05b backend) + `0015_beat_incremental_6h` 6-hourly/re-enabled migration (TMGT-07, SEED-05, SEED-06)
 
 **Wave 2** *(blocked on 26-01 — consumes the `search` param + snapshot timing fields)*
 
@@ -331,4 +331,4 @@ Plans:
 | 23. Four-Step Initial Sync, Seeding & Queue Split | v0.8 | 4/4 | Complete   | 2026-06-11 |
 | 24. Polarity Auto-Reclassification | v0.8 | 2/2 | Complete    | 2026-06-16 |
 | 25. Org Admin Tag Management & Dashboard Polarity | v0.8 | 4/4 | Complete   | 2026-06-16 |
-| 26. v0.8 Post-UAT Polish & Sync Fixes | v0.8 | 0/2 | ⬜ Not started | - |
+| 26. v0.8 Post-UAT Polish & Sync Fixes | v0.8 | 1/2 | In Progress|  |
