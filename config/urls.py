@@ -13,7 +13,12 @@ from apps.organisations.views import OrganisationViewSet
 from apps.regions.views import RegionViewSet
 from apps.reply_templates.views import ReplyTemplateViewSet
 from apps.reports.urls import api_urlpatterns as reports_api_urls
-from apps.reviews.views import OrgCanonicalTagViewSet, ReviewViewSet, TagMergeJobViewSet
+from apps.reviews.views import (
+    OrgCanonicalTagViewSet,
+    ReviewViewSet,
+    SyncProgressSnapshotView,
+    TagMergeJobViewSet,
+)
 from apps.shops.views import ReviewTargetViewSet, ShopViewSet
 
 # SimpleRouter avoids creating a browsable API-root at "/" which would conflict
@@ -30,6 +35,7 @@ router.register(
 router.register(r"api/v1/shops", ShopViewSet, basename="shop")
 # Phase 25 Plan 02: canonical-tags + tag-merge-jobs MUST be registered BEFORE
 # reviews so the router prefix /api/v1/reviews/<pk>/ doesn't swallow these routes.
+# Phase 27 Plan 01: sync-progress MUST also be registered BEFORE the reviews router prefix.
 router.register(r"api/v1/reviews/canonical-tags", OrgCanonicalTagViewSet, basename="canonical-tags")
 router.register(r"api/v1/reviews/tag-merge-jobs", TagMergeJobViewSet, basename="tag-merge-jobs")
 router.register(r"api/v1/reviews", ReviewViewSet, basename="review")
@@ -37,6 +43,14 @@ router.register(r"api/v1/audit-logs", AuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
     path("", include(router.urls)),
+    # Phase 27 Plan 01 — sync progress snapshot GET (SYNC-REL-01, D-01).
+    # Registered as a plain path (not via router) because it is a single GET with a
+    # URL argument — no list/create/update actions warranting a ViewSet/router registration.
+    path(
+        "api/v1/reviews/sync-progress/<int:shop_id>/",
+        SyncProgressSnapshotView.as_view(),
+        name="sync-progress-snapshot",
+    ),
     path("api/v1/", include(action_items_api_urls)),
     path("api/v1/", include(notifications_api_urls)),
     path("api/v1/", include("apps.accounts.api_urls")),

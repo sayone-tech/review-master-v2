@@ -26,9 +26,11 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import APIException
 from rest_framework.filters import OrderingFilter
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsOrgAdmin, org_admin_required
@@ -56,6 +58,7 @@ from apps.reviews.serializers import (
     ReviewReplySerializer,
     TagMergeJobSerializer,
 )
+from apps.reviews.services.progress import read_progress_snapshot
 from apps.reviews.services.replies import remove_reply, submit_reply
 from apps.reviews.services.reply_generation import generate_reply_draft
 from apps.reviews.services.tag_management import create_merge_job, rename_canonical_tag
@@ -622,6 +625,94 @@ def tags_page_view(request: HttpRequest) -> HttpResponse:
     No bootstrap data needed — all data is fetched via the /api/v1/reviews/ DRF endpoints.
     """
     return render(request, "org-admin/tags.html", {})
+
+
+# ---------------------------------------------------------------------------
+# Phase 27 Plan 01 — SyncProgressSnapshotView (SYNC-REL-01)
+# GET /api/v1/reviews/sync-progress/{shop_id}/
+# ---------------------------------------------------------------------------
+
+
+class SyncProgressSnapshotView(APIView):
+    """Return the current Redis sync-progress snapshot for a shop.
+
+    Auth mirrors SyncProgressConsumer._user_can_access_shop (§13.4):
+      - IsAuthenticated required (T-27-02)
+      - shop.organisation_id must match the caller's organisation_id (T-27-01)
+      - STAFF_ADMIN: must have a SHOP or REGION StaffAccessScope covering the shop
+
+    Returns 200 + snapshot dict on success.
+    Returns 404 when no snapshot exists (do NOT return stale/empty body).
+    Returns 403 for cross-tenant or out-of-scope Staff; uses same shape as
+    "no snapshot" 404 for existence-disclosure avoidance (T-27-03).
+    Throttled with "sync_progress" scoped rate (T-27-04).
+
+    No new WebSocket consumer added (§13.2 — HTTP fallback only).
+    """
+
+    permission_classes = [IsAuthenticated]  # noqa: RUF012
+    throttle_classes = [ScopedRateThrottle]  # noqa: RUF012
+    throttle_scope = "sync_progress"
+
+    def get(self, request: Request, shop_id: int) -> Response:
+        """GET /api/v1/reviews/sync-progress/{shop_id}/"""
+        user = request.user
+
+        # Scope check: mirrors SyncProgressConsumer._user_can_access_shop (§13.4).
+        # Existence disclosure avoidance (T-27-03): use 404 for all denial cases
+        # so "not your shop" and "no snapshot" are indistinguishable to callers.
+        if not self._user_can_access_shop(user, shop_id):
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        snapshot = read_progress_snapshot(shop_id=shop_id)
+        if snapshot is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(snapshot, status=status.HTTP_200_OK)
+
+    def _user_can_access_shop(self, user: Any, shop_id: int) -> bool:
+        """Mirror SyncProgressConsumer._user_can_access_shop — org + Staff scope check.
+
+        Returns True when:
+          - user.organisation_id matches the shop's organisation_id, AND
+          - if role is STAFF_ADMIN: a SHOP scope for this shop OR a REGION scope
+            covering the shop's region_id exists in StaffAccessScope.
+        Returns False otherwise (shop not found, org mismatch, or out-of-scope Staff).
+        """
+        from apps.accounts.models import StaffAccessScope, User
+        from apps.shops.models import Shop
+
+        try:
+            shop = Shop.objects.only("organisation_id", "region_id").get(pk=shop_id)
+        except Shop.DoesNotExist:
+            return False
+
+        user_org_id = getattr(user, "organisation_id", None)
+        if user_org_id is None or shop.organisation_id != user_org_id:
+            return False
+
+        role = getattr(user, "role", None)
+        if role != User.Role.STAFF_ADMIN:
+            # Org Admins (and any other non-Staff role with this org_id) can access all shops.
+            return True
+
+        # STAFF_ADMIN: must have an explicit SHOP or REGION scope covering this shop.
+        user_pk: int = user.pk
+        has_shop_scope = StaffAccessScope.objects.filter(
+            user_id=user_pk,
+            scope_type=StaffAccessScope.ScopeType.SHOP,
+            shop_id=shop_id,
+        ).exists()
+        if has_shop_scope:
+            return True
+        region_id: int | None = shop.region_id
+        if region_id is None:
+            return False
+        return StaffAccessScope.objects.filter(
+            user_id=user_pk,
+            scope_type=StaffAccessScope.ScopeType.REGION,
+            region_id=region_id,
+        ).exists()
 
 
 @login_required(login_url="/login/")

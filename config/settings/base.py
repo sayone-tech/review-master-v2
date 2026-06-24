@@ -202,6 +202,15 @@ SEED_PHASE_SIZE = env.int("SEED_PHASE_SIZE", default=50)
 # rate:openai:org:{organisation_id} Redis token bucket (progress.py). Works cross-worker.
 OPENAI_GLOBAL_RATE_LIMIT = env.int("OPENAI_GLOBAL_RATE_LIMIT", default=500)
 
+# Phase 27 — sync progress snapshot endpoint throttle + finalise completion gate
+# SYNC_PROGRESS_THROTTLE_RATE: max polls per minute per user (single Redis GET, cheap).
+# FINALISE_GATE_COUNTDOWN_SECONDS: short countdown for finalize_canonical_tags_task self-reschedule
+#   while bulk enrichment is still in progress (D-03).
+# FINALISE_GATE_MAX_ATTEMPTS: cap on self-reschedule loop — after this, proceed regardless (D-03).
+SYNC_PROGRESS_THROTTLE_RATE = env("SYNC_PROGRESS_THROTTLE_RATE", default="120/minute")
+FINALISE_GATE_COUNTDOWN_SECONDS = env.int("FINALISE_GATE_COUNTDOWN_SECONDS", default=20)
+FINALISE_GATE_MAX_ATTEMPTS = env.int("FINALISE_GATE_MAX_ATTEMPTS", default=30)
+
 # Phase 24 — polarity auto-reclassification (POL-02)
 # POLARITY_RECLASSIFY_THRESHOLD: opposite-polarity fraction that triggers flip to mixed.
 # A tag flips always_positive→mixed when negative/total > threshold (strict >; D-02).
@@ -391,6 +400,7 @@ REST_FRAMEWORK = {
         "review_reply": "30/minute",
         "generate_reply": "10/minute",
         "audit_log_list": "120/minute",
+        "sync_progress": SYNC_PROGRESS_THROTTLE_RATE,  # Phase 27 SYNC-REL-01 snapshot poll
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }

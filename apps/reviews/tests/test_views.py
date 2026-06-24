@@ -785,3 +785,125 @@ def test_tags_page_org_admin_ok() -> None:
     client.force_login(user)
     resp = client.get(TAGS_PAGE_URL)
     assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Phase 27 Plan 01 — SyncProgressSnapshotView tests (SYNC-REL-01)
+# ---------------------------------------------------------------------------
+
+
+def _sync_progress_url(shop_id: int) -> str:
+    return f"/api/v1/reviews/sync-progress/{shop_id}/"
+
+
+@pytest.fixture
+def snapshot_setup():
+    """Return (client, user, org, shop) for an ORG_ADMIN user with a shop."""
+    org = OrganisationFactory()
+    user = OrgAdminFactory(organisation=org)
+    shop = ShopFactory(organisation=org)
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client, user, org, shop
+
+
+def test_sync_progress_returns_snapshot_for_owner_org(snapshot_setup) -> None:
+    """SYNC-REL-01: ORG_ADMIN of the shop's org gets 200 + the snapshot dict."""
+    client, _user, _org, shop = snapshot_setup
+    fake_snapshot = {
+        "shop_id": shop.pk,
+        "status": "enriching",
+        "fetched": 100,
+        "enriched": 50,
+        "last_update_at": "2026-01-01T00:00:00+00:00",
+    }
+    with patch(
+        "apps.reviews.views.read_progress_snapshot",
+        return_value=fake_snapshot,
+    ):
+        resp = client.get(_sync_progress_url(shop.pk))
+    assert resp.status_code == 200
+    assert resp.data["status"] == "enriching"
+    assert resp.data["fetched"] == 100
+
+
+def test_sync_progress_returns_404_when_no_snapshot(snapshot_setup) -> None:
+    """SYNC-REL-01: 404 when no Redis snapshot exists for the shop."""
+    client, _user, _org, shop = snapshot_setup
+    with patch(
+        "apps.reviews.views.read_progress_snapshot",
+        return_value=None,
+    ):
+        resp = client.get(_sync_progress_url(shop.pk))
+    assert resp.status_code == 404
+
+
+def test_sync_progress_cross_tenant_denied(snapshot_setup) -> None:
+    """SYNC-REL-01/T-27-01: User from org B cannot read org A's shop snapshot."""
+    _client_a, _user_a, _org_a, shop_a = snapshot_setup
+
+    # Create a second org and its admin
+    org_b = OrganisationFactory()
+    user_b = OrgAdminFactory(organisation=org_b)
+    client_b = APIClient()
+    client_b.force_authenticate(user=user_b)
+
+    with patch(
+        "apps.reviews.views.read_progress_snapshot",
+        return_value={"shop_id": shop_a.pk, "status": "enriching"},
+    ):
+        resp = client_b.get(_sync_progress_url(shop_a.pk))
+    assert resp.status_code in (403, 404), (
+        f"Cross-tenant access must be denied (403/404), got {resp.status_code}"
+    )
+
+
+def test_sync_progress_staff_out_of_scope_denied(snapshot_setup) -> None:
+    """SYNC-REL-01/T-27-01: Staff user without StaffAccessScope for the shop is denied."""
+    _client, _user, org, shop = snapshot_setup
+
+    staff = StaffAdminFactory(organisation=org)
+    # No StaffAccessScope granted — staff cannot access this shop
+    client = APIClient()
+    client.force_authenticate(user=staff)
+
+    with patch(
+        "apps.reviews.views.read_progress_snapshot",
+        return_value={"shop_id": shop.pk, "status": "fetching"},
+    ):
+        resp = client.get(_sync_progress_url(shop.pk))
+    assert resp.status_code in (403, 404), (
+        f"Out-of-scope Staff must be denied (403/404), got {resp.status_code}"
+    )
+
+
+def test_sync_progress_staff_in_scope_allowed(snapshot_setup) -> None:
+    """SYNC-REL-01: Staff user WITH a SHOP StaffAccessScope gets 200 + snapshot."""
+    _client, _user, org, shop = snapshot_setup
+
+    staff = StaffAdminFactory(organisation=org)
+    StaffAccessScope.objects.create(
+        user=staff,
+        scope_type=StaffAccessScope.ScopeType.SHOP,
+        shop=shop,
+    )
+    client = APIClient()
+    client.force_authenticate(user=staff)
+
+    fake_snapshot = {"shop_id": shop.pk, "status": "success", "fetched": 10}
+    with patch(
+        "apps.reviews.views.read_progress_snapshot",
+        return_value=fake_snapshot,
+    ):
+        resp = client.get(_sync_progress_url(shop.pk))
+    assert resp.status_code == 200
+    assert resp.data["status"] == "success"
+
+
+def test_sync_progress_unauthenticated_denied() -> None:
+    """SYNC-REL-01/T-27-02: Anonymous request is rejected with 401/403."""
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    client = APIClient()
+    resp = client.get(_sync_progress_url(shop.pk))
+    assert resp.status_code in (401, 403)
