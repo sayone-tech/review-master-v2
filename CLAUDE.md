@@ -1296,7 +1296,7 @@ django_settings_module = "config.settings.local"
 - **Healthcheck endpoint:** `/healthz/` returns 200, `/readyz/` checks DB + Redis (and Channels layer in Phase 3+).
 - **Single image, multiple entry commands.** The same image runs `web`, `worker`, and `beat` services with different `CMD`:
   - Web: `daphne -b 0.0.0.0 -p 8000 config.asgi:application` (Phase 3+; previously `gunicorn config.wsgi`)
-  - Worker: `celery -A config worker -Q google-sync,ai-enrichment,default --concurrency=8`
+  - Worker: `celery -A config worker -Q google-sync,ai-enrichment-high,ai-enrichment-low,tag-merge,default --concurrency=8`
   - Beat: `celery -A config beat --scheduler django_celery_beat.schedulers:DatabaseScheduler`
 - **docker-compose** for local dev runs: `web`, `db` (postgres:16), `redis` (redis:7-alpine), `mailhog` (captures outgoing email locally — see §15.2). Phase 3+ adds: `worker`, `beat`, optionally `flower` (port 5555).
 
