@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.8
 milestone_name: Canonical Tag System
-status: verifying
+status: executing
 stopped_at: Phase 25 UI-SPEC approved
-last_updated: "2026-06-24T07:24:19.838Z"
-last_activity: 2026-06-24
+last_updated: "2026-06-24T09:34:34.589Z"
+last_activity: 2026-06-24 -- Phase 27 planning complete
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 6
-  total_plans: 26
+  total_plans: 28
   completed_plans: 26
-  percent: 86
+  percent: 75
 ---
 
 # Project State
@@ -28,8 +28,8 @@ See: .planning/PROJECT.md (updated 2026-06-08)
 Phase: 26 (v0-8-post-uat-polish-sync-fixes) — EXECUTING
 Plan: 2 of 2
 Next: Phase 24 (polarity-auto-reclassification) — discussing
-Status: Phase complete — ready for verification
-Last activity: 2026-06-24
+Status: Ready to execute
+Last activity: 2026-06-24 -- Phase 27 planning complete
 
 ### v0.8 phase map (Phases 22–26)
 
