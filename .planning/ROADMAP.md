@@ -297,10 +297,12 @@ Plans:
   2. The ProgressModal polls that endpoint (~3–5s) as a fallback alongside the WebSocket, so a missed/dropped event no longer freezes it — it self-heals without the user reopening from the notification.
   3. `finalize_canonical_tags_task` is completion-gated: it re-schedules itself with a short countdown while any of the shop's reviews are still PENDING/IN_PROGRESS (bounded by a max attempt count), and only runs the dedup/backfill/count-refresh once all are terminal — so Finalising fires promptly after bulk completes (no fixed long countdown) and the step is visible in the modal.
 
-**Open decisions** (settle at planning):
-  - SYNC-REL-02 mechanism — self-rescheduling guard (simpler, recommended) vs a full Celery chord over the bulk group. Lean self-reschedule for lower risk; the chord is the heavier alternative noted in the `run_initial_backfill` Phase 4 comment.
+**Open decisions** (settled at planning):
+  - SYNC-REL-02 mechanism — **self-rescheduling guard chosen** (D-03/D-04); the full Celery chord is deferred (the `run_initial_backfill` Phase 4 comment is updated to record this).
 
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 27-01-PLAN.md — Org+shop-scoped snapshot GET endpoint (SYNC-REL-01 backend) + finalise completion-gating via bounded self-reschedule (SYNC-REL-02)
+- [ ] 27-02-PLAN.md — ProgressModal snapshot-poll fallback alongside the WebSocket, merge forward-only by last_update_at (SYNC-REL-01 frontend)
 **UI hint**: yes
 
 ### Phase 28: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
