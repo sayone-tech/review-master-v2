@@ -33,3 +33,6 @@ deployment/terraform/.terraform.lock.hcl
 !.claude/agents/
 !.claude/rules/
 !.claude/skills/
+
+# Agent/working scratch files (temporary, regenerated)
+scratchpad/
