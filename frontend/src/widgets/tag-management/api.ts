@@ -36,6 +36,7 @@ export async function fetchTags(params: FetchTagsParams = {}): Promise<Paginated
   if (params.ordering) qs.set("ordering", params.ordering);
   if (params.page !== undefined) qs.set("page", String(params.page));
   if (params.page_size !== undefined) qs.set("page_size", String(params.page_size));
+  if (params.search) qs.set("search", params.search);
   const url = `/api/v1/reviews/canonical-tags/${qs.toString() ? "?" + qs.toString() : ""}`;
   const resp = await fetch(url, {
     method: "GET",

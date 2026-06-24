@@ -1,4 +1,5 @@
 // Phase 25-03 — Hook for fetching and managing the canonical tag list.
+// Phase 26-02 — Added search state + setSearch (TMGT-07).
 
 import { useCallback, useEffect, useState } from "react";
 import { fetchTags } from "./api";
@@ -20,12 +21,13 @@ export function useTagList() {
   const [ordering, setOrderingState] = useState<TagOrdering>("-review_count");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [search, setSearchState] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchTags({ ordering, page, page_size: pageSize });
+      const data = await fetchTags({ ordering, page, page_size: pageSize, search });
       setRows(data.results);
       setCount(data.count);
     } catch {
@@ -33,7 +35,12 @@ export function useTagList() {
     } finally {
       setLoading(false);
     }
-  }, [ordering, page, pageSize]);
+  }, [ordering, page, pageSize, search]);
+
+  const setSearch = (s: string) => {
+    setSearchState(s);
+    setPage(1);
+  };
 
   useEffect(() => {
     void load();
@@ -83,6 +90,7 @@ export function useTagList() {
     ordering,
     page,
     pageSize,
+    search,
     totalPages,
     hasNext,
     hasPrev,
@@ -91,6 +99,7 @@ export function useTagList() {
     setOrdering,
     toggleOrdering,
     changePageSize,
+    setSearch,
     refetch: load,
   };
 }
