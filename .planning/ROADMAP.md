@@ -301,7 +301,7 @@ Plans:
   - SYNC-REL-02 mechanism — **self-rescheduling guard chosen** (D-03/D-04); the full Celery chord is deferred (the `run_initial_backfill` Phase 4 comment is updated to record this).
 
 **Plans**: 2 plans
-- [ ] 27-01-PLAN.md — Org+shop-scoped snapshot GET endpoint (SYNC-REL-01 backend) + finalise completion-gating via bounded self-reschedule (SYNC-REL-02)
+- [x] 27-01-PLAN.md — Org+shop-scoped snapshot GET endpoint (SYNC-REL-01 backend) + finalise completion-gating via bounded self-reschedule (SYNC-REL-02)
 - [ ] 27-02-PLAN.md — ProgressModal snapshot-poll fallback alongside the WebSocket, merge forward-only by last_update_at (SYNC-REL-01 frontend)
 **UI hint**: yes
 

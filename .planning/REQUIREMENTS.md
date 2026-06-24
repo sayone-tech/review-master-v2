@@ -85,8 +85,8 @@
 > no fallback, and finalising fires on a fixed countdown — so the modal can freeze on a
 > missed event and there's a long wait before "complete" with no visible Finalising step.
 
-- [ ] **SYNC-REL-01**: The initial-sync ProgressModal stays current even if WebSocket events are missed — add an org-scoped GET endpoint returning the `sync:progress:{shop_id}` snapshot, and a frontend polling fallback (~3–5s) that merges with the WebSocket so the modal never freezes (reopen is no longer needed to refresh).
-- [ ] **SYNC-REL-02**: Finalising fires when bulk enrichment actually completes, not on a fixed countdown — `finalize_canonical_tags_task` is completion-gated (re-schedule itself with a short countdown while any review is still PENDING/IN_PROGRESS, bounded; proceed once all are terminal). Removes the long post-enrichment wait and makes the Finalising step visible.
+- [x] **SYNC-REL-01**: The initial-sync ProgressModal stays current even if WebSocket events are missed — add an org-scoped GET endpoint returning the `sync:progress:{shop_id}` snapshot, and a frontend polling fallback (~3–5s) that merges with the WebSocket so the modal never freezes (reopen is no longer needed to refresh).
+- [x] **SYNC-REL-02**: Finalising fires when bulk enrichment actually completes, not on a fixed countdown — `finalize_canonical_tags_task` is completion-gated (re-schedule itself with a short countdown while any review is still PENDING/IN_PROGRESS, bounded; proceed once all are terminal). Removes the long post-enrichment wait and makes the Finalising step visible.
 
 ---
 
