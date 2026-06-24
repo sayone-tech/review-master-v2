@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { Modal } from "../modal/Modal";
+import { fetchSyncProgress } from "./api";
+
+/** Interval for the poll fallback (D-02: ~3–5s, chosen 4s). */
+const POLL_MS = 4_000;
 
 interface SnapshotState {
   shop_id: number;
@@ -188,6 +192,36 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
       wsRef.current = null;
     };
   }, [open, shopId]);
+
+  // Poll fallback (D-02 / SYNC-REL-01): poll the snapshot GET endpoint every POLL_MS
+  // ALONGSIDE the WebSocket (which stays the primary path — do NOT remove the WS effect).
+  // Merge rule: forward-only by last_update_at — a stale poll never overwrites a fresher WS event.
+  // Stops when the modal closes (cleanup clears the interval) or when status is terminal.
+  const snapshotStatus = snapshot?.status;
+  useEffect(() => {
+    if (!open || !shopId) return;
+    if (snapshotStatus === "success" || snapshotStatus === "failed") return;
+
+    const id = window.setInterval(() => {
+      void (async () => {
+        try {
+          const poll = await fetchSyncProgress(shopId);
+          if (poll == null) return; // 404 / no snapshot yet — leave current state unchanged
+          setSnapshot((prev) => {
+            // Forward-only merge: only advance if the poll is strictly newer than current.
+            if (prev && Date.parse(prev.last_update_at) >= Date.parse(poll.last_update_at as string)) {
+              return prev; // poll is stale — keep the fresher WS-applied snapshot
+            }
+            return poll as unknown as SnapshotState;
+          });
+        } catch {
+          // Best-effort: swallow transient network/API errors (mirror useMergeProgress)
+        }
+      })();
+    }, POLL_MS);
+
+    return () => window.clearInterval(id);
+  }, [open, shopId, snapshotStatus]);
 
   // Last-update tick
   useEffect(() => {

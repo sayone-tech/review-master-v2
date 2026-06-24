@@ -133,6 +133,17 @@ export async function fetchSyncingShops(): Promise<SyncingResponse> {
   return (await handle(resp)) as SyncingResponse;
 }
 
+export async function fetchSyncProgress(shopId: number): Promise<Record<string, unknown> | null> {
+  const resp = await fetch(`/api/v1/reviews/sync-progress/${shopId}/`, {
+    method: "GET",
+    headers: headers("GET"),
+    credentials: "same-origin",
+  });
+  // Treat 404 as "no snapshot yet" — not an error condition for polling.
+  if (resp.status === 404) return null;
+  return (await handle(resp)) as Record<string, unknown>;
+}
+
 export async function generateReply(
   reviewId: number,
   tone: string,
