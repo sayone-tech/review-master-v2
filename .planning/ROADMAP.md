@@ -101,7 +101,7 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 - [x] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible. (completed 2026-06-16)
 - [x] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags. (completed 2026-06-16)
 - [x] **Phase 26: v0.8 Post-UAT Polish & Sync Fixes** — Tags page search filter + header count + "Showing X–Y of N" footer (match `/admin/org/team/`); sync progress "Fetching from Google" label + per-stage completion timing; and the SEED-06 fix so an incremental sync can't reset an in-progress initial-sync modal. Captured from Phase 22–25 UAT; to be planned after the testing round. (completed 2026-06-24)
-- [ ] **Phase 27: Sync Progress Reliability** — ProgressModal snapshot-poll fallback + GET endpoint so the modal never freezes on a missed WebSocket event (SYNC-REL-01); finalise completion-gating so Finalising fires when bulk enrichment actually completes instead of on a fixed countdown, removing the long wait and making the step visible (SYNC-REL-02). Surfaced during Phase 22–25 UAT.
+- [x] **Phase 27: Sync Progress Reliability** — ProgressModal snapshot-poll fallback + GET endpoint so the modal never freezes on a missed WebSocket event (SYNC-REL-01); finalise completion-gating so Finalising fires when bulk enrichment actually completes instead of on a fixed countdown, removing the long wait and making the step visible (SYNC-REL-02). Surfaced during Phase 22–25 UAT. (completed 2026-06-24)
 - [~] **Phase 28: Superadmin Data Reset & Re-Sync** — **DEFERRED (pre-launch, 2026-06-16).** One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync. Parked while there is no production deployment — dev resets use `manage.py flush` / DB recreate + `make seed` / Redis `flushdb`. Revisit before go-live.
 
 ---
@@ -302,7 +302,7 @@ Plans:
 
 **Plans**: 2 plans
 - [x] 27-01-PLAN.md — Org+shop-scoped snapshot GET endpoint (SYNC-REL-01 backend) + finalise completion-gating via bounded self-reschedule (SYNC-REL-02)
-- [ ] 27-02-PLAN.md — ProgressModal snapshot-poll fallback alongside the WebSocket, merge forward-only by last_update_at (SYNC-REL-01 frontend)
+- [x] 27-02-PLAN.md — ProgressModal snapshot-poll fallback alongside the WebSocket, merge forward-only by last_update_at (SYNC-REL-01 frontend)
 **UI hint**: yes
 
 ### Phase 28: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
