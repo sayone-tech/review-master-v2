@@ -62,7 +62,7 @@
 > migrate` + `make seed`, and Redis sync-state via `flushdb`. Building the Superadmin reset
 > feature now would be over-engineering. Revisit **before go-live**, when hard-deleting one
 > live org's data becomes a real operational need (e.g. the pre-production 56-store brand
-> re-sync). v0.8 ships as Phases 22–25; Phase 27 (RESET) is parked, not cancelled.
+> re-sync). v0.8 ships as Phases 22–25; Phase 28 (RESET) is parked, not cancelled.
 
 - [~] **RESET-01** *(deferred)*: A Superadmin can trigger a full data reset for one organisation — hard-deleting its Review, AiUsageLog, ActionItem, and OrgCanonicalTag rows (documented one-time pre-production exception to the §11 soft-delete rule)
 - [~] **RESET-02** *(deferred)*: The reset clears each store's sync state (Redis progress snapshot + `Shop.connection_status`) so stores read as "Not synced"
@@ -78,6 +78,15 @@
 - [x] **SEED-05**: The sync progress modal uses a **"Fetching from Google"** label (gerund-consistent with the other steps) and shows each stage's **completion time** when it finishes
 - [x] **SEED-06**: An incremental or manual sync must **not** clear or overwrite the initial-sync progress snapshot (§13.2) — fix `fetch_and_persist_reviews` so an overlapping incremental can't reset an in-progress initial-sync modal (UAT bug #4; mitigated for now by disabling the hourly incremental beat). *Open decision at planning:* the incremental **cadence** (hourly vs 6-hourly vs off-peak/daily) + timezone — independent of the fix; see Phase 26 ROADMAP "Open decisions".
 - [x] **NAV-01** *(bundled with Phase 26)*: Org sidebar nav reordered by frequency-of-use — Dashboard · Reviews · Action Items · Reports · Shops · Regions · Tags · Templates · Team · Activity Log — moving Tags out of the stranded last slot and Team + Activity Log to the bottom (no grouping headers; the reorder collapses the three role-conditional blocks into one).
+
+### SYNC-REL — Sync progress reliability (Phase 27)
+
+> Surfaced during Phase 22–25 UAT. The initial-sync ProgressModal is WebSocket-only with
+> no fallback, and finalising fires on a fixed countdown — so the modal can freeze on a
+> missed event and there's a long wait before "complete" with no visible Finalising step.
+
+- [ ] **SYNC-REL-01**: The initial-sync ProgressModal stays current even if WebSocket events are missed — add an org-scoped GET endpoint returning the `sync:progress:{shop_id}` snapshot, and a frontend polling fallback (~3–5s) that merges with the WebSocket so the modal never freezes (reopen is no longer needed to refresh).
+- [ ] **SYNC-REL-02**: Finalising fires when bulk enrichment actually completes, not on a fixed countdown — `finalize_canonical_tags_task` is completion-gated (re-schedule itself with a short countdown while any review is still PENDING/IN_PROGRESS, bounded; proceed once all are terminal). Removes the long post-enrichment wait and makes the Finalising step visible.
 
 ---
 
@@ -101,11 +110,11 @@
 
 ## Traceability
 
-Every v0.8 requirement maps to exactly one phase. Phases 22–27 (continuing from v0.7's Phase 21).
+Every v0.8 requirement maps to exactly one phase. Phases 22–28 (continuing from v0.7's Phase 21).
 
 **Coverage: 25/25 core requirements mapped ✓ — no orphans, no duplicates.** (Plus 4 post-UAT polish requirements added as Phase 26 — see POLISH below.)
 
-**Delivery scope:** v0.8 ships as Phases 22–25 (22 of 25 core requirements). **Phase 26 (TMGT-07/08, SEED-05/06)** captures UX polish + one sync-progress fix surfaced during UAT — the next work after the testing round. **Phase 27 / RESET-01..03 are deferred to pre-launch** (no production deployment yet — see the RESET section above). The milestone closes on the canonical-tag system + dashboard polarity; the Superadmin reset is parked, not cancelled.
+**Delivery scope:** v0.8 ships as Phases 22–25 (22 of 25 core requirements). **Phase 26 (TMGT-07/08, SEED-05/06, NAV-01)** shipped post-UAT UX polish + sync fixes. **Phase 27 (SYNC-REL-01/02)** hardens sync-progress reliability (poll fallback + finalise completion-gating) surfaced during UAT. **Phase 28 / RESET-01..03 are deferred to pre-launch** (no production deployment yet — see the RESET section above). The milestone closes on the canonical-tag system + dashboard polarity; the Superadmin reset is parked, not cancelled.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -139,9 +148,11 @@ Every v0.8 requirement maps to exactly one phase. Phases 22–27 (continuing fro
 | TMGT-08 | Phase 26 — v0.8 Post-UAT Polish & Sync Fixes | Planned |
 | SEED-05 | Phase 26 — v0.8 Post-UAT Polish & Sync Fixes | Planned |
 | SEED-06 | Phase 26 — v0.8 Post-UAT Polish & Sync Fixes | Planned |
-| RESET-01 | Phase 27 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
-| RESET-02 | Phase 27 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
-| RESET-03 | Phase 27 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
+| SYNC-REL-01 | Phase 27 — Sync Progress Reliability | Planned |
+| SYNC-REL-02 | Phase 27 — Sync Progress Reliability | Planned |
+| RESET-01 | Phase 28 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
+| RESET-02 | Phase 28 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
+| RESET-03 | Phase 28 — Superadmin Data Reset & Re-Sync | Deferred (pre-launch) |
 
 **Note on CTAG-04 vs POL-01:** CTAG-04 (Phase 22) owns the in-call mapping behaviour — GPT mapping a tag to an existing canonical label *or proposing a new one*. POL-01 (Phase 24) owns the polarity-lifecycle requirement that the proposed new tag carries a GPT-assigned `polarity_type`. The phases share the same GPT call but the requirements are non-overlapping (mapping vs polarity assignment).
 

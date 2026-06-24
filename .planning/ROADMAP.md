@@ -9,7 +9,7 @@
 - ✅ **v0.5 — Configurable Sync Depth** — Phases 15–16, 6 plans, 9/9 requirements, shipped 2026-05-16 → [archive](milestones/v0.5-ROADMAP.md)
 - ✅ **v0.6 — Tag Rework & Action Item Quality** — Phases 17–19, 11 plans, shipped 2026-05-22 → [archive](milestones/v0.6-ROADMAP.md)
 - ✅ **v0.7 — AI Safety & Governance** — Phases 20–21, 12 plans, shipped 2026-05-24 → [archive](milestones/v0.7-ROADMAP.md)
-- 🔵 **v0.8 — Canonical Tag System** — Phases 22–27, 25/25 core requirements, in planning
+- 🔵 **v0.8 — Canonical Tag System** — Phases 22–28, 25/25 core requirements, in planning
 
 > 🚀 **Web Beta 1 (`web-beta-1`)** — v0.7 marked the close of the first
 > web beta. v0.8 reopens web feature work for the canonical tag system
@@ -94,14 +94,15 @@ Full archive: `.planning/milestones/v0.7-ROADMAP.md`
 
 </details>
 
-### 🔵 v0.8 — Canonical Tag System (Phases 22–27) — IN PLANNING
+### 🔵 v0.8 — Canonical Tag System (Phases 22–28) — IN PLANNING
 
 - [x] **Phase 22: Canonical Tag Foundation & Mapping Pipeline** — `OrgCanonicalTag` model + nullable `canonical_tag` FK on `ReviewTag` + migration; canonical lookup/insert folded into the single GPT call and post-enrichment atomic block; English-only tags; one `AiUsageLog` row per call; global OpenAI rate limit. (completed 2026-06-10)
 - [x] **Phase 23: Four-Step Initial Sync, Seeding & Queue Split** — Fetch → Build Vocabulary → Enrich → Finalising progress; sequential first-50 seed phase; parallel bulk phase; finalising dedup/backfill; daily incremental sync through the pipeline; split `ai-enrichment-high`/`-low` + `tag-merge` queues. (completed 2026-06-11)
 - [x] **Phase 24: Polarity Auto-Reclassification** — GPT-assigned three-type polarity at tag creation; weekly DB-only Beat job flips `always_*` → `mixed` at the 15% / 30-day threshold; reclassification logged and visible. (completed 2026-06-16)
 - [x] **Phase 25: Org Admin Tag Management & Dashboard Polarity** — Tags page (`/admin/org/tags/`) with sortable, query-bounded list, inline rename, and merge via `tag-merge` Celery task with HTTP-polled progress; dashboard polarity split for `mixed` tags. (completed 2026-06-16)
 - [x] **Phase 26: v0.8 Post-UAT Polish & Sync Fixes** — Tags page search filter + header count + "Showing X–Y of N" footer (match `/admin/org/team/`); sync progress "Fetching from Google" label + per-stage completion timing; and the SEED-06 fix so an incremental sync can't reset an in-progress initial-sync modal. Captured from Phase 22–25 UAT; to be planned after the testing round. (completed 2026-06-24)
-- [~] **Phase 27: Superadmin Data Reset & Re-Sync** — **DEFERRED (pre-launch, 2026-06-16).** One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync. Parked while there is no production deployment — dev resets use `manage.py flush` / DB recreate + `make seed` / Redis `flushdb`. Revisit before go-live.
+- [ ] **Phase 27: Sync Progress Reliability** — ProgressModal snapshot-poll fallback + GET endpoint so the modal never freezes on a missed WebSocket event (SYNC-REL-01); finalise completion-gating so Finalising fires when bulk enrichment actually completes instead of on a fixed countdown, removing the long wait and making the step visible (SYNC-REL-02). Surfaced during Phase 22–25 UAT.
+- [~] **Phase 28: Superadmin Data Reset & Re-Sync** — **DEFERRED (pre-launch, 2026-06-16).** One-time pre-production hard wipe of a single org's Review / AiUsageLog / ActionItem / OrgCanonicalTag rows + per-store sync-state clear; Org Admin re-runs the full four-step sync. Parked while there is no production deployment — dev resets use `manage.py flush` / DB recreate + `make seed` / Redis `flushdb`. Revisit before go-live.
 
 ---
 
@@ -285,7 +286,24 @@ Plans:
 
 - [x] 26-02-PLAN.md — Tag-management widget: debounced search box (TMGT-07), "Tags (N)" header + "Showing X–Y of N · Rows: N" footer (TMGT-08), ProgressModal "Fetching from Google" label + per-stage durations (SEED-05) (TMGT-07, TMGT-08, SEED-05)
 
-### Phase 27: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
+### Phase 27: Sync Progress Reliability
+
+**Goal**: The initial-sync ProgressModal stays accurate and live without manual reopening, and the Finalising step is actually visible — so the sync experience is trustworthy end-to-end, with no frozen modals or long unexplained waits before completion.
+**Depends on**: Phase 23 (the four-step sync + progress snapshot + finalise task) and 26 (per-stage timing already in the snapshot)
+**Requirements**: SYNC-REL-01, SYNC-REL-02
+**Success Criteria** (what must be TRUE):
+
+  1. An org-scoped GET endpoint returns the current `sync:progress:{shop_id}` snapshot (404/empty when none), reachable only by users who can see that shop's sync.
+  2. The ProgressModal polls that endpoint (~3–5s) as a fallback alongside the WebSocket, so a missed/dropped event no longer freezes it — it self-heals without the user reopening from the notification.
+  3. `finalize_canonical_tags_task` is completion-gated: it re-schedules itself with a short countdown while any of the shop's reviews are still PENDING/IN_PROGRESS (bounded by a max attempt count), and only runs the dedup/backfill/count-refresh once all are terminal — so Finalising fires promptly after bulk completes (no fixed long countdown) and the step is visible in the modal.
+
+**Open decisions** (settle at planning):
+  - SYNC-REL-02 mechanism — self-rescheduling guard (simpler, recommended) vs a full Celery chord over the bulk group. Lean self-reschedule for lower risk; the chord is the heavier alternative noted in the `run_initial_backfill` Phase 4 comment.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 28: Superadmin Data Reset & Re-Sync — **DEFERRED (pre-launch, 2026-06-16)**
 
 > **Deferred while there is no production deployment.** The feature's premise — needing an
 > in-app Superadmin path to hard-delete a *live* org's data despite the §11 soft-delete rule —
