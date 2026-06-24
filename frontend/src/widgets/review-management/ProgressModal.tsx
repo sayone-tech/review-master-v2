@@ -21,6 +21,21 @@ interface SnapshotState {
   finalising_total?: number;
   /** CR-04: the step that was active when the sync.error event arrived. */
   error_at_step?: "fetching" | "vocab" | "enriching" | "finalising";
+  /** Phase 26-02 SEED-05b: per-step wall-clock timing from sync snapshot (26-01). */
+  fetch_started_at?: string | null;
+  fetch_duration_seconds?: number | null;
+  vocab_started_at?: string | null;
+  vocab_duration_seconds?: number | null;
+  enriching_started_at?: string | null;
+}
+
+/** Format seconds as "Xm Ys" or "Ys" (when < 60s). */
+function formatDuration(s: number): string {
+  const sRounded = Math.round(s);
+  if (sRounded < 60) return `${sRounded}s`;
+  const mins = Math.floor(sRounded / 60);
+  const secs = sRounded % 60;
+  return `${mins}m ${secs}s`;
 }
 
 interface Props {
@@ -333,7 +348,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             {fetchState === "pending" ? (
               <div className="opacity-60">
                 <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                  Fetched from Google
+                  Fetching from Google
                 </label>
                 <div className="text-[14px] text-muted mt-1">–</div>
                 <div
@@ -345,10 +360,15 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             ) : fetchState === "complete" ? (
               <div>
                 <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                  Fetched from Google
+                  Fetching from Google
                 </label>
                 <div className="text-[14px] font-semibold text-ink mt-1">
                   {fetched} reviews fetched
+                  {snapshot?.fetch_duration_seconds != null && (
+                    <span className="text-muted font-normal">
+                      {" · "}{formatDuration(snapshot.fetch_duration_seconds)}
+                    </span>
+                  )}
                 </div>
                 <div
                   className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
@@ -364,7 +384,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             ) : (
               <div>
                 <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                  Fetched from Google
+                  Fetching from Google
                 </label>
                 <div className="text-[14px] font-semibold text-ink mt-1">
                   {hasDeterminate ? (
@@ -423,6 +443,11 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                 </label>
                 <div className="text-[14px] font-semibold text-ink mt-1">
                   {vocabEnriched} reviews seeded
+                  {snapshot?.vocab_duration_seconds != null && (
+                    <span className="text-muted font-normal">
+                      {" · "}{formatDuration(snapshot.vocab_duration_seconds)}
+                    </span>
+                  )}
                 </div>
                 <div
                   className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
