@@ -525,29 +525,11 @@ def fetch_and_persist_reviews(
                     "page_count": page_count,
                 }
                 write_progress_snapshot(shop_id=shop_id, data=fetch_end_snapshot)
-            else:
-                success_payload = {
-                    "shop_id": shop_id,
-                    "status": "success",
-                    "fetched": total_persisted,
-                    "total_estimate": total_estimate or total_persisted,
-                    "enriched": 0,
-                    "started_at": started_at.isoformat(),
-                    "last_update_at": dj_timezone.now().isoformat(),
-                    "duration_seconds": duration,
-                    "page_count": page_count,
-                }
-                write_progress_snapshot(shop_id=shop_id, data=success_payload)
-                emit_progress_event(
-                    shop_id=shop_id,
-                    payload={
-                        "type": "sync.complete",
-                        "shop_id": shop_id,
-                        "total_fetched": total_persisted,
-                        "total_estimate": total_estimate or total_persisted,
-                        "duration_seconds": duration,
-                    },
-                )
+            # SEED-06 (§13.2): incremental/manual syncs run SILENTLY — they must NOT
+            # write a success snapshot or emit sync.complete. The sync:progress snapshot +
+            # ProgressModal are initial-sync only; an incremental writing here would clobber
+            # an in-progress initial-sync modal (UAT bug #4). Incremental user-facing feedback
+            # is the new-review notification, dispatched separately above.
             _audit(
                 shop=shop,
                 action="sync.completed",

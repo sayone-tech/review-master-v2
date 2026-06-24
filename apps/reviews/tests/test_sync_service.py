@@ -665,13 +665,15 @@ def test_fetch_and_persist_enqueues_enrichment_for_pending_reviews(
 
 
 @pytest.mark.django_db
-def test_fetch_and_persist_emits_sync_complete(patched_dependencies) -> None:
-    """fetch_and_persist_reviews emits sync.complete on success for incremental syncs.
+def test_fetch_and_persist_incremental_emits_no_progress_events(patched_dependencies) -> None:
+    """Incremental/manual syncs emit NO progress events (SEED-06, §13.2).
 
-    Phase 23: sync.complete is NO LONGER emitted by fetch_and_persist_reviews for
-    trigger="initial" — that event is now owned by run_finalise_canonical_tags (Plan 02).
-    For trigger="incremental" (and other non-initial triggers), sync.complete is still
-    emitted as before so the UI updates after a periodic sync.
+    The sync:progress snapshot + ProgressModal are initial-sync only. An incremental
+    sync writing/emitting progress would clobber an in-progress initial-sync modal
+    (UAT bug #4), so fetch_and_persist_reviews runs SILENTLY for trigger != "initial" —
+    no sync.fetch.progress and no sync.complete. (trigger="initial" leaves the snapshot
+    in "fetching" state for run_initial_backfill; sync.complete is owned by
+    run_finalise_canonical_tags.) Incremental user feedback is the new-review notification.
     """
     shop = _make_shop()
     page = {
@@ -689,20 +691,14 @@ def test_fetch_and_persist_emits_sync_complete(patched_dependencies) -> None:
         patch("apps.reviews.tasks.enrich_review_task.apply_async"),
         patch.object(sync_mod, "emit_progress_event", side_effect=_capture_emit),
     ):
-        # Phase 23: use trigger="incremental" — this trigger still emits sync.complete.
-        # trigger="initial" does NOT emit sync.complete (run_finalise_canonical_tags owns it).
-        sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
+        result = sync_mod.fetch_and_persist_reviews(shop_id=shop.pk, trigger="incremental")
 
-    emitted_types = [p["type"] for p in captured_emit]
-    # sync.fetch.progress emitted during fetch, sync.complete emitted on success
-    assert "sync.fetch.progress" in emitted_types
-    assert "sync.complete" in emitted_types, (
-        f"sync.complete must be emitted by fetch_and_persist_reviews on success; "
-        f"got types: {emitted_types}"
+    # The real work still happens (review persisted), but NO progress events are emitted.
+    assert result["fetched"] == 1
+    assert captured_emit == [], (
+        f"incremental sync must emit no progress events (§13.2/SEED-06); got: "
+        f"{[p['type'] for p in captured_emit]}"
     )
-    complete_event = next(p for p in captured_emit if p["type"] == "sync.complete")
-    assert complete_event["shop_id"] == shop.pk
-    assert complete_event["total_fetched"] == 1
 
 
 # ---------------------------------------------------------------------------
