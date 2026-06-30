@@ -1,9 +1,24 @@
 {
   "sentiment": "positive",
   "tags": [
-    {"label": "fast service", "polarity": "positive"},
-    {"label": "friendly staff", "polarity": "positive"},
-    {"label": "limited menu", "polarity": "neutral"}
+    {
+      "label": "fast service",
+      "polarity": "positive",
+      "canonical": "Service Speed",
+      "polarity_type": "always_positive"
+    },
+    {
+      "label": "friendly staff",
+      "polarity": "positive",
+      "canonical": "Staff Quality",
+      "polarity_type": null
+    },
+    {
+      "label": "limited menu",
+      "polarity": "neutral",
+      "canonical": "Menu Options",
+      "polarity_type": "mixed"
+    }
   ],
   "action_items": [
     {

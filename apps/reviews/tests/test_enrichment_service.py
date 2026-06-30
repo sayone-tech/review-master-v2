@@ -23,6 +23,8 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.db import IntegrityError, connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.integrations.openai.exceptions import (
     EnrichmentParseError,
@@ -31,26 +33,44 @@ from apps.integrations.openai.exceptions import (
 )
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.parser import EnrichmentResult
-from apps.reviews.models import Review, ReviewTag
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag
 from apps.reviews.services.enrichment import (
     RATING_TO_SENTIMENT,
     enrich_review,
     rating_to_sentiment,
 )
-from apps.reviews.tests.factories import ReviewFactory, ReviewTagFactory
+from apps.reviews.tests.factories import (
+    OrgCanonicalTagFactory,
+    ReviewFactory,
+    ReviewTagFactory,
+)
 
 
 @pytest.fixture(autouse=True)
 def no_progress_snapshot():
-    """Phase 12-06: suppress Redis reads in _emit_enrichment_progress.
+    """Phase 12-06 / 23-03: suppress all Redis reads in enrichment helpers.
 
-    _persist_success now calls _emit_enrichment_progress which reads from Redis.
-    Returning None makes the helper exit silently so these tests focus on DB
-    state and AiUsageLog — not WebSocket progress events.
+    _persist_success → _emit_enrichment_progress reads from Redis.
+    enrich_review (Phase 23 D-08) calls openai_token_bucket_depleted +
+    increment_openai_token_bucket which also use Redis. All are mocked here
+    so these tests focus on DB state and AiUsageLog — not WebSocket progress
+    events or rate-limiting behaviour (those are tested in test_tasks.py).
+
+    Token bucket is mocked as not-depleted (False) so the bulk-path guard
+    does not raise and the normal success/failure paths remain exercisable.
     """
-    with patch(
-        "apps.reviews.services.progress.read_progress_snapshot",
-        return_value=None,
+    with (
+        patch(
+            "apps.reviews.services.progress.read_progress_snapshot",
+            return_value=None,
+        ),
+        patch(
+            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
+            return_value=False,
+        ),
+        patch(
+            "apps.reviews.services.enrichment.increment_openai_token_bucket",
+        ),
     ):
         yield
 
@@ -60,8 +80,18 @@ def _build_result() -> EnrichmentResult:
         {
             "sentiment": "positive",
             "tags": [
-                {"label": "fast service", "polarity": "positive"},
-                {"label": "limited menu", "polarity": "neutral"},
+                {
+                    "label": "fast service",
+                    "polarity": "positive",
+                    "canonical": "Fast Service",
+                    "polarity_type": "always_positive",
+                },
+                {
+                    "label": "limited menu",
+                    "polarity": "neutral",
+                    "canonical": "Limited Menu",
+                    "polarity_type": "mixed",
+                },
             ],
             "action_items": [
                 {
@@ -636,8 +666,18 @@ def test_re_enrichment_is_idempotent_deletes_old_tag_rows() -> None:
         {
             "sentiment": "positive",
             "tags": [
-                {"label": "old tag", "polarity": "positive"},
-                {"label": "another old", "polarity": "neutral"},
+                {
+                    "label": "old tag",
+                    "polarity": "positive",
+                    "canonical": "Old Tag",
+                    "polarity_type": "always_positive",
+                },
+                {
+                    "label": "another old",
+                    "polarity": "neutral",
+                    "canonical": "Another Old",
+                    "polarity_type": "mixed",
+                },
             ],
             "action_items": [],
         }
@@ -646,7 +686,12 @@ def test_re_enrichment_is_idempotent_deletes_old_tag_rows() -> None:
         {
             "sentiment": "negative",
             "tags": [
-                {"label": "fresh tag", "polarity": "negative"},
+                {
+                    "label": "fresh tag",
+                    "polarity": "negative",
+                    "canonical": "Fresh Tag",
+                    "polarity_type": "always_negative",
+                },
             ],
             "action_items": [],
         }
@@ -741,7 +786,7 @@ class TestEnrichReviewModeration:
             call_order.append("moderate")
             return "clean truncated text"
 
-        def _openai_side_effect(*, review):
+        def _openai_side_effect(*, review, canonical_vocab=None):
             call_order.append("openai")
             # The truncated text from moderate_input must be on the review.comment
             # in-memory before reaching the prompt assembly (D-21).
@@ -871,3 +916,216 @@ class TestEnrichReviewModeration:
         mock_moderate.assert_not_called()
         mock_openai.assert_not_called()
         assert AiUsageLog.objects.filter(review=review).count() == baseline
+
+
+# ---------------------------------------------------------------------------
+# Phase 22 — canonical FK resolution folded into _persist_success (22-05).
+# CTAG-06 (FK populate / new-label insert), CTAG-07 (one AiUsageLog), D-03
+# (review_count untouched), no-N+1 query ceiling, atomic rollback, idempotency.
+# ---------------------------------------------------------------------------
+
+
+def _build_result_with_canonical() -> EnrichmentResult:
+    """Two tags: one proposing a NEW canonical (concrete polarity_type), one
+    whose canonical matches an EXISTING OrgCanonicalTag (polarity_type=None)."""
+    return EnrichmentResult.model_validate(
+        {
+            "sentiment": "positive",
+            "tags": [
+                {
+                    "label": "great coffee",
+                    "polarity": "positive",
+                    "canonical": "Coffee Quality",
+                    "polarity_type": "always_positive",
+                },
+                {
+                    "label": "slow staff",
+                    "polarity": "negative",
+                    "canonical": "Staff Speed",
+                    "polarity_type": None,
+                },
+            ],
+            "action_items": [],
+        }
+    )
+
+
+@pytest.mark.django_db
+def test_canonical_fk_populated_new_and_existing() -> None:
+    """CTAG-06/CTAG-01: matched label reused; new label created with polarity_type."""
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+    existing = OrgCanonicalTagFactory(
+        organisation=review.organisation,
+        label="Staff Speed",
+        polarity_type=OrgCanonicalTag.PolarityType.MIXED,
+    )
+    result = _build_result_with_canonical()
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(result, _usage()),
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+
+    tags = {
+        t.label: t for t in ReviewTag.objects.filter(review=review).select_related("canonical_tag")
+    }
+    # New canonical created exactly once, org-scoped, with GPT's polarity_type.
+    new_canon = OrgCanonicalTag.objects.get(
+        organisation=review.organisation, label="Coffee Quality"
+    )
+    assert new_canon.polarity_type == OrgCanonicalTag.PolarityType.ALWAYS_POSITIVE
+    assert tags["Great Coffee"].canonical_tag_id == new_canon.pk
+    # Existing canonical reused (same pk) — no duplicate row.
+    assert tags["Slow Staff"].canonical_tag_id == existing.pk
+    assert (
+        OrgCanonicalTag.objects.filter(
+            organisation=review.organisation, label="Staff Speed"
+        ).count()
+        == 1
+    )
+
+
+@pytest.mark.django_db
+def test_canonical_usage_log_is_exactly_one() -> None:
+    """CTAG-07: exactly one AiUsageLog row even with canonical fold-in."""
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+    result = _build_result_with_canonical()
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(result, _usage()),
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+    assert AiUsageLog.objects.filter(review=review).count() == 1
+
+
+@pytest.mark.django_db
+def test_canonical_atomic_rollback_on_reviewtag_failure() -> None:
+    """CTAG-06: a ReviewTag.bulk_create failure rolls back the canonical inserts too."""
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+    result = _build_result_with_canonical()
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(result, _usage()),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.ReviewTag.objects.bulk_create",
+            side_effect=IntegrityError("boom"),
+        ),
+        pytest.raises(IntegrityError),
+    ):
+        enrich_review(review_id=review.pk)
+
+    # Fresh querysets — the rollback must have unwound everything in the block.
+    assert Review.objects.get(pk=review.pk).enrichment_status != Review.EnrichmentStatus.SUCCESS
+    assert (
+        OrgCanonicalTag.objects.filter(
+            organisation=review.organisation, label="Coffee Quality"
+        ).count()
+        == 0
+    )
+
+
+@pytest.mark.django_db
+def test_canonical_idempotent_no_duplicate_rows_or_miscount() -> None:
+    """D-03: re-enrichment creates no duplicate canonical rows; review_count stays 0."""
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+    result = _build_result_with_canonical()
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(result, _usage()),
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+        first_count = OrgCanonicalTag.objects.filter(organisation=review.organisation).count()
+        # Force a real re-enrichment (the SUCCESS short-circuit would otherwise skip).
+        Review.objects.filter(pk=review.pk).update(
+            enrichment_status=Review.EnrichmentStatus.PENDING
+        )
+        enrich_review(review_id=review.pk)
+
+    assert (
+        OrgCanonicalTag.objects.filter(organisation=review.organisation).count() == first_count == 2
+    )
+    # D-03: review_count is never written in the hot path.
+    assert list(
+        OrgCanonicalTag.objects.filter(organisation=review.organisation).values_list(
+            "review_count", flat=True
+        )
+    ) == [0, 0]
+
+
+def _result_with_n_tags(n: int) -> EnrichmentResult:
+    return EnrichmentResult.model_validate(
+        {
+            "sentiment": "positive",
+            "tags": [
+                {
+                    "label": f"tag {i}",
+                    "polarity": "positive",
+                    "canonical": f"Canon {i}",
+                    "polarity_type": "always_positive",
+                }
+                for i in range(min(n, 5))  # schema caps at 5 tags
+            ],
+            "action_items": [],
+        }
+    )
+
+
+def _enrich_query_count(*, tag_count: int) -> int:
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+    result = _result_with_n_tags(tag_count)
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(result, _usage()),
+        ),
+        patch("apps.reviews.services.enrichment._emit_enrichment_progress"),
+        CaptureQueriesContext(connection) as ctx,
+    ):
+        enrich_review(review_id=review.pk)
+    return len(ctx.captured_queries)
+
+
+@pytest.mark.django_db
+def test_canonical_query_count_is_fixed_regardless_of_tag_count() -> None:
+    """No-N+1 (§6.9): the canonical fold-in is batch — query count is identical
+    for 2 tags and 5 tags, and stays under a fixed ceiling.
+
+    The ceiling (15) is the GREEN-observed count, NOT proportional to tags:
+    select_for_update + IN_PROGRESS update, get_org_vocabulary, AiPricing
+    get_active (calculate_cost), Review.update, ReviewTag.delete, the three
+    canonical batch queries (SELECT + bulk_create + re-SELECT), ReviewTag
+    bulk_create, AiUsageLog.create, plus the SAVEPOINT/RELEASE pairs that
+    pytest-django's outer transaction turns the two atomic() blocks into.
+    """
+    two = _enrich_query_count(tag_count=2)
+    five = _enrich_query_count(tag_count=5)
+    assert two == five  # identical → no per-tag query growth
+    assert five <= 15

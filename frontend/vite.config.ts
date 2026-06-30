@@ -33,6 +33,7 @@ export default defineConfig({
         "shop-targets": resolve(__dirname, "src/entrypoints/shop-targets.tsx"),
         reports: resolve(__dirname, "src/entrypoints/reports.tsx"),
         "audit-log": resolve(__dirname, "src/entrypoints/audit-log.tsx"),
+        "tag-management": resolve(__dirname, "src/entrypoints/tag-management.tsx"),
       },
     },
   },

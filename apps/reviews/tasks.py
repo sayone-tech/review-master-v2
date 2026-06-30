@@ -23,6 +23,7 @@ import random
 from typing import Any
 
 from celery import shared_task
+from django.conf import settings
 
 from apps.integrations.openai.exceptions import (
     EnrichmentParseError,
@@ -46,6 +47,16 @@ MAX_TOTAL_ENRICH_ATTEMPTS = 3
     retry_backoff=30,
     retry_backoff_max=600,
     retry_jitter=True,
+    # WR-02: the sequential seed loop can run SEED_PHASE_SIZE (50) x (max_wait=30s + ~5s
+    # OpenAI call) = 1,750s in the worst case (bucket depleted on every iteration).
+    # At p95 (avg ~10s/review): 50 x 10s = 500s + fetch overhead + bulk dispatch headroom.
+    # soft_time_limit=900 (15 min) covers p95 with headroom; hard limit at 960s gives a
+    # 60s grace period for clean exit. True worst-case exhaustion still exceeds this —
+    # the long-term fix is a resumable seed loop with a Redis cursor (sync:seed_cursor:{shop_id}).
+    # autoretry_for=(Exception,) catches SoftTimeLimitExceeded; the per-shop lock (TTL 300s)
+    # will have expired on the retry, so the full fetch re-runs — acceptable for Phase 23.
+    soft_time_limit=900,
+    time_limit=960,
 )
 def initial_backfill_task(self: Any, shop_id: int) -> dict[str, Any]:
     """Initial historical review backfill for a shop, dispatched after OAuth."""
@@ -172,6 +183,7 @@ def enqueue_incremental_syncs_task() -> int:
     retry_backoff=30,
     retry_backoff_max=600,
     retry_jitter=True,
+    rate_limit=settings.ENRICHMENT_RATE_LIMIT,
 )
 def enrich_review_task(self: Any, review_id: int) -> None:
     """Phase 12 — Single-review enrichment task. Routes to ai-enrichment queue.
@@ -182,6 +194,14 @@ def enrich_review_task(self: Any, review_id: int) -> None:
     OpenAIPermanentError is NOT in autoretry_for — the service handles it
     silently (marks FAILED + returns). retry_failed_enrichments_task picks
     them up later (ENRCH-06).
+
+    Rate limiting (QUEUE-02 / D-06):
+    Celery ``rate_limit`` is enforced PER WORKER INSTANCE, not globally across
+    all workers. The configured value (``settings.ENRICHMENT_RATE_LIMIT``,
+    default "125/m") represents the platform target divided by the expected
+    worker count (e.g. 500 total ÷ 4 workers = 125/m per worker). A true
+    cross-worker global throttle (Redis token bucket) is deferred to Phase 23
+    (QUEUE-01). Do not interpret this setting as a global rate guarantee.
     """
     from apps.reviews.services.enrichment import enrich_review
 
@@ -214,6 +234,159 @@ def enrich_review_task(self: Any, review_id: int) -> None:
     )
 
 
+@shared_task(  # type: ignore[misc]
+    bind=True,
+    max_retries=3,
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=600,
+    retry_jitter=True,
+)
+def finalize_canonical_tags_task(
+    self: Any, *, organisation_id: int, shop_id: int, attempt: int = 1
+) -> dict[str, Any]:
+    """Phase 23 — Canonical tag finalising pass (SEED-04, Step 4).
+
+    Deduplicates case-insensitive OrgCanonicalTag pairs, re-points ReviewTag FKs
+    to the winner, backfills null canonical_tag stragglers, and refreshes
+    review_count from the aggregate. Routes to tag-merge queue (Plan 01 settings).
+
+    Phase 27 SYNC-REL-02 (D-03): accepts an `attempt` kwarg forwarded from
+    run_finalise_canonical_tags for the bounded self-reschedule gate. The
+    service owns the gate logic (CLAUDE.md §12.3 — no logic in task body).
+
+    Uses retry_backoff=60 (longer than the 30s hot-path default) since this is
+    a non-time-critical finalising step. Business logic lives in
+    run_finalise_canonical_tags (CLAUDE.md §12.3 — no logic in task body).
+    """
+    from apps.reviews.services.finalise import run_finalise_canonical_tags
+
+    task_id = self.request.id
+    celery_attempt = self.request.retries + 1
+    logger.info(
+        "finalize_canonical_tags_task.start task_id=%s organisation_id=%s shop_id=%s "
+        "attempt=%s celery_attempt=%s",
+        task_id,
+        organisation_id,
+        shop_id,
+        attempt,
+        celery_attempt,
+    )
+    try:
+        result = run_finalise_canonical_tags(
+            organisation_id=organisation_id, shop_id=shop_id, attempt=attempt
+        )
+    except Exception as exc:
+        logger.error(
+            "finalize_canonical_tags_task.error task_id=%s organisation_id=%s "
+            "shop_id=%s attempt=%s max_retries=%s error=%r",
+            task_id,
+            organisation_id,
+            shop_id,
+            attempt,
+            self.max_retries,
+            exc,
+            exc_info=True,
+        )
+        raise
+    if result.get("skipped"):
+        logger.info(
+            "finalize_canonical_tags_task.skipped task_id=%s organisation_id=%s "
+            "shop_id=%s reason=lock_held",
+            task_id,
+            organisation_id,
+            shop_id,
+        )
+    elif result.get("rescheduled"):
+        logger.info(
+            "finalize_canonical_tags_task.rescheduled task_id=%s organisation_id=%s "
+            "shop_id=%s attempt=%s reason=reviews_still_pending (SYNC-REL-02)",
+            task_id,
+            organisation_id,
+            shop_id,
+            attempt,
+        )
+    else:
+        logger.info(
+            "finalize_canonical_tags_task.success task_id=%s organisation_id=%s "
+            "shop_id=%s merged_groups=%s stragglers_backfilled=%s",
+            task_id,
+            organisation_id,
+            shop_id,
+            result.get("merged_groups", 0),
+            result.get("stragglers_backfilled", 0),
+        )
+    return result
+
+
+@shared_task(  # type: ignore[misc]
+    bind=True,
+    max_retries=3,
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=600,
+    retry_jitter=True,
+)
+def merge_canonical_tags_task(self: Any, job_id: int) -> None:
+    """Phase 25 — User-directed canonical tag merge. Routes to tag-merge queue.
+
+    Thin wrapper — all business logic in merge_canonical_tags() service (CLAUDE.md §12.3).
+    Per-org distributed_lock acquired inside the service (§7.6).
+    job_id (not model instance) per §12.3.
+    """
+    from apps.reviews.services.tag_management import merge_canonical_tags
+
+    task_id = self.request.id
+    attempt = self.request.retries + 1
+    logger.info(
+        "merge_canonical_tags_task.start task_id=%s job_id=%s attempt=%s",
+        task_id,
+        job_id,
+        attempt,
+    )
+    try:
+        merge_canonical_tags(job_id=job_id)
+    except Exception as exc:
+        logger.error(
+            "merge_canonical_tags_task.error task_id=%s job_id=%s attempt=%s error=%r",
+            task_id,
+            job_id,
+            attempt,
+            exc,
+            exc_info=True,
+        )
+        raise
+    logger.info(
+        "merge_canonical_tags_task.success task_id=%s job_id=%s attempt=%s",
+        task_id,
+        job_id,
+        attempt,
+    )
+
+
+@shared_task  # type: ignore[misc]
+def reclassify_polarity_task() -> dict[str, int]:
+    """Phase 24 POL-02 — Weekly polarity auto-reclassification, Beat-scheduled.
+
+    Thin wrapper around run_polarity_reclassification() — all business logic
+    lives in the service (CLAUDE.md §12.3, no logic in task body).
+
+    No autoretry: the job is idempotent and weekly; a failed run re-runs next
+    Sunday at 03:00 UTC without any loss of data integrity.
+    Routes to the default queue (D-05, §12.5).
+    """
+    from apps.reviews.services.reclassify import run_polarity_reclassification
+
+    result = run_polarity_reclassification()
+    logger.info(
+        "reclassify_polarity_task.complete flipped=%s skipped_low_sample=%s evaluated=%s",
+        result["flipped"],
+        result["skipped_low_sample"],
+        result["evaluated"],
+    )
+    return result
+
+
 @shared_task  # type: ignore[misc]
 def retry_failed_enrichments_task() -> int:
     """Phase 12 ENRCH-06 — Beat-scheduled, every 6h.
@@ -241,7 +414,11 @@ def retry_failed_enrichments_task() -> int:
         .values_list("id", flat=True)[:500]
     )
     for review_id in ids:
-        enrich_review_task.delay(review_id)
+        # Phase 23 (Pitfall 6): route to ai-enrichment-low (retry traffic is lower priority
+        # than new initial-sync bulk traffic which routes to ai-enrichment-high).
+        # Using apply_async with an explicit queue avoids routing to the removed
+        # monolithic ai-enrichment queue.
+        enrich_review_task.apply_async(args=[review_id], queue="ai-enrichment-low")
     logger.info(
         "retry_failed_enrichments_task.dispatched reviews_count=%s",
         len(ids),

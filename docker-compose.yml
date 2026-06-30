@@ -89,7 +89,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: sh -c "uv sync --frozen && celery -A config worker -Q google-sync,ai-enrichment,default --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --loglevel=info"
+    command: sh -c "uv sync --frozen && celery -A config worker -Q google-sync,ai-enrichment-high,ai-enrichment-low,tag-merge,default --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --loglevel=info"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.local
       DJANGO_SECRET_KEY: dev-insecure-secret

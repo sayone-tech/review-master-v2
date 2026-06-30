@@ -8,7 +8,7 @@ from factory.django import DjangoModelFactory
 
 from apps.common.models import AuditLog
 from apps.organisations.tests.factories import OrganisationFactory
-from apps.reviews.models import Review, ReviewTag
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag, TagMergeJob
 from apps.shops.tests.factories import ShopFactory
 
 
@@ -35,13 +35,42 @@ class ReviewFactory(DjangoModelFactory):
     extracted_action_items: ClassVar[list] = []
 
 
+class OrgCanonicalTagFactory(DjangoModelFactory):
+    class Meta:
+        model = OrgCanonicalTag
+
+    organisation = factory.SubFactory(OrganisationFactory)
+    label = factory.Sequence(lambda n: f"Canonical {n}")
+    polarity_type = OrgCanonicalTag.PolarityType.MIXED
+    review_count = 0
+
+
 class ReviewTagFactory(DjangoModelFactory):
     class Meta:
         model = ReviewTag
 
     review = factory.SubFactory(ReviewFactory)
-    label = factory.Faker("word")
+    # Unique per instance — tags often share a review and the model is unique on
+    # (review, label, polarity), so a repeating Faker word would collide.
+    label = factory.Sequence(lambda n: f"tag-{n}")
     polarity = "positive"
+    canonical_tag = None
+
+
+class TagMergeJobFactory(DjangoModelFactory):
+    class Meta:
+        model = TagMergeJob
+
+    organisation = factory.SubFactory(OrganisationFactory)
+    source_tag = None
+    source_label = factory.Sequence(lambda n: f"Source Tag {n}")
+    target_tag = None
+    target_label = factory.Sequence(lambda n: f"Target Tag {n}")
+    status = TagMergeJob.Status.PENDING
+    processed = 0
+    total = 0
+    error_message = ""
+    dismissed = False
 
 
 class AuditLogFactory(DjangoModelFactory):

@@ -189,15 +189,20 @@ def call_openai_enrichment(
     *,
     review: Any,
     model: str | None = None,
+    canonical_vocab: list[str] | None = None,
 ) -> tuple[EnrichmentResult, dict[str, Any]]:
     """Run a single enrichment call. Returns (EnrichmentResult, usage_data).
 
     Best-effort LangSmith per ENRCH-11: if the traced path raises a non-OpenAI
     exception (LangSmith init / shipping failure), fall back to an untraced
     direct call so the OpenAI request still proceeds. trace_id becomes None.
+
+    `canonical_vocab` (Phase 22) is threaded straight to
+    build_enrichment_messages so the org's capped canonical vocabulary is
+    injected into the single enrichment prompt.
     """
     use_model = model or settings.OPENAI_MODEL
-    messages = build_enrichment_messages(review=review)
+    messages = build_enrichment_messages(review=review, canonical_vocab=canonical_vocab)
     started = time.monotonic()
     response: Any
     trace_id: str | None = None

@@ -13,7 +13,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from apps.integrations.openai.prompts import (
+    ENRICHMENT_PROMPT_VERSION,
     REPLY_GENERATION_PROMPT_VERSION,
+    build_enrichment_messages,
     build_reply_generation_messages,
 )
 
@@ -28,6 +30,74 @@ def _make_review(*, shop_name: str = "TestShop", star_rating: int = 4, comment: 
 
 def test_prompt_version_constant_is_one() -> None:
     assert REPLY_GENERATION_PROMPT_VERSION == 1
+
+
+# ---------------------------------------------------------------------------
+# Phase 22 — canonical vocabulary injection (CTAG-03, CTAG-05) + version bump.
+# ---------------------------------------------------------------------------
+
+
+def _make_enrichment_review(
+    *,
+    brand: str = "Acme",
+    shop_name: str = "MainStreet",
+    star_rating: int = 4,
+    comment: str = "Great coffee",
+):
+    review = MagicMock()
+    review.shop.name = shop_name
+    review.shop.organisation.name = brand
+    review.star_rating = star_rating
+    review.comment = comment
+    return review
+
+
+def test_enrichment_prompt_version_is_four() -> None:
+    """ENRICHMENT_PROMPT_VERSION bumped to 4; reply version untouched."""
+    assert ENRICHMENT_PROMPT_VERSION == 4
+    assert REPLY_GENERATION_PROMPT_VERSION == 1
+
+
+def test_system_prompt_requires_english_canonical_and_polarity_type() -> None:
+    review = _make_enrichment_review()
+    msgs = build_enrichment_messages(review=review)
+    sys_content = msgs[0]["content"]
+    assert "canonical" in sys_content
+    assert "polarity_type" in sys_content
+    # CTAG-05: canonical labels must be English.
+    assert "English" in sys_content
+
+
+def test_non_empty_vocab_is_injected_with_map_instruction() -> None:
+    review = _make_enrichment_review()
+    vocab = ["Coffee Quality", "Staff Friendliness", "Wait Time"]
+    msgs = build_enrichment_messages(review=review, canonical_vocab=vocab)
+    user_content = msgs[1]["content"]
+    # Every capped label appears, joined into the prompt.
+    for label in vocab:
+        assert label in user_content
+    assert "MAP" in user_content
+    # Brand/shop context preserved (Phase 12 lock — no address, no reviewer).
+    assert "Brand: Acme" in user_content
+    assert "MainStreet" in user_content
+
+
+def test_empty_vocab_instructs_propose_for_every_tag() -> None:
+    review = _make_enrichment_review()
+    for vocab in ([], None):
+        msgs = build_enrichment_messages(review=review, canonical_vocab=vocab)
+        user_content = msgs[1]["content"]
+        assert "no existing canonical tag vocabulary" in user_content
+        assert "PROPOSE" in user_content
+
+
+def test_enrichment_user_payload_excludes_address_and_reviewer() -> None:
+    """Phase 12 lock: prompt context = brand + shop + rating + text only."""
+    review = _make_enrichment_review()
+    review.shop.address = "123 Secret St"
+    msgs = build_enrichment_messages(review=review, canonical_vocab=["Coffee Quality"])
+    user_content = msgs[1]["content"]
+    assert "123 Secret St" not in user_content
 
 
 def test_build_professional_messages_contains_locked_wording() -> None:

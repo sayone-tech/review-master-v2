@@ -433,7 +433,7 @@ New npm packages for this phase:
 | Field | Source |
 |-------|--------|
 | Brand colors (yellow, black, bg, ink, etc.) | `frontend/src/styles/tailwind.css` @theme tokens — direct codebase scan |
-| Chart segment colors (#22C55E, #F59E0B, #EF4444) | `docs/Requirements_Phase4_Dashboard.docx` via REQUIREMENTS.md SENT-02, TOP-03 |
+| Chart segment colors (#22C55E, #F59E0B, #EF4444) | `docs/completed/Requirements_Dashboard.md` via REQUIREMENTS.md SENT-02, TOP-03 |
 | Font (Geist) | `frontend/src/styles/tailwind.css` `--font-sans` token |
 | Icon library (lucide-react) | `frontend/package.json` — already installed |
 | Card pattern (padding, border, radius) | `ReviewStatsCards.tsx` — direct codebase inspection |

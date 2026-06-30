@@ -120,8 +120,16 @@ CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.sync_shop_reviews_task": {"queue": "google-sync"},
     "apps.reviews.tasks.initial_backfill_task": {"queue": "google-sync"},
-    "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment"},
-    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment"},
+    # Conservative fallback — explicit queue= override at call site wins at dispatch time (D-09).
+    # Seed path uses ai-enrichment-high (apply_async override in sync.py);
+    # incremental and retry paths use ai-enrichment-low.
+    "apps.reviews.tasks.enrich_review_task": {"queue": "ai-enrichment-low"},
+    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment-low"},
+    "apps.reviews.tasks.finalize_canonical_tags_task": {"queue": "tag-merge"},
+    # Phase 25 TMGT-05 — user-directed canonical tag merge; per-org locked, all-or-nothing.
+    "apps.reviews.tasks.merge_canonical_tags_task": {"queue": "tag-merge"},
+    # Phase 24 POL-02 — weekly polarity reclassification; low-frequency, low-concurrency.
+    "apps.reviews.tasks.reclassify_polarity_task": {"queue": "default"},
     "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
@@ -173,6 +181,45 @@ ENRICHMENT_BATCH_SIZE = env.int("ENRICHMENT_BATCH_SIZE", default=10)
 INCREMENTAL_SYNC_INTERVAL_HOURS = env.int("INCREMENTAL_SYNC_INTERVAL_HOURS", default=6)
 INCREMENTAL_SYNC_JITTER_MINUTES = env.int("INCREMENTAL_SYNC_JITTER_MINUTES", default=30)
 
+# Canonical tag vocabulary injection cap (D-02 / CTAG-03) — top-N canonical tags injected
+# into the enrichment prompt; operational guardrail against unbounded prompt-token growth.
+CANONICAL_VOCAB_INJECT_LIMIT = env.int("CANONICAL_VOCAB_INJECT_LIMIT", default=200)
+
+# Celery rate limit for enrich_review_task (QUEUE-02 / D-06).
+# This is a PER-WORKER rate limit (Celery's rate_limit is per-worker, not global).
+# Default of "125/m" is computed as ~500/min target ÷ ~4 expected workers.
+# The cross-worker global throttling is now live in Phase 23: OPENAI_GLOBAL_RATE_LIMIT
+# setting + rate:openai:org:{organisation_id} Redis token bucket in progress.py (D-08).
+# ENRICHMENT_RATE_LIMIT remains as the secondary per-worker guard.
+# Valid formats: "<n>/s", "<n>/m", "<n>/h" (see Celery docs).
+ENRICHMENT_RATE_LIMIT = env("ENRICHMENT_RATE_LIMIT", default="125/m")
+
+# Phase 23 — seed-phase size and global OpenAI rate limit (D-04, D-08).
+# SEED_PHASE_SIZE: number of reviews enriched synchronously during the initial seed pass
+# before handing remaining reviews off to the bulk ai-enrichment-high queue.
+SEED_PHASE_SIZE = env.int("SEED_PHASE_SIZE", default=50)
+# OPENAI_GLOBAL_RATE_LIMIT: per-org rolling 60-second call cap enforced by the
+# rate:openai:org:{organisation_id} Redis token bucket (progress.py). Works cross-worker.
+OPENAI_GLOBAL_RATE_LIMIT = env.int("OPENAI_GLOBAL_RATE_LIMIT", default=500)
+
+# Phase 27 — sync progress snapshot endpoint throttle + finalise completion gate
+# SYNC_PROGRESS_THROTTLE_RATE: max polls per minute per user (single Redis GET, cheap).
+# FINALISE_GATE_COUNTDOWN_SECONDS: short countdown for finalize_canonical_tags_task self-reschedule
+#   while bulk enrichment is still in progress (D-03).
+# FINALISE_GATE_MAX_ATTEMPTS: cap on self-reschedule loop — after this, proceed regardless (D-03).
+SYNC_PROGRESS_THROTTLE_RATE = env("SYNC_PROGRESS_THROTTLE_RATE", default="120/minute")
+FINALISE_GATE_COUNTDOWN_SECONDS = env.int("FINALISE_GATE_COUNTDOWN_SECONDS", default=20)
+FINALISE_GATE_MAX_ATTEMPTS = env.int("FINALISE_GATE_MAX_ATTEMPTS", default=30)
+
+# Phase 24 — polarity auto-reclassification (POL-02)
+# POLARITY_RECLASSIFY_THRESHOLD: opposite-polarity fraction that triggers flip to mixed.
+# A tag flips always_positive→mixed when negative/total > threshold (strict >; D-02).
+POLARITY_RECLASSIFY_THRESHOLD = float(env("POLARITY_RECLASSIFY_THRESHOLD", default="0.15"))
+# POLARITY_RECLASSIFY_WINDOW_DAYS: trailing window for Review.review_create_time filter.
+POLARITY_RECLASSIFY_WINDOW_DAYS = env.int("POLARITY_RECLASSIFY_WINDOW_DAYS", default=30)
+# POLARITY_RECLASSIFY_MIN_REVIEWS: minimum sample guard — denominator must be >= this.
+POLARITY_RECLASSIFY_MIN_REVIEWS = env.int("POLARITY_RECLASSIFY_MIN_REVIEWS", default=10)
+
 # ---------------------------------------------------------------------------
 # AWS — used by Celery queue-depth metric publisher (apps.common.services.
 # cloudwatch_metrics) and any future CloudWatch custom-metric writers.
@@ -181,7 +228,15 @@ INCREMENTAL_SYNC_JITTER_MINUTES = env.int("INCREMENTAL_SYNC_JITTER_MINUTES", def
 # ---------------------------------------------------------------------------
 AWS_REGION = env("AWS_REGION", default="ap-south-1")
 CLOUDWATCH_METRICS_ENABLED = env.bool("CLOUDWATCH_METRICS_ENABLED", default=False)
-CELERY_QUEUE_NAMES = ["google-sync", "ai-enrichment", "default"]
+# Phase 23 queue split (D-09): ai-enrichment split into high/low priority + tag-merge.
+# Workers must be started with -Q google-sync,ai-enrichment-high,ai-enrichment-low,tag-merge,default
+CELERY_QUEUE_NAMES = [
+    "google-sync",
+    "ai-enrichment-high",
+    "ai-enrichment-low",
+    "tag-merge",
+    "default",
+]
 
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "/login/"
@@ -345,6 +400,7 @@ REST_FRAMEWORK = {
         "review_reply": "30/minute",
         "generate_reply": "10/minute",
         "audit_log_list": "120/minute",
+        "sync_progress": SYNC_PROGRESS_THROTTLE_RATE,  # Phase 27 SYNC-REL-01 snapshot poll
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }

@@ -66,7 +66,7 @@ Requirements: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05.
 
 ### Requirements
 - `.planning/REQUIREMENTS.md` — AUTH-01 through AUTH-05, EMAL-03; exact success criteria
-- `docs/Requirements_Phase1_Superadmin.docx` — Original requirements document (v1.0, April 2026); contains design detail for auth pages
+- `docs/completed/Requirements_Superadmin.md` — Original requirements document (v1.0, April 2026); contains design detail for auth pages
 
 ### Prior phase decisions
 - `.planning/phases/01-foundation/01-CONTEXT.md` — Design system tokens, Alpine.js patterns, React vs template boundary, component patterns (show/hide toggle, strength indicator)

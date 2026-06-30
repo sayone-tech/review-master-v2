@@ -71,7 +71,7 @@ Superadmin full CRUD for the organisation roster: list with search/filter/pagina
 - `CLAUDE.md §8` — DRF conventions: one ViewSet per resource, two serializers (read/write), explicit permissions on every viewset, pagination required on every list endpoint, `django-filter` for filtering.
 - `CLAUDE.md §6.9` — CI query-count ceiling test pattern (`CaptureQueriesContext`) — required for ORGL-08.
 - `.planning/REQUIREMENTS.md` — Phase 3 requirements: ORGL-01 through ORGL-08, CORG-01 through CORG-04, VORG-01 through VORG-03, EORG-01 through EORG-03, ENBL-01 through ENBL-02, DORG-01 through DORG-02, STOR-01 through STOR-03. Read all of these carefully — exact copy, icons, validation rules, and success conditions are specified.
-- `docs/Requirements_Phase1_Superadmin.docx` — Original requirements document (v1.0, April 2026); contains design details beyond what REQUIREMENTS.md captures.
+- `docs/completed/Requirements_Superadmin.md` — Original requirements document (v1.0, April 2026); contains design details beyond what REQUIREMENTS.md captures.
 
 ### Prior phase decisions
 - `.planning/phases/01-foundation/01-CONTEXT.md` — Design system tokens, React vs template boundary, Alpine.js patterns, component patterns (badges, toasts, modals, filter bar, pagination).

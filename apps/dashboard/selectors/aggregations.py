@@ -8,12 +8,12 @@ over QuerySets.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, cast
 
 from django.db.models import Avg, Count, Q, QuerySet
 
 from apps.dashboard.filters import DashboardFilterParams
-from apps.reviews.models import Review
+from apps.reviews.models import Review, ReviewTag
 
 MIN_REVIEWS_FOR_RANKING = 3
 
@@ -280,3 +280,44 @@ def dashboard_highlights(*, org_id: int, params: DashboardFilterParams) -> dict[
         }
 
     return {"top": _shape(top), "bottom": _shape(bottom) if bottom else None}
+
+
+def dashboard_tag_polarity(*, organisation_id: int, limit: int = 10) -> dict[str, Any]:
+    """Return top-N canonical tags with positive/negative split (TDASH-01, TDASH-02).
+
+    TDASH-02: canonical_tag__organisation_id=organisation_id already implies
+    canonical_tag IS NOT NULL — no redundant Python-side null filter needed.
+    No N+1: single ReviewTag grouped aggregate query.
+    Query ceiling: 1 query (the aggregate) — well within the ≤2 limit.
+    """
+    rows: list[dict[str, Any]] = cast(
+        list[dict[str, Any]],
+        list(
+            ReviewTag.objects.filter(canonical_tag__organisation_id=organisation_id)
+            .values(
+                "canonical_tag_id",
+                "canonical_tag__label",
+                "canonical_tag__polarity_type",
+            )
+            .annotate(
+                positive_count=Count("id", filter=Q(polarity="positive")),
+                negative_count=Count("id", filter=Q(polarity="negative")),
+                total_count=Count("id"),
+            )
+            .order_by("-total_count")[: limit + 1]
+        ),
+    )
+    has_more = len(rows) > limit
+    return {
+        "tags": [
+            {
+                "label": r["canonical_tag__label"],
+                "polarity_type": r["canonical_tag__polarity_type"],
+                "positive_count": r["positive_count"],
+                "negative_count": r["negative_count"],
+                "total_count": r["total_count"],
+            }
+            for r in rows[:limit]
+        ],
+        "has_more": has_more,
+    }

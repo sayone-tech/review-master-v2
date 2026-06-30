@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { Modal } from "../modal/Modal";
+import { fetchSyncProgress } from "./api";
+
+/** Interval for the poll fallback (D-02: ~3–5s, chosen 4s). */
+const POLL_MS = 4_000;
 
 interface SnapshotState {
   shop_id: number;
   status: "fetching" | "enriching" | "success" | "failed";
+  step: "fetching" | "vocab" | "enriching" | "finalising" | "success" | "failed";
   fetched: number;
   total_estimate: number | null;
   enriched: number;
@@ -14,6 +19,27 @@ interface SnapshotState {
   duration_seconds?: number | null;
   error_code?: string | null;
   error_message?: string | null;
+  vocab_enriched?: number;
+  vocab_total?: number;
+  finalising_processed?: number;
+  finalising_total?: number;
+  /** CR-04: the step that was active when the sync.error event arrived. */
+  error_at_step?: "fetching" | "vocab" | "enriching" | "finalising";
+  /** Phase 26-02 SEED-05b: per-step wall-clock timing from sync snapshot (26-01). */
+  fetch_started_at?: string | null;
+  fetch_duration_seconds?: number | null;
+  vocab_started_at?: string | null;
+  vocab_duration_seconds?: number | null;
+  enriching_started_at?: string | null;
+}
+
+/** Format seconds as "Xm Ys" or "Ys" (when < 60s). */
+function formatDuration(s: number): string {
+  const sRounded = Math.round(s);
+  if (sRounded < 60) return `${sRounded}s`;
+  const mins = Math.floor(sRounded / 60);
+  const secs = sRounded % 60;
+  return `${mins}m ${secs}s`;
 }
 
 interface Props {
@@ -63,6 +89,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             prev
               ? {
                   ...prev,
+                  step: "fetching",
                   fetched: data.fetched,
                   total_estimate: data.total_estimate ?? prev.total_estimate,
                   last_update_at: new Date().toISOString(),
@@ -71,6 +98,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
               : {
                   shop_id: shopId,
                   status: "fetching",
+                  step: "fetching",
                   fetched: data.fetched,
                   total_estimate: data.total_estimate ?? null,
                   enriched: 0,
@@ -79,13 +107,38 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                   page_count: 1,
                 },
           );
+        } else if (data.type === "sync.vocab.progress") {
+          setSnapshot((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  step: "vocab",
+                  vocab_enriched: data.enriched,
+                  vocab_total: data.total,
+                  last_update_at: new Date().toISOString(),
+                }
+              : null,
+          );
         } else if (data.type === "sync.enrichment.progress") {
           setSnapshot((prev) =>
             prev
               ? {
                   ...prev,
+                  step: "enriching",
                   enriched: data.enriched,
                   status: prev.fetched > 0 && data.enriched >= prev.fetched ? "success" : "enriching",
+                  last_update_at: new Date().toISOString(),
+                }
+              : null,
+          );
+        } else if (data.type === "sync.finalising.progress") {
+          setSnapshot((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  step: "finalising",
+                  finalising_processed: data.processed,
+                  finalising_total: data.total,
                   last_update_at: new Date().toISOString(),
                 }
               : null,
@@ -96,6 +149,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
               ? {
                   ...prev,
                   status: "success",
+                  step: "success",
                   fetched: data.total_fetched,
                   enriched: data.total_enriched ?? 0,
                   duration_seconds: data.duration_seconds,
@@ -107,6 +161,12 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
           setSnapshot((prev) => ({
             shop_id: prev?.shop_id ?? shopId,
             status: "failed",
+            step: "failed",
+            // CR-04: capture the step that was active when the error arrived so
+            // getStepState can show exactly which steps completed vs which errored.
+            error_at_step: (prev?.step === "success" || prev?.step === "failed")
+              ? "fetching"
+              : (prev?.step ?? "fetching"),
             fetched: prev?.fetched ?? 0,
             total_estimate: prev?.total_estimate ?? null,
             enriched: prev?.enriched ?? 0,
@@ -133,6 +193,36 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
     };
   }, [open, shopId]);
 
+  // Poll fallback (D-02 / SYNC-REL-01): poll the snapshot GET endpoint every POLL_MS
+  // ALONGSIDE the WebSocket (which stays the primary path — do NOT remove the WS effect).
+  // Merge rule: forward-only by last_update_at — a stale poll never overwrites a fresher WS event.
+  // Stops when the modal closes (cleanup clears the interval) or when status is terminal.
+  const snapshotStatus = snapshot?.status;
+  useEffect(() => {
+    if (!open || !shopId) return;
+    if (snapshotStatus === "success" || snapshotStatus === "failed") return;
+
+    const id = window.setInterval(() => {
+      void (async () => {
+        try {
+          const poll = await fetchSyncProgress(shopId);
+          if (poll == null) return; // 404 / no snapshot yet — leave current state unchanged
+          setSnapshot((prev) => {
+            // Forward-only merge: only advance if the poll is strictly newer than current.
+            if (prev && Date.parse(prev.last_update_at) >= Date.parse(poll.last_update_at as string)) {
+              return prev; // poll is stale — keep the fresher WS-applied snapshot
+            }
+            return poll as unknown as SnapshotState;
+          });
+        } catch {
+          // Best-effort: swallow transient network/API errors (mirror useMergeProgress)
+        }
+      })();
+    }, POLL_MS);
+
+    return () => window.clearInterval(id);
+  }, [open, shopId, snapshotStatus]);
+
   // Last-update tick
   useEffect(() => {
     if (!snapshot) {
@@ -149,6 +239,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
   }, [snapshot]);
 
   const status = snapshot?.status ?? "fetching";
+  const currentStep = snapshot?.step ?? "fetching";
   const fetched = snapshot?.fetched ?? 0;
   const total = snapshot?.total_estimate ?? null;
   // When total is known, show a determinate percentage bar.
@@ -159,6 +250,27 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
   const eta = computeEtaMinutes(snapshot);
   const isComplete = status === "success";
   const isError = status === "failed";
+
+  // Step ordering for determining active/pending/complete states
+  const stepOrder: Array<SnapshotState["step"]> = ["fetching", "vocab", "enriching", "finalising", "success", "failed"];
+  const currentStepIndex = stepOrder.indexOf(currentStep);
+
+  function getStepState(stepName: "fetching" | "vocab" | "enriching" | "finalising"): "pending" | "active" | "complete" {
+    const stepIdx = stepOrder.indexOf(stepName);
+    if (isError) {
+      // CR-04: use error_at_step (the step active when sync.error fired) to determine
+      // which steps completed before the error. Without this, currentStep="failed" at
+      // index 5 made all four visible steps (indices 0-3) show "complete" always.
+      const errorAtIdx = stepOrder.indexOf(snapshot?.error_at_step ?? "fetching");
+      if (stepIdx < errorAtIdx) return "complete";
+      if (stepIdx === errorAtIdx) return "active";
+      return "pending";
+    }
+    if (isComplete) return "complete";
+    if (stepIdx < currentStepIndex) return "complete";
+    if (stepIdx === currentStepIndex) return "active";
+    return "pending";
+  }
 
   const footer = (
     <div className="flex items-center justify-between w-full">
@@ -199,6 +311,21 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
       </button>
     </div>
   );
+
+  // Step 1: Fetching Reviews
+  const fetchState = getStepState("fetching");
+  // Step 2: Building Tag Vocabulary
+  const vocabState = getStepState("vocab");
+  const vocabEnriched = snapshot?.vocab_enriched ?? 0;
+  const vocabTotal = snapshot?.vocab_total ?? null;
+  const vocabPct = pct(vocabEnriched, vocabTotal);
+  // Step 3: AI Enrichment
+  const enrichState = getStepState("enriching");
+  // Step 4: Finalising
+  const finalisingState = getStepState("finalising");
+  const finalisingProcessed = snapshot?.finalising_processed ?? 0;
+  const finalisingTotal = snapshot?.finalising_total ?? null;
+  const finalisingPct = pct(finalisingProcessed, finalisingTotal);
 
   return (
     <Modal
@@ -250,78 +377,292 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             </div>
           </div>
         ) : (
-          <>
-            {/* Fetch section */}
-            <div>
-              <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                Fetched from Google
-              </label>
-              <div className="text-[14px] font-semibold text-ink mt-1">
-                {hasDeterminate ? (
-                  <>{fetched} of ~{total}</>
-                ) : (
-                  <>{fetched} fetched</>
-                )}
-              </div>
-              <div
-                className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
-                role="progressbar"
-                aria-valuenow={hasDeterminate ? fetchPct : undefined}
-                aria-valuemin={0}
-                aria-valuemax={hasDeterminate ? 100 : undefined}
-                aria-label={
-                  hasDeterminate
-                    ? `Fetched from Google: ${fetchPct}%`
-                    : `Fetching from Google: ${fetched} reviews so far`
-                }
-              >
-                {hasDeterminate ? (
-                  <div
-                    className="h-full bg-yellow rounded-full transition-all"
-                    style={{ width: `${fetchPct}%` }}
-                  />
-                ) : (
-                  /* Indeterminate bar for date-bounded syncs where the total is unknown */
-                  <div className="h-full w-1/3 bg-yellow rounded-full animate-pulse" />
-                )}
-              </div>
-              {hasDeterminate && eta != null && (
-                <div className="text-[12px] text-muted mt-1">
-                  About {eta} minute{eta === 1 ? "" : "s"} left
-                </div>
-              )}
-            </div>
-            {/* AI section */}
-            <div>
-              <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                Analysing with Review Bee AI Engine
-              </label>
-              <div className="text-[14px] font-semibold text-ink mt-1">
-                {snapshot?.enriched ?? 0} of {fetched}
-              </div>
-              <div
-                className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
-                role="progressbar"
-                aria-valuenow={enrichPct}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Review Bee AI Engine: ${enrichPct}%`}
-              >
+          <div aria-live="polite" className="space-y-5">
+            {/* Step 1: Fetching Reviews */}
+            {fetchState === "pending" ? (
+              <div className="opacity-60">
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Fetching from Google
+                </label>
+                <div className="text-[14px] text-muted mt-1">–</div>
                 <div
-                  className="h-full bg-green rounded-full transition-all"
-                  style={{ width: `${enrichPct}%` }}
+                  className="w-full h-2 bg-line rounded-full mt-2"
+                  role="progressbar"
+                  aria-label="Fetching Reviews: not started"
                 />
               </div>
-              {(snapshot?.enriched ?? 0) === 0 && (
-                <div className="text-[12px] text-muted mt-1">
-                  Starting AI analysis…
+            ) : fetchState === "complete" ? (
+              <div>
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Fetching from Google
+                </label>
+                <div className="text-[14px] font-semibold text-ink mt-1">
+                  {fetched} reviews fetched
+                  {snapshot?.fetch_duration_seconds != null && (
+                    <span className="text-muted font-normal">
+                      {" · "}{formatDuration(snapshot.fetch_duration_seconds)}
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
+                <div
+                  className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
+                  role="progressbar"
+                  aria-valuenow={100}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Fetching Reviews: 100%"
+                >
+                  <div className="h-full bg-yellow rounded-full transition-all" style={{ width: "100%" }} />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Fetching from Google
+                </label>
+                <div className="text-[14px] font-semibold text-ink mt-1">
+                  {hasDeterminate ? (
+                    <>{fetched} of ~{total}</>
+                  ) : (
+                    <>{fetched} fetched</>
+                  )}
+                </div>
+                <div
+                  className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
+                  role="progressbar"
+                  aria-valuenow={hasDeterminate ? fetchPct : undefined}
+                  aria-valuemin={0}
+                  aria-valuemax={hasDeterminate ? 100 : undefined}
+                  aria-label={
+                    hasDeterminate
+                      ? `Fetched from Google: ${fetchPct}%`
+                      : `Fetching from Google: ${fetched} reviews so far`
+                  }
+                >
+                  {hasDeterminate ? (
+                    <div
+                      className="h-full bg-yellow rounded-full transition-all"
+                      style={{ width: `${fetchPct}%` }}
+                    />
+                  ) : (
+                    /* Indeterminate bar for date-bounded syncs where the total is unknown */
+                    <div className="h-full w-1/3 bg-yellow rounded-full animate-pulse" />
+                  )}
+                </div>
+                {hasDeterminate && eta != null && (
+                  <div className="text-[12px] text-muted mt-1">
+                    About {eta} minute{eta === 1 ? "" : "s"} left
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2: Building Tag Vocabulary */}
+            {vocabState === "pending" ? (
+              <div className="opacity-60">
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Building Tag Vocabulary
+                </label>
+                <div className="text-[14px] text-muted mt-1">–</div>
+                <div
+                  className="w-full h-2 bg-line rounded-full mt-2"
+                  role="progressbar"
+                  aria-label="Building Tag Vocabulary: not started"
+                />
+              </div>
+            ) : vocabState === "complete" ? (
+              <div>
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Building Tag Vocabulary
+                </label>
+                <div className="text-[14px] font-semibold text-ink mt-1">
+                  {vocabEnriched} reviews seeded
+                  {snapshot?.vocab_duration_seconds != null && (
+                    <span className="text-muted font-normal">
+                      {" · "}{formatDuration(snapshot.vocab_duration_seconds)}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
+                  role="progressbar"
+                  aria-valuenow={100}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Building Tag Vocabulary: 100%"
+                >
+                  <div className="h-full bg-green rounded-full transition-all" style={{ width: "100%" }} />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Building Tag Vocabulary
+                </label>
+                <div className="text-[14px] font-semibold text-ink mt-1">
+                  {vocabTotal != null
+                    ? `Building vocabulary ${vocabEnriched}/${vocabTotal}`
+                    : `Building vocabulary ${vocabEnriched}`}
+                </div>
+                <div
+                  className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
+                  role="progressbar"
+                  aria-valuenow={vocabTotal != null ? vocabPct : undefined}
+                  aria-valuemin={0}
+                  aria-valuemax={vocabTotal != null ? 100 : undefined}
+                  aria-label={
+                    vocabTotal != null
+                      ? `Building Tag Vocabulary: ${vocabPct}%`
+                      : "Building Tag Vocabulary: in progress"
+                  }
+                >
+                  {vocabTotal != null ? (
+                    <div
+                      className="h-full bg-green rounded-full transition-all"
+                      style={{ width: `${vocabPct}%` }}
+                    />
+                  ) : (
+                    <div className="h-full w-1/3 bg-green rounded-full animate-pulse" />
+                  )}
+                </div>
+                {vocabEnriched === 0 && (
+                  <div className="text-[12px] text-muted mt-1">Seeding vocabulary…</div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: AI Enrichment */}
+            {enrichState === "pending" ? (
+              <div className="opacity-60">
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Analysing with Review Bee AI Engine
+                </label>
+                <div className="text-[14px] text-muted mt-1">–</div>
+                <div
+                  className="w-full h-2 bg-line rounded-full mt-2"
+                  role="progressbar"
+                  aria-label="AI Enrichment: not started"
+                />
+              </div>
+            ) : enrichState === "complete" ? (
+              <div>
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Analysing with Review Bee AI Engine
+                </label>
+                <div className="text-[14px] font-semibold text-ink mt-1">
+                  {snapshot?.enriched ?? 0} of {fetched} enriched
+                </div>
+                <div
+                  className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
+                  role="progressbar"
+                  aria-valuenow={100}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="AI Enrichment: 100%"
+                >
+                  <div className="h-full bg-green rounded-full transition-all" style={{ width: "100%" }} />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Analysing with Review Bee AI Engine
+                </label>
+                <div className="text-[14px] font-semibold text-ink mt-1">
+                  {snapshot?.enriched ?? 0} of {fetched}
+                </div>
+                <div
+                  className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
+                  role="progressbar"
+                  aria-valuenow={enrichPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Review Bee AI Engine: ${enrichPct}%`}
+                >
+                  <div
+                    className="h-full bg-green rounded-full transition-all"
+                    style={{ width: `${enrichPct}%` }}
+                  />
+                </div>
+                {(snapshot?.enriched ?? 0) === 0 && (
+                  <div className="text-[12px] text-muted mt-1">
+                    Starting AI analysis…
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 4: Finalising */}
+            {finalisingState === "pending" ? (
+              <div className="opacity-60">
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Finalising
+                </label>
+                <div className="text-[14px] text-muted mt-1">–</div>
+                <div
+                  className="w-full h-2 bg-line rounded-full mt-2"
+                  role="progressbar"
+                  aria-label="Finalising: not started"
+                />
+              </div>
+            ) : finalisingState === "complete" ? (
+              <div>
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Finalising
+                </label>
+                <div className="text-[14px] font-semibold text-ink mt-1">Done</div>
+                <div
+                  className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
+                  role="progressbar"
+                  aria-valuenow={100}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Finalising: 100%"
+                >
+                  <div className="h-full bg-amber rounded-full transition-all" style={{ width: "100%" }} />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
+                  Finalising
+                </label>
+                <div className="text-[14px] font-semibold text-ink mt-1">
+                  {finalisingTotal != null
+                    ? `Finalising ${finalisingProcessed}/${finalisingTotal}`
+                    : `Finalising ${finalisingProcessed}`}
+                </div>
+                <div
+                  className="w-full h-2 bg-line rounded-full overflow-hidden mt-2"
+                  role="progressbar"
+                  aria-valuenow={finalisingTotal != null ? finalisingPct : undefined}
+                  aria-valuemin={0}
+                  aria-valuemax={finalisingTotal != null ? 100 : undefined}
+                  aria-label={
+                    finalisingTotal != null
+                      ? `Finalising: ${finalisingPct}%`
+                      : "Finalising: in progress"
+                  }
+                >
+                  {finalisingTotal != null ? (
+                    <div
+                      className="h-full bg-amber rounded-full transition-all"
+                      style={{ width: `${finalisingPct}%` }}
+                    />
+                  ) : (
+                    <div className="h-full w-1/3 bg-amber rounded-full animate-pulse" />
+                  )}
+                </div>
+                {finalisingProcessed === 0 && (
+                  <div className="text-[12px] text-muted mt-1">Deduplicating tags…</div>
+                )}
+              </div>
+            )}
+
             <div className="text-[12px] text-muted">
               Last updated {secondsAgo} second{secondsAgo === 1 ? "" : "s"} ago
             </div>
-          </>
+          </div>
         )}
       </div>
     </Modal>

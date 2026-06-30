@@ -1,4 +1,7 @@
-"""Phase 11 — Review serializers."""
+"""Phase 11 — Review serializers.
+
+Phase 25 Plan 02 — OrgCanonicalTagReadSerializer, RenameSerializer, TagMergeJobSerializer.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +10,7 @@ from typing import ClassVar
 from rest_framework import serializers
 
 from apps.integrations.openai.prompts import ALLOWED_REPLY_TONES
-from apps.reviews.models import Review, ReviewTag
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag, TagMergeJob
 
 
 class ReviewTagSerializer(serializers.Serializer):  # type: ignore[type-arg]
@@ -100,3 +103,61 @@ class GenerateReplySerializer(serializers.Serializer):  # type: ignore[type-arg]
     # WR-03: single source of truth lives in apps.integrations.openai.prompts.
     TONE_CHOICES: ClassVar[tuple[str, ...]] = ALLOWED_REPLY_TONES
     tone = serializers.ChoiceField(choices=ALLOWED_REPLY_TONES)
+
+
+# ---------------------------------------------------------------------------
+# Phase 25 Plan 02 — Canonical Tag Management serializers (§8 two-serializer rule)
+# ---------------------------------------------------------------------------
+
+
+class OrgCanonicalTagReadSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
+    """Read serializer for OrgCanonicalTag (TMGT-02 list + rename response).
+
+    Exposes ``created_at`` as ``first_seen`` (UI-SPEC Surface 1 column name).
+    All fields are read-only — mutations go through service functions.
+    """
+
+    first_seen = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = OrgCanonicalTag
+        fields: ClassVar[list[str]] = [
+            "id",
+            "label",
+            "polarity_type",
+            "review_count",
+            "first_seen",
+        ]
+        read_only_fields = fields
+
+
+class RenameSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """Input serializer for the rename action (TMGT-03).
+
+    Validates label length 1-100; service applies Title-Case and iexact dedup.
+    """
+
+    label = serializers.CharField(min_length=1, max_length=100)  # type: ignore[assignment]
+
+
+class TagMergeJobSerializer(serializers.ModelSerializer):  # type: ignore[type-arg]
+    """Read serializer for TagMergeJob poll/dismiss endpoints (TMGT-06).
+
+    All fields are read-only; status transitions happen inside the service.
+    """
+
+    class Meta:
+        model = TagMergeJob
+        fields: ClassVar[list[str]] = [
+            "id",
+            "status",
+            "processed",
+            "total",
+            "source_label",
+            "target_label",
+            "error_message",
+            "dismissed",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields

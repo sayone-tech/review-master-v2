@@ -13,7 +13,7 @@ This is a **multi-tenant SaaS platform** for managing organisations, their store
 - **Database:** PostgreSQL
 - **Cache / Rate Limiting / Queue backing / Channels layer:** Redis
 - **Background jobs (Phase 1 & 2):** Django management commands + GCP Cloud Scheduler
-- **Background jobs (Phase 3+):** Celery + Celery Beat with two named queues (`google-sync`, `ai-enrichment`)
+- **Background jobs (Phase 3+):** Celery + Celery Beat with named queues `google-sync`, `ai-enrichment-high`, `ai-enrichment-low`, `tag-merge`, `default` (the AI queue was split high/low and a `tag-merge` queue added in v0.8 — see §29)
 - **Real-time UI updates (Phase 3+):** Django Channels (ASGI) — scoped narrowly to initial sync progress only
 - **External APIs:**
   - Google Business Profile API (OAuth 2.0, per-store connection)
@@ -486,8 +486,9 @@ Lock acquisition is **non-blocking** by default — if another worker holds the 
 | Key Pattern | Purpose | TTL |
 |---|---|---|
 | `sync:progress:{shop_id}` | Current initial-sync progress for WebSocket and snapshot API | 24h while running, 1h after success, 7d after permanent failure |
-| `rate:openai:org:{organisation_id}` | Per-org OpenAI call counter (token bucket safety net) | rolling 1 min |
+| `rate:openai:org:{organisation_id}` | Per-org OpenAI **cross-worker global rate limiter** (`OPENAI_GLOBAL_RATE_LIMIT`, live since v0.8/Phase 23). The seed loop pre-acquires a token via `_wait_for_openai_token`; the bulk/task path raises a retriable error when depleted. The per-worker Celery `rate_limit` (`ENRICHMENT_RATE_LIMIT`) is the **secondary** guard. See §29. | rolling 1 min |
 | `rate:google:project` | Global Google API call counter (token bucket) | rolling 1 min |
+| `lock:tag_merge:org:{org_id}` | Per-org lock for canonical tag merge / finalising jobs (`tag-merge` queue, §29) | 5 min |
 
 ---
 ## 8. DRF Conventions
@@ -588,10 +589,12 @@ Phase 3 introduces Celery for workloads that exceed what management commands + C
 - **Broker:** Redis DB index 3
 - **Result backend:** Redis DB index 4
 - **Beat schedule store:** `django-celery-beat` (DB-backed) so schedules can be edited at runtime via Django admin
-- **Two named queues** with separate worker pools:
+- **Named queues** with separate worker pools (v0.8 split — `CELERY_QUEUE_NAMES` in `config/settings/base.py`):
   - `google-sync` — Google API operations (review fetch, token refresh)
-  - `ai-enrichment` — OpenAI calls (slower, must not block faster queues)
-  - `default` — everything else (notifications, lightweight fan-outs)
+  - `ai-enrichment-high` — OpenAI enrichment for **initial sync** (seed + bulk), must not be starved by daily traffic
+  - `ai-enrichment-low` — OpenAI enrichment for **daily incremental** sync + retries (conservative-default fallback)
+  - `tag-merge` — canonical-tag merge / finalising / reclassification-adjacent jobs (per-org locked)
+  - `default` — everything else (notifications, lightweight fan-outs, the weekly polarity job)
 
 ### 12.2 Configuration
 
@@ -603,8 +606,12 @@ CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.sync_shop_reviews_task": {"queue": "google-sync"},
     "apps.reviews.tasks.initial_backfill_task":   {"queue": "google-sync"},
-    "apps.reviews.tasks.enrich_review_task":      {"queue": "ai-enrichment"},
-    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment"},
+    # enrich_review_task fallback routes to -low; initial sync overrides to
+    # -high at call time via apply_async(queue="ai-enrichment-high").
+    "apps.reviews.tasks.enrich_review_task":      {"queue": "ai-enrichment-low"},
+    "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment-low"},
+    "apps.reviews.tasks.finalize_canonical_tags_task":  {"queue": "tag-merge"},
+    "apps.reviews.tasks.reclassify_polarity_task":      {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600         # 10-minute hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 300    # 5-minute soft limit (raises SoftTimeLimitExceeded)
@@ -673,15 +680,16 @@ Beat tasks are stored in the database via `django-celery-beat`. Seed initial sch
 | Task | Queue | Schedule |
 |---|---|---|
 | `enqueue_incremental_syncs_task` | `google-sync` | Every hour at minute 0 (fans out per-shop tasks with jitter) |
-| `retry_failed_enrichments_task` | `ai-enrichment` | Every 6 hours |
+| `retry_failed_enrichments_task` | `ai-enrichment-low` | Every 6 hours |
 | `refresh_google_tokens_task` | `google-sync` | Hourly |
+| `reclassify_polarity_task` | `default` | Weekly, Sunday 03:00 UTC — DB-only polarity reclassification (v0.8/Phase 24, §29) |
 
 ### 12.6 Deployment
 
 - Celery worker, Celery Beat, and the web server run as **separate Cloud Run services** (or separate processes in a GKE pod set).
 - All three use the **same Docker image**; the entry command differs per service.
 - **Beat instance count: exactly 1.** Multiple Beat instances = duplicate jobs. Enforce at the deployment template.
-- **Worker instance count:** scales horizontally per queue based on queue depth. Different scaling profiles per queue (e.g., `ai-enrichment` workers can scale slower since OpenAI is the bottleneck).
+- **Worker instance count:** scales horizontally per queue based on queue depth. Different scaling profiles per queue (e.g., `ai-enrichment-*` workers can scale slower since OpenAI is the bottleneck; `ai-enrichment-high` is prioritised for initial sync).
 - **Sentry integration** captures task failures with full traceback and task arguments.
 
 ### 12.7 Monitoring
@@ -783,11 +791,15 @@ Failures must close the connection — never leak data via the WebSocket.
 
 Server-to-client events are JSON objects with a `type` discriminator. Client code switches on `type`:
 
+Initial sync is a **four-step** flow (v0.8/Phase 23) — Fetching Reviews → Building Tag Vocabulary → AI Enrichment → Finalising — surfaced by **extending** `SyncProgressConsumer` (still **no new consumer**, §13.2). The Redis snapshot carries a `step` discriminator + per-step counters so a reconnect repaints the current step.
+
 | Event | Payload Fields | When Sent |
 |---|---|---|
-| `sync.fetch.progress` | `shop_id, fetched, total_estimate` | After every Google API page is persisted |
-| `sync.enrichment.progress` | `shop_id, enriched, fetched` | After every batch of reviews is enriched |
-| `sync.complete` | `shop_id, total_fetched, total_enriched, duration_seconds` | When initial sync finishes successfully |
+| `sync.fetch.progress` | `shop_id, fetched, total_estimate` | Step 1 — after every Google API page is persisted |
+| `sync.vocab.progress` | `shop_id, vocab_enriched, vocab_total` | Step 2 — after each review in the sequential seed pass (vocabulary building) |
+| `sync.enrichment.progress` | `shop_id, enriched, fetched` | Step 3 — after every batch of bulk reviews is enriched |
+| `sync.finalising.progress` | `shop_id, finalising_processed, finalising_total` | Step 4 — during the canonical dedup/backfill/count-refresh pass |
+| `sync.complete` | `shop_id, total_fetched, total_enriched, duration_seconds` | When the **finalising** step finishes (it owns `sync.complete`, not enrichment) |
 | `sync.error` | `shop_id, stage, error_code, error_message` | When sync fails permanently after retries |
 
 ### 13.6 Persistence + reconnect
@@ -1284,7 +1296,7 @@ django_settings_module = "config.settings.local"
 - **Healthcheck endpoint:** `/healthz/` returns 200, `/readyz/` checks DB + Redis (and Channels layer in Phase 3+).
 - **Single image, multiple entry commands.** The same image runs `web`, `worker`, and `beat` services with different `CMD`:
   - Web: `daphne -b 0.0.0.0 -p 8000 config.asgi:application` (Phase 3+; previously `gunicorn config.wsgi`)
-  - Worker: `celery -A config worker -Q google-sync,ai-enrichment,default --concurrency=8`
+  - Worker: `celery -A config worker -Q google-sync,ai-enrichment-high,ai-enrichment-low,tag-merge,default --concurrency=8`
   - Beat: `celery -A config beat --scheduler django_celery_beat.schedulers:DatabaseScheduler`
 - **docker-compose** for local dev runs: `web`, `db` (postgres:16), `redis` (redis:7-alpine), `mailhog` (captures outgoing email locally — see §15.2). Phase 3+ adds: `worker`, `beat`, optionally `flower` (port 5555).
 
@@ -1347,8 +1359,17 @@ celery -A config inspect reserved         # show queued tasks
 
 ## 24. When You (Claude Code) Are Asked to Add Code
 
+This repo ships purpose-built **subagents** (`.claude/agents/`, catalogued in §27) that already know these conventions. Use them: launch `architect` for the design **before** step 1 on any non-trivial feature, and the relevant review/test subagents at step 12. They are read-only advisors — apply their findings yourself.
+
 Follow this order, every time:
 
+**Requirements first (MANDATORY — before step 0, no exceptions).** When a user asks for a feature, do **not** start building it until it is captured as a requirement:
+
+- Confirm it maps to a REQ-ID in `.planning/REQUIREMENTS.md` (or the active spec under `docs/in-progress/`). If it does, proceed.
+- If it does **not** exist yet, **add/update the requirement first** — a REQ-ID (+ acceptance criteria) in `.planning/REQUIREMENTS.md` and, where it belongs to a milestone/spec, the relevant spec doc and `ROADMAP.md` — then build. For substantial features this means routing through the GSD flow (`/gsd-new-milestone` or `/gsd-phase` → discuss → plan → execute), not ad-hoc coding.
+- **Never ship a feature that isn't in the requirements registry.** Building outside it is exactly how the off-roadmap features in `docs/completed/Off-Roadmap_Features.md` (Reports, Reply Templates, Review Targets, Mobile/JWT, Action Item Categories) ended up untraceable. If a one-off side-track (e.g. a `superpowers` plan/spec) is unavoidable, **fold it back into `.planning/REQUIREMENTS.md` + ROADMAP in the same change.**
+
+0. **Design first (non-trivial change):** launch the `architect` subagent for a structure proposal, build order, and the §-constraints that apply, before writing code.
 1. **Read** the relevant app's existing `models.py`, `services/`, `selectors/`, `views.py`, `tasks.py`, `consumers.py` before writing anything.
 2. **Add models** → create migration → verify migration is reversible.
 3. **Write services and selectors** with full type annotations.
@@ -1360,7 +1381,14 @@ Follow this order, every time:
 9. **For real-time (Phase 3+):** if a new Channels consumer is needed, update §13 and get explicit sign-off — Channels surface area must stay small.
 10. **Verify query counts.** Add a `CaptureQueriesContext` test for every list endpoint.
 11. **Add/update** the OpenAPI schema (via `drf-spectacular`).
-12. **Run** `pre-commit run --all-files` and `pytest` before declaring done.
+12. **Review before PR.** Run `code-reviewer`, plus `orm-performance-auditor` for any query/model/serializer/migration change and `tenant-security-auditor` for any auth/scoping change (§27). Use `test-author` to fill coverage gaps. Then **run** `pre-commit run --all-files` and `pytest` before declaring done.
+
+### Simplicity & surgical scope
+
+Two standing disciplines, on top of the build order above — they apply to **every** change:
+
+- **Simplicity first.** Ship the minimum that satisfies the requirement; nothing speculative. No abstractions for single-use code, no configurability nobody asked for, no error handling for impossible states. If the change could be meaningfully smaller, make it smaller — and prefer **deferring or cutting** unneeded scope over building it (record the deferral in `.planning/`, per this section's requirements gate and §28). Ask: "would a senior engineer call this overcomplicated?"
+- **Surgical changes.** Touch only what the task requires. Don't refactor, reformat, or "improve" adjacent code; match the surrounding style even if you'd do it differently. Remove only the imports/variables your own change orphaned — **surface** pre-existing dead code, don't delete it. Every changed line should trace to the request.
 
 ### Never
 - Skip tests "because it's small"
@@ -1424,3 +1452,123 @@ Located at `templates/registration/login.html`. Django's built-in `LoginView` se
 - `LOGIN_URL = "/accounts/login/"`
 - `LOGIN_REDIRECT_URL = "/dashboard/"`
 - `LOGOUT_REDIRECT_URL = "/accounts/login/"`
+
+---
+
+## 27. Subagents (`.claude/agents/`)
+
+This repo ships **purpose-built subagents** that encode the conventions in this file. Prefer them over ad-hoc exploration — they already know the architecture, the `code-review-graph` MCP tools, and the governance rules above. Launch one via the Task/Agent tool with the matching `subagent_type`. They have **no Edit/Write access** — they return findings, proposals, and context; you apply the changes.
+
+| Subagent | Invoke it… | When |
+|---|---|---|
+| `architect` | **Before** writing code for a new feature, module, or cross-cutting change — for a design proposal with trade-offs, build order, and the §-constraints that apply. Complements `code-reviewer` (after the fact); this works at design altitude before the fact. | design-time |
+| `code-reviewer` | **After** writing/changing backend code and **before** opening a PR — reviews against THIS file's conventions (thin views §5, services/selectors, DRF §8, permissions §9, throttling, pagination). | review-time |
+| `orm-performance-auditor` | After any change to models, selectors, serializers, list endpoints, migrations, or queryset-iterating templates — hunts N+1 (§6, blocker-level), missing indexes, unsafe migrations, and missing query-count tests. | review-time |
+| `tenant-security-auditor` | For **any** auth/scoping change — tenant isolation (§9), RBAC, action-item brand-vs-shop scope, Channels consumers (§13.4), Celery tasks handling user data (§22). The highest-risk surface in this repo. | review-time |
+| `test-author` | After adding a service/selector/view, or when coverage dips below the 85% target (§16) — writes pytest + pytest-django with factory-boy, query-count, and mocking conventions. | build-time |
+| `ai-enrichment-specialist` | **Before** touching anything under `apps/integrations/openai/` or reviews enrichment — the enrichment service/task, prompts, parser, `AiUsageLog`/`AiPricing` cost logging, LangSmith tracing, idempotency (§12.4, §14), or AI reply generation. | build-time |
+| `frontend-react-builder` | For embedded React widgets under `frontend/` — the Vite-per-widget entrypoint pattern, the Django bootstrap-data handoff, Tailwind, and the brand palette (§26). Any work in `frontend/src` or a React-backed template. | build-time |
+| `deployment-helper` | For GCP deploys — building/pushing the Docker image, the web/worker/beat Cloud Run services (§20), the GitHub Actions deploy workflow (§19), secrets, health checks, and release/rollback. | deploy-time |
+
+**Rules of thumb**
+- New feature → `architect` first, build per §24, then `code-reviewer` + the relevant auditor(s).
+- Any change touching queries → `orm-performance-auditor`. Any change touching auth/scope → `tenant-security-auditor`. These two are non-negotiable for their surfaces.
+- Adding a new subagent (or changing one's remit) → update this section so the catalogue stays the single source of truth.
+
+---
+
+## 28. Requirements & Spec Docs (`docs/`)
+
+Product requirement specs live under `docs/` and are **Markdown only — never `.docx`**.
+
+### Doc conventions
+
+- **Markdown is the source of truth.** No `.docx` (or other binary office formats) in the repo. If a spec arrives as `.docx`, convert it to `.md` and **delete the `.docx`** in the same change.
+  - There is no pandoc/python-docx in this project's env; a dependency-free stdlib converter (`zipfile` + `xml.etree` over `word/document.xml`) is sufficient for these structured specs — preserve headings, tables, lists, and bold, and strip redundant bold from heading lines.
+- **Three-folder spec layout** (by lifecycle status):
+  - `docs/in-progress/` — the spec for the **milestone currently being built** (e.g. the v0.8 Canonical Tag spec).
+  - `docs/pending/` — specs for milestones **not started / not done yet** (backlog / future work, e.g. Direct Reviews).
+  - `docs/completed/` — specs for **shipped milestones** (Superadmin, OrgAdmin, phase-3, Dashboard, …).
+  - As a milestone moves through its lifecycle, **move its spec between these folders**: `pending/` → `in-progress/` when work starts, `in-progress/` → `completed/` when it ships.
+- **Tie spec moves to the GSD milestone lifecycle (REQUIRED):**
+  - When a **new milestone starts** (e.g. `/gsd-new-milestone`), move its spec `docs/pending/<spec>.md` → `docs/in-progress/`.
+  - When a **milestone completes** (e.g. `/gsd-complete-milestone`, all its phases verified + archived), move its spec `docs/in-progress/<spec>.md` → `docs/completed/` **as part of the completion change**, and update every reference (see next bullet). Completing a milestone without relocating its spec leaves `docs/in-progress/` falsely advertising shipped work.
+- **Keep references in sync on every convert/move.** Update every `.planning/` reference (PROJECT.md, REQUIREMENTS.md, `research/SUMMARY.md`, any phase `*-CONTEXT.md` / `*-RESEARCH.md` / `*-UI-SPEC.md`) **and** any §29-style CLAUDE.md mention to the new `.md` path. Section anchors (`§4.1`, `§6.4`) keep working because conversion preserves the numbered headings. Verify with `grep -rn '\.docx' .planning/` returning nothing, and that no reference points at a stale folder (`grep -rn 'docs/in-progress' .planning/` after a completion should return nothing for the just-shipped spec).
+- The base `docs/` folder holds **non-spec** working material (e.g. `cost.md`, `sre/`, `superpowers/`) — those are not milestone specs and stay where they are.
+
+---
+
+## 29. Canonical Tag System (v0.8 — milestone "Canonical Tag System")
+
+A per-organisation, self-organising canonical tag vocabulary, built and evolved **inside the existing single GPT enrichment call** — no extra API call, no vector DB. Spans Phases 22–26. This section is the authoritative summary; the binding spec is `docs/in-progress/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (read with the relational reconciliation in `.planning/research/SUMMARY.md` — the spec's §4 JSONB shape is superseded).
+
+### 29.1 Data model (`apps/reviews/models.py`)
+
+- **`OrgCanonicalTag`** — one row per `(organisation, label)` (unique, case-insensitively deduped). Fields: `label` (the canonical string — Title Case, ≤3 words for GPT-proposed labels), `polarity_type` (`always_positive` / `always_negative` / `mixed`), `review_count` (denormalized cache), `polarity_reclassified_at`, timestamps.
+- **`ReviewTag.canonical_tag`** — nullable FK → `OrgCanonicalTag` (`on_delete=SET_NULL`). **Label is FK-only**: the canonical string lives ONLY on `OrgCanonicalTag`, never denormalized onto `ReviewTag`. `ReviewTag.label` is the *raw* per-review tag (lowercase) — a separate field, not the canonical label.
+
+### 29.2 Non-negotiable invariants
+
+- **One GPT call.** Canonical mapping happens in the single enrichment prompt (the org's capped vocabulary is injected; GPT maps each tag to an existing canonical label or proposes a new one with a `polarity_type`). Never add a second OpenAI call or a vector DB. Still exactly **one `AiUsageLog` row per enriched review**.
+- **`review_count` is derive-on-read.** It is **never incremented inline** in the enrichment hot path (the delete-then-`bulk_create` re-enrichment path would double-count). It is refreshed from a single aggregate by the finalising/merge tasks (and may be recomputed in the weekly job). When writing `OrgCanonicalTag` via `bulk_update`, the field list **must exclude `review_count`** unless you are the refresh path.
+- **Rename is O(1).** Renaming a canonical tag updates exactly one `OrgCanonicalTag.label` row; mapped reviews reflect it via the FK join. Do **not** fan out updates across `ReviewTag` rows.
+- **Canonical work is org-scoped.** Every aggregation, merge, and reclassification filters by `organisation_id` (§9/§22) — a flip/merge in org A must never read or write org B.
+- **No-N+1.** Polarity/count aggregates are single grouped queries (`values(...).annotate(Count(...))`), proven by a `CaptureQueriesContext` query-count test (§6). The canonical analog to copy is `apps/reviews/services/finalise.py::_refresh_review_counts`.
+
+### 29.3 Pipeline & jobs
+
+- **Enrichment fold-in** (`apps/reviews/services/enrichment.py`) — canonical lookup/insert + FK population happen inside the existing `_persist_success` `transaction.atomic()` block: batch `SELECT` + `bulk_create(ignore_conflicts=True)` + re-`SELECT` (race-safe, no transaction poisoning), then set `canonical_tag` on each `ReviewTag`.
+- **Initial sync = 4 steps** (Phase 23, §13.5): Fetch → **sequential seed** (first `SEED_PHASE_SIZE` newest reviews, vocabulary stabilises) → **parallel bulk** → **finalising** (`finalize_canonical_tags_task`, `tag-merge` queue: case-insensitive dedup merge, straggler backfill, `review_count` refresh).
+- **Daily incremental** routes enrichment to `ai-enrichment-low`; new canonical tags auto-add, no approval.
+- **Weekly polarity reclassification** (`reclassify_polarity_task`, Phase 24, `default` queue, Sunday 03:00 UTC): DB-only job flips `always_*` → `mixed` (one-way, sticky) when the opposite `ReviewTag.polarity` exceeds `POLARITY_RECLASSIFY_THRESHOLD` of the tag's reviews over `POLARITY_RECLASSIFY_WINDOW_DAYS`, gated by `POLARITY_RECLASSIFY_MIN_REVIEWS`. Each flip writes one `AuditLog` row.
+- **Manual merge** (Phase 25): `merge_canonical_tags` on `tag-merge` under a per-org lock; the user-chosen **target** wins (not higher-count), source re-points + deletes, `review_count` refreshed via aggregate. Progress is a durable `TagMergeJob` row, **HTTP-polled** (no WebSocket — §13.2).
+
+### 29.4 Audit logging — `AuditLog` (`apps/common/models.py`)
+
+The general-purpose audit/event model (Phase 21), surfaced in the Org Activity Log viewer. Reused across the platform (e.g. `review.fetched`, `action_item.*`) and by canonical work. Fields: `organisation`, nullable `actor` (null = system/automated event), `entity_type`, `entity_id`, `action`, `before_data` / `after_data` (JSON). Polarity reclassification writes `entity_type="canonical_tag"`, `action="polarity_reclassified"`, `actor=None`. **Prefer writing to `AuditLog` over a bespoke log model** for user-visible domain events.
+
+### 29.5 Settings (`config/settings/base.py`)
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `CANONICAL_VOCAB_INJECT_LIMIT` | 200 | Top-N canonical labels (by `review_count`) injected into the prompt — token-growth guardrail |
+| `ENRICHMENT_RATE_LIMIT` | `125/m` | **Per-worker** Celery `rate_limit` on `enrich_review_task` (secondary guard) |
+| `OPENAI_GLOBAL_RATE_LIMIT` | 500 | **Cross-worker global** OpenAI cap (Redis token bucket, `rate:openai:org`, §7.7) |
+| `SEED_PHASE_SIZE` | 50 | Reviews enriched sequentially in the seed pass (newest-first) |
+| `POLARITY_RECLASSIFY_THRESHOLD` | 0.15 | Opposite-polarity fraction that flips `always_*` → `mixed` (strict `>`) |
+| `POLARITY_RECLASSIFY_WINDOW_DAYS` | 30 | Trailing window (by `Review.review_create_time`) |
+| `POLARITY_RECLASSIFY_MIN_REVIEWS` | 10 | Minimum sample before the weekly job acts |
+
+---
+
+## 30. Path-Scoped Rules (`.claude/rules/`)
+
+Committed, glob-scoped instruction files that load **only when a matching file is in context** — keeping the always-loaded CLAUDE.md lean while surfacing per-file reminders exactly when relevant. Each has YAML frontmatter `paths:` (globs) + a short body.
+
+| Rule | `paths:` (loads when working on…) | Reinforces |
+|---|---|---|
+| `testing-python.md` | `apps/**/tests/*.py`, `**/conftest.py` | §16, §6.9 |
+| `testing-frontend.md` | `frontend/**/*.test.tsx` | §16, §26 |
+| `selectors.md` | `apps/**/selectors/*.py` | §5, §6 |
+| `drf-views.md` | `apps/**/views.py` / `serializers.py` / `*urls.py` | §5, §8, §9, §22 |
+| `migrations.md` | `apps/**/migrations/*.py` | §6, §18 |
+| `openai-enrichment.md` | `apps/integrations/openai/**`, reviews enrichment/reclassify/finalise services | §14, §29 |
+
+**Convention (so rules and CLAUDE.md don't drift):**
+
+- **Don't duplicate.** CLAUDE.md sections are the **canonical, always-on policy** (your baseline when designing before any file is open). A scoped rule is a **concise per-file checklist that references its CLAUDE.md section** — not a second copy. When a rule and its section conflict, the CLAUDE.md section wins; fix the rule.
+- Keep rule bodies short and actionable. Adding a new rule (or changing its `paths:`) → add a row here so this catalogue stays the single source of truth (mirrors §27 for subagents).
+- Rules live under `.claude/rules/` and are **committed** (un-ignored in `.gitignore`, like `.claude/agents/`) so the whole team gets them. Personal/local Claude state stays ignored.
+
+---
+
+## 31. Project Skills (`.claude/skills/`)
+
+User-invocable workflows (`/<name>`) that **orchestrate** the subagents (§27) + the knowledge graph + the conventions in this file. Committed and shared (un-ignored in `.gitignore`). A skill = a `SKILL.md` with frontmatter (`name`, `description` with clear WHEN triggers) + an actionable body.
+
+| Skill | Invoke when… | What it does |
+|---|---|---|
+| `security-checklist` | before a PR / merging any auth, scoping, query, OpenAI, Channels, or deploy change; "security review", "check tenant isolation", "audit permissions" | Runs the project §22 + multi-tenant + Channels/Celery/OpenAI-PII checklist over the diff; delegates to `tenant-security-auditor` / `orm-performance-auditor`; runs bandit/pip-audit; blocks on HIGH. Complements the built-in `/security-review` (generic). |
+| `feature-impact` | after building a feature, before "done"/PR; "check impact", "what else needs updating", "run regressions", "did I miss anything" | Computes blast radius via the code-review-graph impact tools, walks the model→…→test→docs layer checklist, runs affected + **full** test suite + `makemigrations --check`, delegates to `orm-performance-auditor` / `tenant-security-auditor` / `test-author`. |
+
+**Conventions:** keep skills as orchestration (don't re-implement what a subagent or `/gsd-*` flow already does); descriptions need explicit trigger phrases so they surface at the right moment; adding/changing a skill → update this catalogue. Skills compose with §24's requirements-first gate, §27 subagents, and §30 rules.

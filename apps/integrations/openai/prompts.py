@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-ENRICHMENT_PROMPT_VERSION = 3
+ENRICHMENT_PROMPT_VERSION = 4
 
 SYSTEM_PROMPT = (
     "You are an expert customer experience analyst for a multi-tenant retail "
@@ -24,8 +24,14 @@ SYSTEM_PROMPT = (
     "with three keys:\n"
     "  - sentiment: one of 'positive', 'neutral', 'negative'\n"
     "  - tags: list of 1 to 5 short English tags. Each tag has a 'label' "
-    "(2-4 words, lowercase, English) and 'polarity' (positive|neutral|negative). "
-    "ALWAYS write tags in English regardless of the review's language.\n"
+    "(2-4 words, lowercase, English), a 'polarity' (positive|neutral|negative), "
+    "a 'canonical' label that normalises the tag into a reusable category "
+    "(Title Case, at most 3 words, ALWAYS in English), and a 'polarity_type' "
+    "(always_positive|always_negative|mixed) describing how that canonical "
+    "category generally trends. Set 'polarity_type' ONLY when you PROPOSE a NEW "
+    "canonical label; otherwise leave it null. "
+    "ALWAYS write tags AND canonical labels in English regardless of the "
+    "review's language.\n"
     "  - action_items: list of 0 to 5 actionable next steps. Each item has a "
     "'title' (under 200 chars, English imperative phrase), a 'scope' "
     "(use 'shop' for issues specific to the location like 'Fix broken AC'; "
@@ -53,12 +59,48 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_enrichment_messages(*, review: Any) -> list[dict[str, str]]:
+def _build_canonical_vocab_block(canonical_vocab: list[str] | None) -> str:
+    """Phase 22 (CTAG-03/D-02) — the map-or-propose instruction block.
+
+    When the org already has canonical vocabulary, GPT is told to MAP each tag
+    to one existing label when it fits and only PROPOSE a new one otherwise.
+    When the vocabulary is empty (cold start), GPT proposes a canonical label
+    for every tag. The list is pre-capped to the top-N by the caller (D-02).
+    """
+    if canonical_vocab:
+        joined = ", ".join(canonical_vocab)
+        return (
+            "Existing canonical tag vocabulary for this brand: "
+            f"{joined}.\n"
+            "For each tag's 'canonical' field, MAP the tag to ONE existing label "
+            "above when it clearly fits (reuse the exact label, and leave "
+            "'polarity_type' null). If no existing label fits, PROPOSE a new "
+            "canonical label (Title Case, at most 3 words, in English) and set "
+            "its 'polarity_type'."
+        )
+    return (
+        "There is no existing canonical tag vocabulary for this brand yet. "
+        "For every tag, PROPOSE a canonical label (Title Case, at most 3 words, "
+        "in English) and set its 'polarity_type' "
+        "(always_positive|always_negative|mixed)."
+    )
+
+
+def build_enrichment_messages(
+    *,
+    review: Any,
+    canonical_vocab: list[str] | None = None,
+) -> list[dict[str, str]]:
     """Build the messages list for client.responses.parse(input=messages, ...).
 
     `review` is a Review instance with a select_related('shop__organisation')
     queryset so .shop.name and .shop.organisation.name are available without
     extra queries.
+
+    `canonical_vocab` (Phase 22) is the org's capped canonical vocabulary
+    (top-N by review_count). It is appended as a map-or-propose instruction so
+    GPT reuses existing labels where possible and only proposes new ones when
+    nothing fits.
     """
     brand = review.shop.organisation.name
     shop_name = review.shop.name
@@ -66,7 +108,8 @@ def build_enrichment_messages(*, review: Any) -> list[dict[str, str]]:
         f"Brand: {brand}\n"
         f"Shop: {shop_name}\n"
         f"Star rating: {review.star_rating} of 5\n"
-        f"Review text:\n{review.comment or '(no comment provided)'}"
+        f"Review text:\n{review.comment or '(no comment provided)'}\n\n"
+        f"{_build_canonical_vocab_block(canonical_vocab)}"
     )
     return [
         {"role": "system", "content": SYSTEM_PROMPT},

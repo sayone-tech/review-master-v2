@@ -42,7 +42,12 @@ from apps.integrations.openai.guardrails import (
 )
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.pricing import calculate_cost
-from apps.reviews.models import Review, ReviewTag
+from apps.reviews.models import OrgCanonicalTag, Review, ReviewTag
+from apps.reviews.selectors.canonical_tags import get_org_vocabulary
+from apps.reviews.services.progress import (
+    increment_openai_token_bucket,
+    openai_token_bucket_depleted,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +107,56 @@ def _persist_success(
         # bulk_create makes re-enrichment idempotent (D-09); both calls inside the
         # transaction so a bulk_create failure rolls back the Review update.
         ReviewTag.objects.filter(review_id=review.pk).delete()
+
+        # Phase 22 (CTAG-06/CTAG-07/D-01/D-03): resolve each tag's canonical FK
+        # inside this same atomic block. Strategy (RESEARCH.md Pitfalls 3+4):
+        # one batch SELECT + bulk_create(ignore_conflicts=True) + a re-SELECT of
+        # only the missing labels. This keeps the query count FIXED regardless of
+        # tag count (no N+1) and is race-safe — ignore_conflicts does NOT abort
+        # the outer transaction the way per-tag get_or_create would. review_count
+        # is NEVER written here (D-03 — derived on read; touching it would
+        # double-count on re-enrichment).
+        org_id = review.organisation_id
+        # Distinct normalized canonical labels (already Title-Cased by the 22-03
+        # validator). Remember the polarity_type proposed for any NEW label
+        # (first proposal wins), defaulting to MIXED when GPT left it null.
+        proposed_polarity: dict[str, str] = {}
+        for tag in result.tags:
+            proposed_polarity.setdefault(
+                tag.canonical,
+                tag.polarity_type or OrgCanonicalTag.PolarityType.MIXED,
+            )
+        labels = list(proposed_polarity)
+        canonical_map = {
+            ct.label: ct
+            for ct in OrgCanonicalTag.objects.filter(organisation_id=org_id, label__in=labels)
+        }
+        missing = [label for label in labels if label not in canonical_map]
+        if missing:
+            OrgCanonicalTag.objects.bulk_create(
+                [
+                    OrgCanonicalTag(
+                        organisation_id=org_id,
+                        label=label,
+                        polarity_type=proposed_polarity[label],
+                    )
+                    for label in missing
+                ],
+                ignore_conflicts=True,
+            )
+            # Re-SELECT only the missing labels to fetch their FKs — also picks up
+            # rows another worker inserted concurrently (the (org,label) unique
+            # constraint is authoritative).
+            for ct in OrgCanonicalTag.objects.filter(organisation_id=org_id, label__in=missing):
+                canonical_map[ct.label] = ct
+
         ReviewTag.objects.bulk_create(
             [
                 ReviewTag(
                     review_id=review.pk,
                     label=tag.label.title(),
                     polarity=tag.polarity,
+                    canonical_tag=canonical_map[tag.canonical],
                 )
                 for tag in result.tags
             ]
@@ -286,12 +335,19 @@ def _persist_failure(
         )
 
 
-def _dispatch_sync_complete_notifications(*, review: Review, total_fetched: int) -> None:
+def _dispatch_sync_complete_notifications(
+    *, shop_id: int, organisation_id: int, total_fetched: int
+) -> None:
     """Dispatch the two consolidated notifications that fire once at sync.complete.
 
-    Called by _emit_enrichment_progress when enriched >= fetched. Dispatches:
+    Called by run_finalise_canonical_tags (finalise.py) after sync.complete is emitted.
+    Dispatches:
       1. new_action_item — "N action items found" (all items from this sync batch)
       2. new_review — "N reviews synced at <shop>" (summary of the full initial sync)
+
+    Signature uses (shop_id, organisation_id, total_fetched) directly to remove the
+    coupling to a Review proxy object (IN-01 / CLAUDE.md §5 — services operate at
+    org/shop level, not review level for this concern).
 
     Both use function-local imports to avoid circular dependencies.
     """
@@ -299,8 +355,7 @@ def _dispatch_sync_complete_notifications(*, review: Review, total_fetched: int)
     from apps.reviews.services.progress import pop_action_item_summary
     from apps.shops.models import Shop
 
-    shop_id = review.shop_id
-    org_id = review.organisation_id
+    org_id = organisation_id
     shop = Shop.objects.filter(pk=shop_id).first()
 
     # 1. Consolidated action items notification.
@@ -339,22 +394,20 @@ def _dispatch_sync_complete_notifications(*, review: Review, total_fetched: int)
 
 
 def _emit_enrichment_progress(*, review: Review) -> None:
-    """Phase 12 progress emission after a successful enrichment.
+    """Phase 12/23 progress emission after a successful enrichment.
 
     Reads sync:progress:{shop_id} from Redis. If absent (incremental sync with
     no live ProgressModal client), returns silently — no WebSocket event.
 
     On success, increments the snapshot's `enriched` counter, writes it back,
-    and emits sync.enrichment.progress. When enriched >= fetched (and
-    fetched > 0), also emits sync.complete — the SOLE source of sync.complete
-    in Phase 12 (CONTEXT.md decision; the fetch loop in sync.py no longer
-    emits it).
+    and emits sync.enrichment.progress. The snapshot status is set to "enriching"
+    (NOT "success") — sync.complete ownership has moved to the finalising pass
+    (run_finalise_canonical_tags in finalise.py, Phase 23 D-02).
 
     MUST be called AFTER transaction.atomic() commits in _persist_success
     (RESEARCH.md anti-pattern: do not emit events from within a transaction).
     """
     from apps.reviews.services.progress import (
-        claim_sync_complete,
         increment_enriched_counter,
         read_progress_snapshot,
         write_progress_snapshot,
@@ -373,11 +426,19 @@ def _emit_enrichment_progress(*, review: Review) -> None:
     enriched = increment_enriched_counter(shop_id=shop_id)
     fetched = int(snapshot.get("fetched", 0))
 
-    new_snapshot = {**snapshot, "enriched": enriched}
-    if fetched > 0 and enriched >= fetched:
-        new_snapshot["status"] = "success"
-    else:
-        new_snapshot["status"] = "enriching"
+    # Phase 23 (D-02): status stays "enriching" until the finalising pass emits
+    # sync.complete. This function NO LONGER sets status="success" or emits
+    # sync.complete — that responsibility belongs to run_finalise_canonical_tags.
+    # Bump last_update_at so the progress modal's "Last updated Ns ago" reflects live
+    # bulk activity — without it the timestamp stays frozen at the last transition for
+    # the whole (~20 min) bulk phase, making an actively-draining sync look stuck.
+    new_snapshot = {
+        **snapshot,
+        "enriched": enriched,
+        "status": "enriching",
+        "step": "enriching",
+        "last_update_at": dj_timezone.now().isoformat(),
+    }
     write_progress_snapshot(shop_id=shop_id, data=new_snapshot)
 
     emit_progress_event(
@@ -390,22 +451,20 @@ def _emit_enrichment_progress(*, review: Review) -> None:
         },
     )
 
-    if fetched > 0 and enriched >= fetched and claim_sync_complete(shop_id=shop_id):
-        _dispatch_sync_complete_notifications(review=review, total_fetched=fetched)
-        emit_progress_event(
-            shop_id=shop_id,
-            payload={
-                "type": "sync.complete",
-                "shop_id": shop_id,
-                "total_fetched": fetched,
-                "total_enriched": enriched,
-                "duration_seconds": snapshot.get("duration_seconds"),
-            },
-        )
 
-
-def enrich_review(*, review_id: int) -> None:
+def enrich_review(*, review_id: int, skip_rate_limit_guard: bool = False) -> None:
     """Enrich a review with three-layer idempotency. See module docstring.
+
+    Args:
+        review_id: PK of the Review to enrich.
+        skip_rate_limit_guard: When True (seed-loop path), the global OpenAI token
+            bucket check AND increment are both skipped. The seed loop pre-acquires
+            a token via _wait_for_openai_token before calling this function, so
+            re-checking here would double-count and could crash the seed loop on a
+            depleted bucket (Blocker 2 / Phase 23 D-08). When False (bulk/task path,
+            the default), the guard runs: if the bucket is depleted,
+            raises OpenAITransientError so Celery autoretry re-queues with
+            exponential backoff (RESEARCH Pattern 1).
 
     Returns None. Raises OpenAITransientError or EnrichmentParseError so
     Celery autoretry_for can apply exponential backoff. OpenAIPermanentError
@@ -492,9 +551,38 @@ def enrich_review(*, review_id: int) -> None:
         # (WR-02).
         review_for_prompt = ReviewWithModeratedComment(review, truncated_text)
 
+        # Phase 22 (CTAG-03/D-02): inject the org's capped canonical vocabulary
+        # into the single prompt. organisation_id is already loaded via
+        # select_related("shop__organisation"), so this adds no extra org query
+        # beyond the bounded selector lookup.
+        canonical_vocab = get_org_vocabulary(
+            organisation_id=review.organisation_id,
+            limit=settings.CANONICAL_VOCAB_INJECT_LIMIT,
+        )
+
+        # Phase 23 (D-08) — global cross-worker OpenAI token-bucket guard.
+        # Bulk / task path (skip_rate_limit_guard=False): if the per-org rolling-minute
+        # counter is at/above OPENAI_GLOBAL_RATE_LIMIT, raise OpenAITransientError so
+        # Celery autoretry re-queues with exponential backoff (RESEARCH Pattern 1).
+        # Seed-loop path (skip_rate_limit_guard=True): the caller already pre-acquired a
+        # token via _wait_for_openai_token, so we skip BOTH the check AND the increment
+        # to avoid double-counting and to prevent crashing the seed loop (Blocker 2).
+        if not skip_rate_limit_guard:
+            org_id = review.organisation_id
+            if openai_token_bucket_depleted(
+                organisation_id=org_id,
+                max_calls=settings.OPENAI_GLOBAL_RATE_LIMIT,
+            ):
+                raise OpenAITransientError(
+                    f"openai_global_rate_limit: bucket depleted for org {org_id}; Celery will retry"
+                )
+            increment_openai_token_bucket(organisation_id=org_id)
+
         # OpenAI call OUTSIDE the transaction (RESEARCH.md anti-pattern).
         try:
-            result, usage_data = call_openai_enrichment(review=review_for_prompt)
+            result, usage_data = call_openai_enrichment(
+                review=review_for_prompt, canonical_vocab=canonical_vocab
+            )
         except (OpenAITransientError, EnrichmentParseError) as exc:
             _persist_failure(review=review, usage_data=None, exc=exc)
             raise  # Celery autoretry_for picks this up

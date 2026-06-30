@@ -19,6 +19,7 @@ Both wrap fetch_and_persist_reviews which:
 from __future__ import annotations
 
 import logging
+import time as _time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -40,9 +41,11 @@ from apps.integrations.google.oauth import _refresh_access_token
 from apps.integrations.google.reviews_client import list_reviews
 from apps.reviews.models import Review
 from apps.reviews.services.progress import (
+    _wait_for_openai_token,
     bulk_increment_enriched_counter,
     clear_progress_snapshot,
     increment_google_token_bucket,
+    increment_vocab_counter,
     token_bucket_depleted,
     write_progress_snapshot,
 )
@@ -304,20 +307,24 @@ def fetch_and_persist_reviews(
         if not acquired:
             return {"fetched": 0, "soft_deleted": 0, "duration_seconds": 0, "skipped": "locked"}
 
-        clear_progress_snapshot(shop_id=shop_id)
-        write_progress_snapshot(
-            shop_id=shop_id,
-            data={
-                "shop_id": shop_id,
-                "status": "fetching",
-                "fetched": 0,
-                "total_estimate": None,
-                "enriched": 0,
-                "started_at": started_at.isoformat(),
-                "last_update_at": started_at.isoformat(),
-                "page_count": 0,
-            },
-        )
+        if trigger == "initial":
+            # SEED-06 (D-05): progress snapshots are initial-sync ONLY (§13.2).
+            # Incremental/manual syncs run silently — no snapshot writes or emits.
+            clear_progress_snapshot(shop_id=shop_id)
+            write_progress_snapshot(
+                shop_id=shop_id,
+                data={
+                    "shop_id": shop_id,
+                    "status": "fetching",
+                    "fetched": 0,
+                    "total_estimate": None,
+                    "enriched": 0,
+                    "started_at": started_at.isoformat(),
+                    "fetch_started_at": started_at.isoformat(),  # SEED-05b (D-04)
+                    "last_update_at": started_at.isoformat(),
+                    "page_count": 0,
+                },
+            )
         _audit(shop=shop, action="sync.started", after={"trigger": trigger})
 
         try:
@@ -327,25 +334,27 @@ def fetch_and_persist_reviews(
                 Shop.objects.filter(pk=shop_id).update(
                     connection_status=Shop.ConnectionStatus.EXPIRED
                 )
-                write_progress_snapshot(
-                    shop_id=shop_id,
-                    data={
-                        "shop_id": shop_id,
-                        "status": "failed",
-                        "error_code": "invalid_grant",
-                        "error_message": "Google connection expired.",
-                    },
-                )
-                emit_progress_event(
-                    shop_id=shop_id,
-                    payload={
-                        "type": "sync.error",
-                        "shop_id": shop_id,
-                        "stage": "auth",
-                        "error_code": "invalid_grant",
-                        "error_message": "Google connection expired.",
-                    },
-                )
+                if trigger == "initial":
+                    # SEED-06 (D-05): gate failure snapshot/emit on initial trigger.
+                    write_progress_snapshot(
+                        shop_id=shop_id,
+                        data={
+                            "shop_id": shop_id,
+                            "status": "failed",
+                            "error_code": "invalid_grant",
+                            "error_message": "Google connection expired.",
+                        },
+                    )
+                    emit_progress_event(
+                        shop_id=shop_id,
+                        payload={
+                            "type": "sync.error",
+                            "shop_id": shop_id,
+                            "stage": "auth",
+                            "error_code": "invalid_grant",
+                            "error_message": "Google connection expired.",
+                        },
+                    )
                 _audit(
                     shop=shop,
                     action="sync.failed",
@@ -421,6 +430,10 @@ def fetch_and_persist_reviews(
                 # dispatching tasks (avoids flooding ai-enrichment queue with
                 # no-op idempotent tasks when a shop is re-synced after a
                 # previous full enrichment run).
+                #
+                # Phase 23 (DSYNC-01): incremental syncs route to ai-enrichment-low.
+                # Initial trigger (trigger="initial") skips dispatch here — run_initial_backfill
+                # handles the seed/bulk phases directly after the fetch loop completes.
                 if ids:
                     from apps.reviews.tasks import enrich_review_task
 
@@ -431,41 +444,50 @@ def fetch_and_persist_reviews(
                             deleted_at__isnull=True,
                         ).values_list("id", "enrichment_status")
                     )
-                    pending_ids = [
-                        r_id
-                        for r_id, status in page_statuses
-                        if status == Review.EnrichmentStatus.PENDING
-                    ]
                     already_enriched = sum(
                         1
                         for _, status in page_statuses
                         if status == Review.EnrichmentStatus.SUCCESS
                     )
-                    for review_id in pending_ids:
-                        enrich_review_task.delay(review_id)
+                    if trigger != "initial":
+                        # Incremental sync: dispatch to ai-enrichment-low (D-10/DSYNC-01)
+                        pending_ids = [
+                            r_id
+                            for r_id, status in page_statuses
+                            if status == Review.EnrichmentStatus.PENDING
+                        ]
+                        for review_id in pending_ids:
+                            enrich_review_task.apply_async(
+                                args=[review_id], queue="ai-enrichment-low"
+                            )
                     if already_enriched:
                         bulk_increment_enriched_counter(shop_id=shop_id, count=already_enriched)
 
-                snapshot = {
-                    "shop_id": shop_id,
-                    "status": "fetching",
-                    "fetched": total_persisted,
-                    "total_estimate": progress_total,
-                    "enriched": 0,
-                    "started_at": started_at.isoformat(),
-                    "last_update_at": dj_timezone.now().isoformat(),
-                    "page_count": page_count,
-                }
-                write_progress_snapshot(shop_id=shop_id, data=snapshot)
-                emit_progress_event(
-                    shop_id=shop_id,
-                    payload={
-                        "type": "sync.fetch.progress",
+                if trigger == "initial":
+                    # SEED-06 (D-05): per-page progress snapshot/emit is initial-only.
+                    # Without this gate, every incremental page write would reset the
+                    # in-progress initial-sync modal's fetched count.
+                    snapshot = {
                         "shop_id": shop_id,
+                        "status": "fetching",
                         "fetched": total_persisted,
                         "total_estimate": progress_total,
-                    },
-                )
+                        "enriched": 0,
+                        "started_at": started_at.isoformat(),
+                        "fetch_started_at": started_at.isoformat(),  # SEED-05b (D-04)
+                        "last_update_at": dj_timezone.now().isoformat(),
+                        "page_count": page_count,
+                    }
+                    write_progress_snapshot(shop_id=shop_id, data=snapshot)
+                    emit_progress_event(
+                        shop_id=shop_id,
+                        payload={
+                            "type": "sync.fetch.progress",
+                            "shop_id": shop_id,
+                            "fetched": total_persisted,
+                            "total_estimate": progress_total,
+                        },
+                    )
 
                 next_token = page.get("nextPageToken", "") or ""
                 if not next_token:
@@ -481,28 +503,33 @@ def fetch_and_persist_reviews(
                 _schedule_new_review_dispatch(shop=shop, new_google_review_ids=all_new_google_ids)
 
             duration = (dj_timezone.now() - started_at).total_seconds()
-            success_payload = {
-                "shop_id": shop_id,
-                "status": "success",
-                "fetched": total_persisted,
-                "total_estimate": total_estimate or total_persisted,
-                "enriched": 0,
-                "started_at": started_at.isoformat(),
-                "last_update_at": dj_timezone.now().isoformat(),
-                "duration_seconds": duration,
-                "page_count": page_count,
-            }
-            write_progress_snapshot(shop_id=shop_id, data=success_payload)
-            emit_progress_event(
-                shop_id=shop_id,
-                payload={
-                    "type": "sync.complete",
+
+            if trigger == "initial":
+                # Phase 23: for initial sync, leave the snapshot in "fetching" state and
+                # DON'T emit sync.complete — run_initial_backfill takes over from here
+                # for the seed/bulk/finalising phases. sync.complete is owned by
+                # run_finalise_canonical_tags (Plan 02).
+                # SEED-05b (D-04): record per-step fetch duration for the frontend.
+                fetch_duration_seconds = round(duration, 1)
+                fetch_end_snapshot = {
                     "shop_id": shop_id,
-                    "total_fetched": total_persisted,
+                    "status": "fetching",
+                    "fetched": total_persisted,
                     "total_estimate": total_estimate or total_persisted,
+                    "enriched": 0,
+                    "started_at": started_at.isoformat(),
+                    "fetch_started_at": started_at.isoformat(),
+                    "fetch_duration_seconds": fetch_duration_seconds,  # SEED-05b
+                    "last_update_at": dj_timezone.now().isoformat(),
                     "duration_seconds": duration,
-                },
-            )
+                    "page_count": page_count,
+                }
+                write_progress_snapshot(shop_id=shop_id, data=fetch_end_snapshot)
+            # SEED-06 (§13.2): incremental/manual syncs run SILENTLY — they must NOT
+            # write a success snapshot or emit sync.complete. The sync:progress snapshot +
+            # ProgressModal are initial-sync only; an incremental writing here would clobber
+            # an in-progress initial-sync modal (UAT bug #4). Incremental user-facing feedback
+            # is the new-review notification, dispatched separately above.
             _audit(
                 shop=shop,
                 action="sync.completed",
@@ -532,25 +559,28 @@ def fetch_and_persist_reviews(
                 exc,
                 exc_info=True,
             )
-            write_progress_snapshot(
-                shop_id=shop_id,
-                data={
-                    "shop_id": shop_id,
-                    "status": "failed",
-                    "error_code": error_code,
-                    "error_message": str(exc),
-                },
-            )
-            emit_progress_event(
-                shop_id=shop_id,
-                payload={
-                    "type": "sync.error",
-                    "shop_id": shop_id,
-                    "stage": "fetch",
-                    "error_code": error_code,
-                    "error_message": str(exc),
-                },
-            )
+            if trigger == "initial":
+                # SEED-06 (D-05): gate quota/unreachable failure snapshot/emit on
+                # initial trigger — incremental failures don't own the progress modal.
+                write_progress_snapshot(
+                    shop_id=shop_id,
+                    data={
+                        "shop_id": shop_id,
+                        "status": "failed",
+                        "error_code": error_code,
+                        "error_message": str(exc),
+                    },
+                )
+                emit_progress_event(
+                    shop_id=shop_id,
+                    payload={
+                        "type": "sync.error",
+                        "shop_id": shop_id,
+                        "stage": "fetch",
+                        "error_code": error_code,
+                        "error_message": str(exc),
+                    },
+                )
             _audit(
                 shop=shop,
                 action="sync.failed",
@@ -560,10 +590,189 @@ def fetch_and_persist_reviews(
 
 
 def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
-    """Initial backfill — same engine, trigger="initial"."""
-    return fetch_and_persist_reviews(shop_id=shop_id, trigger="initial")
+    """Phase 23 — Four-phase initial backfill orchestrator (SEED-01/02/03, D-01).
+
+    Phase 1 — Fetch: call fetch_and_persist_reviews(trigger="initial") which persists
+              reviews but does NOT dispatch enrichment (trigger-gated). Early-return
+              on skip (lock held, auth error, etc.).
+
+    Phase 2 — Seed (vocab-building, D-03/D-04): query the newest SEED_PHASE_SIZE PENDING
+              review IDs, process sequentially. Before each enrich_review call:
+                1. enrich_review() internally re-reads the org vocabulary on every call, so
+                   each seed review sees canonical tags added by earlier seed reviews (D-04).
+                2. Pre-acquire a global OpenAI token via _wait_for_openai_token (D-08).
+                   This helper WAITs/sleeps-and-retries and NEVER raises on depletion
+                   (Blocker 2 fix — seed loop must not crash on a depleted bucket).
+                3. Call enrich_review(skip_rate_limit_guard=True) so the service does
+                   not re-check / double-count the token.
+              Emits sync.vocab.progress after each commit (AFTER the enrich call,
+              never inside a transaction — T-23-08).
+
+    Phase 3 — Bulk (parallel dispatch, SEED-03): query remaining PENDING review IDs,
+              dispatch each via enrich_review_task.apply_async(queue="ai-enrichment-high").
+              No skip_rate_limit_guard — the bulk/task path uses enrich_review's RAISE guard
+              so Celery autoretry re-queues on depletion.
+
+    Phase 4 — Finalising dispatch: dispatch finalize_canonical_tags_task to tag-merge
+              queue with a countdown (allows bulk enrichments to land first).
+    """
+    from django.conf import settings
+
+    from apps.reviews.services.enrichment import enrich_review
+    from apps.reviews.tasks import enrich_review_task, finalize_canonical_tags_task
+
+    # Phase 1: Google fetch (no enrichment dispatch for initial trigger)
+    result = fetch_and_persist_reviews(shop_id=shop_id, trigger="initial")
+    if result.get("skipped"):
+        return result
+
+    # Resolve org_id from the shop (fetch_and_persist_reviews fetched the shop already,
+    # but we need a lightweight lookup here; single SELECT, not N+1).
+    shop = Shop.objects.only("organisation_id").get(pk=shop_id)
+    org_id = shop.organisation_id
+    seed_size = getattr(settings, "SEED_PHASE_SIZE", 50)
+    openai_rate_limit = getattr(settings, "OPENAI_GLOBAL_RATE_LIMIT", 500)
+
+    # Phase 2: Seed — newest SEED_PHASE_SIZE PENDING reviews, sequential (D-03)
+    seed_ids = list(
+        Review.objects.filter(
+            shop_id=shop_id,
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+            deleted_at__isnull=True,
+        )
+        .order_by("-review_create_time")
+        .values_list("id", flat=True)[:seed_size]
+    )
+    seed_total = len(seed_ids)
+
+    # SEED-05b (D-04): record when the vocab step starts for per-step timing.
+    vocab_step_start = _time.monotonic()
+    vocab_started_at = dj_timezone.now().isoformat()
+
+    # Update snapshot to show "vocab" step is starting.
+    # SEED-05b: carry the fetch step's completion time forward — the vocab snapshot is a
+    # fresh dict, so without this the fetch_duration_seconds written by fetch_and_persist
+    # is wiped and the "Fetching from Google" step shows no elapsed time once vocab starts.
+    fetch_duration_seconds = round(result.get("duration_seconds", 0) or 0, 1)
+    snapshot = {
+        "shop_id": shop_id,
+        "status": "vocab",
+        "step": "vocab",
+        "fetched": result.get("fetched", 0),
+        "total_estimate": result.get("fetched", 0),
+        "enriched": 0,
+        "vocab_enriched": 0,
+        "vocab_total": seed_total,
+        "finalising_processed": 0,
+        "finalising_total": 0,
+        "fetch_duration_seconds": fetch_duration_seconds,  # SEED-05b carry-forward
+        "vocab_started_at": vocab_started_at,  # SEED-05b
+        "last_update_at": dj_timezone.now().isoformat(),
+    }
+    write_progress_snapshot(shop_id=shop_id, data=snapshot)
+
+    for i, review_id in enumerate(seed_ids, start=1):
+        # D-04: the org vocabulary is re-read inside enrich_review() on every call —
+        # calling get_org_vocabulary() here again is redundant (WR-01: discarded return
+        # value resulted in one wasted DB round-trip per seed review).
+        # D-08: pre-acquire a global token (WAIT, never raise) so the seed loop survives
+        # a depleted bucket (Blocker 2).
+        _wait_for_openai_token(organisation_id=org_id, max_calls=openai_rate_limit)
+        # Call enrich_review directly (not .delay) with skip flag — token already acquired above.
+        enrich_review(review_id=review_id, skip_rate_limit_guard=True)
+        # Increment vocab counter and update snapshot (emit AFTER enrich commit — T-23-08).
+        increment_vocab_counter(shop_id=shop_id)
+        vocab_snapshot = {
+            **snapshot,
+            "vocab_enriched": i,
+            "last_update_at": dj_timezone.now().isoformat(),
+        }
+        write_progress_snapshot(shop_id=shop_id, data=vocab_snapshot)
+        emit_progress_event(
+            shop_id=shop_id,
+            payload={
+                "type": "sync.vocab.progress",
+                "shop_id": shop_id,
+                "enriched": i,
+                "total": seed_total,
+            },
+        )
+
+    # Phase 3: Bulk — remaining PENDING reviews to ai-enrichment-high (SEED-03)
+    # Re-query to pick up only still-PENDING (seed loop may have enriched some).
+    seed_id_set = set(seed_ids)
+    bulk_ids = list(
+        Review.objects.filter(
+            shop_id=shop_id,
+            enrichment_status=Review.EnrichmentStatus.PENDING,
+            deleted_at__isnull=True,
+        )
+        .exclude(pk__in=seed_id_set)
+        .values_list("id", flat=True)
+    )
+    # SEED-05b (D-04): compute vocab step duration and record enriching step start.
+    vocab_duration_seconds = round(_time.monotonic() - vocab_step_start, 1)
+    enriching_started_at = dj_timezone.now().isoformat()
+
+    # Update snapshot to show "enriching" step
+    enriching_snapshot = (
+        {
+            **vocab_snapshot,
+            "status": "enriching",
+            "step": "enriching",
+            "vocab_duration_seconds": vocab_duration_seconds,  # SEED-05b
+            "enriching_started_at": enriching_started_at,  # SEED-05b
+            "last_update_at": enriching_started_at,
+        }
+        if seed_ids
+        else {
+            **snapshot,
+            "status": "enriching",
+            "step": "enriching",
+            "vocab_duration_seconds": vocab_duration_seconds,  # SEED-05b
+            "enriching_started_at": enriching_started_at,  # SEED-05b
+            "last_update_at": enriching_started_at,
+        }
+    )
+    write_progress_snapshot(shop_id=shop_id, data=enriching_snapshot)
+
+    for review_id in bulk_ids:
+        # No skip_rate_limit_guard — bulk path uses the RAISE guard inside enrich_review
+        # so Celery autoretry handles re-queue on a depleted bucket (D-08, RESEARCH Pattern 1).
+        enrich_review_task.apply_async(args=[review_id], queue="ai-enrichment-high")
+
+    # Phase 4: Dispatch finalising pass (D-09).
+    # Phase 27 SYNC-REL-02 (D-03/D-04): The fixed-countdown heuristic (_finalise_countdown)
+    # has been REMOVED. finalize_canonical_tags_task now self-reschedules (short countdown,
+    # bounded by FINALISE_GATE_MAX_ATTEMPTS) while any of the shop's reviews are still
+    # PENDING or IN_PROGRESS, then proceeds once all are terminal.  A Celery chord was
+    # considered but NOT built — the self-reschedule guard is the chosen approach (D-04).
+    # Initial dispatch uses a short countdown (FINALISE_GATE_COUNTDOWN_SECONDS) so the
+    # first check happens promptly; subsequent re-dispatches use the same countdown.
+    from django.conf import settings as _settings
+
+    _initial_countdown = getattr(_settings, "FINALISE_GATE_COUNTDOWN_SECONDS", 20)
+    finalize_canonical_tags_task.apply_async(
+        kwargs={"organisation_id": org_id, "shop_id": shop_id, "attempt": 1},
+        queue="tag-merge",
+        countdown=_initial_countdown,
+    )
+
+    logger.info(
+        "run_initial_backfill.phases_dispatched shop_id=%s org_id=%s seed_count=%s bulk_count=%s",
+        shop_id,
+        org_id,
+        seed_total,
+        len(bulk_ids),
+    )
+    return result
 
 
 def run_incremental_sync(*, shop_id: int) -> dict[str, Any]:
-    """6-hour incremental sync — same engine, trigger="incremental"."""
+    """6-hour incremental sync — same engine, trigger="incremental".
+
+    Phase 23 (DSYNC-01/D-10): enrichment dispatched to ai-enrichment-low inside
+    fetch_and_persist_reviews when trigger="incremental". New canonical tags
+    continue to auto-add (no approval gate).
+    """
     return fetch_and_persist_reviews(shop_id=shop_id, trigger="incremental")

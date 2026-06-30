@@ -133,3 +133,40 @@ def test_token_bucket_depleted_when_at_cap(fake_redis: _FakeRedis) -> None:
 def test_token_bucket_not_depleted_below_cap(fake_redis: _FakeRedis) -> None:
     fake_redis.store[GOOGLE_BUCKET_KEY] = b"5"
     assert token_bucket_depleted() is False
+
+
+# ---------------------------------------------------------------------------
+# Phase 23 Task 4 — 4-step snapshot round-trip (SEED-01 pass-through)
+# ---------------------------------------------------------------------------
+
+
+def test_read_progress_snapshot_passes_through_4step_keys(fake_redis: _FakeRedis) -> None:
+    """write_progress_snapshot → read_progress_snapshot preserves all Phase 23 step keys.
+
+    Verifies that the snapshot dict returned by read_progress_snapshot carries the new
+    4-step discriminator and per-step counters unchanged, confirming get_progress_snapshot
+    (which delegates verbatim) will deliver these fields to reconnecting consumers (SEED-01).
+    """
+    shop_id = 42
+    four_step_snapshot = {
+        "shop_id": shop_id,
+        "status": "finalising",
+        "step": "finalising",
+        "fetched": 120,
+        "enriched": 120,
+        "vocab_enriched": 50,
+        "vocab_total": 50,
+        "finalising_processed": 3,
+        "finalising_total": 7,
+        "last_update_at": "2026-06-11T10:00:00Z",
+    }
+
+    write_progress_snapshot(shop_id=shop_id, data=four_step_snapshot)
+    result = read_progress_snapshot(shop_id=shop_id)
+
+    assert result is not None
+    assert result["step"] == "finalising"
+    assert result["vocab_enriched"] == 50
+    assert result["vocab_total"] == 50
+    assert result["finalising_processed"] == 3
+    assert result["finalising_total"] == 7

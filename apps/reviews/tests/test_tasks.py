@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from unittest.mock import patch
 
 import pytest
@@ -74,6 +75,17 @@ def test_initial_backfill_dispatched_to_google_sync_queue() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_enrich_review_task_has_rate_limit() -> None:
+    """QUEUE-02: enrich_review_task must carry rate_limit from settings.ENRICHMENT_RATE_LIMIT.
+
+    The rate_limit is PER WORKER INSTANCE (D-06), not global. This test only
+    asserts the configured per-worker value is wired from the setting.
+    """
+    from django.conf import settings
+
+    assert tasks.enrich_review_task.rate_limit == settings.ENRICHMENT_RATE_LIMIT
+
+
 def test_enrich_review_task_calls_service() -> None:
     """Task body is a thin wrapper — verify it calls enrich_review."""
     from apps.reviews.tests.factories import ReviewFactory
@@ -116,13 +128,13 @@ def test_retry_failed_enrichments_task_enqueues_failed_reviews() -> None:
         deleted_at=timezone.now(),
     )
 
-    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply:
         count = tasks.retry_failed_enrichments_task()
 
     assert count == 1
-    mock_delay.assert_called_once_with(candidate.pk)
+    mock_apply.assert_called_once_with(args=[candidate.pk], queue="ai-enrichment-low")
     # Verify none of the others were enqueued
-    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    enqueued_ids = {call.kwargs["args"][0] for call in mock_apply.call_args_list}
     assert at_cap.pk not in enqueued_ids
     assert success.pk not in enqueued_ids
     assert pending.pk not in enqueued_ids
@@ -134,7 +146,7 @@ def test_retry_failed_enrichments_task_returns_zero_when_no_candidates() -> None
     from apps.reviews.tests.factories import ReviewFactory
 
     ReviewFactory(enrichment_status=Review.EnrichmentStatus.SUCCESS)
-    with patch("apps.reviews.tasks.enrich_review_task.delay"):
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async"):
         assert tasks.retry_failed_enrichments_task() == 0
 
 
@@ -149,10 +161,10 @@ def test_retry_failed_enrichments_task_caps_at_500_per_run() -> None:
         enrichment_status=Review.EnrichmentStatus.FAILED,
         enrichment_version=0,
     )
-    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply:
         count = tasks.retry_failed_enrichments_task()
     assert count == 500
-    assert mock_delay.call_count == 500
+    assert mock_apply.call_count == 500
 
 
 def test_retry_failed_enrichments_excludes_moderated() -> None:
@@ -179,10 +191,10 @@ def test_retry_failed_enrichments_excludes_moderated() -> None:
         enrichment_error_code="",
     )
 
-    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply:
         count = tasks.retry_failed_enrichments_task()
 
-    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    enqueued_ids = {call.kwargs["args"][0] for call in mock_apply.call_args_list}
     assert moderated.pk not in enqueued_ids, "content_moderated must not be retried (D-25)"
     assert transient.pk in enqueued_ids
     assert legacy.pk in enqueued_ids
@@ -204,10 +216,150 @@ def test_retry_failed_enrichments_includes_other_failure_codes() -> None:
         for code in codes
     ]
 
-    with patch("apps.reviews.tasks.enrich_review_task.delay") as mock_delay:
+    with patch("apps.reviews.tasks.enrich_review_task.apply_async") as mock_apply:
         count = tasks.retry_failed_enrichments_task()
 
-    enqueued_ids = {call.args[0] for call in mock_delay.call_args_list}
+    enqueued_ids = {call.kwargs["args"][0] for call in mock_apply.call_args_list}
     for review in reviews:
         assert review.pk in enqueued_ids, f"code={review.enrichment_error_code!r} should retry"
     assert count == len(codes)
+
+
+# ---------------------------------------------------------------------------
+# Phase 23 Task 2 — token-bucket guard in enrich_review + sync.complete decoupling
+# ---------------------------------------------------------------------------
+
+
+@contextlib.contextmanager
+def _acquired_lock(_key: str, timeout: int = 300):  # type: ignore[type-arg]
+    """Context manager that always yields True (lock acquired) without Redis."""
+    yield True
+
+
+def test_enrich_review_bulk_path_raises_on_depleted_bucket() -> None:
+    """Bulk path (skip_rate_limit_guard=False): depleted bucket → raises OpenAITransientError."""
+    from apps.integrations.openai.exceptions import OpenAITransientError
+    from apps.reviews.models import Review
+    from apps.reviews.services import enrichment as enrichment_mod
+    from apps.reviews.services.enrichment import enrich_review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+        comment="test comment",
+    )
+    with (
+        patch.object(enrichment_mod, "distributed_lock", _acquired_lock),
+        patch.object(enrichment_mod, "openai_token_bucket_depleted", return_value=True),
+        pytest.raises(OpenAITransientError),
+    ):
+        enrich_review(review_id=review.pk)
+
+
+def test_enrich_review_seed_path_does_not_raise_on_depleted_bucket() -> None:
+    """Seed path (skip_rate_limit_guard=True): depleted bucket → NO raise, NO increment."""
+    from apps.reviews.models import Review
+    from apps.reviews.services import enrichment as enrichment_mod
+    from apps.reviews.services.enrichment import enrich_review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+        comment="",  # no-comment path: avoids OpenAI call, lock is still needed
+    )
+    mock_depleted = patch.object(enrichment_mod, "openai_token_bucket_depleted", return_value=True)
+    mock_incr = patch.object(enrichment_mod, "increment_openai_token_bucket")
+    # Patch progress functions used by _persist_success_no_comment → _emit_enrichment_progress
+    mock_read = patch("apps.reviews.services.progress.read_progress_snapshot", return_value=None)
+    with (
+        patch.object(enrichment_mod, "distributed_lock", _acquired_lock),
+        mock_depleted as depleted_mock,
+        mock_incr as incr_mock,
+        mock_read,
+    ):
+        enrich_review(review_id=review.pk, skip_rate_limit_guard=True)
+
+    # Token bucket must NOT have been checked or incremented on the seed path
+    depleted_mock.assert_not_called()
+    incr_mock.assert_not_called()
+
+
+def test_enrich_review_bulk_path_increments_bucket_when_not_depleted() -> None:
+    """Bulk path: bucket has headroom → increments once then proceeds to call_openai_enrichment.
+
+    Uses a review with a comment so it reaches the token-bucket guard (the no-comment
+    path early-returns before the guard runs). Mocks moderate_input + call_openai_enrichment
+    so no real OpenAI call is made, and _persist_success so no DB writes are needed.
+    """
+    from unittest.mock import MagicMock
+
+    from apps.reviews.models import Review
+    from apps.reviews.services import enrichment as enrichment_mod
+    from apps.reviews.services.enrichment import enrich_review
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.PENDING,
+        comment="A real comment so the no-comment path is NOT taken.",
+    )
+    fake_result = MagicMock()
+    fake_usage: dict[str, int] = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+    with (
+        patch.object(enrichment_mod, "distributed_lock", _acquired_lock),
+        patch.object(
+            enrichment_mod, "openai_token_bucket_depleted", return_value=False
+        ) as mock_depleted,
+        patch.object(enrichment_mod, "increment_openai_token_bucket") as mock_incr,
+        patch.object(enrichment_mod, "moderate_input", return_value="truncated text"),
+        patch.object(
+            enrichment_mod, "call_openai_enrichment", return_value=(fake_result, fake_usage)
+        ),
+        patch.object(enrichment_mod, "_persist_success"),
+    ):
+        enrich_review(review_id=review.pk)  # skip_rate_limit_guard=False (default)
+
+    mock_depleted.assert_called_once()
+    mock_incr.assert_called_once()
+
+
+def test_emit_enrichment_progress_does_not_emit_sync_complete_when_enriched_gte_fetched() -> None:
+    """_emit_enrichment_progress must NOT emit sync.complete even when enriched >= fetched.
+
+    sync.complete ownership has moved to the finalising pass (run_finalise_canonical_tags).
+    """
+    from apps.reviews.models import Review
+    from apps.reviews.services.enrichment import _emit_enrichment_progress
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.SUCCESS)
+    shop_id = review.shop_id
+
+    # Mock Redis helpers so the test runs without a real Redis backend.
+    # The snapshot has fetched=1; enriched will reach 1 after 1 increment.
+    fake_snapshot = {"shop_id": shop_id, "status": "enriching", "fetched": 1, "enriched": 0}
+
+    emitted_types: list[str] = []
+
+    def _capture_event(*, shop_id: int, payload: dict) -> None:  # type: ignore[type-arg]
+        emitted_types.append(payload.get("type", ""))
+
+    with (
+        patch(
+            "apps.reviews.services.progress.read_progress_snapshot",
+            return_value=fake_snapshot,
+        ),
+        patch(
+            "apps.reviews.services.progress.increment_enriched_counter",
+            return_value=1,
+        ),
+        patch("apps.reviews.services.progress.write_progress_snapshot"),
+        patch(
+            "apps.reviews.services.sync.emit_progress_event",
+            side_effect=_capture_event,
+        ),
+    ):
+        _emit_enrichment_progress(review=review)
+
+    assert "sync.complete" not in emitted_types, (
+        "sync.complete must not be emitted by _emit_enrichment_progress (moved to finalise.py)"
+    )

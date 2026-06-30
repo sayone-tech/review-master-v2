@@ -1,4 +1,9 @@
-"""Phase 12 — _emit_enrichment_progress tests (sync.enrichment.progress + gated sync.complete).
+"""Phase 12 / 23 — _emit_enrichment_progress tests.
+
+Phase 12: sync.enrichment.progress emitted, enriched counter incremented.
+Phase 23 (D-02): sync.complete ownership moved to run_finalise_canonical_tags.
+  _emit_enrichment_progress NO LONGER emits sync.complete or sets status=success.
+  These tests reflect the updated contract.
 
 Note: _emit_enrichment_progress uses lazy imports (inside function body) to avoid circular
 imports (enrichment.py -> sync.py -> tasks.py -> enrichment.py). Therefore, patching must
@@ -86,6 +91,15 @@ def test_emit_enrichment_progress_increments_and_emits() -> None:
     written = written_snapshots[0]
     assert written["enriched"] == 3
     assert written["status"] == "enriching"
+    # last_update_at is bumped to a fresh timestamp (not the stale inherited value) so
+    # the progress modal's "Last updated Ns ago" reflects live bulk activity instead of
+    # freezing at the last transition for the whole bulk phase.
+    from datetime import datetime
+
+    assert written["last_update_at"] != snapshot["last_update_at"]
+    assert datetime.fromisoformat(written["last_update_at"]) > datetime.fromisoformat(
+        snapshot["last_update_at"]
+    )
     # One sync.enrichment.progress event, no sync.complete
     assert len(emitted_payloads) == 1
     payload = emitted_payloads[0]
@@ -96,14 +110,19 @@ def test_emit_enrichment_progress_increments_and_emits() -> None:
 
 
 @pytest.mark.django_db
-def test_emit_enrichment_progress_fires_sync_complete_when_caught_up() -> None:
-    """When enriched (post-increment) >= fetched, also emit sync.complete."""
+def test_emit_enrichment_progress_does_not_emit_sync_complete_when_enriched_gte_fetched() -> None:
+    """Phase 23 (D-02): _emit_enrichment_progress NEVER emits sync.complete.
+
+    Even when enriched (post-increment) >= fetched, the function only emits
+    sync.enrichment.progress and leaves status as "enriching".  sync.complete
+    ownership moved to run_finalise_canonical_tags in finalise.py.
+    """
     review = ReviewFactory()
     snapshot = {
         "shop_id": review.shop_id,
         "status": "enriching",
         "fetched": 3,
-        "enriched": 2,  # incrementing to 3 -> >= fetched
+        "enriched": 2,  # incrementing to 3 -> == fetched, but must NOT fire sync.complete
         "started_at": "2026-04-01T10:00:00Z",
         "last_update_at": "2026-04-01T10:01:00Z",
         "duration_seconds": 12.5,
@@ -131,17 +150,10 @@ def test_emit_enrichment_progress_fires_sync_complete_when_caught_up() -> None:
             "apps.reviews.services.sync.emit_progress_event",
             side_effect=_capture_emit,
         ),
-        # enriched was 2; after atomic INCR -> 3 (== fetched -> sync.complete)
+        # enriched was 2; after atomic INCR -> 3 (== fetched)
         patch(
             "apps.reviews.services.progress.increment_enriched_counter",
             return_value=3,
-        ),
-        # Notification dispatch at sync.complete is tested separately
-        patch.object(enrichment_mod, "_dispatch_sync_complete_notifications"),
-        # claim_sync_complete uses Redis SETNX; mock to return True (first caller wins)
-        patch(
-            "apps.reviews.services.progress.claim_sync_complete",
-            return_value=True,
         ),
     ):
         _emit_enrichment_progress(review=review)
@@ -149,16 +161,12 @@ def test_emit_enrichment_progress_fires_sync_complete_when_caught_up() -> None:
     assert len(written_snapshots) == 1
     written = written_snapshots[0]
     assert written["enriched"] == 3
-    assert written["status"] == "success"
-    # Two events: sync.enrichment.progress + sync.complete
-    assert len(emitted_payloads) == 2
+    # status must stay "enriching" — Phase 23 D-02: no sync.complete from enrichment
+    assert written["status"] == "enriching"
+    # Only sync.enrichment.progress; sync.complete must NOT be emitted
     types = [p["type"] for p in emitted_payloads]
+    assert "sync.complete" not in types
     assert "sync.enrichment.progress" in types
-    assert "sync.complete" in types
-    complete_payload = next(p for p in emitted_payloads if p["type"] == "sync.complete")
-    assert complete_payload["total_fetched"] == 3
-    assert complete_payload["total_enriched"] == 3
-    assert complete_payload["duration_seconds"] == 12.5
 
 
 @pytest.mark.django_db
@@ -204,30 +212,24 @@ def test_emit_enrichment_progress_no_sync_complete_when_fetched_zero() -> None:
 
 
 @pytest.mark.django_db
-def test_sync_complete_dispatched_exactly_once_under_concurrent_enrichments() -> None:
-    """Regression test for the notification spam bug (6 418 notifications for
-    FRUITBAE Kakkanad).
+def test_sync_complete_never_dispatched_from_emit_enrichment_progress() -> None:
+    """Phase 23 (D-02) regression: _dispatch_sync_complete_notifications must NEVER
+    be called from _emit_enrichment_progress, even when enriched >= fetched.
 
-    Root cause: _emit_enrichment_progress does a non-atomic read-modify-write on
-    the Redis snapshot, which can overwrite sync.py's updated 'fetched' value with
-    a stale one.  Once enriched > stale_fetched, the condition 'enriched >= fetched'
-    evaluates True on every subsequent enrichment call, firing
-    _dispatch_sync_complete_notifications once per review instead of once per sync.
-
-    The fix: claim_sync_complete() uses Redis SETNX so only the first caller that
-    satisfies the condition wins the right to dispatch.  All later callers — including
-    those running with a stale fetched value — receive False and are silenced.
+    Phase 12 had a notification-spam bug where _emit_enrichment_progress fired
+    sync.complete on every enrichment after enriched surpassed a stale fetched value.
+    The Phase 12 fix used claim_sync_complete (SETNX).
+    Phase 23 D-02 moves sync.complete ownership entirely to run_finalise_canonical_tags
+    (finalise.py), so the guard is no longer needed here and all sync.complete
+    dispatch must be absent from this function regardless of enriched/fetched ratio.
     """
     from apps.reviews.services.enrichment import _emit_enrichment_progress
 
     review = ReviewFactory()
     shop_id = review.shop_id
 
-    # Simulate the stale-snapshot race: fetched appears to be 50 (page 1 total) in
-    # every worker's snapshot read, but the enriched counter has already surpassed 50
-    # because enrichments for page 1 completed before sync.py wrote the page-2
-    # snapshot (fetched=100).
-    stale_snapshot = {
+    # Snapshot where enriched is clearly past fetched (the old trigger condition).
+    snapshot = {
         "shop_id": shop_id,
         "status": "enriching",
         "fetched": 50,
@@ -239,26 +241,20 @@ def test_sync_complete_dispatched_exactly_once_under_concurrent_enrichments() ->
 
     dispatch_calls: list[dict] = []
 
-    def _capture_dispatch(*, review: object, total_fetched: int) -> None:
+    def _capture_dispatch(*, shop_id: int, organisation_id: int, total_fetched: int) -> None:
         dispatch_calls.append({"total_fetched": total_fetched})
 
-    # Simulate 10 concurrent enrichment completions where enriched (51-60) > fetched (50)
-    # — every single one satisfies the condition without the SETNX guard.
-    claim_results = [True] + [False] * 9  # only the first call wins the lock
-
+    # Simulate 10 concurrent enrichment completions where enriched > fetched.
+    # Under Phase 23 D-02 none of them should fire _dispatch_sync_complete_notifications.
     with (
         patch(
             "apps.reviews.services.progress.read_progress_snapshot",
-            return_value=stale_snapshot,
+            return_value=snapshot,
         ),
         patch("apps.reviews.services.progress.write_progress_snapshot"),
         patch("apps.reviews.services.sync.emit_progress_event"),
         patch.object(
             enrichment_mod, "_dispatch_sync_complete_notifications", side_effect=_capture_dispatch
-        ),
-        patch(
-            "apps.reviews.services.progress.claim_sync_complete",
-            side_effect=claim_results,
         ),
     ):
         for counter_value in range(51, 61):
@@ -268,7 +264,8 @@ def test_sync_complete_dispatched_exactly_once_under_concurrent_enrichments() ->
             ):
                 _emit_enrichment_progress(review=review)
 
-    assert len(dispatch_calls) == 1, (
-        f"_dispatch_sync_complete_notifications must fire exactly once; "
-        f"fired {len(dispatch_calls)} times (notification spam regression)"
+    assert len(dispatch_calls) == 0, (
+        f"_dispatch_sync_complete_notifications must never be called from "
+        f"_emit_enrichment_progress (Phase 23 D-02); "
+        f"called {len(dispatch_calls)} time(s) (notification spam regression)"
     )

@@ -5,7 +5,7 @@ import { fetchSyncingShops } from "./api";
 interface SyncingShop {
   shop_id: number;
   shop_name: string;
-  stage?: "fetching" | "enriching";
+  stage?: "fetching" | "vocab" | "enriching" | "finalising";
 }
 
 interface FailureEntry extends SyncingShop {
@@ -82,15 +82,31 @@ export function TopbarBell() {
               s.shop_id === shop.shop_id ? { ...s, stage: "enriching" } : s,
             ),
           );
-        } else if (data.type === "sync.fetch.progress") {
-          // Default stage; once a shop has progressed to enriching, do NOT
-          // regress to fetching even if a stale fetch event arrives.
+        } else if (data.type === "sync.vocab.progress") {
           setActive((prev) =>
             prev.map((s) =>
-              s.shop_id === shop.shop_id && s.stage !== "enriching"
-                ? { ...s, stage: "fetching" }
-                : s,
+              s.shop_id === shop.shop_id ? { ...s, stage: "vocab" } : s,
             ),
+          );
+        } else if (data.type === "sync.finalising.progress") {
+          setActive((prev) =>
+            prev.map((s) =>
+              s.shop_id === shop.shop_id ? { ...s, stage: "finalising" } : s,
+            ),
+          );
+        } else if (data.type === "sync.fetch.progress") {
+          // IN-02: extend the regression guard to cover all later stages, not just
+          // "enriching". A stale sync.fetch.progress event must not regress a shop
+          // that has already advanced to vocab/enriching/finalising.
+          const STAGE_ORDER: Array<SyncingShop["stage"]> = ["fetching", "vocab", "enriching", "finalising"];
+          setActive((prev) =>
+            prev.map((s) => {
+              const currentIdx = STAGE_ORDER.indexOf(s.stage ?? "fetching");
+              const fetchingIdx = STAGE_ORDER.indexOf("fetching");
+              return s.shop_id === shop.shop_id && currentIdx <= fetchingIdx
+                ? { ...s, stage: "fetching" }
+                : s;
+            }),
           );
         } else if (data.type === "sync.complete") {
           setActive((prev) => prev.filter((s) => s.shop_id !== shop.shop_id));
@@ -185,11 +201,20 @@ export function TopbarBell() {
           className="absolute top-full right-0 mt-2 w-[300px] bg-white border border-line rounded-menu shadow-lg z-50 py-2"
         >
           {active.map((s) => {
-            const isEnriching = s.stage === "enriching";
-            const subLabel = isEnriching
-              ? "Analysing reviews with AI…"
-              : "Fetching reviews from Google…";
-            const iconColorClass = isEnriching ? "text-green" : "text-yellow";
+            const stageLabels: Record<string, string> = {
+              fetching: "Fetching reviews from Google…",
+              vocab: "Building tag vocabulary…",
+              enriching: "Analysing reviews with AI…",
+              finalising: "Finalising…",
+            };
+            const stageColors: Record<string, string> = {
+              fetching: "text-yellow",
+              vocab: "text-green",
+              enriching: "text-green",
+              finalising: "text-amber",
+            };
+            const subLabel = stageLabels[s.stage ?? "fetching"] ?? "Fetching reviews from Google…";
+            const iconColorClass = stageColors[s.stage ?? "fetching"] ?? "text-yellow";
             return (
               <div key={s.shop_id} className="flex items-start gap-3 px-4 py-2.5">
                 <Loader2
