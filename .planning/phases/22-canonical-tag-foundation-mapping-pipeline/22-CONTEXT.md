@@ -55,7 +55,7 @@ The following were left to implementation judgement (technical, no product trade
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Milestone spec & reconciliation
-- `docs/in-progress/ReviewBee_Canonical_Tag_Requirements_v1.0.md` — the source spec (v1.0, Final). §3 solution principles, §4 data model (NOTE: written against the old JSONB model — superseded by the relational reconciliation below), §6 AI pipeline changes, §6.4 token cost. **Read with the reconciliation — do not take §4's JSONB/`canonical_tag_id` claims literally.**
+- `docs/completed/ReviewBee_Canonical_Tag_Requirements_v1.0.md` — the source spec (v1.0, Final). §3 solution principles, §4 data model (NOTE: written against the old JSONB model — superseded by the relational reconciliation below), §6 AI pipeline changes, §6.4 token cost. **Read with the reconciliation — do not take §4's JSONB/`canonical_tag_id` claims literally.**
 - `.planning/research/SUMMARY.md` — codebase reconciliation of the spec vs the live schema. The authoritative correction: tags are relational `ReviewTag`, no `canonical_tag_id` exists; canonical mapping attaches as a new model + nullable FK. **Read this first.**
 - `.planning/REQUIREMENTS.md` §"v0.8 Requirements" — CTAG-01…08, QUEUE-02 (the locked requirements for this phase).
 - `.planning/ROADMAP.md` → "Phase 22" — goal + 5 success criteria.

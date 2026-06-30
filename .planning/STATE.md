@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.8
-milestone_name: Canonical Tag System
-status: ready_to_plan
-stopped_at: Phase 27 complete (2/2) — ready to discuss Phase 28
-last_updated: 2026-06-24T10:09:43.911Z
-last_activity: 2026-06-24
+milestone: none
+milestone_name: (between milestones — v0.8 shipped 2026-06-30)
+status: milestone_complete
+stopped_at: v0.8 Canonical Tag System shipped 2026-06-30 (Phases 22–27, 20 plans, PR #38); Phase 28 / RESET deferred pre-launch
+last_updated: 2026-06-30T09:30:00.000Z
+last_activity: 2026-06-30
 progress:
-  total_phases: 8
-  completed_phases: 7
-  total_plans: 28
-  completed_plans: 132
-  percent: 88
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 20
+  completed_plans: 20
+  percent: 100
 ---
 
 # Project State
@@ -21,25 +21,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-08)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** Phase 28 — superadmin data reset & re sync — **deferred (pre launch, 2026 06 16)**
+**Current focus:** None — **v0.8 Canonical Tag System shipped 2026-06-30.** Next milestone (mobile app) starts via `/gsd-new-milestone`.
 
 ## Current Position
 
-Phase: 28
-Plan: Not started
-Next: Phase 24 (polarity-auto-reclassification) — discussing
-Status: Ready to plan
-Last activity: 2026-06-24
+Phase: — (no active milestone)
+Plan: —
+Next: Start the next milestone with `/gsd-new-milestone` (mobile app). Carried forward: Phase 28 / RESET (Superadmin data reset), deferred until a production deployment exists.
+Status: Milestone complete
+Last activity: 2026-06-30
 
-### v0.8 phase map (Phases 22–26)
+### v0.8 phase map (Phases 22–27) — SHIPPED 2026-06-30
 
-| Phase | Name | Requirements |
-|-------|------|--------------|
-| 22 | Canonical Tag Foundation & Mapping Pipeline | CTAG-01..08, QUEUE-02 |
-| 23 | Four-Step Initial Sync, Seeding & Queue Split | SEED-01..04, DSYNC-01, QUEUE-01 |
-| 24 | Polarity Auto-Reclassification | POL-01..03 |
-| 25 | Org Admin Tag Management & Dashboard Polarity | TMGT-01..06, TDASH-01..02 |
-| 26 | Superadmin Data Reset & Re-Sync | RESET-01..03 |
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 22 | Canonical Tag Foundation & Mapping Pipeline | CTAG-01..08, QUEUE-02 | ✅ Complete |
+| 23 | Four-Step Initial Sync, Seeding & Queue Split | SEED-01..04, DSYNC-01, QUEUE-01 | ✅ Complete |
+| 24 | Polarity Auto-Reclassification | POL-01..03 | ✅ Complete |
+| 25 | Org Admin Tag Management & Dashboard Polarity | TMGT-01..06, TDASH-01..02 | ✅ Complete |
+| 26 | v0.8 Post-UAT Polish & Sync Fixes | TMGT-07/08, SEED-05/06, NAV-01 | ✅ Complete |
+| 27 | Sync Progress Reliability | SYNC-REL-01/02 | ✅ Complete |
+| 28 | Superadmin Data Reset & Re-Sync | RESET-01..03 | ⏸ Deferred (pre-launch) |
 
 ## Performance Metrics
 

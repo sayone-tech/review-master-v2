@@ -1,5 +1,24 @@
 # Milestones
 
+## v0.8 Canonical Tag System (Shipped: 2026-06-30)
+
+**Phases completed:** 6 phases (22–27), 20 plans | merged via PR #38 — 187 files changed, +31,150/−659
+**Timeline:** 2026-06-10 → 2026-06-30
+**Requirements:** 29/29 delivered (RESET-01..03 deferred pre-launch)
+**Phase 28 (Superadmin Data Reset):** deferred — no production deployment yet; carried forward, not cancelled.
+
+**Key accomplishments:**
+
+- Self-organising per-org canonical tag vocabulary built inside the *existing* single GPT enrichment call — no extra API call, no vector DB; `ReviewTag.canonical_tag` FK with label held FK-only (O(1) rename); exactly one `AiUsageLog` row per review.
+- Visible four-step initial sync (Fetch → Build Tag Vocabulary → AI Enrichment → Finalising) with a sequential 50-review vocabulary seed, via the single `SyncProgressConsumer` (no new consumer); split `ai-enrichment-high`/`-low` + `tag-merge` Celery queues.
+- Self-maintaining polarity — GPT-assigned at creation; weekly DB-only Beat job flips `always_*` → `mixed` past the 15% / 30-day threshold, each flip audited.
+- Org Admin tag curation — sortable/query-bounded Tags page with inline rename and per-org-locked merge (HTTP-polled `TagMergeJob` progress + rollback); dashboard polarity split for `mixed` tags.
+- Trustworthy sync progress — snapshot-poll fallback + org-scoped GET endpoint so the modal self-heals on missed WebSocket events; finalise completion-gating so Finalising fires when bulk enrichment actually completes and is visible.
+
+Full archive: `.planning/milestones/v0.8-ROADMAP.md` · `.planning/milestones/v0.8-REQUIREMENTS.md`
+
+---
+
 ## v0.3 Reviews and Action Items (Shipped: 2026-05-05)
 
 **Phases completed:** 13 phases, 78 plans, 42 tasks

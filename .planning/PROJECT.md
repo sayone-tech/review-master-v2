@@ -4,27 +4,27 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current Milestone: v0.8 Canonical Tag System
+## Current Milestone: None — between milestones
 
-**Goal:** Normalise inconsistent AI-generated review tags into a self-organising, per-organisation canonical vocabulary so tag-based analytics (trending topics, dashboard charts, action-item grouping) are reliable across dashboards — without a hardcoded global tag list.
+**v0.8 Canonical Tag System shipped 2026-06-30** (Phases 22–27; merged via PR #38). The next milestone is the **mobile app** — scope and technical direction TBD via `/gsd-new-milestone` once the brief is clear. Phase 28 (Superadmin Data Reset & Re-Sync) is the one v0.8 item carried forward, deferred until a production deployment exists.
 
-**Target features:**
-- Per-org `OrgCanonicalTag` vocabulary — auto-built and auto-evolving via the existing single GPT enrichment call (no extra API calls, no vector DB)
-- Canonical mapping folded into the enrichment prompt + post-enrichment lookup/insert on the relational `ReviewTag` model; English-only tags for any-language reviews
-- Three-type tag polarity (`always_positive` / `always_negative` / `mixed`) with a weekly DB-only auto-reclassification job (15% opposite-polarity threshold)
-- Four-step initial sync (Fetch → Build Tag Vocabulary → AI Enrichment → Finalising) with a 50-review sequential seed phase; split `ai-enrichment-high`/`-low` Celery queues + global OpenAI rate limit
-- Org Admin tag management — list, inline rename, and merge (batched Celery task with HTTP-polled progress); dashboard polarity split for mixed tags
-- Superadmin one-time data reset + re-sync for the pre-production 56-store brand
+**Source spec (v0.8):** `docs/completed/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (v1.0, Final), reconciled against the live schema. Key correction: review tags are the **relational `ReviewTag` model** (v0.6 Phase 17), not the JSONB `tags` column the spec assumed — canonical mapping attaches as a nullable FK on `ReviewTag`.
 
-**Source spec:** `docs/in-progress/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (v1.0, Final), reconciled against the live schema. Key correction: review tags are the **relational `ReviewTag` model** (v0.6 Phase 17), not the JSONB `tags` column the spec assumed, and no `canonical_tag_id` exists yet — canonical mapping attaches as a nullable FK on `ReviewTag`.
-
-**Key milestone decisions:** tag-merge progress uses **HTTP polling** (not a new WebSocket consumer — keeps the Channels surface narrow per §13.2); the Superadmin data reset is a **hard wipe**, accepted as a deliberate one-time pre-production exception to the §11 soft-delete rule.
+**Key v0.8 decisions:** tag-merge progress uses **HTTP polling** (not a new WebSocket consumer — keeps the Channels surface narrow per §13.2); the Superadmin data reset would be a **hard wipe**, a deliberate one-time pre-production exception to the §11 soft-delete rule (deferred with Phase 28).
 
 ## Status / Next
 
 🚀 **Web Beta 1 (`web-beta-1`)** closed 2026-05-24 — seven milestones shipped end-to-end (v1.0, v0.2-org-admin, v0.3, v0.4, v0.5, v0.6, v0.7); 21 phases, 115 plans. The **mobile app** remains the planned milestone *after* v0.8 — scope and technical direction TBD via `/gsd-new-milestone` once the brief is clear.
 
 ## Recently Shipped (Web)
+
+**v0.8 shipped 2026-06-30** — Canonical Tag System. Per-org self-organising
+canonical tag vocabulary built inside the existing single GPT call; visible
+four-step initial sync with a 50-review vocabulary seed; weekly DB-only
+polarity auto-reclassification; Org Admin tag list / rename / merge with
+HTTP-polled progress; dashboard polarity split; and sync-progress reliability
+(poll fallback + finalise completion-gating). Phase 28 (Superadmin data reset)
+deferred pre-launch. Full archive: `.planning/milestones/v0.8-ROADMAP.md`.
 
 **v0.7 shipped 2026-05-24** — AI Safety & Governance complete. OpenAI
 Moderation API on every input and output, content length caps,
