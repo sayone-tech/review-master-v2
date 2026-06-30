@@ -17,11 +17,10 @@
       <p class="text-[14px] text-muted text-center mb-6 max-w-[320px]">
         We encountered an unexpected error. Our team has been notified.
       </p>
-      {% if request.user.is_authenticated %}
-        <a href="/admin/org/dashboard/" class="px-6 py-3 bg-black text-yellow font-semibold rounded-md text-[14px] hover:bg-ink/90">Go to Dashboard</a>
-      {% else %}
-        <a href="/accounts/login/" class="px-6 py-3 bg-black text-yellow font-semibold rounded-md text-[14px] hover:bg-ink/90">Go to Login</a>
-      {% endif %}
+      {# No auth check here: request.user.is_authenticated lazily hits the DB/session,
+         which re-raises (and falls through to Daphne's raw page) when the DB itself is
+         the cause of the 500. Link to "/" so routing decides login vs dashboard. #}
+      <a href="/" class="px-6 py-3 bg-black text-yellow font-semibold rounded-md text-[14px] hover:bg-ink/90">Back to Review Master</a>
     </div>
   </body>
 </html>

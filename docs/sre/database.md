@@ -14,15 +14,23 @@ The RDS instance is in a **private subnet** — it cannot be reached from the in
 
 ## Connect to the Database
 
-Run the [standard session setup](README.md) first, then use the `web` container's `dbshell`:
+> **Note:** the `web` image does **not** ship the `psql` client, so `manage.py dbshell`
+> fails with `You appear not to have the 'psql' program installed`. To run SQL you have
+> two options: a throwaway `postgres:16` container (below), or — for one-off statements —
+> run them through Django's own connection (no psql needed):
+>
+> ```bash
+> docker compose -f /opt/review-master/docker-compose.prod.yml \
+>   run --rm web python manage.py shell -c "
+> from django.db import connection
+> with connection.cursor() as c:
+>     c.execute('SELECT version();')
+>     print(c.fetchone())
+> "
+> ```
 
-```bash
-# Django dbshell (uses DATABASE_URL from /etc/review-master.env)
-docker compose -f /opt/review-master/docker-compose.prod.yml \
-  run --rm web python manage.py dbshell
-```
-
-Or connect with `psql` directly:
+Run the [standard session setup](README.md) first. To get an interactive `psql` prompt,
+use a throwaway `postgres:16` container:
 
 ```bash
 # Get the password from Secrets Manager first
@@ -63,16 +71,27 @@ docker compose -f /opt/review-master/docker-compose.prod.yml \
 
 ## Checking Database Size
 
+The `web` image has no `psql`, so run the query through Django's connection:
+
 ```bash
 docker compose -f /opt/review-master/docker-compose.prod.yml \
-  run --rm web python manage.py dbshell
-
--- In psql:
-SELECT pg_size_pretty(pg_database_size('reviewmaster'));
-SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename))
-  FROM pg_tables WHERE schemaname = 'public'
-  ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
-  LIMIT 10;
+  run --rm web python manage.py shell -c "
+from django.db import connection
+with connection.cursor() as c:
+    c.execute('''
+        SELECT pg_size_pretty(pg_database_size('reviewmaster'));
+    ''')
+    print(c.fetchone())
+    c.execute('''
+        SELECT schemaname, tablename,
+               pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename))
+        FROM pg_tables WHERE schemaname = 'public'
+        ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+        LIMIT 10;
+    ''')
+    for row in c.fetchall():
+        print(row)
+"
 ```
 
 ## Deletion Protection
