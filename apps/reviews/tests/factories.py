@@ -50,7 +50,9 @@ class ReviewTagFactory(DjangoModelFactory):
         model = ReviewTag
 
     review = factory.SubFactory(ReviewFactory)
-    label = factory.Faker("word")
+    # Unique per instance — tags often share a review and the model is unique on
+    # (review, label, polarity), so a repeating Faker word would collide.
+    label = factory.Sequence(lambda n: f"tag-{n}")
     polarity = "positive"
     canonical_tag = None
 
