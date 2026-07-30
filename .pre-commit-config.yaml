@@ -32,8 +32,12 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
-          - django-stubs[compatible-mypy]
-          - djangorestframework-stubs
+          # Pinned to match uv.lock (the versions `uv run mypy .` uses). Left
+          # unpinned, these stubs drifted to newer releases that type DRF
+          # request.data as `dict | list`, so the pre-commit mypy hook and the
+          # `uv run mypy .` CI step disagreed and failed non-deterministically.
+          - django-stubs[compatible-mypy]==5.1.1
+          - djangorestframework-stubs==3.15.1
           - django-environ
           - django-redis
           - djangorestframework
