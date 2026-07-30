@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.db import models
-from django.db.models import IntegerField, Value
+from django.db.models import Count, Q
 
 
 class OrganisationQuerySet(models.QuerySet):  # type: ignore[type-arg]
@@ -17,12 +17,14 @@ class OrganisationQuerySet(models.QuerySet):  # type: ignore[type-arg]
     def not_deleted(self) -> OrganisationQuerySet:
         return self.exclude(status="DELETED")
 
-    # TODO(phase-2): Replace with real Count("stores") annotations once
-    # apps.stores.Store is added with FK to Organisation (related_name='stores').
     def annotate_store_counts(self) -> OrganisationQuerySet:
-        """Phase 1 stub: returns zero counts. Phase 2 replaces this with
-        reverse-FK counts after apps.stores.Store is added with related_name='stores'."""
+        """Annotate total and active shop counts from the reverse FK (shops).
+
+        active_stores is the "in-use" count the UI shows as "N used of M
+        allocated" and the value the store-allocation guard is measured against.
+        distinct=True guards against row multiplication if the queryset joins
+        other reverse relations."""
         return self.annotate(  # type: ignore[no-any-return]
-            total_stores=Value(0, output_field=IntegerField()),
-            active_stores=Value(0, output_field=IntegerField()),
+            total_stores=Count("shops", distinct=True),
+            active_stores=Count("shops", filter=Q(shops__is_active=True), distinct=True),
         )

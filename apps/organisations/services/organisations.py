@@ -8,6 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import InvitationToken
+from apps.accounts.services.audit import InvitationAuditAction, log_invitation_event
 from apps.common.services.email import send_transactional_email
 from apps.organisations.models import Organisation
 
@@ -52,11 +53,17 @@ def create_organisation(
         created_by=created_by,
     )
     raw_token = secrets.token_urlsafe(32)
-    InvitationToken.objects.create(
+    token = InvitationToken.objects.create(
         organisation=org,
         token_hash=InvitationToken.hash_token(raw_token),
         purpose=InvitationToken.Purpose.ORG_ADMIN,
         invited_for_role=InvitationToken.InvitedForRole.ORG_ADMIN,
+    )
+    log_invitation_event(
+        invitation=token,
+        action=InvitationAuditAction.SENT,
+        actor=created_by,
+        after_data={"invited_email": email, "role": InvitationToken.InvitedForRole.ORG_ADMIN},
     )
     from django.conf import settings
 
@@ -95,11 +102,20 @@ def resend_invitation(
 
     # Step 2: create fresh token
     raw_token = secrets.token_urlsafe(32)
-    InvitationToken.objects.create(
+    token = InvitationToken.objects.create(
         organisation=organisation,
         token_hash=InvitationToken.hash_token(raw_token),
         purpose=InvitationToken.Purpose.ORG_ADMIN,
         invited_for_role=InvitationToken.InvitedForRole.ORG_ADMIN,
+    )
+    log_invitation_event(
+        invitation=token,
+        action=InvitationAuditAction.RESENT,
+        actor=resent_by,
+        after_data={
+            "invited_email": organisation.email,
+            "role": InvitationToken.InvitedForRole.ORG_ADMIN,
+        },
     )
 
     # Step 3: send resend-flavoured invitation email
@@ -118,9 +134,6 @@ def resend_invitation(
         },
         tags=["invitation", "resend"],
     )
-    # resent_by is accepted for future audit-log integration (Phase 5+); not used
-    # in Phase 4 but part of the locked contract.
-    _ = resent_by
     return raw_token
 
 
@@ -156,6 +169,12 @@ def activate_account(
     locked.invited_user = user
     locked.is_used = True
     locked.save(update_fields=["invited_user", "is_used", "updated_at"])
+    log_invitation_event(
+        invitation=locked,
+        action=InvitationAuditAction.ACCEPTED,
+        actor=user,
+        after_data={"user_id": user.pk},
+    )
     return user
 
 
@@ -168,6 +187,14 @@ def update_organisation(
     Explicitly strips 'email' key if present (defence in depth vs EORG-02)."""
     # Defensive: strip email even if caller/serializer passes it (EORG-02).
     data.pop("email", None)
+    # SA-056: cannot allocate fewer stores than are currently in use. The React
+    # modal already blocks this client-side (StoreAllocationModal keys off
+    # active_stores); this is the authoritative server-side guard.
+    new_allocation = data.get("number_of_stores")
+    if new_allocation is not None:
+        in_use = organisation.shops.filter(is_active=True).count()
+        if new_allocation < in_use:
+            raise ValidationError(f"You cannot set this below the current in-use count ({in_use}).")
     changed: list[str] = []
     for field, value in data.items():
         if field not in _UPDATABLE_FIELDS:

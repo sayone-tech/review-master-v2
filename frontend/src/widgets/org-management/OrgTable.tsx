@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Eye,
   Pencil,
@@ -10,6 +11,26 @@ import {
 import { DataTable, type DataTableColumn } from "../data-table";
 import { RowActionsMenu, type RowAction } from "./RowActionsMenu";
 import { ORG_TYPE_LABELS, type OrgRow } from "./types";
+
+/** SA-090: true below the `md` breakpoint (<768px). Table and card layouts need
+ * different DOM, so we render one at a time rather than toggling with CSS (which
+ * would duplicate every row). Initial value is computed synchronously to avoid a
+ * layout flash; falls back to desktop where matchMedia is unavailable (jsdom). */
+function useIsMobile(): boolean {
+  const query = "(max-width: 767px)";
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia(query).matches,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(query);
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
 
 export interface OrgTableHandlers {
   onOpenView: (row: OrgRow) => void;
@@ -185,6 +206,59 @@ export function buildRowActions(handlers: OrgTableHandlers): RowAction[] {
   ];
 }
 
+/** SA-090: stacked card layout for the org list on mobile (<768px). Mirrors the
+ * table columns as labelled rows so the list never needs horizontal scrolling. */
+function OrgCard({
+  row,
+  actions,
+  onOpenView,
+}: {
+  row: OrgRow;
+  actions: RowAction[];
+  onOpenView: (row: OrgRow) => void;
+}) {
+  return (
+    <li
+      className="bg-white border border-line rounded-card p-4 flex flex-col gap-3"
+      data-testid={`org-card-${row.id}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => onOpenView(row)}
+          aria-label={`View details for ${row.name}`}
+          className="text-ink font-semibold text-[14px] hover:text-yellow text-left break-words"
+        >
+          {row.name}
+        </button>
+        <div className="shrink-0">
+          <RowActionsMenu row={row} actions={actions} />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <TypeBadge type={row.org_type} />
+        <StatusBadge status={row.status} />
+      </div>
+      <dl className="flex flex-col gap-1.5 text-[13px]">
+        <div className="flex justify-between gap-3">
+          <dt className="text-subtle">Email</dt>
+          <dd className="text-muted text-right break-all">{row.email}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-subtle">Stores</dt>
+          <dd className="text-ink text-right">
+            {row.active_stores} used of {row.number_of_stores} allocated
+          </dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-subtle">Created</dt>
+          <dd className="text-muted text-right">{formatDate(row.created_at)}</dd>
+        </div>
+      </dl>
+    </li>
+  );
+}
+
 export function OrgTable({
   rows,
   loading,
@@ -196,6 +270,45 @@ export function OrgTable({
 }) {
   const columns = buildColumns({ onOpenView: handlers.onOpenView });
   const actions = buildRowActions(handlers);
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    if (loading) {
+      return (
+        <ul className="flex flex-col gap-2" data-testid="org-card-list-loading">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <li
+              key={i}
+              className="bg-white border border-line rounded-card p-4 h-[132px] animate-sk-pulse"
+            />
+          ))}
+        </ul>
+      );
+    }
+    if (rows.length === 0) {
+      return (
+        <div
+          className="bg-white border border-line rounded-card p-8 text-center text-[13px] text-muted"
+          data-testid="org-card-list-empty"
+        >
+          No organisations found.
+        </div>
+      );
+    }
+    return (
+      <ul className="flex flex-col gap-2" data-testid="org-card-list">
+        {rows.map((row) => (
+          <OrgCard
+            key={row.id}
+            row={row}
+            actions={actions}
+            onOpenView={handlers.onOpenView}
+          />
+        ))}
+      </ul>
+    );
+  }
+
   return (
     <DataTable<OrgRow>
       columns={columns}

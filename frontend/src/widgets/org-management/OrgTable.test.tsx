@@ -1,8 +1,26 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OrgTable } from "./OrgTable";
 import type { OrgRow } from "./types";
+
+/** SA-090: force useIsMobile() to report mobile by stubbing matchMedia. */
+function mockMatchMedia(matches: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) =>
+      ({
+        matches,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        onchange: null,
+      }) as unknown as MediaQueryList,
+  );
+}
 
 const BASE_ROW: OrgRow = {
   id: 1,
@@ -81,5 +99,36 @@ describe("OrgTable", () => {
     await userEvent.click(screen.getByTestId("row-actions-trigger-3"));
     const menu = screen.getByTestId("row-actions-menu-3");
     expect(within(menu).queryByText("Resend Invitation")).not.toBeInTheDocument();
+  });
+});
+
+describe("OrgTable — mobile card layout (SA-090)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders a stacked card list instead of a table below the md breakpoint", () => {
+    mockMatchMedia(true);
+    render(<OrgTable rows={[BASE_ROW]} loading={false} handlers={noopHandlers()} />);
+    // Card list present, table absent — no horizontal-scroll table on mobile.
+    expect(screen.getByTestId("org-card-list")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    const card = screen.getByTestId("org-card-1");
+    expect(within(card).getByText("Acme")).toBeInTheDocument();
+    expect(within(card).getByText("0 used of 10 allocated")).toBeInTheDocument();
+  });
+
+  it("card name button calls onOpenView", async () => {
+    mockMatchMedia(true);
+    const h = noopHandlers();
+    render(<OrgTable rows={[BASE_ROW]} loading={false} handlers={h} />);
+    await userEvent.click(screen.getByRole("button", { name: /view details for Acme/i }));
+    expect(h.onOpenView).toHaveBeenCalledWith(BASE_ROW);
+  });
+
+  it("shows the empty state as a card when there are no rows", () => {
+    mockMatchMedia(true);
+    render(<OrgTable rows={[]} loading={false} handlers={noopHandlers()} />);
+    expect(screen.getByTestId("org-card-list-empty")).toBeInTheDocument();
   });
 });

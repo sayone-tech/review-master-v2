@@ -60,6 +60,16 @@ def test_login_no_enumeration(anon_client: Client) -> None:
     assert b"no account" not in resp.content.lower()
 
 
+def test_login_invalid_email_format_shows_inline_error(anon_client: Client) -> None:
+    """SA-004: a malformed email yields an inline email-format error, not the
+    generic 'Incorrect credentials' credential message."""
+    resp = anon_client.post("/login/", {"username": "not-an-email", "password": "whatever"})
+    assert resp.status_code == 422
+    assert b"Enter a valid email address" in resp.content
+    # The credential check must not run for a malformed email.
+    assert b"Incorrect credentials" not in resp.content
+
+
 def test_login_rate_limit(anon_client: Client) -> None:
     # 11 failed attempts from same IP → 11th returns 429
     for _ in range(10):

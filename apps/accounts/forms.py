@@ -6,6 +6,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 
 if TYPE_CHECKING:
     from django_stubs_ext import StrPromise
@@ -20,7 +21,17 @@ class CustomAuthenticationForm(AuthenticationForm):
     }
 
     def clean_username(self) -> str:
-        return str(self.cleaned_data.get("username", "")).lower()
+        # SA-004: reject malformed emails with an inline field error before the
+        # credential check, instead of the generic "Incorrect credentials".
+        # The login form uses novalidate, so native email validation is bypassed.
+        # Format-only validation reveals nothing about account existence (no
+        # enumeration risk).
+        username = str(self.cleaned_data.get("username", "")).lower()
+        try:
+            validate_email(username)
+        except ValidationError as exc:
+            raise forms.ValidationError("Enter a valid email address.") from exc
+        return username
 
 
 class ActivationForm(forms.Form):

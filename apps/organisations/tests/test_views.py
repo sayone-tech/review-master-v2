@@ -88,8 +88,20 @@ def test_org_list_pagination_preserves_filter_params(client_logged_in):
 
 
 def test_api_list_organisations_query_count_ceiling(api_client_superadmin):
-    """API list endpoint hits no more than 7 queries regardless of result set size (ORGL-08)."""
-    OrganisationFactory.create_batch(25)
+    """API list endpoint hits no more than 7 queries regardless of result set size (ORGL-08).
+
+    Seeds shops across the orgs so the store-count annotation (SA-056,
+    annotate_store_counts) is actually exercised — the ceiling must hold even
+    though every org has a variable number of active/inactive shops, proving the
+    SQL-side aggregate does not add per-row queries.
+    """
+    from apps.shops.tests.factories import ShopFactory
+
+    orgs = OrganisationFactory.create_batch(25)
+    for org in orgs[:5]:
+        ShopFactory.create_batch(2, organisation=org, is_active=True)
+        ShopFactory(organisation=org, is_active=False)
+
     with CaptureQueriesContext(connection) as ctx:
         resp = api_client_superadmin.get("/api/v1/organisations/")
     assert resp.status_code == 200

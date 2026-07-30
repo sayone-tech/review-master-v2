@@ -78,7 +78,8 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Address
         </dt>
-        <dd className="text-[14px] text-ink">{org.address || "—"}</dd>
+        {/* SA-090: wrap long addresses instead of overflowing horizontally. */}
+        <dd className="text-[14px] text-ink break-words">{org.address || "—"}</dd>
 
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
           Stores
