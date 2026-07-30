@@ -11,7 +11,11 @@
           }
           }"
   @app:toast.window="add($event.detail)"
-  class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-[380px] max-w-[calc(100vw-2rem)]"
+  {# Inline z-index (not a Tailwind class) so it takes effect without a CSS
+     rebuild — sits above the modal backdrop (z-50) so toasts stay readable
+     even while a modal is open. #}
+  style="z-index: 300;"
+  class="fixed top-4 right-4 flex flex-col gap-2 w-[380px] max-w-[calc(100vw-2rem)]"
   data-testid="toast-stack"
 >
   <template x-for="toast in toasts" :key="toast.id">

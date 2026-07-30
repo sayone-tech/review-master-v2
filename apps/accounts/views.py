@@ -31,6 +31,7 @@ from apps.accounts.serializers import (
     TeamMemberReadSerializer,
     TeamMemberUpdateSerializer,
 )
+from apps.accounts.services.audit import log_invitation_expired_once
 from apps.accounts.services.profile import change_password as svc_change_password
 from apps.accounts.services.profile import update_profile_name
 from apps.accounts.services.team import (
@@ -341,6 +342,7 @@ def invite_accept_view(request: HttpRequest, token: str) -> HttpResponse:
     if invitation.is_used:
         return render(request, "accounts/invite_error.html", {"message": ACTV05_COPY})
     if invitation.is_expired:
+        log_invitation_expired_once(invitation=invitation)
         return render(request, "accounts/invite_error.html", {"message": ACTV04_COPY})
 
     organisation = invitation.organisation

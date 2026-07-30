@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.accounts.exceptions import LastManagerError
 from apps.accounts.models import InvitationToken, StaffAccessScope, User
+from apps.accounts.services.audit import InvitationAuditAction, log_invitation_event
 from apps.common.services.email import send_transactional_email
 
 if TYPE_CHECKING:
@@ -80,12 +81,18 @@ def invite_member(
     user.save()
 
     raw_token = secrets.token_urlsafe(32)
-    InvitationToken.objects.create(
+    token = InvitationToken.objects.create(
         organisation=organisation,
         invited_user=user,
         token_hash=InvitationToken.hash_token(raw_token),
         purpose=InvitationToken.Purpose.TEAM_MEMBER,
         invited_for_role=invited_for_role,
+    )
+    log_invitation_event(
+        invitation=token,
+        action=InvitationAuditAction.SENT,
+        actor=invited_by,
+        after_data={"invited_email": email, "role": invited_for_role},
     )
 
     scopes: list[StaffAccessScope] = [
@@ -139,6 +146,13 @@ def activate_team_member(
 
     locked.is_used = True
     locked.save(update_fields=["is_used", "updated_at"])
+
+    log_invitation_event(
+        invitation=locked,
+        action=InvitationAuditAction.ACCEPTED,
+        actor=user,
+        after_data={"user_id": user.pk},
+    )
 
     return user
 
@@ -257,12 +271,18 @@ def resend_team_invitation(*, member: User, resented_by: User) -> str:
     if member.organisation is None:
         raise ValidationError("Member has no associated organisation.")
     raw_token = secrets.token_urlsafe(32)
-    InvitationToken.objects.create(
+    token = InvitationToken.objects.create(
         organisation=member.organisation,
         invited_user=member,
         token_hash=InvitationToken.hash_token(raw_token),
         purpose=InvitationToken.Purpose.TEAM_MEMBER,
         invited_for_role=member.role,
+    )
+    log_invitation_event(
+        invitation=token,
+        action=InvitationAuditAction.RESENT,
+        actor=resented_by,
+        after_data={"invited_email": member.email, "role": member.role},
     )
 
     return raw_token

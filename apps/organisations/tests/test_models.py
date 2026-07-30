@@ -63,13 +63,28 @@ def test_not_deleted_queryset_filter() -> None:
     assert Organisation.objects.not_deleted().count() == 2
 
 
-def test_annotate_store_counts_returns_zero_in_phase_1() -> None:
-    """Phase 1 stub: store counts always zero until Phase 2 adds Store model."""
+def test_annotate_store_counts_zero_when_no_shops() -> None:
+    """SA-056: an org with no shops reports zero total and active."""
     OrganisationFactory()
     org = Organisation.objects.annotate_store_counts().first()
     assert org is not None
     assert org.total_stores == 0
     assert org.active_stores == 0
+
+
+def test_annotate_store_counts_reflects_real_shops() -> None:
+    """SA-056: total_stores counts all shops; active_stores counts only is_active."""
+    from apps.shops.tests.factories import ShopFactory
+
+    org = OrganisationFactory()
+    ShopFactory.create_batch(2, organisation=org, is_active=True)
+    ShopFactory(organisation=org, is_active=False)
+    # Another org's shop must not leak into this org's counts.
+    ShopFactory(organisation=OrganisationFactory())
+
+    annotated = Organisation.objects.annotate_store_counts().get(id=org.id)
+    assert annotated.total_stores == 3
+    assert annotated.active_stores == 2
 
 
 def test_organisation_allow_custom_sync_depth_default_false(db) -> None:

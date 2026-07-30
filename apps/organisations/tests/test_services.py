@@ -98,6 +98,35 @@ def test_update_organisation_modifies_other_fields():
     assert org.address == "New addr"
 
 
+def test_update_organisation_rejects_allocation_below_in_use():
+    """SA-056: decreasing allocation below the active-shop count is blocked."""
+    from django.core.exceptions import ValidationError
+
+    from apps.organisations.services.organisations import update_organisation
+    from apps.shops.tests.factories import ShopFactory
+
+    org = OrganisationFactory(number_of_stores=10)
+    ShopFactory.create_batch(5, organisation=org, is_active=True)
+
+    with pytest.raises(ValidationError):
+        update_organisation(organisation=org, number_of_stores=3)
+    org.refresh_from_db()
+    assert org.number_of_stores == 10  # unchanged
+
+
+def test_update_organisation_allows_allocation_equal_to_in_use():
+    """SA-057: setting allocation exactly equal to the in-use count is allowed."""
+    from apps.organisations.services.organisations import update_organisation
+    from apps.shops.tests.factories import ShopFactory
+
+    org = OrganisationFactory(number_of_stores=10)
+    ShopFactory.create_batch(5, organisation=org, is_active=True)
+
+    update_organisation(organisation=org, number_of_stores=5)
+    org.refresh_from_db()
+    assert org.number_of_stores == 5
+
+
 def test_disable_organisation_sets_status_disabled():
     from apps.organisations.services.organisations import disable_organisation
 
