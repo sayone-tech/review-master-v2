@@ -12,7 +12,6 @@ All container logs ship to **CloudWatch Logs** (`/review-master/prod`, 30-day re
 | `worker` | Celery worker (task execution) |
 | `beat` | Celery Beat (scheduler) |
 | `caddy` | Reverse proxy / TLS (HTTP access log) |
-| `flower` | Flower task monitor |
 | `redis` | Redis |
 
 ### Via AWS Console

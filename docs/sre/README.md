@@ -48,7 +48,6 @@ All commands in the runbooks below assume you have done this setup.
 Internet → Caddy (TLS termination) → Django/Daphne (ASGI)
                                     → Celery Worker (google-sync, ai-enrichment, default queues)
                                     → Celery Beat (scheduled tasks)
-                                    → Flower (task monitor — localhost only)
                                     → Redis (broker + cache + channels)
 RDS PostgreSQL (private subnet, accessible from EC2 SG only)
 ECR → Docker images pulled on deploy

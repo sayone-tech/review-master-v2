@@ -118,19 +118,8 @@ Application errors are captured in Sentry. Check the `SENTRY_DSN` in Secrets Man
 
 ## Celery Task Monitoring
 
-Use Flower for real-time task visibility. Access via SSM port forwarding (see [access.md](access.md)):
-
-```bash
-aws ssm start-session \
-  --target i-0782bee2ff9885151 \
-  --region ap-south-1 \
-  --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["5555"],"localPortNumber":["5555"]}'
-```
-
-Then open `http://localhost:5555`.
-
-Or check from the CLI on the EC2 (run [standard session setup](README.md) first):
+Flower is **not run in production** (dev/staging only — CLAUDE.md §12.7/§22). Use
+`celery inspect` from the CLI on the EC2 (run [standard session setup](README.md) first):
 
 ```bash
 # List active tasks

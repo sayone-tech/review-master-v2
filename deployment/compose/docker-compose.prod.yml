@@ -131,24 +131,10 @@ services:
         awslogs-stream: beat
         awslogs-create-group: "true"
 
-  flower:
-    <<: *app
-    command: celery -A config flower --port=5555 --address=0.0.0.0
-    ports:
-      - "127.0.0.1:5555:5555"
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5555/healthcheck"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    logging:
-      <<: *awslogs
-      options:
-        awslogs-region: ap-south-1
-        awslogs-group: /review-master/prod
-        awslogs-stream: flower
-        awslogs-create-group: "true"
+  # Flower (Celery dashboard) is intentionally NOT run in production — it is a
+  # dev/staging-only tool (CLAUDE.md §12.7, §22) and consumed ~340 MB on the
+  # 4 GB instance. Use `celery -A config inspect` for task visibility instead
+  # (see docs/sre/monitoring.md). The dev stack (docker-compose.yml) keeps it.
 
   redis:
     image: redis:7-alpine

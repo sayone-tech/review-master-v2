@@ -61,20 +61,16 @@ review-master-caddy-1       running
 review-master-web-1         healthy
 review-master-worker-1      healthy
 review-master-beat-1        running
-review-master-flower-1      running
 review-master-redis-1       healthy
 ```
 
-## Access Flower (Celery Task Monitor)
+## Celery Task Monitor
 
-Flower runs on `127.0.0.1:5555` inside the EC2 — not exposed publicly. Use SSM port forwarding:
+Flower is **not run in production** (dev/staging only — CLAUDE.md §12.7/§22; it was
+removed to reclaim ~340 MB on the 4 GB instance). For task visibility on the box,
+run `celery inspect` inside the worker container (see [monitoring.md](monitoring.md)):
 
 ```bash
-aws ssm start-session \
-  --target i-0782bee2ff9885151 \
-  --region ap-south-1 \
-  --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["5555"],"localPortNumber":["5555"]}'
+docker compose -f /opt/review-master/docker-compose.prod.yml \
+  exec worker celery -A config inspect active
 ```
-
-Then open `http://localhost:5555` in your browser.

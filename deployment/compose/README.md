@@ -2,7 +2,7 @@
 
 Files:
 
-- `docker-compose.prod.yml` — six services: caddy, web (Daphne), worker, beat, flower (loopback only), redis. No Postgres — uses RDS.
+- `docker-compose.prod.yml` — five services: caddy, web (Daphne), worker, beat, redis. No Postgres — uses RDS. (Flower is dev/staging-only and not run in prod — CLAUDE.md §12.7/§22.)
 - `.env.example` — template; the populated copy on the box lives at `/etc/review-master/app.env` (mode `0640`, `root:docker`) and is generated from SSM by `../scripts/fetch-ssm-env.sh` (TBD).
 - `../caddy/Caddyfile` — reverse proxy, Let's Encrypt auto-TLS, security headers.
 
@@ -16,10 +16,7 @@ Files:
   docker compose run --rm web python manage.py migrate
   ```
 - **Static files** are uploaded to S3 in CI (`collectstatic --no-input` writing to S3 via `django-storages`). They are NOT served from the box.
-- **Flower** is published only on `127.0.0.1:5555`. Reach it via SSH tunnel:
-  ```
-  ssh -L 5555:localhost:5555 ec2-user@<host>
-  ```
+- **Flower** is NOT run in production (dev/staging only — CLAUDE.md §12.7/§22). For task visibility on the box use `docker compose ... exec worker celery -A config inspect active` (see docs/sre/monitoring.md).
 - **Redis** persists to a Docker volume (`redis_data`) with AOF on. Capped at 256 MB with `allkeys-lru` eviction so it can't OOM the box. Celery broker / result backend share the same Redis instance using different DB indexes (handled in Django settings).
 
 ## First-deploy commands on the EC2 box

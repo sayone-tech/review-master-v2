@@ -37,8 +37,9 @@ The box runs **all six containers** via Docker Compose:
 | `web` | Daphne running `config.asgi:application` (HTTP + WebSockets) |
 | `worker` | Celery worker — queues `google-sync,ai-enrichment,default`, `--concurrency=2` |
 | `beat` | Celery Beat (scheduled tasks). **Exactly one instance — non-negotiable.** |
-| `flower` | Celery monitoring UI, bound to `127.0.0.1:5555`, **never published**. SSH-tunnel access only. |
 | `redis` | Redis 7 (cache, throttling, sessions, Celery broker/backend, Channels layer) |
+
+> `flower` (Celery dashboard) is **not run in production** — dev/staging only (CLAUDE.md §12.7/§22). Use `celery -A config inspect` for task visibility.
 
 Why a single box: the workload is genuinely tiny (60 stores/day, ~5–10 reviews each). ECS Fargate + ALB + ElastiCache would multiply cost ~3× for no functional gain at this scale.
 
@@ -88,7 +89,7 @@ EC2 instance profile permissions (see `iam.tf` in the terraform repo at [`stacks
 ### 2.5 Container registry — ECR (private)
 
 - One repo: `review-master/app` (see `ecr.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/)).
-- Single image, multiple Compose `command:` entries select web/worker/beat/flower behaviour.
+- Single image, multiple Compose `command:` entries select web/worker/beat behaviour.
 - `scan_on_push = true`, AES256 encryption at rest.
 - **Lifecycle policy:** untagged images expire after 1 day; keep at most 10 tagged images.
 - Pulls from EC2 in same region: free.
@@ -208,7 +209,7 @@ deployment/                         # in THIS repo (review-master)
 │   └── Caddyfile                   # reverse proxy + Let's Encrypt config
 ├── compose/
 │   ├── README.md
-│   └── docker-compose.prod.yml     # web, worker, beat, flower, redis, caddy
+│   └── docker-compose.prod.yml     # web, worker, beat, redis, caddy
 ├── scripts/
 │   ├── user-data.sh                # EC2 first-boot: Docker, Compose, ECR login, initial up
 │   ├── load-secrets.sh             # Fetches Secrets Manager JSON → /etc/review-master.env
