@@ -499,6 +499,21 @@ def fetch_and_persist_reviews(
                         },
                     )
 
+                # Early-terminate a date-bounded sync (start_date set): reviews are
+                # returned updateTime-descending and updateTime >= createTime, so once
+                # a page's OLDEST updateTime is before the floor, no later review can
+                # fall inside the window. Stops paginating the shop's entire history
+                # when only a recent window is wanted (huge speedup — the "40 fetched,
+                # loader runs forever" case). ALL_TIME syncs (start_date None) never
+                # early-terminate. A review missing updateTime is treated as recent
+                # (defaults to now) so a data gap never stops the sweep prematurely.
+                if start_date is not None and page_reviews:
+                    oldest_update = min(
+                        (_parse_dt(r.get("updateTime")) or dj_timezone.now()) for r in page_reviews
+                    )
+                    if oldest_update < start_date:
+                        break
+
                 next_token = page.get("nextPageToken", "") or ""
                 if not next_token:
                     break

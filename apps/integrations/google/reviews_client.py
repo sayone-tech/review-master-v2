@@ -67,7 +67,12 @@ def list_reviews(
         GoogleUnreachableError: 5xx, transport error, or other 4xx
     """
     url = _build_url(account_name, location_name)
-    params: dict[str, Any] = {"pageSize": min(page_size, DEFAULT_PAGE_SIZE)}
+    # orderBy=updateTime desc (GBP default, set explicitly): guarantees newest-first
+    # so the sync can stop paginating once reviews fall before the sync-depth floor.
+    params: dict[str, Any] = {
+        "pageSize": min(page_size, DEFAULT_PAGE_SIZE),
+        "orderBy": "updateTime desc",
+    }
     if page_token:
         params["pageToken"] = page_token
     t0 = time.monotonic()

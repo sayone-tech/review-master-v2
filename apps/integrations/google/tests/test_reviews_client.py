@@ -120,6 +120,24 @@ class TestListReviews:
             )
         assert "pageToken=next-tok" in captured["url"]
 
+    def test_orders_by_update_time_desc(self) -> None:
+        # Newest-first ordering lets the sync early-terminate at the date floor.
+        captured = {}
+
+        def transport(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            return httpx.Response(200, json={"reviews": []})
+
+        client = httpx.Client(transport=httpx.MockTransport(transport))
+        with patch("apps.integrations.google.reviews_client.httpx.get", side_effect=client.get):
+            list_reviews(
+                access_token="t",
+                account_name="accounts/123",
+                location_name="accounts/123/locations/456",
+            )
+        assert "orderBy=updateTime" in captured["url"]
+        assert "desc" in captured["url"]
+
 
 class TestPostReply:
     def test_success_returns_payload(self) -> None:
