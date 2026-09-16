@@ -96,6 +96,36 @@ def test_enrich_review_task_calls_service() -> None:
     mock_service.assert_called_once_with(review_id=review.pk)
 
 
+def test_enrich_review_task_transient_logs_warning_not_error(caplog) -> None:
+    """PYTHON-DJANGO-1D: a retriable OpenAITransientError (rate-limit backpressure)
+    logs at WARNING, not ERROR — so Sentry's logging integration doesn't raise a
+    (false) issue on every busy sync. Celery still retries; the sync completes."""
+    import logging
+
+    from apps.integrations.openai.exceptions import OpenAITransientError
+    from apps.reviews.tests.factories import ReviewFactory
+
+    review = ReviewFactory()
+    with (
+        patch(
+            "apps.reviews.services.enrichment.enrich_review",
+            side_effect=OpenAITransientError("bucket depleted; Celery will retry"),
+        ),
+        caplog.at_level(logging.WARNING, logger="apps.reviews.tasks"),
+        pytest.raises(OpenAITransientError),
+    ):
+        tasks.enrich_review_task(review.pk)
+
+    assert any(
+        r.levelno == logging.WARNING and "enrich_review_task.transient" in r.getMessage()
+        for r in caplog.records
+    ), "retriable transient must log at WARNING"
+    assert not any(
+        r.levelno == logging.ERROR and "enrich_review_task.error" in r.getMessage()
+        for r in caplog.records
+    ), "retriable transient must NOT log at ERROR (would create Sentry noise)"
+
+
 def test_retry_failed_enrichments_task_enqueues_failed_reviews() -> None:
     """ENRCH-06: only FAILED + version<3 + not soft-deleted are re-enqueued."""
     from django.utils import timezone

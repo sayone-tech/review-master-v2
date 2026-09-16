@@ -215,6 +215,20 @@ def enrich_review_task(self: Any, review_id: int) -> None:
     )
     try:
         enrich_review(review_id=review_id)
+    except OpenAITransientError as exc:
+        # Expected, retriable backpressure (global OpenAI rate-limit depleted, or
+        # OpenAI 429/5xx). Celery autoretry handles it and the sync still completes.
+        # Log at WARNING — not ERROR — so Sentry's logging integration doesn't raise
+        # an issue on every busy sync (PYTHON-DJANGO-1D was pure rate-limit noise).
+        logger.warning(
+            "enrich_review_task.transient task_id=%s review_id=%s attempt=%s max_retries=%s error=%r",
+            task_id,
+            review_id,
+            attempt,
+            self.max_retries,
+            exc,
+        )
+        raise
     except Exception as exc:
         logger.error(
             "enrich_review_task.error task_id=%s review_id=%s attempt=%s max_retries=%s error=%r",
