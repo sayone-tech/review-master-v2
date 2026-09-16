@@ -506,6 +506,27 @@ def enrich_review(*, review_id: int, skip_rate_limit_guard: bool = False) -> Non
                 )
                 _already_success = True
             else:
+                # SYNC-REL: gate on the global OpenAI rate limit BEFORE claiming
+                # the review IN_PROGRESS. Only comment-bearing reviews call OpenAI
+                # (rating-only reviews are enriched locally below), so the guard is
+                # gated on a non-empty comment. Raising here — while the review is
+                # still PENDING — lets Celery autoretry re-enter cleanly. Previously
+                # this check ran AFTER the IN_PROGRESS flip, so a rate-limited retry
+                # hit the IN_PROGRESS idempotency skip and the review was stranded
+                # non-terminal, hanging the finalising gate (sync.complete never
+                # fires) — the stuck-initial-sync bug. Doing it here also avoids a
+                # wasted moderation call per rate-limited attempt.
+                if not skip_rate_limit_guard and (review.comment or "").strip():
+                    org_id = review.organisation_id
+                    if openai_token_bucket_depleted(
+                        organisation_id=org_id,
+                        max_calls=settings.OPENAI_GLOBAL_RATE_LIMIT,
+                    ):
+                        raise OpenAITransientError(
+                            f"openai_global_rate_limit: bucket depleted for org "
+                            f"{org_id}; Celery will retry"
+                        )
+                    increment_openai_token_bucket(organisation_id=org_id)
                 review.enrichment_status = Review.EnrichmentStatus.IN_PROGRESS
                 review.enrichment_attempted_at = dj_timezone.now()
                 review.save(update_fields=["enrichment_status", "enrichment_attempted_at"])
@@ -561,22 +582,11 @@ def enrich_review(*, review_id: int, skip_rate_limit_guard: bool = False) -> Non
         )
 
         # Phase 23 (D-08) — global cross-worker OpenAI token-bucket guard.
-        # Bulk / task path (skip_rate_limit_guard=False): if the per-org rolling-minute
-        # counter is at/above OPENAI_GLOBAL_RATE_LIMIT, raise OpenAITransientError so
-        # Celery autoretry re-queues with exponential backoff (RESEARCH Pattern 1).
-        # Seed-loop path (skip_rate_limit_guard=True): the caller already pre-acquired a
-        # token via _wait_for_openai_token, so we skip BOTH the check AND the increment
-        # to avoid double-counting and to prevent crashing the seed loop (Blocker 2).
-        if not skip_rate_limit_guard:
-            org_id = review.organisation_id
-            if openai_token_bucket_depleted(
-                organisation_id=org_id,
-                max_calls=settings.OPENAI_GLOBAL_RATE_LIMIT,
-            ):
-                raise OpenAITransientError(
-                    f"openai_global_rate_limit: bucket depleted for org {org_id}; Celery will retry"
-                )
-            increment_openai_token_bucket(organisation_id=org_id)
+        # The depletion check + increment now run BEFORE the PENDING -> IN_PROGRESS
+        # transition above (SYNC-REL), so a rate-limited retry re-enters as PENDING
+        # instead of stranding the review IN_PROGRESS. Seed-loop path
+        # (skip_rate_limit_guard=True) still bypasses the guard entirely — the caller
+        # pre-acquired a token via _wait_for_openai_token.
 
         # OpenAI call OUTSIDE the transaction (RESEARCH.md anti-pattern).
         try:

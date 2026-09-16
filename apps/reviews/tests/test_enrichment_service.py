@@ -180,6 +180,79 @@ def test_idempotency_skips_when_status_in_progress() -> None:
 
 
 @pytest.mark.django_db
+def test_rate_limit_depleted_leaves_review_pending_not_in_progress() -> None:
+    """SYNC-REL: a depleted global OpenAI bucket raises OpenAITransientError
+    BEFORE the review is claimed IN_PROGRESS, leaving it PENDING (not stranded).
+
+    The stuck-initial-sync bug was: the guard ran AFTER the IN_PROGRESS flip, so
+    the Celery retry hit the IN_PROGRESS idempotency skip and the review never
+    reached a terminal state — blocking the finalising gate forever. The gate
+    runs before moderation too, so no moderation call is wasted.
+    """
+    review = ReviewFactory(
+        enrichment_status=Review.EnrichmentStatus.PENDING, comment="Great coffee!"
+    )
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
+            return_value=True,
+        ),
+        patch("apps.reviews.services.enrichment.moderate_input") as mock_moderate,
+        patch("apps.reviews.services.enrichment.call_openai_enrichment") as mock_call,
+        pytest.raises(OpenAITransientError),
+    ):
+        enrich_review(review_id=review.pk)
+    mock_call.assert_not_called()
+    mock_moderate.assert_not_called()  # gate runs before moderation — no wasted call
+    review.refresh_from_db()
+    assert review.enrichment_status == Review.EnrichmentStatus.PENDING
+
+
+@pytest.mark.django_db
+def test_retry_after_rate_limit_frees_enriches_to_success() -> None:
+    """SYNC-REL: after a rate-limited attempt leaves the review PENDING, a retry
+    with the bucket free enriches to SUCCESS — proving the review is not stranded
+    IN_PROGRESS (which would make the retry idempotency-skip and never enrich)."""
+    review = ReviewFactory(enrichment_status=Review.EnrichmentStatus.PENDING)
+
+    # Attempt 1: bucket depleted → raises, review released back to PENDING.
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.openai_token_bucket_depleted",
+            return_value=True,
+        ),
+        patch("apps.reviews.services.enrichment.call_openai_enrichment"),
+        pytest.raises(OpenAITransientError),
+    ):
+        enrich_review(review_id=review.pk)
+    review.refresh_from_db()
+    assert review.enrichment_status == Review.EnrichmentStatus.PENDING
+
+    # Attempt 2 (Celery retry): bucket free → enriches successfully.
+    with (
+        patch(
+            "apps.reviews.services.enrichment.distributed_lock",
+            side_effect=lambda *_a, **_kw: _lock_acquired(True),
+        ),
+        patch(
+            "apps.reviews.services.enrichment.call_openai_enrichment",
+            return_value=(_build_result(), _usage()),
+        ),
+    ):
+        enrich_review(review_id=review.pk)
+    review.refresh_from_db()
+    assert review.enrichment_status == Review.EnrichmentStatus.SUCCESS
+
+
+@pytest.mark.django_db
 def test_status_transitions_pending_to_success() -> None:
     """ENRCH-03: PENDING -> IN_PROGRESS -> SUCCESS transition path."""
     review = ReviewFactory(
