@@ -1076,3 +1076,39 @@ def test_sync_depth_uses_shop_depth_when_custom_flag_on(patched_dependencies) ->
     with patch.object(sync_mod, "list_reviews", return_value=page):
         sync_mod.run_initial_backfill(shop_id=shop.pk)
     assert Review.objects.filter(shop=shop, google_review_id="g-old").exists()
+
+
+def test_fetch_early_terminates_past_date_floor(patched_dependencies) -> None:
+    """Date-bounded sync stops paginating once a page is entirely older than the
+    floor (reviews are updateTime-desc) instead of fetching the whole history."""
+    from datetime import UTC, datetime, timedelta
+
+    shop = _make_shop()  # flag off -> 1-year floor
+    now = datetime.now(UTC)
+    recent = (now - timedelta(days=30)).isoformat()
+    old = (now - timedelta(days=800)).isoformat()  # updateTime well past the 1yr floor
+    page1 = {
+        "reviews": [{**_api_review("g-recent"), "createTime": recent, "updateTime": recent}],
+        "totalReviewCount": 5000,
+        "nextPageToken": "p2",
+    }
+    page2 = {
+        "reviews": [{**_api_review("g-old"), "createTime": old, "updateTime": old}],
+        "totalReviewCount": 5000,
+        "nextPageToken": "p3",
+    }
+
+    def _fake_list_reviews(**kwargs):  # type: ignore[no-untyped-def]
+        token = kwargs.get("page_token", "")
+        if token == "":
+            return page1
+        if token == "p2":
+            return page2
+        raise AssertionError(f"should have early-terminated, not fetched page_token={token!r}")
+
+    with patch.object(sync_mod, "list_reviews", side_effect=_fake_list_reviews) as mock_lr:
+        sync_mod.run_initial_backfill(shop_id=shop.pk)
+
+    assert mock_lr.call_count == 2  # page1 + page2, then stop (page2 all older than floor)
+    assert Review.objects.filter(shop=shop, google_review_id="g-recent").exists()
+    assert not Review.objects.filter(shop=shop, google_review_id="g-old").exists()
