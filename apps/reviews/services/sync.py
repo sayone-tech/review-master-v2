@@ -289,13 +289,22 @@ def fetch_and_persist_reviews(
     Returns a summary dict {"fetched": int, "soft_deleted": int, "duration_seconds": float}.
     """
     shop = Shop.objects.select_related("organisation").get(pk=shop_id)
-    # Phase 15 — derive date floor for initial backfill from shop.sync_depth.
+    # Phase 15 — derive date floor for the backfill from the effective sync depth.
     # Computed HERE (at execution time, not enqueue time) using the shop instance
     # already fetched above — no second DB query (RESEARCH §Pitfall 1, §Pitfall 2).
+    # When the org has NOT enabled custom sync depth, the shop's stored sync_depth
+    # is ignored and the platform default of ONE_YEAR applies (1 year is enough to
+    # validate). When enabled, the shop's own sync_depth wins. shop.organisation is
+    # select_related above, so this reads no extra query.
     if start_date is None:
-        if shop.sync_depth == Shop.SyncDepth.ONE_YEAR:
+        effective_depth = (
+            shop.sync_depth
+            if shop.organisation.allow_custom_sync_depth
+            else Shop.SyncDepth.ONE_YEAR
+        )
+        if effective_depth == Shop.SyncDepth.ONE_YEAR:
             start_date = dj_timezone.now() - timedelta(days=365)
-        elif shop.sync_depth == Shop.SyncDepth.TWO_YEARS:
+        elif effective_depth == Shop.SyncDepth.TWO_YEARS:
             start_date = dj_timezone.now() - timedelta(days=730)
         # ALL_TIME → start_date stays None (no filter)
     if shop.connection_status == Shop.ConnectionStatus.EXPIRED:
