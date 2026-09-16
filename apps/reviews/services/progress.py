@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import UTC, datetime
 from typing import Any
 
 from django_redis import get_redis_connection
@@ -82,6 +83,50 @@ def read_progress_snapshot(*, shop_id: int) -> dict[str, Any] | None:
         return loaded if isinstance(loaded, dict) else None
     except (TypeError, ValueError):
         return None
+
+
+_IN_PROGRESS_STATUSES = frozenset({"fetching", "enriching", "finalising"})
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def find_stale_in_progress_shop_ids(*, stale_after_seconds: int) -> list[int]:
+    """Shop ids whose sync snapshot is still in progress but has not updated in
+    ``stale_after_seconds`` — candidates for a finalise re-dispatch (recovery sweep).
+
+    A lost finalise task (e.g. a worker restart mid-sync) leaves the snapshot frozen
+    at an in-progress status forever, and nothing else re-triggers finalise, so the
+    sync hangs at "finalising". This scans the ``sync:progress:*`` snapshots to find
+    those; ``recover_stuck_syncs`` re-dispatches finalise for each.
+    """
+    conn = get_redis_connection("default")
+    now = datetime.now(UTC)
+    stale: list[int] = []
+    for key in conn.scan_iter(match=PROGRESS_KEY_TMPL.format(shop_id="*"), count=100):
+        raw = conn.get(key)
+        if raw is None:
+            continue
+        try:
+            snap = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(snap, dict) or snap.get("status") not in _IN_PROGRESS_STATUSES:
+            continue
+        last_update = _parse_iso(snap.get("last_update_at"))
+        shop_id = snap.get("shop_id")
+        if last_update is None or not isinstance(shop_id, int):
+            continue
+        if (now - last_update).total_seconds() >= stale_after_seconds:
+            stale.append(shop_id)
+    return stale
 
 
 def clear_progress_snapshot(*, shop_id: int) -> None:

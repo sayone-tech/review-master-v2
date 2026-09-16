@@ -827,3 +827,41 @@ def run_incremental_sync(*, shop_id: int) -> dict[str, Any]:
     continue to auto-add (no approval gate).
     """
     return fetch_and_persist_reviews(shop_id=shop_id, trigger="incremental")
+
+
+def recover_stuck_syncs(*, stale_after_seconds: int) -> int:
+    """Re-dispatch finalise for syncs stuck in progress (SYNC-REL — recovery sweep).
+
+    finalize_canonical_tags_task is dispatched only once, by the initial backfill,
+    as a single self-rescheduling countdown task. If that chain is lost (e.g. a
+    worker restart mid-sync), nothing re-triggers it and the sync hangs at
+    "finalising" forever. This finds stale in-progress snapshots and re-dispatches
+    finalise for each. Idempotent: the finalise gate re-checks review state
+    (reschedules if still enriching, completes once all terminal) and the per-org
+    lock prevents concurrent runs. Returns the number of shops re-dispatched.
+    """
+    from apps.reviews.services.progress import find_stale_in_progress_shop_ids
+    from apps.reviews.tasks import finalize_canonical_tags_task
+
+    shop_ids = find_stale_in_progress_shop_ids(stale_after_seconds=stale_after_seconds)
+    if not shop_ids:
+        return 0
+    # One query for the shop -> org mapping (no N+1).
+    org_by_shop = dict(Shop.objects.filter(pk__in=shop_ids).values_list("pk", "organisation_id"))
+    count = 0
+    for shop_id in shop_ids:
+        org_id = org_by_shop.get(shop_id)
+        if org_id is None:
+            continue
+        logger.warning(
+            "recover_stuck_syncs.redispatch shop_id=%s organisation_id=%s stale_after=%ss",
+            shop_id,
+            org_id,
+            stale_after_seconds,
+        )
+        finalize_canonical_tags_task.apply_async(
+            kwargs={"organisation_id": org_id, "shop_id": shop_id, "attempt": 1},
+            queue="tag-merge",
+        )
+        count += 1
+    return count

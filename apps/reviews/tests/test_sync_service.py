@@ -985,3 +985,42 @@ def test_incremental_sync_two_years_filter(patched_dependencies) -> None:
     assert Review.objects.filter(shop=shop).count() == 0, (
         "TWO_YEARS incremental sync must exclude reviews older than 730 days"
     )
+
+
+def test_recover_stuck_syncs_redispatches_finalise(db) -> None:
+    """SYNC-REL: re-dispatches finalise for stale in-progress shops (lost chain)."""
+    from apps.reviews.services.sync import recover_stuck_syncs
+
+    shop = _make_shop()
+    with (
+        patch(
+            "apps.reviews.services.progress.find_stale_in_progress_shop_ids",
+            return_value=[shop.pk],
+        ),
+        patch("apps.reviews.tasks.finalize_canonical_tags_task.apply_async") as mock_dispatch,
+    ):
+        count = recover_stuck_syncs(stale_after_seconds=900)
+
+    assert count == 1
+    mock_dispatch.assert_called_once()
+    call_kwargs = mock_dispatch.call_args.kwargs
+    assert call_kwargs["queue"] == "tag-merge"
+    assert call_kwargs["kwargs"] == {
+        "organisation_id": shop.organisation_id,
+        "shop_id": shop.pk,
+        "attempt": 1,
+    }
+
+
+def test_recover_stuck_syncs_noop_when_none_stale(db) -> None:
+    from apps.reviews.services.sync import recover_stuck_syncs
+
+    with (
+        patch(
+            "apps.reviews.services.progress.find_stale_in_progress_shop_ids",
+            return_value=[],
+        ),
+        patch("apps.reviews.tasks.finalize_canonical_tags_task.apply_async") as mock_dispatch,
+    ):
+        assert recover_stuck_syncs(stale_after_seconds=900) == 0
+    mock_dispatch.assert_not_called()
