@@ -9,6 +9,7 @@ import pytest
 
 from apps.integrations.google.exceptions import (
     GoogleAuthError,
+    GoogleLocationNotFoundError,
     GoogleQuotaError,
     GoogleReplyError,
     GoogleUnreachableError,
@@ -67,6 +68,35 @@ class TestListReviews:
 
     def test_500_raises_unreachable(self) -> None:
         with _patch_httpx_get(_mock_get(500, {})), pytest.raises(GoogleUnreachableError):
+            list_reviews(
+                access_token="t",
+                account_name="accounts/123",
+                location_name="accounts/123/locations/456",
+            )
+
+    def test_404_raises_location_not_found(self) -> None:
+        # A removed/unlinked location must be permanent (not GoogleUnreachableError,
+        # which is retried) so the caller halts instead of hammering every sync.
+        body = {
+            "error": {
+                "code": 404,
+                "message": "Requested entity was not found.",
+                "status": "NOT_FOUND",
+            }
+        }
+        with (
+            _patch_httpx_get(_mock_get(404, body)),
+            pytest.raises(GoogleLocationNotFoundError),
+        ):
+            list_reviews(
+                access_token="t",
+                account_name="accounts/123",
+                location_name="accounts/123/locations/456",
+            )
+
+    def test_400_still_raises_unreachable(self) -> None:
+        # Other 4xx (not 404) keep the existing transient behaviour.
+        with _patch_httpx_get(_mock_get(400, {})), pytest.raises(GoogleUnreachableError):
             list_reviews(
                 access_token="t",
                 account_name="accounts/123",

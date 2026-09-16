@@ -25,6 +25,15 @@ class GoogleQuotaError(Exception):
     """Raised when GBP returns 403 quota_exceeded — caller should retry with backoff."""
 
 
+class GoogleLocationNotFoundError(Exception):
+    """Raised when GBP returns 404 NOT_FOUND for a location during review fetch.
+
+    Permanent (not transient): the location was removed/unlinked from the Google
+    account. The caller must mark the shop's connection as errored and stop
+    retrying — do NOT treat as GoogleUnreachableError (which is retried).
+    """
+
+
 class GoogleReplyError(Exception):
     """Raised when posting a reply fails with a non-auth 4xx (e.g. 400 invalid comment)."""
 

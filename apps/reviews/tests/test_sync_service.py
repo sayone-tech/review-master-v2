@@ -159,6 +159,20 @@ def test_401_invalid_grant_sets_shop_expired(patched_dependencies) -> None:
     assert result.get("skipped") == "invalid_grant"
 
 
+def test_404_location_not_found_sets_shop_error_and_halts(patched_dependencies) -> None:
+    """PYTHON-DJANGO-1C: a removed Google location (404) marks the shop ERROR and
+    halts (returns skipped) instead of raising — so it stops retrying every sync
+    (previously a 404 was a transient GoogleUnreachableError, retried 168x)."""
+    from apps.integrations.google.exceptions import GoogleLocationNotFoundError
+
+    shop = _make_shop()
+    with patch.object(sync_mod, "list_reviews", side_effect=GoogleLocationNotFoundError()):
+        result = sync_mod.run_initial_backfill(shop_id=shop.pk)
+    shop.refresh_from_db()
+    assert shop.connection_status == Shop.ConnectionStatus.ERROR
+    assert result.get("skipped") == "location_not_found"
+
+
 def test_lock_not_acquired_returns_skipped(patched_dependencies) -> None:
     @contextlib.contextmanager
     def _lock(_key: str, timeout: int = 300):

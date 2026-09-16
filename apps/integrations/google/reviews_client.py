@@ -20,6 +20,7 @@ import httpx
 
 from apps.integrations.google.exceptions import (
     GoogleAuthError,
+    GoogleLocationNotFoundError,
     GoogleQuotaError,
     GoogleReplyError,
     GoogleUnreachableError,
@@ -62,7 +63,8 @@ def list_reviews(
     Raises:
         GoogleAuthError(reason="invalid_grant"): 401
         GoogleQuotaError: 403
-        GoogleUnreachableError: 5xx or transport error
+        GoogleLocationNotFoundError: 404 (location removed/unlinked — permanent)
+        GoogleUnreachableError: 5xx, transport error, or other 4xx
     """
     url = _build_url(account_name, location_name)
     params: dict[str, Any] = {"pageSize": min(page_size, DEFAULT_PAGE_SIZE)}
@@ -113,6 +115,19 @@ def list_reviews(
             resp.text[:200],
         )
         raise GoogleUnreachableError()
+    if resp.status_code == 404:
+        # Permanent: the location was removed/unlinked from the Google account.
+        # Must NOT be a GoogleUnreachableError (retried) — that hammered a removed
+        # location every sync (PYTHON-DJANGO-1C, 168 retries). The caller marks the
+        # shop connection errored and halts.
+        logger.warning(
+            "google_reviews_location_not_found location=%s status=%s latency_ms=%s body=%s",
+            location_name,
+            resp.status_code,
+            latency_ms,
+            resp.text[:200],
+        )
+        raise GoogleLocationNotFoundError()
     if resp.status_code >= 400:
         logger.error(
             "google_reviews_client_error location=%s status=%s latency_ms=%s body=%s",
