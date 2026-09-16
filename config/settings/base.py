@@ -205,10 +205,12 @@ OPENAI_GLOBAL_RATE_LIMIT = env.int("OPENAI_GLOBAL_RATE_LIMIT", default=500)
 # Phase 27 — sync progress snapshot endpoint throttle + finalise completion gate
 # SYNC_PROGRESS_THROTTLE_RATE: max polls per minute per user (single Redis GET, cheap).
 # FINALISE_GATE_COUNTDOWN_SECONDS: short countdown for finalize_canonical_tags_task self-reschedule
-#   while bulk enrichment is still in progress (D-03).
+#   while bulk enrichment is still in progress (D-03). Also the worst-case delay between the
+#   last review enriching and sync.complete firing — kept low so the progress modal / topbar
+#   indicator don't appear stuck on "Analysing" after enrichment finishes.
 # FINALISE_GATE_MAX_ATTEMPTS: cap on self-reschedule loop — after this, proceed regardless (D-03).
 SYNC_PROGRESS_THROTTLE_RATE = env("SYNC_PROGRESS_THROTTLE_RATE", default="120/minute")
-FINALISE_GATE_COUNTDOWN_SECONDS = env.int("FINALISE_GATE_COUNTDOWN_SECONDS", default=20)
+FINALISE_GATE_COUNTDOWN_SECONDS = env.int("FINALISE_GATE_COUNTDOWN_SECONDS", default=5)
 FINALISE_GATE_MAX_ATTEMPTS = env.int("FINALISE_GATE_MAX_ATTEMPTS", default=30)
 
 # Phase 24 — polarity auto-reclassification (POL-02)
