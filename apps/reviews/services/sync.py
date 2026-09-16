@@ -34,6 +34,7 @@ from apps.common.locks import distributed_lock
 from apps.common.models import AuditLog
 from apps.integrations.google.exceptions import (
     GoogleAuthError,
+    GoogleLocationNotFoundError,
     GoogleQuotaError,
     GoogleUnreachableError,
 )
@@ -544,6 +545,56 @@ def fetch_and_persist_reviews(
                 "fetched": total_persisted,
                 "soft_deleted": soft_deleted,
                 "duration_seconds": duration,
+            }
+        except GoogleLocationNotFoundError:
+            # Permanent (404 NOT_FOUND): the Google location was removed/unlinked
+            # from the account. Mark the connection errored and HALT (return, no
+            # re-raise) so we stop retrying every sync — unlike the transient
+            # branch below, which re-raises for Celery backoff. Fixes the removed
+            # location that was retried 168x as "unreachable" (PYTHON-DJANGO-1C).
+            Shop.objects.filter(pk=shop_id).update(connection_status=Shop.ConnectionStatus.ERROR)
+            logger.warning(
+                "google_sync_location_not_found shop_id=%s organisation_id=%s "
+                "trigger=%s location=%s",
+                shop_id,
+                shop.organisation_id,
+                trigger,
+                shop.google_location_name,
+            )
+            _location_removed_msg = (
+                "This Google location was not found — it may have been removed "
+                "from the Google account. Reconnect the shop to resume syncing."
+            )
+            if trigger == "initial":
+                write_progress_snapshot(
+                    shop_id=shop_id,
+                    data={
+                        "shop_id": shop_id,
+                        "status": "failed",
+                        "error_code": "location_not_found",
+                        "error_message": _location_removed_msg,
+                    },
+                )
+                emit_progress_event(
+                    shop_id=shop_id,
+                    payload={
+                        "type": "sync.error",
+                        "shop_id": shop_id,
+                        "stage": "fetch",
+                        "error_code": "location_not_found",
+                        "error_message": _location_removed_msg,
+                    },
+                )
+            _audit(
+                shop=shop,
+                action="sync.failed",
+                after={"trigger": trigger, "error": "location_not_found"},
+            )
+            return {
+                "fetched": 0,
+                "soft_deleted": 0,
+                "duration_seconds": 0,
+                "skipped": "location_not_found",
             }
         except (GoogleQuotaError, GoogleUnreachableError) as exc:
             error_code = "quota_exceeded" if isinstance(exc, GoogleQuotaError) else "unreachable"
