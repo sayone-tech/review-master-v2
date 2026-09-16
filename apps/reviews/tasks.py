@@ -438,3 +438,16 @@ def retry_failed_enrichments_task() -> int:
         len(ids),
     )
     return len(ids)
+
+
+@shared_task  # type: ignore[misc]
+def recover_stuck_syncs_task() -> int:
+    """Beat: recover syncs stuck in progress (lost finalise chain) by re-dispatching
+    finalise. Thin wrapper around recover_stuck_syncs (§5). Returns the count."""
+    from apps.reviews.services.sync import recover_stuck_syncs
+
+    stale_seconds: int = getattr(settings, "STUCK_SYNC_RECOVERY_STALE_SECONDS", 900)
+    count = recover_stuck_syncs(stale_after_seconds=stale_seconds)
+    if count:
+        logger.warning("recover_stuck_syncs_task.recovered count=%s", count)
+    return count

@@ -130,6 +130,7 @@ CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.merge_canonical_tags_task": {"queue": "tag-merge"},
     # Phase 24 POL-02 — weekly polarity reclassification; low-frequency, low-concurrency.
     "apps.reviews.tasks.reclassify_polarity_task": {"queue": "default"},
+    "apps.reviews.tasks.recover_stuck_syncs_task": {"queue": "default"},
     "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
@@ -212,6 +213,11 @@ OPENAI_GLOBAL_RATE_LIMIT = env.int("OPENAI_GLOBAL_RATE_LIMIT", default=500)
 SYNC_PROGRESS_THROTTLE_RATE = env("SYNC_PROGRESS_THROTTLE_RATE", default="120/minute")
 FINALISE_GATE_COUNTDOWN_SECONDS = env.int("FINALISE_GATE_COUNTDOWN_SECONDS", default=5)
 FINALISE_GATE_MAX_ATTEMPTS = env.int("FINALISE_GATE_MAX_ATTEMPTS", default=30)
+# STUCK_SYNC_RECOVERY_STALE_SECONDS: recover_stuck_syncs_task (Beat, every 10 min)
+#   re-dispatches finalise for in-progress sync snapshots not updated within this
+#   window — recovers a lost finalise chain (e.g. worker restart mid-sync) that would
+#   otherwise leave the sync hung at "finalising" forever.
+STUCK_SYNC_RECOVERY_STALE_SECONDS = env.int("STUCK_SYNC_RECOVERY_STALE_SECONDS", default=900)
 
 # Phase 24 — polarity auto-reclassification (POL-02)
 # POLARITY_RECLASSIFY_THRESHOLD: opposite-polarity fraction that triggers flip to mixed.

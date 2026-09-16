@@ -393,3 +393,11 @@ def test_emit_enrichment_progress_does_not_emit_sync_complete_when_enriched_gte_
     assert "sync.complete" not in emitted_types, (
         "sync.complete must not be emitted by _emit_enrichment_progress (moved to finalise.py)"
     )
+
+
+def test_recover_stuck_syncs_task_calls_service() -> None:
+    """Thin wrapper — delegates to recover_stuck_syncs and returns the count."""
+    with patch("apps.reviews.services.sync.recover_stuck_syncs", return_value=2) as mock_svc:
+        result = tasks.recover_stuck_syncs_task()
+    assert result == 2
+    mock_svc.assert_called_once()

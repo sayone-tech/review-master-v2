@@ -33,6 +33,13 @@ class _FakeRedis:
     def get(self, key: str) -> bytes | None:
         return self.store.get(key)
 
+    def scan_iter(self, match: str | None = None, count: int | None = None):  # type: ignore[no-untyped-def]
+        import fnmatch
+
+        for key in list(self.store.keys()):
+            if match is None or fnmatch.fnmatch(key, match):
+                yield key
+
     def delete(self, *keys: str) -> int:
         count = 0
         for key in keys:
@@ -111,6 +118,34 @@ def test_read_progress_snapshot_returns_dict(fake_redis: _FakeRedis) -> None:
 
 def test_read_progress_snapshot_missing_returns_none(fake_redis: _FakeRedis) -> None:
     assert read_progress_snapshot(shop_id=999) is None
+
+
+def test_find_stale_in_progress_shop_ids(fake_redis: _FakeRedis) -> None:
+    """SYNC-REL: returns only in-progress snapshots stale beyond the threshold —
+    excludes fresh ones and terminal (success/failed) statuses."""
+    from datetime import UTC, datetime, timedelta
+
+    from apps.reviews.services.progress import find_stale_in_progress_shop_ids
+
+    now = datetime.now(UTC)
+    stale_ts = (now - timedelta(minutes=30)).isoformat()
+    fresh_ts = now.isoformat()
+
+    write_progress_snapshot(
+        shop_id=1, data={"shop_id": 1, "status": "enriching", "last_update_at": stale_ts}
+    )  # stale + in-progress -> recovered
+    write_progress_snapshot(
+        shop_id=2, data={"shop_id": 2, "status": "enriching", "last_update_at": fresh_ts}
+    )  # fresh -> not stale
+    write_progress_snapshot(
+        shop_id=3, data={"shop_id": 3, "status": "success", "last_update_at": stale_ts}
+    )  # terminal -> excluded
+    write_progress_snapshot(
+        shop_id=4, data={"shop_id": 4, "status": "finalising", "last_update_at": stale_ts}
+    )  # stale finalising -> recovered
+
+    result = find_stale_in_progress_shop_ids(stale_after_seconds=900)
+    assert sorted(result) == [1, 4]
 
 
 def test_clear_progress_snapshot_deletes_key(fake_redis: _FakeRedis) -> None:
