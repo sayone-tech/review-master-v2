@@ -81,7 +81,7 @@ def run_finalise_canonical_tags(
         # Gate lives INSIDE the lock so concurrent workers cannot both re-dispatch.
         # -------------------------------------------------------------------
         max_attempts: int = getattr(settings, "FINALISE_GATE_MAX_ATTEMPTS", 30)
-        countdown_seconds: int = getattr(settings, "FINALISE_GATE_COUNTDOWN_SECONDS", 20)
+        countdown_seconds: int = getattr(settings, "FINALISE_GATE_COUNTDOWN_SECONDS", 5)
 
         still_working = Review.objects.filter(
             shop_id=shop_id,

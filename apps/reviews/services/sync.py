@@ -802,7 +802,7 @@ def run_initial_backfill(*, shop_id: int) -> dict[str, Any]:
     # first check happens promptly; subsequent re-dispatches use the same countdown.
     from django.conf import settings as _settings
 
-    _initial_countdown = getattr(_settings, "FINALISE_GATE_COUNTDOWN_SECONDS", 20)
+    _initial_countdown = getattr(_settings, "FINALISE_GATE_COUNTDOWN_SECONDS", 5)
     finalize_canonical_tags_task.apply_async(
         kwargs={"organisation_id": org_id, "shop_id": shop_id, "attempt": 1},
         queue="tag-merge",
