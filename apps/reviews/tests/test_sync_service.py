@@ -857,6 +857,9 @@ def test_initial_backfill_two_years_date_filter(patched_dependencies) -> None:
         google_location_name="accounts/123/locations/456",
     )
     shop.refresh_from_db()
+    # shop.sync_depth is only honoured when the org allows custom sync depth.
+    shop.organisation.allow_custom_sync_depth = True
+    shop.organisation.save(update_fields=["allow_custom_sync_depth"])
     page = {
         "reviews": [
             _build_gbp_review("r-recent", 100),
@@ -886,6 +889,9 @@ def test_initial_backfill_all_time_no_filter(patched_dependencies) -> None:
         google_location_name="accounts/123/locations/456",
     )
     shop.refresh_from_db()
+    # shop.sync_depth is only honoured when the org allows custom sync depth.
+    shop.organisation.allow_custom_sync_depth = True
+    shop.organisation.save(update_fields=["allow_custom_sync_depth"])
     page = {
         "reviews": [
             _build_gbp_review("r-recent", 100),
@@ -948,6 +954,9 @@ def test_incremental_sync_no_filter_for_all_time(patched_dependencies) -> None:
         google_location_name="accounts/123/locations/456",
     )
     shop.refresh_from_db()
+    # shop.sync_depth is only honoured when the org allows custom sync depth.
+    shop.organisation.allow_custom_sync_depth = True
+    shop.organisation.save(update_fields=["allow_custom_sync_depth"])
     page = {
         "reviews": [
             _build_gbp_review("r-old-1000", 1000),  # well outside any date window
@@ -1024,3 +1033,46 @@ def test_recover_stuck_syncs_noop_when_none_stale(db) -> None:
     ):
         assert recover_stuck_syncs(stale_after_seconds=900) == 0
     mock_dispatch.assert_not_called()
+
+
+def test_sync_depth_one_year_when_custom_flag_off(patched_dependencies) -> None:
+    """org.allow_custom_sync_depth off -> 1-year floor regardless of shop.sync_depth:
+    a 400-day-old review (older than 1yr, within 2yr) is excluded."""
+    from datetime import UTC, datetime, timedelta
+
+    shop = _make_shop()  # OrganisationFactory defaults allow_custom_sync_depth=False
+    assert shop.organisation.allow_custom_sync_depth is False
+    now = datetime.now(UTC)
+    old = (now - timedelta(days=400)).isoformat()
+    recent = (now - timedelta(days=100)).isoformat()
+    page = {
+        "reviews": [
+            {**_api_review("g-old"), "createTime": old, "updateTime": old},
+            {**_api_review("g-new"), "createTime": recent, "updateTime": recent},
+        ],
+        "totalReviewCount": 2,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.run_initial_backfill(shop_id=shop.pk)
+    assert Review.objects.filter(shop=shop, google_review_id="g-new").exists()
+    assert not Review.objects.filter(shop=shop, google_review_id="g-old").exists()
+
+
+def test_sync_depth_uses_shop_depth_when_custom_flag_on(patched_dependencies) -> None:
+    """org.allow_custom_sync_depth on -> shop.sync_depth (TWO_YEARS default) applies:
+    a 400-day-old review is within the 2-year floor and is persisted."""
+    from datetime import UTC, datetime, timedelta
+
+    from apps.organisations.models import Organisation
+
+    shop = _make_shop()  # shop.sync_depth defaults TWO_YEARS
+    Organisation.objects.filter(pk=shop.organisation_id).update(allow_custom_sync_depth=True)
+    now = datetime.now(UTC)
+    old = (now - timedelta(days=400)).isoformat()
+    page = {
+        "reviews": [{**_api_review("g-old"), "createTime": old, "updateTime": old}],
+        "totalReviewCount": 1,
+    }
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.run_initial_backfill(shop_id=shop.pk)
+    assert Review.objects.filter(shop=shop, google_review_id="g-old").exists()
