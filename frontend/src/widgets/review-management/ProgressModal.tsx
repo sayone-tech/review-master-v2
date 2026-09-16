@@ -445,8 +445,10 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                       style={{ width: `${fetchPct}%` }}
                     />
                   ) : (
-                    /* Indeterminate bar for date-bounded syncs where the total is unknown */
-                    <div className="h-full w-1/3 bg-yellow rounded-full animate-pulse" />
+                    /* Indeterminate bar for date-bounded syncs where the total is
+                       unknown — slides across the track so it reads as "working"
+                       instead of a fixed pulse stuck at ~1/3. */
+                    <div className="h-full w-1/3 bg-yellow rounded-full animate-indeterminate" />
                   )}
                 </div>
                 {hasDeterminate && eta != null && (
@@ -522,7 +524,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                       style={{ width: `${vocabPct}%` }}
                     />
                   ) : (
-                    <div className="h-full w-1/3 bg-green rounded-full animate-pulse" />
+                    <div className="h-full w-1/3 bg-green rounded-full animate-indeterminate" />
                   )}
                 </div>
                 {vocabEnriched === 0 && (
