@@ -10,7 +10,7 @@ Merging to `main` triggers the GitHub Actions pipeline:
    - Pushes to ECR with `:latest` and `:<git-sha>` tags
    - Sends SSM Run Command to EC2 → runs `/opt/review-master/scripts/deploy.sh`
    - `deploy.sh` pulls secrets, pulls image, runs migrations, collects static, restarts containers
-   - Smoke tests `https://app.reviewbee.in/healthz/`
+   - Smoke tests `https://app.reviewbear.in/healthz/`
 
 Monitor progress in the **Actions** tab on GitHub.
 
@@ -76,7 +76,7 @@ docker compose -f /opt/review-master/docker-compose.prod.yml ps
 docker inspect review-master-web-1 | grep Image
 
 # Check app is responding
-curl -fsSL https://app.reviewbee.in/healthz/
+curl -fsSL https://app.reviewbear.in/healthz/
 ```
 
 ## Run Django Management Commands
@@ -121,7 +121,7 @@ You will be prompted for:
 - **Email** — same as username
 - **Password** — minimum 10 characters (enforced by Django validators)
 
-The superuser can then log in at `https://app.reviewbee.in/admin/` and at the main app with the Superadmin role.
+The superuser can then log in at `https://app.reviewbear.in/admin/` and at the main app with the Superadmin role.
 
 > **Note:** Never share superuser credentials. Create one account per person who needs superadmin access.
 

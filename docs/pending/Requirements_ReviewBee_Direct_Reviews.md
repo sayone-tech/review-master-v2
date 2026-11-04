@@ -66,7 +66,7 @@ Phase 5 makes the platform's name canonical: "ReviewBee". The name appears throu
 | Browser title (public submission page) | Leave a review for {Shop Name} — ReviewBee |
 | Public submission page header | ReviewBee for {Organisation Name} |
 | Email subject lines | Prefix with [ReviewBee] for transactional emails |
-| Email footer | Sent via ReviewBee — link to https://reviewbee.in |
+| Email footer | Sent via ReviewBee — link to https://reviewbear.in |
 | Audit log records | user_agent and request_origin fields preserved for support |
 
 ## 2.2 Logo Pairing on the Public Page
@@ -111,14 +111,14 @@ Each shop has a unique short code that is generated when the shop is created. Th
 
 The public URL embedded in every QR code follows a fixed pattern:
 
-https://app.reviewbee.in/r/{short_code}
+https://app.reviewbear.in/r/{short_code}
 
 Notes on the URL:
 
 - HTTPS only — HTTP requests redirect to HTTPS
 - Same Django app as the admin UI; the /r/* namespace is unauthenticated
 - No subdomain split — keeps deployment simple, but requires careful CSP and CSRF handling (see §4.5)
-- Domain is configured in settings as PUBLIC_BASE_URL so it can be overridden in dev (http://localhost:8000) and staging (https://staging.reviewbee.in)
+- Domain is configured in settings as PUBLIC_BASE_URL so it can be overridden in dev (http://localhost:8000) and staging (https://staging.reviewbear.in)
 
 ## 3.3 QR Code Image Generation
 
@@ -260,7 +260,7 @@ The public submission page is the customer-facing surface where a person who sca
 
 ### Footer
 
-- "Powered by ReviewBee" link to https://reviewbee.in
+- "Powered by ReviewBee" link to https://reviewbear.in
 - Privacy Policy and Terms links (placeholders for now; legal copy is a separate effort)
 
 ## 4.5 Same-App Hosting Considerations
@@ -551,7 +551,7 @@ Below the thank-you message, a secondary card prompts the customer to also leave
 ### Footer
 
 - "Powered by ReviewBee" link
-- "Visit ReviewBee" link to https://reviewbee.in (gives the platform a chance to acquire customers organically)
+- "Visit ReviewBee" link to https://reviewbear.in (gives the platform a chance to acquire customers organically)
 
 # 7. Reviews Page Updates
 
@@ -902,7 +902,7 @@ A new Django app houses the public submission flow and ReviewBee-specific logic 
 
 # Public-facing
 
-PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", default="https://app.reviewbee.in")
+PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", default="https://app.reviewbear.in")
 
 # Cloudflare Turnstile
 

@@ -4,7 +4,7 @@ You're invited to join {{ organisation.name }}
 
 Hi {{ invitee_name }},
 
-{{ inviter_name }} has invited you to join {{ organisation.name }} on Review Master as a {{ role_display }}.
+{{ inviter_name }} has invited you to join {{ organisation.name }} on Review Bear as a {{ role_display }}.
 {% if is_staff_role and assigned_region_names %}
 Regions: {{ assigned_region_names|join:", " }}
 {% endif %}{% if is_staff_role and assigned_shop_names %}

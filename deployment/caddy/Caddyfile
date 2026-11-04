@@ -2,8 +2,15 @@
     email {$CADDY_ACME_EMAIL}
 }
 
-{$CADDY_DOMAIN} {
+# app.reviewbee.in is the previous domain. It stays listed so links in emails
+# already sent keep working, and so Caddy keeps a valid cert for it (HSTS).
+{$CADDY_DOMAIN}, app.reviewbee.in {
     encode gzip zstd
+
+    # No-op while CADDY_DOMAIN is still app.reviewbee.in, so this is safe to
+    # deploy before the domain cutover.
+    @legacy_host not host {$CADDY_DOMAIN}
+    redir @legacy_host https://{$CADDY_DOMAIN}{uri} permanent
 
     # Serve robots.txt — disallow all crawlers (this is an admin panel, not public content).
     @robots_txt path /robots.txt

@@ -58,7 +58,7 @@ services:
     healthcheck:
       # Set Host header to the real domain so Django's ALLOWED_HOSTS check
       # doesn't reject the healthcheck. Fixes Sentry PYTHON-DJANGO-2.
-      test: ["CMD", "curl", "-fsS", "-H", "Host: app.reviewbee.in", "http://127.0.0.1:8000/readyz/"]
+      test: ["CMD-SHELL", "curl -fsS -H \"Host: $$CADDY_DOMAIN\" http://127.0.0.1:8000/readyz/"]
       interval: 15s
       timeout: 5s
       retries: 5

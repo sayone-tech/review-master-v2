@@ -537,7 +537,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             {enrichState === "pending" ? (
               <div className="opacity-60">
                 <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                  Analysing with Review Bee AI Engine
+                  Analysing with Review Bear AI Engine
                 </label>
                 <div className="text-[14px] text-muted mt-1">–</div>
                 <div
@@ -549,7 +549,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             ) : enrichState === "complete" ? (
               <div>
                 <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                  Analysing with Review Bee AI Engine
+                  Analysing with Review Bear AI Engine
                 </label>
                 <div className="text-[14px] font-semibold text-ink mt-1">
                   {snapshot?.enriched ?? 0} of {fetched} enriched
@@ -568,7 +568,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
             ) : (
               <div>
                 <label className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-                  Analysing with Review Bee AI Engine
+                  Analysing with Review Bear AI Engine
                 </label>
                 <div className="text-[14px] font-semibold text-ink mt-1">
                   {snapshot?.enriched ?? 0} of {fetched}
@@ -579,7 +579,7 @@ export function ProgressModal({ open, shopId, shopName, onClose }: Props) {
                   aria-valuenow={enrichPct}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-label={`Review Bee AI Engine: ${enrichPct}%`}
+                  aria-label={`Review Bear AI Engine: ${enrichPct}%`}
                 >
                   <div
                     className="h-full bg-green rounded-full transition-all"
