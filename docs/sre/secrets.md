@@ -70,7 +70,7 @@ docker compose -f /opt/review-master/docker-compose.prod.yml up -d web worker be
 | Variable | Description |
 |----------|-------------|
 | `DJANGO_SECRET_KEY` | Django cryptographic key — do not rotate unless compromised (invalidates sessions) |
-| `DJANGO_ALLOWED_HOSTS` | Comma-separated allowed hosts — must include `app.reviewbee.in,127.0.0.1,localhost` |
+| `DJANGO_ALLOWED_HOSTS` | Comma-separated allowed hosts — must include `app.reviewbear.in,127.0.0.1,localhost` |
 | `SITE_URL` | Full public URL used in emails and OAuth redirects |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `REDIS_URL` | Redis connection string (`redis://redis:6379` — internal Docker network) |

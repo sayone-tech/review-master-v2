@@ -4,7 +4,7 @@
 
 ## App returning 502 / site is down
 
-**Symptoms:** `https://app.reviewbee.in` returns 502 or times out.
+**Symptoms:** `https://app.reviewbear.in` returns 502 or times out.
 
 **Diagnosis:**
 
@@ -111,7 +111,7 @@ docker compose -f /opt/review-master/docker-compose.prod.yml exec caddy caddy re
 ```
 
 **Common causes:**
-- DNS not pointing to the right IP (check Route 53 → `app.reviewbee.in` A record = `13.203.163.202`)
+- DNS not pointing to the right IP (check Route 53 → `app.reviewbear.in` A record = `13.203.163.202`)
 - Port 80 blocked (Caddy uses HTTP-01 challenge) — check security group allows port 80
 
 ---

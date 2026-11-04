@@ -46,7 +46,7 @@
 
 | Resource | Spec | Rate | Monthly |
 |---|---|---|---|
-| Route 53 hosted zone | reviewbee.in | $0.50 / zone | $0.50 |
+| Route 53 hosted zone | reviewbear.in | $0.50 / zone | $0.50 |
 | Route 53 DNS queries | ~1 million/month | $0.40 / million | $0.40 |
 | Data transfer OUT | ~10 GB/month to internet | $0.1093 / GB | $1.09 |
 | **Subtotal** | | | **$1.99** |
