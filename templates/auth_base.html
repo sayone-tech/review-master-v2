@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     {% include "partials/head.html" %}
-    <title>{% block title %}Review Bee{% endblock %}</title>
+    <title>{% block title %}Review Bear{% endblock %}</title>
   </head>
   <body class="bg-bg font-sans text-text min-h-screen flex items-center justify-center antialiased">
     <a href="#auth-main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-yellow focus:text-black focus:rounded-md">Skip to main content</a>
@@ -11,7 +11,7 @@
       <div class="bg-white border border-line rounded-card shadow-sm px-8 pt-6" style="padding-bottom:40px;" data-testid="auth-card">
         {% block logo_section %}
           <div style="height:78px;overflow:hidden;margin-bottom:20px;display:flex;justify-content:center;align-items:flex-start;" data-testid="auth-logo">
-            <img src="{% static 'main_logo.png' %}" alt="Review Bee" style="height:220px;width:auto;margin-top:-62px;">
+            <img src="{% static 'main_logo.png' %}" alt="Review Bear" style="height:220px;width:auto;margin-top:-62px;">
           </div>
         {% endblock %}
         {% block card %}{% endblock %}
