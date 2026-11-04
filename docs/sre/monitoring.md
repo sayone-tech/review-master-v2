@@ -4,12 +4,12 @@
 
 | Endpoint | Purpose |
 |----------|---------|
-| `https://app.reviewbee.in/healthz/` | Lightweight liveness check — returns `{"status": "ok"}` |
-| `https://app.reviewbee.in/readyz/` | Readiness check — verifies DB + Redis connectivity |
+| `https://app.reviewbear.in/healthz/` | Lightweight liveness check — returns `{"status": "ok"}` |
+| `https://app.reviewbear.in/readyz/` | Readiness check — verifies DB + Redis connectivity |
 
 ```bash
-curl -fsSL https://app.reviewbee.in/healthz/
-curl -fsSL https://app.reviewbee.in/readyz/
+curl -fsSL https://app.reviewbear.in/healthz/
+curl -fsSL https://app.reviewbear.in/readyz/
 ```
 
 ## CloudWatch Alarms

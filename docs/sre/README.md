@@ -10,7 +10,7 @@ All services run as Docker containers managed by Docker Compose.
 | EC2 instance ID | `i-0782bee2ff9885151` |
 | Elastic IP | `13.203.163.202` |
 | Region | `ap-south-1` (Mumbai) |
-| App URL | `https://app.reviewbee.in` |
+| App URL | `https://app.reviewbear.in` |
 | AWS account | `270587882826` |
 | AWS profile | `review-master` |
 

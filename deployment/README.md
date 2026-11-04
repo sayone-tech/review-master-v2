@@ -65,7 +65,7 @@ Why RDS over Postgres-in-Docker: managed backups, point-in-time recovery, and ea
 - **Reverse proxy: Caddy** (Let's Encrypt auto-TLS, HTTP/2, gzip, WebSocket out of the box). Decision recorded over nginx because it eliminates certbot + renewal cron — fewer moving parts at this scale.
 - **No ALB.** TLS terminates at Caddy on the EC2 box.
 - **No ACM** (ACM certs cannot install on EC2 directly; only attach to ALB/CloudFront/API Gateway).
-- **Route 53** for DNS. Hosted zone for `reviewbee.in` was migrated from GoDaddy manually and is **referenced via `data "aws_route53_zone"`** — Terraform never creates or destroys the zone. Only the `app.reviewbee.in` A record (→ Elastic IP) is managed by Terraform.
+- **Route 53** for DNS. Hosted zone for `reviewbear.in` is created manually and is **referenced via `data "aws_route53_zone"`** — Terraform never creates or destroys the zone. Only the `app.reviewbear.in` A record (→ Elastic IP) is managed by Terraform.
 - **SSH access:** **none from the public internet.** All operator access is via AWS Systems Manager Session Manager (`aws ssm start-session`) — the EC2 instance profile has `AmazonSSMManagedInstanceCore` attached. Security groups expose only 80/443 to `0.0.0.0/0`.
 - **Security groups:**
   - EC2: 80/443 from `0.0.0.0/0` only.
@@ -111,13 +111,13 @@ GitHub Actions cost: $0 (within 2,000 free minutes/month for private repos).
 - Bucket: `review-master-static-prod` (see `s3.tf` in the terraform repo at [`stacks/prod-app/`](../../review-master-terraform/stacks/prod-app/)).
 - `django-storages` with S3 backend.
 - `collectstatic` runs in the Docker build, then static files are uploaded to S3 in a deploy step.
-- Bucket policy grants public read on `/static/*` only. CORS allows `GET` from `https://app.reviewbee.in`.
+- Bucket policy grants public read on `/static/*` only. CORS allows `GET` from `https://app.reviewbear.in`.
 - EC2 instance profile has `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket` on this bucket so `collectstatic` can run from the box.
 - No CloudFront in front of S3 yet — added when traffic justifies it.
 
 ### 2.8 Email — Resend (pre-SES)
 
-SES production access is not yet approved. Production currently uses **Resend** via API key (`RESEND_API_KEY` in the Secrets Manager blob, `EMAIL_PROVIDER=resend`). From-address: `noreply@reviewbee.in`, reply-to: `support@reviewbee.in`.
+SES production access is not yet approved. Production currently uses **Resend** via API key (`RESEND_API_KEY` in the Secrets Manager blob, `EMAIL_PROVIDER=resend`). From-address: `noreply@reviewbear.in`, reply-to: `support@reviewbear.in`.
 
 When SES is approved, integration is already specified in `CLAUDE.md` §15 and can be swapped by changing `EMAIL_PROVIDER` and the Django backend.
 
@@ -242,7 +242,7 @@ The GitHub Actions workflow lives at the repo root in `.github/workflows/`, not 
 
 1. **Region:** `ap-south-1` (Mumbai), chosen for customer proximity.
 2. **Terraform vs console:** Terraform manages everything (code in the sibling [`review-master-terraform/`](../../review-master-terraform/) repo). The EC2 instance is provisioned once by Terraform but never replaced by it (`ignore_changes = [ami, user_data]`); all app updates go through SSM Run Command.
-3. **Domain registrar:** `reviewbee.in` was migrated from GoDaddy to Route 53 manually. Terraform references the hosted zone via `data "aws_route53_zone"` — it never creates or destroys the zone, only the `app.reviewbee.in` A record.
+3. **Domain registrar:** the `reviewbear.in` hosted zone is created in Route 53 manually, and the previous domain `reviewbee.in` stays in Route 53 so `app.reviewbee.in` can redirect to the new domain (see `deployment/caddy/Caddyfile`). Terraform references the hosted zone via `data "aws_route53_zone"` — it never creates or destroys the zone, only the `app.reviewbear.in` A record.
 4. **Email provider during SES sandbox:** Resend (API key in Secrets Manager).
 5. **Static asset CDN:** shipped without CloudFront. Revisit if static asset latency hurts UX.
 
@@ -255,7 +255,7 @@ State currently lives **locally** on the operator's laptop at `review-master-ter
 ## 9. Status
 
 - **Architecture decisions:** locked in.
-- **Infrastructure:** deployed and serving production traffic at `https://app.reviewbee.in`.
+- **Infrastructure:** deployed and serving production traffic at `https://app.reviewbear.in`.
 - **Live resources:**
   - EC2: `i-0782bee2ff9885151`
   - Elastic IP: `13.203.163.202`
