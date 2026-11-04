@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Something went wrong · Review Master</title>
+    <title>Something went wrong · Review Bear</title>
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}" />
     <link rel="icon" href="{% static 'favicon.ico' %}" />
   </head>
   <body class="min-h-screen bg-white flex flex-col items-center justify-center p-8">
     <div class="flex flex-col items-center text-center max-w-[480px]">
       <div style="height:78px;overflow:hidden;margin-bottom:32px;display:flex;justify-content:center;align-items:flex-start;">
-        <img src="{% static 'main_logo.png' %}" alt="Review Master" style="height:220px;width:auto;margin-top:-62px;">
+        <img src="{% static 'main_logo.png' %}" alt="Review Bear" style="height:220px;width:auto;margin-top:-62px;">
       </div>
       <p class="text-[48px] font-bold text-faint leading-none mb-2">500</p>
       <h1 class="text-[20px] font-bold text-ink mb-2">Something went wrong</h1>
@@ -20,7 +20,7 @@
       {# No auth check here: request.user.is_authenticated lazily hits the DB/session,
          which re-raises (and falls through to Daphne's raw page) when the DB itself is
          the cause of the 500. Link to "/" so routing decides login vs dashboard. #}
-      <a href="/" class="px-6 py-3 bg-black text-yellow font-semibold rounded-md text-[14px] hover:bg-ink/90">Back to Review Master</a>
+      <a href="/" class="px-6 py-3 bg-black text-yellow font-semibold rounded-md text-[14px] hover:bg-ink/90">Back to Review Bear</a>
     </div>
   </body>
 </html>

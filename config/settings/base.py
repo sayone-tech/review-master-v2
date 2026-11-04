@@ -303,8 +303,8 @@ def _icon(request: object) -> str:
 
 
 UNFOLD = {
-    "SITE_TITLE": "Review Master",
-    "SITE_HEADER": "Review Master",
+    "SITE_TITLE": "Review Bear",
+    "SITE_HEADER": "Review Bear",
     "SITE_URL": "/admin/organisations/",
     "SITE_ICON": {"light": _icon, "dark": _icon},
     "SITE_LOGO": {"light": _logo, "dark": _logo},
@@ -432,7 +432,7 @@ SIMPLE_JWT = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Review Bee API",
+    "TITLE": "Review Bear API",
     "DESCRIPTION": "Internal API for web and mobile clients. Not for external use.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
