@@ -13,8 +13,10 @@ from unittest.mock import patch
 import pytest
 
 from apps.common.models import AuditLog
+from apps.organisations.models import Organisation
 from apps.reviews.models import Review
 from apps.reviews.services import sync as sync_mod
+from apps.reviews.tests.factories import ReviewFactory
 from apps.shops.models import Shop
 from apps.shops.tests.factories import ShopFactory
 
@@ -1056,6 +1058,58 @@ def test_sync_depth_one_year_when_custom_flag_off(patched_dependencies) -> None:
         sync_mod.run_initial_backfill(shop_id=shop.pk)
     assert Review.objects.filter(shop=shop, google_review_id="g-new").exists()
     assert not Review.objects.filter(shop=shop, google_review_id="g-old").exists()
+
+
+def _stored_review(shop: Shop, google_review_id: str, days_old: int) -> Review:
+    from datetime import UTC, datetime, timedelta
+
+    created = datetime.now(UTC) - timedelta(days=days_old)
+    return ReviewFactory(
+        organisation=shop.organisation,
+        shop=shop,
+        google_review_id=google_review_id,
+        review_create_time=created,
+        review_update_time=created,
+    )
+
+
+def test_sync_keeps_stored_reviews_older_than_sync_depth(patched_dependencies) -> None:
+    """Sync depth limits only how far back the first sync reaches: a review that has
+    since aged past the floor stays visible, so history accumulates over time."""
+    shop = _make_shop()  # flag off -> 1-year floor
+    aged = _stored_review(shop, "g-aged", days_old=400)
+    page = {"reviews": [_build_gbp_review("g-new", 1)], "totalReviewCount": 1}
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        result = sync_mod.run_incremental_sync(shop_id=shop.pk)
+    aged.refresh_from_db()
+    assert aged.deleted_at is None
+    assert result["soft_deleted"] == 0
+
+
+def test_sync_soft_deletes_review_removed_from_google_inside_window(
+    patched_dependencies,
+) -> None:
+    """A review inside the window that Google no longer returns is still soft-deleted."""
+    shop = _make_shop()
+    removed = _stored_review(shop, "g-removed", days_old=100)
+    page = {"reviews": [_build_gbp_review("g-new", 1)], "totalReviewCount": 1}
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.run_incremental_sync(shop_id=shop.pk)
+    removed.refresh_from_db()
+    assert removed.deleted_at is not None
+
+
+def test_all_time_sync_soft_deletes_absent_review_of_any_age(patched_dependencies) -> None:
+    """ALL_TIME has no floor: every review is fetched, so absence means removed."""
+    shop = _make_shop()
+    Organisation.objects.filter(pk=shop.organisation_id).update(allow_custom_sync_depth=True)
+    Shop.objects.filter(pk=shop.pk).update(sync_depth=Shop.SyncDepth.ALL_TIME)
+    removed = _stored_review(shop, "g-removed", days_old=1000)
+    page = {"reviews": [_build_gbp_review("g-new", 1)], "totalReviewCount": 1}
+    with patch.object(sync_mod, "list_reviews", return_value=page):
+        sync_mod.run_incremental_sync(shop_id=shop.pk)
+    removed.refresh_from_db()
+    assert removed.deleted_at is not None
 
 
 def test_sync_depth_uses_shop_depth_when_custom_flag_on(patched_dependencies) -> None:

@@ -131,9 +131,8 @@ def _persist_page(
         norm = _normalise_review(api_rev, shop=shop)
         if not norm["google_review_id"]:
             continue
-        # Phase 15 — initial-backfill date filter (BKFL-01/02). Skipped rows are NOT
-        # added to rev_ids, so _soft_delete_absent will purge previously-synced rows
-        # that fall outside the new sync_depth window (intentional — see RESEARCH §Open Q1).
+        # Phase 15 — initial-backfill date filter (BKFL-01/02). Stored rows older than
+        # the floor are left alone: _soft_delete_absent only acts inside the window.
         if start_date is not None and norm["review_create_time"] < start_date:
             continue
         rev_ids.add(norm["google_review_id"])
@@ -255,14 +254,22 @@ def _schedule_new_review_dispatch(*, shop: Shop, new_google_review_ids: set[str]
     transaction.on_commit(_dispatch_summary)
 
 
-def _soft_delete_absent(*, shop: Shop, fetched_ids: set[str]) -> int:
-    """Mark reviews absent from fetched_ids as deleted_at=now."""
+def _soft_delete_absent(
+    *, shop: Shop, fetched_ids: set[str], start_date: datetime | None = None
+) -> int:
+    """Mark reviews absent from fetched_ids as deleted_at=now.
+
+    Only reviews at or after start_date are considered: older ones were never
+    fetched, so their absence says nothing about Google. Sync depth limits how far
+    back a sync reaches; it must not remove history already stored.
+    """
     if not fetched_ids:
         return 0
+    candidates = Review.objects.filter(shop=shop, deleted_at__isnull=True)
+    if start_date is not None:
+        candidates = candidates.filter(review_create_time__gte=start_date)
     return int(
-        Review.objects.filter(shop=shop, deleted_at__isnull=True)
-        .exclude(google_review_id__in=fetched_ids)
-        .update(deleted_at=dj_timezone.now())
+        candidates.exclude(google_review_id__in=fetched_ids).update(deleted_at=dj_timezone.now())
     )
 
 
@@ -518,7 +525,9 @@ def fetch_and_persist_reviews(
                 if not next_token:
                     break
 
-            soft_deleted = _soft_delete_absent(shop=shop, fetched_ids=all_fetched_ids)
+            soft_deleted = _soft_delete_absent(
+                shop=shop, fetched_ids=all_fetched_ids, start_date=start_date
+            )
 
             # Dispatch a single summary new_review notification for incremental
             # syncs only. Initial backfill is already communicated via the
