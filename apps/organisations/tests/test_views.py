@@ -10,6 +10,7 @@ from apps.accounts.tests.factories import UserFactory
 from apps.organisations.models import Organisation
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.regions.tests.factories import RegionFactory
+from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -616,3 +617,18 @@ def test_dashboard_uses_exists_query_for_setup_banner(assert_query_ceiling) -> N
         response = c.get("/admin/org/dashboard/")
     assert response.status_code == 200
     assert_query_ceiling(ctx, max_queries=10)
+
+
+def test_org_dashboard_store_filter_excludes_deactivated_shops(client):
+    """The store dropdown must match the shops the dashboard API accepts."""
+    org = OrganisationFactory()
+    active = ShopFactory(organisation=org)
+    ShopFactory(organisation=org, is_active=False)
+    user = UserFactory(role=User.Role.ORG_ADMIN, organisation=org)
+    client.force_login(user)
+
+    response = client.get("/admin/org/dashboard/")
+
+    assert response.status_code == 200
+    assert [shop["id"] for shop in response.context["shops_json"]] == [active.pk]
+    assert response.context["is_single_shop"] is True
