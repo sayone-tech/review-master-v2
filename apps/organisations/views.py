@@ -124,7 +124,7 @@ def org_admin_dashboard(request: HttpRequest) -> HttpResponse:
 
     org_id: int = user.organisation_id
 
-    shops_qs = Shop.objects.filter(organisation_id=org_id)
+    shops_qs = Shop.objects.filter(organisation_id=org_id, is_active=True)
     if user.role == User.Role.STAFF_ADMIN:
         accessible_shop_ids = list(get_accessible_shop_ids(user_id=user.pk))
         shops_qs = shops_qs.filter(id__in=accessible_shop_ids)
