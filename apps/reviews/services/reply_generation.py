@@ -38,8 +38,12 @@ from apps.credits.services.consumption import (
     reserve_credits,
 )
 from apps.credits.services.credit_cost import credit_cost
-from apps.integrations.openai.client import call_openai_reply_generation
+from apps.integrations.openai.client import (
+    REPLY_MODERATION_MAX_RETRIES,
+    call_openai_reply_generation,
+)
 from apps.integrations.openai.exceptions import (
+    ContentModeratedException,
     OpenAIPermanentError,
     OpenAITransientError,
 )
@@ -65,15 +69,17 @@ _ALLOWED_TONES: frozenset[str] = frozenset(ALLOWED_REPLY_TONES)
 # this service and `enrich_review` share a single definition (WR-02).
 
 
-def _write_failure_log(*, review: Review, exc: Exception) -> None:
-    """Write a single FAILED AiUsageLog row. Never raises (best-effort).
+def _write_failure_log(*, review: Review, exc: Exception) -> int | None:
+    """Write a single FAILED AiUsageLog row and return its pk (None if the write failed).
+
+    Never raises (best-effort).
 
     WR-04: AiUsageLog.error_message is a TextField (no max_length), so the
     full exception string is stored without truncation. Diagnostic context
     is preserved for support / Sentry cross-reference.
     """
     try:
-        AiUsageLog.objects.create(
+        row = AiUsageLog.objects.create(
             organisation_id=review.organisation_id,
             review_id=review.pk,
             request_type="reply_generation",
@@ -91,6 +97,34 @@ def _write_failure_log(*, review: Review, exc: Exception) -> None:
         )
     except Exception:  # pragma: no cover — defensive
         logger.exception("reply_generation_failed_log_write_failed review_id=%s", review.pk)
+        return None
+    return row.pk
+
+
+@dataclass(slots=True)
+class _LogHolder:
+    """Receives the pk of the FAILED AiUsageLog row so the orchestrator can link it (D-17)."""
+
+    id: int | None = None
+
+
+class ReplyModeratedError(Exception):
+    """Moderation blocked the request. Carries the settled credit state for the 422 body."""
+
+    def __init__(self, *, stage: str | None) -> None:
+        super().__init__(f"reply moderated stage={stage}")
+        self.stage = stage
+        self.credits_charged: int = 0
+        self.credits_remaining: int | None = None
+
+
+class ReplyUnavailableError(Exception):
+    """OpenAI failed or something unexpected broke. Carries the settled state for the 502 body."""
+
+    def __init__(self) -> None:
+        super().__init__("reply generation unavailable")
+        self.credits_charged: int = 0
+        self.credits_remaining: int | None = None
 
 
 class EmptyCommentError(Exception):
@@ -123,7 +157,9 @@ def _assert_no_open_transaction() -> None:
         raise RuntimeError("OpenAI call must not run inside a database transaction")
 
 
-def _generate_reply_draft_with_log(*, review: Review, tone: str) -> tuple[str, int]:
+def _generate_reply_draft_with_log(
+    *, review: Review, tone: str, log_holder: _LogHolder | None = None
+) -> tuple[str, int]:
     """Generate a reply draft for `review` using the requested tone.
 
     Returns ``(draft, usage_log_id)`` where ``usage_log_id`` is the pk of the SUCCESS
@@ -134,7 +170,9 @@ def _generate_reply_draft_with_log(*, review: Review, tone: str) -> tuple[str, i
         the view layer can map it to HTTP 502.
       - status=MODERATED (written by apps.integrations.openai.guardrails) on
         input or output moderation block; ContentModeratedException then
-        propagates to the view (Plan 20-07) which maps to HTTP 422.
+        propagates to the caller, which maps it to HTTP 422.
+
+    ``log_holder`` (optional) receives the pk of the FAILED row when one is written.
     """
     if tone not in _ALLOWED_TONES:
         raise ValueError(f"Unknown tone: {tone!r}")
@@ -146,6 +184,8 @@ def _generate_reply_draft_with_log(*, review: Review, tone: str) -> tuple[str, i
         review.comment or "",
         review=review,
         request_type="reply_generation",
+        timeout=settings.REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS,
+        max_retries=REPLY_MODERATION_MAX_RETRIES,
     )
     review_for_prompt = ReviewWithModeratedComment(review, truncated_comment)
 
@@ -156,10 +196,14 @@ def _generate_reply_draft_with_log(*, review: Review, tone: str) -> tuple[str, i
             model=settings.OPENAI_MODEL,
         )
     except (OpenAITransientError, OpenAIPermanentError) as exc:
-        _write_failure_log(review=review, exc=exc)
+        failed_id = _write_failure_log(review=review, exc=exc)
+        if log_holder is not None:
+            log_holder.id = failed_id
         raise
     except Exception as exc:
-        _write_failure_log(review=review, exc=exc)
+        failed_id = _write_failure_log(review=review, exc=exc)
+        if log_holder is not None:
+            log_holder.id = failed_id
         raise
 
     # WR-05: never let a missing AiPricing row swallow the SUCCESS log. The
@@ -196,6 +240,8 @@ def _generate_reply_draft_with_log(*, review: Review, tone: str) -> tuple[str, i
         review=review,
         request_type="reply_generation",
         usage_data=usage_data,
+        timeout=settings.REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS,
+        max_retries=REPLY_MODERATION_MAX_RETRIES,
     )
 
     # D-08 / D-22: 300-word sentence-boundary truncation applied AFTER output
@@ -231,22 +277,26 @@ def _settle(
     *,
     transaction_id: int,
     review_id: int,
-    committed: bool,
+    commit: bool,
+    reason: str,
     usage_log_id: int | None,
     actor_id: int | None,
 ) -> SettleResult | None:
     """Commit or refund the reservation. Never raises: a settle failure must not mask the
     original outcome (the Phase 31 reaper refunds anything left RESERVED)."""
     try:
-        if committed:
+        if commit:
             return commit_reservation(
                 transaction_id=transaction_id,
                 ai_usage_log_id=usage_log_id,
-                outcome="success",
+                outcome=reason,
                 actor_id=actor_id,
             )
         refund_reservation(
-            transaction_id=transaction_id, reason="unexpected_error", actor_id=actor_id
+            transaction_id=transaction_id,
+            reason=reason,
+            ai_usage_log_id=usage_log_id,
+            actor_id=actor_id,
         )
     except Exception:
         logger.exception(
@@ -258,10 +308,14 @@ def _settle(
 def generate_reply_with_credits(*, review: Review, tone: str, actor_id: int | None) -> ReplyResult:
     """Metered generation: reserve -> OpenAI call -> settle (commit or refund in ``finally``).
 
-    Raises ``EmptyCommentError`` before any reservation for a non-chargeable comment,
-    ``InsufficientCreditsError`` / ``GenerationInProgressError`` from the reserve, and
-    propagates any draft-call exception unchanged after refunding (D-04). Settlement runs in
-    this ``finally`` so it completes even if the client has gone away (D-03).
+    Outcome matrix (D-03, D-04, D-17): a success or a certain output-stage moderation block
+    commits (OpenAI billed); everything else refunds (input block, OpenAI error, unexpected
+    error, stage-less moderation exception, interruption). Settlement completes before any
+    result or wrapper exception is built, so ``credits_remaining`` is the settled balance.
+
+    Raises ``EmptyCommentError`` before any reservation, ``InsufficientCreditsError`` /
+    ``GenerationInProgressError`` from the reserve, ``ReplyModeratedError`` and
+    ``ReplyUnavailableError`` after settlement.
     """
     if tone not in _ALLOWED_TONES:
         raise ValueError(f"Unknown tone: {tone!r}")
@@ -272,23 +326,71 @@ def generate_reply_with_credits(*, review: Review, tone: str, actor_id: int | No
     reservation = reserve_credits(
         shop_id=review.shop_id, review_id=review.pk, credits=cost, actor_id=actor_id
     )
-    committed = False
-    draft = ""
+    # D-04: the default is refund. Only a success or a certain output block switches to commit.
+    commit = False
+    reason = "unexpected_error"
     usage_log_id: int | None = None
+    draft = ""
+    pending: ReplyModeratedError | ReplyUnavailableError | None = None
+    holder = _LogHolder()
     try:
-        _assert_no_open_transaction()
-        draft, usage_log_id = _generate_reply_draft_with_log(review=review, tone=tone)
-        committed = True
+        try:
+            _assert_no_open_transaction()
+            draft, usage_log_id = _generate_reply_draft_with_log(
+                review=review, tone=tone, log_holder=holder
+            )
+            commit = True
+            reason = "success"
+        except ContentModeratedException as exc:
+            usage_log_id = exc.usage_log_id
+            if exc.stage == "output":
+                commit = True
+                reason = "output_moderated"
+            else:
+                reason = "input_moderated"
+            pending = ReplyModeratedError(stage=exc.stage)
+            logger.info(
+                "reply_generation_moderated review_id=%s tx_id=%s stage=%s",
+                review.pk,
+                reservation.transaction_id,
+                exc.stage,
+            )
+        except (OpenAITransientError, OpenAIPermanentError) as exc:
+            reason = "openai_failure"
+            usage_log_id = holder.id
+            pending = ReplyUnavailableError()
+            pending.__cause__ = exc
+            logger.warning(
+                "reply_generation_openai_failed review_id=%s tx_id=%s exc_type=%s",
+                review.pk,
+                reservation.transaction_id,
+                type(exc).__name__,
+            )
+        except Exception as exc:
+            reason = "unexpected_error"
+            usage_log_id = holder.id
+            pending = ReplyUnavailableError()
+            pending.__cause__ = exc
+            logger.exception(
+                "reply_generation_unexpected review_id=%s tx_id=%s exc_type=%s",
+                review.pk,
+                reservation.transaction_id,
+                type(exc).__name__,
+            )
     finally:
+        # D-03: settle here so it completes on any exit, including a BaseException.
         settle = _settle(
             transaction_id=reservation.transaction_id,
             review_id=review.pk,
-            committed=committed,
+            commit=commit,
+            reason=reason,
             usage_log_id=usage_log_id,
             actor_id=actor_id,
         )
-    return ReplyResult(
-        draft=draft,
-        credits_charged=settle.credits_charged if settle is not None else 0,
-        credits_remaining=read_credits_remaining(shop_id=review.shop_id),
-    )
+    charged = settle.credits_charged if settle is not None else 0
+    remaining = read_credits_remaining(shop_id=review.shop_id)
+    if pending is not None:
+        pending.credits_charged = charged
+        pending.credits_remaining = remaining
+        raise pending
+    return ReplyResult(draft=draft, credits_charged=charged, credits_remaining=remaining)

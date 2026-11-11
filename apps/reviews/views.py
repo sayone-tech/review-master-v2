@@ -37,11 +37,6 @@ from apps.accounts.permissions import IsOrgAdmin, org_admin_required
 from apps.common.pagination import DefaultPageNumberPagination
 from apps.common.permissions import IsOrgScoped
 from apps.common.viewsets import TenantScopedViewSet
-from apps.integrations.openai.exceptions import (
-    ContentModeratedException,
-    OpenAIPermanentError,
-    OpenAITransientError,
-)
 from apps.reviews.exceptions import ReplyConflictError, ReplyFailedError
 from apps.reviews.filters import ReviewFilterSet
 from apps.reviews.models import OrgCanonicalTag, Review, TagMergeJob
@@ -60,7 +55,12 @@ from apps.reviews.serializers import (
 )
 from apps.reviews.services.progress import read_progress_snapshot
 from apps.reviews.services.replies import remove_reply, submit_reply
-from apps.reviews.services.reply_generation import generate_reply_with_credits
+from apps.reviews.services.reply_generation import (
+    ReplyModeratedError,
+    ReplyUnavailableError,
+    generate_reply_with_credits,
+    read_credits_remaining,
+)
 from apps.reviews.services.tag_management import create_merge_job, rename_canonical_tag
 
 logger = logging.getLogger(__name__)
@@ -280,8 +280,11 @@ class ReviewViewSet(
             "Generates a tone-selected draft reply for the review using GPT-4o-mini. "
             "The draft is NOT sent to Google — it fills the composer textarea for the "
             "user to edit and submit. Input + output are passed through the OpenAI "
-            "Moderation API (Phase 20 — D-23 category-aware blocking). Throttled at "
-            "10/min/user (scope `generate_reply`)."
+            "Moderation API (Phase 20 — D-23 category-aware blocking). Metered by shop "
+            "credits (Phase 30): the review's credit cost is reserved first, then committed "
+            "when OpenAI was billed (success or an output-moderation block) and refunded "
+            "otherwise (input block, OpenAI failure, unexpected error). A regenerate is "
+            "charged again. Throttled at 10/min/user (scope `generate_reply`)."
         ),
         request=GenerateReplySerializer,
         responses={
@@ -323,13 +326,16 @@ class ReviewViewSet(
                     fields={
                         "code": drf_serializers.CharField(),
                         "detail": drf_serializers.CharField(),
+                        "credits_charged": drf_serializers.IntegerField(),
+                        "credits_remaining": drf_serializers.IntegerField(allow_null=True),
                     },
                 ),
                 description=(
                     "Review text or generated draft was flagged by Moderation API "
                     "high-severity categories (Phase 20 D-23). Same canonical body "
                     "for both input and output flags (D-26) — frontend renders "
-                    "`detail` verbatim."
+                    "`detail` verbatim. `credits_charged` is the review's cost for an "
+                    "output-stage block (OpenAI was billed) and 0 for an input-stage block."
                 ),
                 examples=[
                     OpenApiExample(
@@ -340,6 +346,8 @@ class ReviewViewSet(
                                 "AI reply isn't available for this review. "
                                 "Please write your reply manually."
                             ),
+                            "credits_charged": 2,
+                            "credits_remaining": 8,
                         },
                     )
                 ],
@@ -364,12 +372,14 @@ class ReviewViewSet(
                     fields={
                         "code": drf_serializers.CharField(),
                         "detail": drf_serializers.CharField(),
+                        "credits_charged": drf_serializers.IntegerField(),
+                        "credits_remaining": drf_serializers.IntegerField(allow_null=True),
                     },
                 ),
                 description=(
                     "OpenAI call failed (transient 5xx, permanent 4xx, or unexpected "
-                    "error). A FAILED AiUsageLog row is always written before the "
-                    "response is returned (D-17)."
+                    "error). The reservation is refunded (`credits_charged` is 0). A FAILED "
+                    "AiUsageLog row is written before the response is returned (D-17)."
                 ),
                 examples=[
                     OpenApiExample(
@@ -380,6 +390,8 @@ class ReviewViewSet(
                                 "AI generation failed. Please try again or "
                                 "write your reply manually."
                             ),
+                            "credits_charged": 0,
+                            "credits_remaining": 10,
                         },
                     )
                 ],
@@ -397,9 +409,10 @@ class ReviewViewSet(
         """POST: generate an AI draft reply for the given review.
 
         Returns 200 {draft, credits_charged, credits_remaining} on success.
-        Returns 400 on invalid tone (serializer validation).
-        Returns 502 on any OpenAI failure (transient/permanent/unexpected).
-        D-09, D-10, D-11, D-12, D-13, D-17, D-18.
+        Returns 400 on invalid tone or an empty review comment, 402 when the shop cannot
+        afford the cost, 409 when a generation is already in flight for the review, 422 on a
+        moderation block and 502 on any OpenAI failure (transient/permanent/unexpected).
+        D-08, D-09, D-11, D-12, D-17, D-18.
 
         Throttle scope is set in ``get_throttles`` (see WR-02) so DRF picks
         up the per-action rate BEFORE the action body executes.
@@ -410,33 +423,25 @@ class ReviewViewSet(
         tone: str = serializer.validated_data["tone"]
         try:
             result = generate_reply_with_credits(review=review, tone=tone, actor_id=request.user.pk)
-        except ContentModeratedException:
-            # D-16/D-26/D-32: input or output blocked by moderation.
-            # Caught BEFORE OpenAITransient/Permanent because
-            # ContentModeratedException inherits from OpenAIError —
-            # most-specific catch first. Body is the canonical user-facing
-            # string from D-26; no LLM categories or review text leak (T-20-LK).
-            logger.info(
-                "generate_reply blocked by moderation review_id=%s",
-                review.pk,
-            )
+        except ReplyModeratedError as exc:
+            # D-26 / T-20-LK: canonical body only; no categories or review text.
+            logger.info("generate_reply blocked by moderation review_id=%s", review.pk)
             return Response(
                 {
                     "code": "content_moderated",
                     "detail": "AI reply isn't available for this review. Please write your reply manually.",
+                    "credits_charged": exc.credits_charged,
+                    "credits_remaining": exc.credits_remaining,
                 },
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
-        except (OpenAITransientError, OpenAIPermanentError) as exc:
-            # D-17: known OpenAI failures (transient + permanent) map to a
-            # single generic 502 response. Service layer has already written
-            # the FAILED AiUsageLog row before re-raising.
+        except ReplyUnavailableError as exc:
+            # D-17: OpenAI failure or unexpected error, already refunded and logged by the service.
             logger.warning(
-                "generate_reply_openai_failed review_id=%s tone=%s exc_type=%s exc=%s",
+                "generate_reply_unavailable review_id=%s tone=%s exc_type=%s",
                 review.pk,
                 tone,
-                type(exc).__name__,
-                exc,
+                type(exc.__cause__).__name__,
             )
             return Response(
                 {
@@ -444,6 +449,8 @@ class ReviewViewSet(
                     "detail": (
                         "AI generation failed. Please try again or write your reply manually."
                     ),
+                    "credits_charged": 0,
+                    "credits_remaining": exc.credits_remaining,
                 },
                 status=status.HTTP_502_BAD_GATEWAY,
             )
@@ -465,6 +472,8 @@ class ReviewViewSet(
                     "detail": (
                         "AI generation failed. Please try again or write your reply manually."
                     ),
+                    "credits_charged": 0,
+                    "credits_remaining": read_credits_remaining(shop_id=review.shop_id),
                 },
                 status=status.HTTP_502_BAD_GATEWAY,
             )
