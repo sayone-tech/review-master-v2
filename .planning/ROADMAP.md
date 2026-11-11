@@ -315,7 +315,7 @@ Plans:
   4. A "Buy More Credits" modal opens from the credits card, the Shops-list badge, and the composer. It offers a Contact Admin mailto to `REVIEWBEE_SUPPORT_EMAIL`, traps focus, carries ARIA labels, closes on ESC or a backdrop click, and has no payment flow.
   5. Org Admins see `shop.credits.*` and `organisation.credits.set` events in the Activity Log; Staff do not. The Shops list and every credit endpoint return only shops in a Staff user's StaffAccessScope. Negative tests prove that cross-org access, out-of-scope Staff, and Staff calls to Superadmin endpoints are refused.
 
-**Plans**: 4/7 plans executed (waves 1 → 2 → 3)
+**Plans**: 5/7 plans executed (waves 1 → 2 → 3)
 
 Plans:
 
@@ -326,7 +326,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [x] 33-04-PLAN.md — Tracer: Staff reads an in-scope shop's credits (virtual balance, period label, renews_on, no-store), 404 out of scope; edge matrix; SCOPE-01 negative sweep over every credit route (CVIS-01, SCOPE-01) — depends on 33-01
-- [ ] 33-05-PLAN.md — Tracer: composer shows "Generate with AI · N credits" and the remaining line, updated after generate; not enabled / insufficient + Buy More / load-error states; 402 keeps the draft, 409 banner; Reviews-page bootstrap (CVIS-03, CVIS-04) — depends on 33-03
+- [x] 33-05-PLAN.md — Tracer: composer shows "Generate with AI · N credits" and the remaining line, updated after generate; not enabled / insufficient + Buy More / load-error states; 402 keeps the draft, 409 banner; Reviews-page bootstrap (CVIS-03, CVIS-04) — depends on 33-03
 - [ ] 33-06-PLAN.md — Tracer: credits badge → Shop Details with the AI Reply Credits card; card states, stacked Buy More with Escape ordering, badge states and store seeding, defensive Staff empty state (CVIS-01, CVIS-02, CVIS-04) — depends on 33-03, codes against 33-01/33-04 frozen contracts
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -379,4 +379,4 @@ Plans:
 | 30. Metered AI Reply Generation | v0.9 | 4/4 | ⬜ Not started | - |
 | 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ⬜ Not started | - |
 | 32. Superadmin Credit Controls | v0.9 | 5/5 | ⬜ Not started | - |
-| 33. Credit Visibility & Staff Scoping | v0.9 | 4/7 | ⬜ Not started | - |
+| 33. Credit Visibility & Staff Scoping | v0.9 | 5/7 | ⬜ Not started | - |

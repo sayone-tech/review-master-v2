@@ -5,16 +5,16 @@ milestone_name: AI Reply Credits
 current_phase: 33
 current_phase_name: Credit Visibility & Staff Scoping
 status: executing
-stopped_at: Completed 33-04-PLAN.md
-last_updated: "2026-11-11T19:34:37.712Z"
+stopped_at: Completed 33-05-PLAN.md
+last_updated: "2026-11-11T19:40:18.215Z"
 last_activity: 2026-11-12
 last_activity_desc: Phase 33 execution started
-state_head: 628ed54fd1489b936cf6f6a857c5252f1dd56dea
+state_head: 4eb7fed44b0b52f6fab198611fd6fa89e95239fc
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 23
-  completed_plans: 20
+  completed_plans: 21
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 ## Current Position
 
 Phase: 33 (Credit Visibility & Staff Scoping) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-11-12 — Phase 33 execution started
 
@@ -105,6 +105,7 @@ Last activity: 2026-11-12 — Phase 33 execution started
 | Phase 33 P33-02 | 6 min | 3 tasks | 8 files |
 | Phase 33 P03 | 6 min | 3 tasks | 12 files |
 | Phase 33 P04 | 20 min | 3 tasks | 9 files |
+| Phase 33 P05 | 15 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -151,6 +152,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 33]: formatUtcDate reuses creditHint.ts month names (Sep) rather than en-GB locale formatting
 - [Phase 33]: Balance store keyed by shop_id is a module-level useSyncExternalStore store shared across React roots
 - [Phase 33]: 33-04: ShopCreditsView lives in apps/credits at /api/v1/shops/<id>/credits/, gated by get_accessible_shop_for_credits; uniform 404 shop_not_found, no-store, shop_credits 120/minute
+- [Phase 33]: 33-05: composer cost only from the server; a 402 keeps the draft and switches the composer state in place (no banner)
 
 ### Pending Todos
 
@@ -167,6 +169,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T19:34:37.406Z
-Stopped at: Completed 33-04-PLAN.md
+Last session: 2026-11-11T19:40:17.899Z
+Stopped at: Completed 33-05-PLAN.md
 Resume file: None
