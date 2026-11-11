@@ -107,3 +107,40 @@ jobs:
         run: uv run pytest --cov=apps --cov-fail-under=85
         env:
           DJANGO_SETTINGS_MODULE: config.settings.test
+
+  backend-pg:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          # Throwaway CI-only credentials for an ephemeral service container.
+          POSTGRES_DB: reviewmaster
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U app -d reviewmaster"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Postgres concurrency tests (CQA-01)
+        run: uv run pytest --ds=config.settings.test_pg -m pg_concurrency --no-cov -rs
+        env:
+          DATABASE_URL: postgres://app:app@localhost:5432/reviewmaster
+          REQUIRE_PG: "1"
