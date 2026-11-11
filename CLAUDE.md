@@ -1500,7 +1500,7 @@ Product requirement specs live under `docs/` and are **Markdown only — never `
 
 ## 29. Canonical Tag System (v0.8 — milestone "Canonical Tag System")
 
-A per-organisation, self-organising canonical tag vocabulary, built and evolved **inside the existing single GPT enrichment call** — no extra API call, no vector DB. Spans Phases 22–26. This section is the authoritative summary; the binding spec is `docs/in-progress/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (read with the relational reconciliation in `.planning/research/SUMMARY.md` — the spec's §4 JSONB shape is superseded).
+A per-organisation, self-organising canonical tag vocabulary, built and evolved **inside the existing single GPT enrichment call** — no extra API call, no vector DB. Spans Phases 22–26. This section is the authoritative summary; the binding spec is `docs/completed/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (read with the relational reconciliation in `.planning/milestones/v0.8-research/SUMMARY.md` — the spec's §4 JSONB shape is superseded).
 
 ### 29.1 Data model (`apps/reviews/models.py`)
 
