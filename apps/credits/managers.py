@@ -13,8 +13,17 @@ if TYPE_CHECKING:
 
 
 class CreditTransactionQuerySet(models.QuerySet["CreditTransaction"]):
-    """Ledger rows are insert-only. ``create`` / ``bulk_create`` are untouched; the only
-    mutation is the status CAS below (``update`` also backs ``bulk_update``)."""
+    """Ledger rows are insert-only. Plain ``create`` / ``bulk_create`` insert freely, but
+    ``bulk_create(update_conflicts=True)`` is rejected (it is an upsert that rewrites rows);
+    the only mutation is the status CAS below (``update`` also backs ``bulk_update``)."""
+
+    def bulk_create(self, objs: Any, *args: Any, **kwargs: Any) -> Any:
+        if kwargs.get("update_conflicts"):
+            raise AppendOnlyViolation(
+                "CreditTransaction rows are append-only; "
+                "bulk_create(update_conflicts=True) would rewrite rows."
+            )
+        return super().bulk_create(objs, *args, **kwargs)
 
     def update(self, **kwargs: Any) -> NoReturn:
         raise AppendOnlyViolation(
