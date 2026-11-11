@@ -1,7 +1,7 @@
 ---
 phase: "32"
 slug: "superadmin-credit-controls"
-status: complete-local
+status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: "2026-11-11"
