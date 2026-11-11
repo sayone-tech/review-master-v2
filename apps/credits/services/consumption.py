@@ -303,7 +303,8 @@ def _settle_lost_race(
     a business outcome.
 
     * Not REFUNDED (already COMMITTED, or anything else): never re-deduct (``already_settled``).
-    * REFUNDED on a past or lapsed month: the draft is free, no balance is touched.
+    * REFUNDED on a past month or lapsed balance (``lapsed_at`` set): the draft is free, no
+      balance is touched.
     * REFUNDED on the current month: one guarded re-deduct if capacity remains (``rededucted``),
       otherwise the draft is free.
 
@@ -321,9 +322,10 @@ def _settle_lost_race(
         credits_charged = row.credits if prior_status == Status.COMMITTED else 0
     else:
         period = current_period()
-        lapsed = CreditTransaction.objects.filter(
-            shop_credit_balance_id=row.shop_credit_balance_id,
-            transaction_type=CreditTransaction.Type.LAPSED,
+        # D-01 (Phase 31): a fresh read of the lapse marker after the CAS lost. It also covers
+        # zero-remaining lapses, which write no LAPSED ledger row.
+        lapsed = ShopCreditBalance.objects.filter(
+            pk=row.shop_credit_balance_id, lapsed_at__isnull=False
         ).exists()
         if (row.period_year, row.period_month) != (period.year, period.month) or lapsed:
             outcome, credits_charged, reason = "free_draft", 0, "past_period"

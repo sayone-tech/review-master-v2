@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 
 from apps.common.models import AuditLog
 from apps.credits.exceptions import GenerationInProgressError, InsufficientCreditsError
@@ -419,7 +420,7 @@ def test_late_commit_is_free_draft_without_balance_write_when_reservation_is_pri
     assert_ledger_reconciles(old)
 
 
-def test_late_commit_is_free_draft_when_current_balance_has_lapsed_row():
+def test_late_commit_is_free_draft_when_current_balance_is_marked_lapsed():
     _org, shop, review = _shop_review(allocation=10)
     res = _reserve(review, credits=3)
     refund_reservation(transaction_id=res.transaction_id, reason="reaped")
@@ -430,6 +431,25 @@ def test_late_commit_is_free_draft_when_current_balance_has_lapsed_row():
         status=Status.COMMITTED,
         credits_delta=-7,
     )
+    ShopCreditBalance.objects.filter(pk=balance.pk).update(lapsed_at=timezone.now())
+    before = CreditTransaction.objects.count()
+
+    with patch(SENTRY):
+        result = _late_commit(res)
+
+    assert result == SettleResult(credits_charged=0, outcome="free_draft")
+    assert CreditTransaction.objects.count() == before
+    assert _balance(shop).consumed_credits == 0
+    assert _audit("shop.credits.late_commit")[0].after_data["outcome"] == "free_draft"
+
+
+def test_late_commit_is_free_draft_when_balance_lapsed_with_zero_remaining():
+    _org, shop, review = _shop_review(allocation=10)
+    res = _reserve(review, credits=3)
+    refund_reservation(transaction_id=res.transaction_id, reason="reaped")
+    balance = _balance(shop)
+    # Marker only: a zero-remaining lapse writes no LAPSED ledger row.
+    ShopCreditBalance.objects.filter(pk=balance.pk).update(lapsed_at=timezone.now())
     before = CreditTransaction.objects.count()
 
     with patch(SENTRY):

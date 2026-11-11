@@ -32,6 +32,13 @@ def test_reservation_ttl_is_five_minutes():
     assert settings.REVIEWBEE_CREDIT_RESERVATION_TTL_MINUTES == 5
 
 
+def test_lapse_chunk_size_is_positive_int_defaulting_to_500():
+    size = settings.REVIEWBEE_CREDIT_LAPSE_CHUNK_SIZE
+    assert isinstance(size, int)
+    assert size > 0
+    assert size == 500
+
+
 def test_support_email_is_non_empty_address():
     assert isinstance(settings.REVIEWBEE_SUPPORT_EMAIL, str)
     assert "@" in settings.REVIEWBEE_SUPPORT_EMAIL

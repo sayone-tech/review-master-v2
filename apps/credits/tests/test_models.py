@@ -160,6 +160,14 @@ def test_reserved_partial_index_covers_status_and_created_at_when_declared():
     assert index.condition == Q(status="RESERVED")
 
 
+def test_lapsed_at_is_nullable_and_unlapsed_partial_index_is_declared():
+    assert ShopCreditBalance._meta.get_field("lapsed_at").null is True
+    assert ShopCreditBalanceFactory().lapsed_at is None
+    index = next(i for i in ShopCreditBalance._meta.indexes if i.name == "credit_bal_unlapsed_idx")
+    assert list(index.fields) == ["period_year", "period_month"]
+    assert index.condition == Q(lapsed_at__isnull=True)
+
+
 # --- FK delete rules (D-02) ----------------------------------------------------
 
 
