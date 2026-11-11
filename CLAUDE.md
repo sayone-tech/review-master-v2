@@ -127,8 +127,15 @@ repo-root/
 │   │   │   ├── periods.py           # UTC period seam (current_period, next_period_start)
 │   │   │   ├── credit_cost.py       # The single pure pricing function (tiers from settings)
 │   │   │   ├── allocation.py        # Lazy, race-safe first-use balance creation
-│   │   │   └── ledger.py            # Status-only CAS transitions on ledger rows
-│   │   └── selectors/balances.py    # Virtual-balance reads (never writes)
+│   │   │   ├── ledger.py            # Status-only CAS transitions on ledger rows
+│   │   │   ├── consumption.py       # Reserve -> commit/refund + the single late-commit path (Phase 30)
+│   │   │   ├── lapse.py             # Daily idempotent lapse sweep, lapsed_at marker (Phase 31)
+│   │   │   └── reaper.py            # Refunds stale RESERVED rows via refund_reservation (Phase 31)
+│   │   ├── selectors/
+│   │   │   ├── balances.py          # Virtual-balance reads (never writes)
+│   │   │   ├── lapse.py             # Unlapsed past-period balance ids
+│   │   │   └── reservations.py      # RESERVED rows past the TTL
+│   │   └── tasks.py                 # Beat: lapse daily 00:05 UTC, reaper every 10 min
 │   ├── integrations/                # External API clients
 │   │   ├── google/
 │   │   │   ├── client.py
@@ -690,6 +697,8 @@ Beat tasks are stored in the database via `django-celery-beat`. Seed initial sch
 | `retry_failed_enrichments_task` | `ai-enrichment-low` | Every 6 hours |
 | `refresh_google_tokens_task` | `google-sync` | Hourly |
 | `reclassify_polarity_task` | `default` | Weekly, Sunday 03:00 UTC — DB-only polarity reclassification (v0.8/Phase 24, §29) |
+| `lapse_expired_credit_balances_task` | `default` | Daily 00:05 UTC — idempotent catch-up lapse of past-month credit balances (v0.9/Phase 31) |
+| `reap_stale_reservations_task` | `default` | Every 10 minutes — refunds RESERVED credit reservations older than the TTL (v0.9/Phase 31) |
 
 ### 12.6 Deployment
 
