@@ -17,6 +17,9 @@ from apps.common.models import AuditLog
 class AuditLogReadSerializer(serializers.ModelSerializer[AuditLog]):
     actor_id = serializers.SerializerMethodField()
     actor_name = serializers.SerializerMethodField()
+    # CVIS-05: annotated by list_audit_logs_for_org for shop credit rows;
+    # absent on Staff rows (serialises null).
+    shop_name = serializers.CharField(read_only=True, default=None, allow_null=True)
 
     class Meta:
         model = AuditLog
@@ -28,6 +31,7 @@ class AuditLogReadSerializer(serializers.ModelSerializer[AuditLog]):
             "action",
             "actor_id",
             "actor_name",
+            "shop_name",
             "after_data",
         ]
 

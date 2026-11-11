@@ -15,7 +15,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import Q, QuerySet
+from django.db.models import Case, CharField, OuterRef, Q, QuerySet, Subquery, Value, When
+from django.db.models.expressions import Expression
+from django.db.models.functions import Cast
 
 from apps.common.models import AuditLog
 
@@ -31,16 +33,52 @@ AUDIT_ENTITY_FILTER = Q(entity_type="action_item") | Q(
     action__in=["reply_posted", "reply_deleted", "reply_failed"],
 )
 
+# CVIS-05: credit events (per-shop ledger actions + the org-level monthly
+# allocation edit) are visible to ORG ADMINS ONLY. This constant is used by
+# ``list_audit_logs_for_org`` alone and must never be folded into
+# AUDIT_ENTITY_FILTER, which the Staff selector shares.
+CREDIT_AUDIT_FILTER = Q(entity_type="shop", action__startswith="shop.credits.") | Q(
+    entity_type="organisation", action="organisation.credits.set"
+)
+
+
+def _shop_name_annotation() -> Expression:
+    """Resolve the shop name for ``entity_type="shop"`` rows only (CVIS-05).
+
+    ``AuditLog.entity_id`` is an untyped CharField shared by every entity type,
+    so the lookup is (a) gated on ``entity_type="shop"`` (a review/action item
+    whose PK collides with a shop PK must not borrow its name), (b) bound to the
+    row's own organisation (no other tenant's name can leak) and (c) compared as
+    TEXT (a non-numeric ``entity_id`` can never raise on PostgreSQL). It is one
+    correlated subquery in the same SELECT, so the query count stays fixed.
+    """
+    from apps.shops.models import Shop
+
+    shop_name = (
+        Shop.objects.filter(organisation_id=OuterRef("organisation_id"))
+        .annotate(_pk_text=Cast("pk", output_field=CharField()))
+        .filter(_pk_text=OuterRef("entity_id"))
+        .values("name")[:1]
+    )
+    return Case(
+        When(entity_type="shop", then=Subquery(shop_name)),
+        default=Value(None),
+        output_field=CharField(),
+    )
+
 
 def list_audit_logs_for_org(*, organisation_id: int) -> QuerySet[AuditLog]:
-    """Return all audit log rows for an organisation (D-01, D-02).
+    """Return all audit log rows for an organisation (D-01, D-02, CVIS-05).
 
-    Used by ORG_ADMIN. No further scoping beyond org + entity filter.
+    Used by ORG_ADMIN. No further scoping beyond org + entity filter; credit
+    events are included (CVIS-05) and each row carries a ``shop_name``
+    annotation (None unless it is a same-org shop row).
     select_related('actor') prevents N+1 on actor_name serialization.
     """
     return (
         AuditLog.objects.filter(organisation_id=organisation_id)
-        .filter(AUDIT_ENTITY_FILTER)
+        .filter(AUDIT_ENTITY_FILTER | CREDIT_AUDIT_FILTER)
+        .annotate(shop_name=_shop_name_annotation())
         .select_related("actor")
     )
 

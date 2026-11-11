@@ -146,10 +146,21 @@ export function AuditLogTable({
       skeletonWidth: "140px",
       accessor: (row) => {
         const label = ACTION_LABEL[row.action];
-        return label ? (
+        const base = label ? (
           <span className="text-text">{label}</span>
         ) : (
           <span className="text-muted">{row.action}</span>
+        );
+        if (row.entity_type !== "shop") return base;
+        // CVIS-05: shop credit rows name the shop; fall back to its id.
+        return (
+          <span className="break-words">
+            {base}
+            <span className="text-muted break-words">
+              {" \u2014 "}
+              {row.shop_name ?? `Shop #${row.entity_id}`}
+            </span>
+          </span>
         );
       },
     },

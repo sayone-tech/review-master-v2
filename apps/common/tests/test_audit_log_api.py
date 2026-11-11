@@ -272,3 +272,23 @@ def test_filter_shop_accessible_for_staff_ok(staff_setup) -> None:
     )
     resp = client.get(LIST_URL, {"shop": accessible_shop.pk})
     assert resp.status_code == 200
+
+
+def test_org_admin_sees_credit_consumed_row_with_shop_name(org_admin_setup) -> None:
+    """CVIS-05 tracer: a shop credit event reaches the Org Admin with the shop name."""
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org, name="Downtown Store")
+    AuditLogFactory(
+        organisation=org,
+        actor=None,
+        entity_type="shop",
+        entity_id=str(shop.pk),
+        action="shop.credits.consumed",
+    )
+    resp = client.get(LIST_URL)
+    assert resp.status_code == 200
+    rows = resp.data["results"]
+    assert len(rows) == 1
+    assert rows[0]["action"] == "shop.credits.consumed"
+    assert rows[0]["entity_type"] == "shop"
+    assert rows[0]["shop_name"] == "Downtown Store"

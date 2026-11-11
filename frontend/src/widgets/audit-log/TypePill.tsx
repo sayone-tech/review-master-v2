@@ -1,5 +1,6 @@
 // Phase 21-04 — TypePill component per UI-SPEC §7.
-// Renders a coloured pill for entity_type: review (blue) / action_item (amber).
+// Renders a coloured pill for entity_type: review (blue) / action_item (amber) /
+// shop + organisation credit events (neutral "Credits").
 
 import type { AuditLogRow } from "./types";
 
@@ -12,6 +13,8 @@ interface PillStyle {
 const TYPE_PILL: Record<AuditLogRow["entity_type"], PillStyle> = {
   review: { label: "Reply", bg: "bg-blue-tint", text: "text-blue" },
   action_item: { label: "Action Item", bg: "bg-amber-tint", text: "text-amber" },
+  shop: { label: "Credits", bg: "bg-line-soft", text: "text-ink" },
+  organisation: { label: "Credits", bg: "bg-line-soft", text: "text-ink" },
 };
 
 interface Props {
