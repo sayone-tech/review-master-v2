@@ -29,3 +29,8 @@ def current_period(now: datetime | None = None) -> Period:
         raise ValueError("current_period() requires a timezone-aware datetime")
     utc = moment.astimezone(UTC)
     return Period(utc.year, utc.month)
+
+
+def next_period_start(period: Period) -> datetime:
+    """First instant (aware, UTC) of the month after ``period``; December rolls to January."""
+    return datetime(period.year + period.month // 12, period.month % 12 + 1, 1, tzinfo=UTC)
