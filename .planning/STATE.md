@@ -1,17 +1,16 @@
 ---
-gsd_state_version: 1.0
-milestone: none
-milestone_name: (between milestones — v0.8 shipped 2026-06-30)
-status: milestone_complete
-stopped_at: v0.8 Canonical Tag System shipped 2026-06-30 (Phases 22–27, 20 plans, PR #38); Phase 28 / RESET deferred pre-launch
-last_updated: 2026-06-30T09:30:00.000Z
-last_activity: 2026-06-30
+gsd_state_version: "1.0"
+milestone: v0.9
+milestone_name: AI Reply Credits
+status: planning
+last_updated: "2026-11-11T10:23:14.018Z"
+last_activity: 2026-11-11
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 20
-  completed_plans: 20
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-06-08)
 
 ## Current Position
 
-Phase: — (no active milestone)
+Phase: Not started (defining requirements)
 Plan: —
-Next: Start the next milestone with `/gsd-new-milestone` (mobile app). Carried forward: Phase 28 / RESET (Superadmin data reset), deferred until a production deployment exists.
-Status: Milestone complete
-Last activity: 2026-06-30
+Status: Defining requirements
+Last activity: 2026-11-11 — Milestone v0.9 started
+
 
 ### v0.8 phase map (Phases 22–27) — SHIPPED 2026-06-30
 

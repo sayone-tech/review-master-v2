@@ -4,17 +4,28 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current Milestone: None — between milestones
+## Current Milestone: v0.9 AI Reply Credits
 
-**v0.8 Canonical Tag System shipped 2026-06-30** (Phases 22–27; merged via PR #38). The next milestone is the **mobile app** — scope and technical direction TBD via `/gsd-new-milestone` once the brief is clear. Phase 28 (Superadmin Data Reset & Re-Sync) is the one v0.8 item carried forward, deferred until a production deployment exists.
+**Goal:** Cap AI reply-generation spend with a per-shop monthly credit budget that Superadmin controls and every user can see.
 
-**Source spec (v0.8):** `docs/completed/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (v1.0, Final), reconciled against the live schema. Key correction: review tags are the **relational `ReviewTag` model** (v0.6 Phase 17), not the JSONB `tags` column the spec assumed — canonical mapping attaches as a nullable FK on `ReviewTag`.
+**Source spec:** `docs/in-progress/Requirements_Credits_System.md` (v1.0, Nov 2026), reconciled against the live codebase (see Key decisions below).
 
-**Key v0.8 decisions:** tag-merge progress uses **HTTP polling** (not a new WebSocket consumer — keeps the Channels surface narrow per §13.2); the Superadmin data reset would be a **hard wipe**, a deliberate one-time pre-production exception to the §11 soft-delete rule (deferred with Phase 28).
+**Target features:**
+
+- `Organisation.monthly_credit_allocation` set by Superadmin on Create/Edit Org (0–10,000; changes take effect next month)
+- New `apps/credits` app — `ShopCreditBalance` (one row per shop per UTC month, lazily created) + `CreditTransaction` (INITIAL / BONUS / CONSUMPTION / LAPSED; status RESERVED / COMMITTED / REFUNDED)
+- Tiered credit cost (1 / 2 / 3 credits for 1–100 / 101–500 / 501+ chars; thresholds in settings) + cost endpoint so displayed cost = charged cost
+- Two-phase reserve → OpenAI (outside txn) → commit/refund consumption wired into the existing Phase 19 `generate_reply` endpoint; 402 on insufficient credits, 400 on empty-comment reviews
+- UI: AI button hidden for star-only reviews; cost on the button label; "X credits remaining" in composer; Shop Details credits card; Shops-list credit badge; accessible "Buy More Credits" placeholder modal (mailto `REVIEWBEE_SUPPORT_EMAIL`)
+- Superadmin "Allocate Bonus Credits" modal on Shop Details (current month only)
+- Celery Beat: monthly lapse (00:05 UTC on the 1st, idempotent) + 10-min reaper refunding stale RESERVED transactions
+- AuditLog rows for every credit event (`organisation.credits.set`, `shop.credits.allocated/bonus_allocated/consumed/lapsed`)
+
+**Key v0.9 decisions:** spec's "Manager" role = Org Admin (no separate role exists); cost function lives in `apps/credits/services/credit_cost.py` (spec §4.3 vs §13.1 conflict); **no click-confirmation step** (§5.4) — cost shown on the button label instead; existing `generate_reply` throttle stays **10/min** (not the spec's 30/min); credits **refunded on OpenAI failure and on input-moderation block**, **consumed on output-moderation block** (OpenAI was billed); §9.3 shop-switcher badge deferred — app has no global shop switcher. **Model split:** planning/discuss agents run on **Opus**, execution agents (`gsd-executor`, `gsd-debugger`, `gsd-doc-writer`) run on **latest Sonnet** — set via `.planning/config.json` `models` map. Phase 28 (Superadmin Data Reset) remains deferred pre-launch. The mobile app moves to the milestone after v0.9.
 
 ## Status / Next
 
-🚀 **Web Beta 1 (`web-beta-1`)** closed 2026-05-24 — seven milestones shipped end-to-end (v1.0, v0.2-org-admin, v0.3, v0.4, v0.5, v0.6, v0.7); 21 phases, 115 plans. The **mobile app** remains the planned milestone *after* v0.8 — scope and technical direction TBD via `/gsd-new-milestone` once the brief is clear.
+🚀 **Web Beta 1 (`web-beta-1`)** closed 2026-05-24; v0.8 Canonical Tag System shipped 2026-06-30. **v0.9 AI Reply Credits** is in progress (Phases 29+). The **mobile app** follows v0.9.
 
 ## Recently Shipped (Web)
 
@@ -134,14 +145,14 @@ creation time, threaded through to the Celery backfill task.
 
 ### Active
 
-<!-- v0.8 Canonical Tag System — Phases 22+ (full REQ-IDs in .planning/REQUIREMENTS.md) -->
+<!-- v0.9 AI Reply Credits — Phases 29+ (full REQ-IDs in .planning/REQUIREMENTS.md) -->
 
-- [ ] Per-org `OrgCanonicalTag` vocabulary auto-built and auto-evolving via the enrichment call
-- [ ] Canonical mapping + English-only enforcement folded into the single GPT prompt; `canonical_tag` FK populated on `ReviewTag`
-- [ ] Three-type polarity with weekly DB-only auto-reclassification (15% threshold → `mixed`)
-- [ ] Four-step initial sync with 50-review sequential seed phase; split `ai-enrichment` queues + global OpenAI rate limit
-- [ ] Org Admin tag management (list / inline rename / merge with HTTP-polled progress) + dashboard polarity split
-- [ ] Superadmin one-time data reset + re-sync (pre-production 56-store brand)
+- [ ] Superadmin sets per-org monthly credit allocation; adds bonus credits to a shop for the current month
+- [ ] Per-shop monthly credit balance, lazily created, with immutable transaction ledger
+- [ ] Tiered credit cost on AI reply generation; race-safe two-phase reserve/commit/refund consumption
+- [ ] Credit visibility on Shop Details, Shops list, and reply composer; "Buy More Credits" placeholder modal
+- [ ] Monthly lapse of unused credits + stale-reservation reaper (Celery Beat)
+- [ ] Superadmin one-time data reset + re-sync (carried from v0.8 Phase 28 — deferred pre-launch)
 
 ### Out of Scope
 
@@ -246,4 +257,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-06-08 — v0.8 Canonical Tag System milestone started
+Last updated: 2026-11-11 — v0.9 AI Reply Credits milestone started
