@@ -277,13 +277,13 @@ Plans:
   3. From any organisation row, Superadmin can open a credits action that lists that org's shops with current-month balances, then pick a shop, enter 1–10,000 bonus credits with an optional reason, review a before/after preview, and confirm. The shop's balance rises at once, for the current UTC month only, with one BONUS_ALLOCATION ledger row and one `shop.credits.bonus_allocated` AuditLog row.
   4. Every Superadmin credit endpoint returns 403 to Org Admins and Staff, and no Org Admin or Staff path can change an allocation or add bonus credits.
 
-**Plans**: 1/5 plans executed (waves 1 → 2 → 3)
+**Plans**: 2/5 plans executed (waves 1 → 2 → 3)
 
 Plans:
 
 **Wave 1**
 - [x] 32-01-PLAN.md — Tracer: mid-month N → M PATCH materialises current-month balances at the old value (set-based helpers, atomic `update_organisation` with actor + org-row lock + `organisation.credits.set` audit), list exposes `current_month_credit_allocation`; CRED-06 proof matrix; create field, validation, PATCH 403s, read-only admin (CRED-01, CRED-06, CSUP-02)
-- [ ] 32-02-PLAN.md — Tracer: Edit Organisation "Monthly credits per shop" field + live D-18/D-21 hint + changed-only PATCH; `creditHint.ts` table; Create field default 0; OrgRow types + fixtures (CRED-01, CRED-06)
+- [x] 32-02-PLAN.md — Tracer: Edit Organisation "Monthly credits per shop" field + live D-18/D-21 hint + changed-only PATCH; `creditHint.ts` table; Create field default 0; OrgRow types + fixtures (CRED-01, CRED-06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 32-03-PLAN.md — Tracer: Superadmin bonus POST end to end (period echo 409, org-row lock, `ensure_balance`, F() increment, BONUS_ALLOCATION + `shop.credits.bonus_allocated`); edge/403/throttle matrix; paginated never-writing shop credit list (CSUP-01, CSUP-02) — depends on 32-01
@@ -363,5 +363,5 @@ Plans:
 | 29. Credits Ledger Foundation | v0.9 | 4/4 | ⬜ Not started | - |
 | 30. Metered AI Reply Generation | v0.9 | 4/4 | ⬜ Not started | - |
 | 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ⬜ Not started | - |
-| 32. Superadmin Credit Controls | v0.9 | 1/5 | ⬜ Not started | - |
+| 32. Superadmin Credit Controls | v0.9 | 2/5 | ⬜ Not started | - |
 | 33. Credit Visibility & Staff Scoping | v0.9 | 0/TBD | ⬜ Not started | - |

@@ -10,7 +10,7 @@
 
 ### Foundation & Ledger (CRED)
 
-- [ ] **CRED-01**: Superadmin can set an organisation's monthly credits per shop (integer 0–10,000, default 0) on Create and Edit Organisation; the value persists (whitelisted in `update_organisation`) and every change writes an `organisation.credits.set` AuditLog row
+- [x] **CRED-01**: Superadmin can set an organisation's monthly credits per shop (integer 0–10,000, default 0) on Create and Edit Organisation; the value persists (whitelisted in `update_organisation`) and every change writes an `organisation.credits.set` AuditLog row
 - [ ] **CRED-02**: Each shop has one credit balance per UTC calendar month (allocated / bonus / consumed), created lazily on first use; the DB enforces uniqueness on `(shop, year, month)` and `0 <= consumed <= allocated + bonus`
 - [x] **CRED-03**: Every credit event is recorded in an append-only ledger (`INITIAL_ALLOCATION | BONUS_ALLOCATION | CONSUMPTION | LAPSED`, status `RESERVED | COMMITTED | REFUNDED`); no update/delete path exists and status is the only permitted mutation, via named service functions; Django admin is read-only
 - [ ] **CRED-04**: Credit cost is 1 / 2 / 3 for trimmed comment length 1–100 / 101–500 / 501+, computed by one pure function with thresholds in settings and an open-ended top tier; unit tests cover 0, 1, 100, 101, 500, 501, 10000, 10001, emoji, and whitespace-only
@@ -83,7 +83,7 @@ Deferred — tracked but not in the v0.9 roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CRED-01 | Phase 32 | Pending |
+| CRED-01 | Phase 32 | Complete |
 | CRED-02 | Phase 29 | Gaps Found |
 | CRED-03 | Phase 29 | Complete |
 | CRED-04 | Phase 29 | Gaps Found |
