@@ -7,6 +7,7 @@ in the ``backend-pg`` CI job (and ``make test-pg``) and auto-skip elsewhere.
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable
 
 import pytest
@@ -17,13 +18,15 @@ from apps.credits.exceptions import GenerationInProgressError, InsufficientCredi
 from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.services.allocation import ensure_balance
 from apps.credits.services.consumption import (
+    SettleResult,
     commit_reservation,
     refund_reservation,
     reserve_credits,
 )
 from apps.credits.services.ledger import transition_status
+from apps.credits.services.reaper import ReapSummary, reap_stale_reservations
 from apps.credits.tests.factories import CreditTransactionFactory
-from apps.credits.tests.helpers import assert_ledger_reconciles
+from apps.credits.tests.helpers import age_reservation, assert_ledger_reconciles
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.reviews.tests.factories import ReviewFactory
 from apps.shops.tests.factories import ShopFactory
@@ -274,8 +277,10 @@ def test_first_use_reserve_creates_one_balance_when_n_threads_race():
 def test_charges_once_when_commit_and_refund_race():
     """Exactly one CAS wins per reservation, and the shop is charged exactly once either way.
 
-    Not the Phase 31 reaper-vs-late-commit test (CREN-03): the orchestrator only ever commits a
-    reservation once, so each reservation here has one committer racing one refunder.
+    Not the reaper test: the orchestrator only ever commits a reservation once, so each
+    reservation here has one committer racing one bare refunder. The real reaper racing a late
+    commit is ``test_reaper_and_late_commit_settle_each_reservation_once_when_racing`` below
+    (Phase 31, CREN-03).
     """
     n_reservations = 10
     org = OrganisationFactory(monthly_credit_allocation=10)
@@ -326,3 +331,101 @@ def test_charges_once_when_commit_and_refund_race():
     ]
     assert len(rededucted) == len(refund_wins)
     assert_ledger_reconciles(balance)
+
+
+def _refunded_audit_rows(shop_id: int, transaction_id: int) -> list[AuditLog]:
+    return [
+        a
+        for a in AuditLog.objects.filter(action="shop.credits.refunded", entity_id=str(shop_id))
+        if a.after_data["transaction_id"] == transaction_id
+    ]
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_reaper_and_late_commit_settle_each_reservation_once_when_racing():
+    """Phase 31 reaper-vs-late-commit test (CREN-03, CQA-01).
+
+    Uses the real ``reap_stale_reservations`` (not a bare refund) against ``commit_reservation``
+    on one stale reservation per round. Either the commit wins (reaper reaps nothing) or the
+    reaper wins and the late commit re-deducts once; the shop is charged exactly once per review.
+    """
+    n_rounds = 10
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org)
+    reviews = [ReviewFactory(organisation=org, shop=shop) for _ in range(n_rounds)]
+    split = {"committed": 0, "refunded": 0}
+
+    for round_index, review in enumerate(reviews):
+        res = reserve_credits(shop_id=shop.pk, review_id=review.pk, credits=1, actor_id=None)
+        age_reservation(res.transaction_id, minutes=6)
+        barrier = threading.Barrier(2)
+        reaped: list[ReapSummary] = []
+        settled: list[SettleResult] = []
+        lock = threading.Lock()
+
+        def worker(
+            index: int,
+            barrier: threading.Barrier = barrier,
+            tx_id: int = res.transaction_id,
+            reaped: list[ReapSummary] = reaped,
+            settled: list[SettleResult] = settled,
+            lock: threading.Lock = lock,
+            delay: float = 0.003 * (round_index % 2),
+        ) -> None:
+            barrier.wait(timeout=10)
+            if index == 0:
+                summary = reap_stale_reservations()
+                with lock:
+                    reaped.append(summary)
+            else:
+                # Odd rounds delay the committer 3ms, even rounds do not, so both orderings
+                # (commit first, reaper first) are likely every run; either winner is accepted.
+                if delay:
+                    time.sleep(delay)
+                result = commit_reservation(
+                    transaction_id=tx_id, ai_usage_log_id=None, outcome="success", actor_id=None
+                )
+                with lock:
+                    settled.append(result)
+
+        errors = _run_threads(2, worker)
+
+        assert not errors, errors
+        assert len(reaped) == 1
+        assert len(settled) == 1
+        summary = reaped[0]
+        result = settled[0]
+        assert summary.errored == 0
+        tx = CreditTransaction.objects.get(pk=res.transaction_id)
+        refunds = _refunded_audit_rows(shop.pk, res.transaction_id)
+        late = CreditTransaction.objects.filter(review=review, note="late_commit")
+        if tx.status == CreditTransaction.Status.COMMITTED:
+            split["committed"] += 1
+            assert result.outcome == "committed"
+            assert refunds == []
+            assert summary.reaped == 0
+            assert late.count() == 0
+        else:
+            split["refunded"] += 1
+            assert tx.status == CreditTransaction.Status.REFUNDED
+            assert len(refunds) == 1
+            assert refunds[0].after_data["reason"] == "reaped_stale"
+            assert summary.reaped == 1
+            assert result.outcome == "rededucted"
+            assert late.count() == 1
+            assert late.get().status == CreditTransaction.Status.COMMITTED
+
+    for review in reviews:
+        committed = CreditTransaction.objects.filter(
+            review=review,
+            transaction_type=CreditTransaction.Type.CONSUMPTION,
+            status=CreditTransaction.Status.COMMITTED,
+        )
+        assert committed.count() == 1
+    balance = ShopCreditBalance.objects.get(shop=shop)
+    assert balance.consumed_credits == n_rounds
+    assert balance.consumed_credits <= balance.allocated_credits + balance.bonus_credits
+    assert_ledger_reconciles(balance)
+    assert split["committed"] + split["refunded"] == n_rounds
+    print(f"reaper-vs-late-commit split: {split}")  # noqa: T201 - recorded in the SUMMARY
