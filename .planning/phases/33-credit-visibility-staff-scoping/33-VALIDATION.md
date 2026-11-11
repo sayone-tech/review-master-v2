@@ -92,3 +92,11 @@ Note: the draft referenced `apps/credits/tests/test_access_selector.py`; Plan 33
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** automated rows validated by Plan 33-07 on 2026-11-12. Still open for `/gsd-verify-work` (manual / UI-SPEC backstop): colour bands in the real UI, OS mail client opening from card, badge and composer, two 360px composer checks, the 200-character / emoji mailto check, and the two-Escape ordering over stacked modals. CI `backend-pg` (pg_concurrency) remains authoritative after push.
+
+## Validation Audit 2026-11-11
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
