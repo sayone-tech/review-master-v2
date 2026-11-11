@@ -9,16 +9,22 @@ from celery import current_app
 from django_celery_beat.models import PeriodicTask
 
 from apps.common.models import AuditLog
-from apps.credits.models import CreditTransaction
+from apps.credits.models import CreditTransaction, ShopCreditBalance
+from apps.credits.services.consumption import reserve_credits
 from apps.credits.services.lapse import LapseSummary
 from apps.credits.services.periods import Period, current_period
-from apps.credits.tasks import lapse_expired_credit_balances_task
+from apps.credits.tasks import lapse_expired_credit_balances_task, reap_stale_reservations_task
 from apps.credits.tests.factories import ShopCreditBalanceFactory
+from apps.credits.tests.helpers import age_reservation, assert_ledger_reconciles
+from apps.organisations.tests.factories import OrganisationFactory
+from apps.reviews.tests.factories import ReviewFactory
 from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
 
 LAPSE_TASK = "apps.credits.tasks.lapse_expired_credit_balances_task"
+REAP_TASK = "apps.credits.tasks.reap_stale_reservations_task"
+SECRET = "SECRET-REVIEW-TEXT"
 
 
 def _previous_period() -> Period:
@@ -91,3 +97,51 @@ def test_lapse_task_lapses_previous_month_balance_end_to_end():
     current.refresh_from_db()
     assert current.lapsed_at is None
     assert not CreditTransaction.objects.filter(shop_credit_balance=current).exists()
+
+
+def test_reaper_periodic_task_is_seeded_every_10_minutes_on_default_queue():
+    pt = PeriodicTask.objects.get(name="credits_reap_stale_reservations")
+
+    assert pt.task == REAP_TASK
+    assert pt.queue == "default"
+    assert pt.enabled is True
+    assert pt.crontab is None
+    assert pt.interval.every == 10
+    assert pt.interval.period == "minutes"
+
+
+def test_reaper_task_is_registered_and_routed_to_default_queue():
+    path = PeriodicTask.objects.get(name="credits_reap_stale_reservations").task
+
+    assert path in current_app.tasks
+    assert current_app.conf.task_routes[path]["queue"] == "default"
+
+
+def test_reaper_task_refunds_stale_reservation_end_to_end():
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org)
+    review_a = ReviewFactory(organisation=org, shop=shop, comment=SECRET)
+    review_b = ReviewFactory(organisation=org, shop=shop, comment=SECRET)
+    stale = reserve_credits(shop_id=shop.pk, review_id=review_a.pk, credits=3, actor_id=None)
+    fresh = reserve_credits(shop_id=shop.pk, review_id=review_b.pk, credits=2, actor_id=None)
+    age_reservation(stale.transaction_id, minutes=6)
+    age_reservation(fresh.transaction_id, minutes=4)
+
+    result = reap_stale_reservations_task.delay().get()
+
+    assert result == {"reaped": 1, "skipped": 0, "errored": 0, "lapsed_after": 0}
+    assert (
+        CreditTransaction.objects.get(pk=stale.transaction_id).status
+        == CreditTransaction.Status.REFUNDED
+    )
+    assert (
+        CreditTransaction.objects.get(pk=fresh.transaction_id).status
+        == CreditTransaction.Status.RESERVED
+    )
+    balance = ShopCreditBalance.objects.get(pk=stale.shop_credit_balance_id)
+    assert balance.consumed_credits == 2
+    audit = list(AuditLog.objects.filter(action="shop.credits.refunded"))
+    assert len(audit) == 1
+    assert audit[0].after_data["reason"] == "reaped_stale"
+    assert audit[0].actor_id is None
+    assert_ledger_reconciles(balance)

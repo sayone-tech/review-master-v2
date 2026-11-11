@@ -135,6 +135,8 @@ CELERY_TASK_ROUTES = {
     "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},
     # Phase 31 CREN-01 — daily idempotent lapse sweep (00:05 UTC).
     "apps.credits.tasks.lapse_expired_credit_balances_task": {"queue": "default"},
+    # Phase 31 CREN-03 — reservation reaper (every 10 minutes).
+    "apps.credits.tasks.reap_stale_reservations_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 300  # 5-minute soft limit
@@ -239,6 +241,8 @@ REVIEWBEE_CREDIT_TIERS: list[tuple[int | None, int]] = [(100, 1), (500, 2), (Non
 REVIEWBEE_CREDIT_RESERVATION_TTL_MINUTES = 5
 # REVIEWBEE_CREDIT_LAPSE_CHUNK_SIZE: balances fetched per keyset page by the daily lapse sweep (Phase 31).
 REVIEWBEE_CREDIT_LAPSE_CHUNK_SIZE = env.int("REVIEWBEE_CREDIT_LAPSE_CHUNK_SIZE", default=500)
+# REVIEWBEE_CREDIT_REAPER_BATCH_SIZE: max stale reservations refunded per 10-minute reaper run; the rest roll to the next run (Phase 31).
+REVIEWBEE_CREDIT_REAPER_BATCH_SIZE = env.int("REVIEWBEE_CREDIT_REAPER_BATCH_SIZE", default=500)
 # Reply path only: per-request OpenAI timeout (s). The whole request must stay well under the
 # reservation TTL above; enforced by apps/credits/tests/test_settings.py.
 REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS = env.int(

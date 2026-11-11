@@ -37,3 +37,25 @@ def lapse_expired_credit_balances_task() -> dict[str, int]:
         summary.errored,
     )
     return dataclasses.asdict(summary)
+
+
+@shared_task  # type: ignore[misc]
+def reap_stale_reservations_task() -> dict[str, int]:
+    """Phase 31 CREN-03: every 10 minutes, refund RESERVED credits older than the TTL.
+
+    Thin wrapper around ``reap_stale_reservations()``. No autoretry, for the same reason as the
+    lapse task: the reaper is idempotent, isolates failures per row, and runs again in 10
+    minutes, so a blanket retry would only hide real failures. Routed to the default queue
+    (section 12.5).
+    """
+    from apps.credits.services.reaper import reap_stale_reservations
+
+    summary = reap_stale_reservations()
+    logger.info(
+        "reap_stale_reservations_task.complete reaped=%s skipped=%s errored=%s lapsed_after=%s",
+        summary.reaped,
+        summary.skipped,
+        summary.errored,
+        summary.lapsed_after,
+    )
+    return dataclasses.asdict(summary)
