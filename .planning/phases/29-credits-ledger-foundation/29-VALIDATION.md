@@ -40,7 +40,22 @@ created: "2026-11-11"
 
 ## Per-Task Verification Map
 
-Filled by the planner/executor from PLAN.md task IDs. Requirement → test-file mapping (from RESEARCH.md):
+Filled by the planner/executor from PLAN.md task IDs.
+
+**Plan/task → automated verify (planner, 2026-11-11):**
+
+| Task ID | Requirement(s) | Primary automated verify |
+|---------|----------------|--------------------------|
+| 29-01-T1 (tracer) | CRED-02 | `.venv/bin/pytest apps/credits/tests/test_allocation.py -x -q --no-cov` + makemigrations --check + migrate-reverse one-liner |
+| 29-01-T2 | CRED-02 (adjacency edge; factories for 02/03) | `.venv/bin/pytest apps/credits/tests/test_periods.py apps/credits/tests/test_allocation.py -x -q --no-cov` + `mypy apps/credits` + ruff |
+| 29-01-T3 | CQA-01 | marker registered; SQLite skip visible; `REQUIRE_PG=1` exits 3; throwaway-PG run 2 passed; ci.yml `backend-pg` YAML assert; `make -n test-pg` |
+| 29-02-T1 | CRED-03 (+CQA-01 CAS race) | `.venv/bin/pytest apps/credits/tests/test_append_only.py -x -q --no-cov` + throwaway-PG run 3 passed |
+| 29-02-T2 | CRED-02, CRED-03 | `.venv/bin/pytest apps/credits/tests/test_models.py apps/credits/tests/test_admin.py -x -q --no-cov` |
+| 29-03-T1 | CRED-04 | `.venv/bin/pytest apps/credits/tests/test_credit_cost.py apps/credits/tests/test_settings.py -x -q --no-cov` |
+| 29-03-T2 | CRED-05 | `.venv/bin/pytest apps/credits/tests/test_selectors.py -x -q --no-cov` |
+| 29-03-T3 | phase gate | `.venv/bin/pytest --cov=apps --cov-fail-under=85 -q` + `mypy .` + makemigrations/check --deploy + throwaway-PG run 3 passed |
+
+Requirement → test-file mapping (from RESEARCH.md):
 
 | Requirement | Test file | Test Type | Automated Command | File Exists | Status |
 |-------------|-----------|-----------|-------------------|-------------|--------|

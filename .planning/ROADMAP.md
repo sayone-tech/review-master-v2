@@ -183,7 +183,17 @@ v0.9 (AI reply credits) is in progress; the mobile app follows v0.9.
   4. A review's credit cost is 1 / 2 / 3 for trimmed comment length 1–100 / 101–500 / 501+, computed by one pure function with thresholds in settings and an open-ended top tier. Boundary tests pass for 0, 1, 100, 101, 500, 501, 10000, 10001, emoji, and whitespace-only comments.
   5. Every pull request runs a Postgres CI job that executes all `pg_concurrency`-marked tests (marker registered under `--strict-markers`) alongside the existing SQLite suite.
 
-**Plans**: TBD
+**Plans**: 3 plans (waves 1 → 2 → 3, sequential)
+
+Plans:
+**Wave 1**
+- [ ] 29-01-PLAN.md — Tracer: `Organisation.monthly_credit_allocation` + full balance/ledger schema + `ensure_balance` first-use slice, then Postgres CI (`backend-pg`, `pg_concurrency`, first-use race)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 29-02-PLAN.md — Ledger integrity: append-only guards + `transition_status` CAS (Postgres race), DB-invariant proofs, read-only admin
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 29-03-PLAN.md — `credit_cost` pricing + never-writing balance selectors, then phase gate (CLAUDE.md §3, orm-performance-auditor, full suite/coverage/mypy/PG)
 **Notes**:
 
 - Enablers shipped here for later phases:
