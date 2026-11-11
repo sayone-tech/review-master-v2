@@ -1126,3 +1126,56 @@ class TestShopsStaffScopeRetrieveAndCounts:
             counts.append(len(ctx.captured_queries))
         assert counts[0] == counts[1]
         assert counts[0] <= 7
+
+
+@pytest.mark.django_db
+class TestShopListCreditContactBootstrap:
+    def _get(self, org, role="ORG_ADMIN"):  # type: ignore[no-untyped-def]
+        user = UserFactory(role=role, organisation=org)
+        dj_client = Client()
+        dj_client.force_login(user)
+        return dj_client.get("/admin/org/shops/")
+
+    def test_context_carries_org_name_and_support_email_when_org_admin(self, settings):
+        settings.REVIEWBEE_SUPPORT_EMAIL = "credits-sentinel@example.test"
+        org = OrganisationFactory(number_of_stores=10, name="Acme Foods")
+        resp = self._get(org)
+        assert resp.status_code == 200
+        assert resp.context["credit_contact"] == {
+            "organisation_name": "Acme Foods",
+            "support_email": "credits-sentinel@example.test",
+        }
+
+    def test_html_has_single_credit_contact_json_script_when_rendered(self, settings):
+        import re
+
+        settings.REVIEWBEE_SUPPORT_EMAIL = "credits-sentinel@example.test"
+        org = OrganisationFactory(number_of_stores=10, name="Acme Foods")
+        html = self._get(org).content.decode()
+        matches = re.findall(
+            r'<script id="credit-contact" type="application/json">(.*?)</script>', html, re.S
+        )
+        assert len(matches) == 1
+        assert json.loads(matches[0]) == {
+            "organisation_name": "Acme Foods",
+            "support_email": "credits-sentinel@example.test",
+        }
+
+    def test_org_name_is_escaped_when_it_contains_a_script_closing_tag(self):
+        org = OrganisationFactory(number_of_stores=10, name="Acme </script><script>x</script>")
+        html = self._get(org).content.decode()
+        assert "</script><script>x" not in html
+        assert "\\u003C/script\\u003E" in html
+
+    def test_shop_data_rows_carry_virtual_credit_numbers_when_rendered(self):
+        org = OrganisationFactory(number_of_stores=10, monthly_credit_allocation=25)
+        ShopFactory(organisation=org)
+        resp = self._get(org)
+        row = resp.context["shops_json"][0]
+        assert row["credits_remaining"] == 25
+        assert row["credits_total"] == 25
+
+    def test_staff_is_redirected_when_requesting_shops_page(self):
+        org = OrganisationFactory(number_of_stores=10)
+        resp = self._get(org, role="STAFF_ADMIN")
+        assert resp.status_code == 302

@@ -6,6 +6,7 @@ import logging
 import secrets
 from typing import Any
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import QuerySet
@@ -98,13 +99,13 @@ def _shop_page_url_params(request: HttpRequest, per_page: int) -> str:
 def shop_list(request):  # type: ignore[no-untyped-def]
     org = request.user.organisation
     per_page = _shop_resolve_per_page(request.GET.get("per_page"))
-    qs = list_shops(organisation_id=org.pk)
+    user = request.user
+    qs = list_shops(organisation_id=org.pk, user=user, with_credits=True, period=current_period())
     paginator = Paginator(qs, per_page)
     page_obj = paginator.get_page(request.GET.get("page", 1))
     shops_data = list(ShopReadSerializer(list(page_obj.object_list), many=True).data)
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
-    user = request.user
     return render(
         request,
         "shops/shop_list.html",
@@ -122,6 +123,10 @@ def shop_list(request):  # type: ignore[no-untyped-def]
             "is_org_admin": user.role == User.Role.ORG_ADMIN,
             "allow_custom_sync_depth": org.allow_custom_sync_depth,
             "org_data": {"allow_custom_sync_depth": org.allow_custom_sync_depth},
+            "credit_contact": {
+                "organisation_name": org.name,
+                "support_email": settings.REVIEWBEE_SUPPORT_EMAIL,
+            },
         },
     )
 
