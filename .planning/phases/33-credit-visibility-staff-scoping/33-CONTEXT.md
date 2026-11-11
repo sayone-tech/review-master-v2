@@ -44,6 +44,10 @@ Requirements: CVIS-01, CVIS-02, CVIS-03, CVIS-04, CVIS-05, SCOPE-01. Superadmin 
 - **D-16:** **Soften the spec's SLA**: replace "Credits are added within 24 hours of request." with wording like "Your administrator will add credits as soon as possible." (exact copy for `/gsd-ui-phase 33`).
 - Carried: title "Buy More Credits", mail icon, primary "Contact Admin" + secondary "Close", focus trap, ARIA labels, ESC / backdrop close, no payment flow — roadmap SC4 / spec §9.5.
 
+### Staff scoping (SCOPE-01) — decided at plan-phase, 2026-11-11
+- **D-17:** **Shop retrieve is Staff-scoped too.** `GET /api/v1/shops/{id}/` returns 404 for a Staff user whose StaffAccessScope does not include the shop (same rule as the list and the credits GET). This goes slightly beyond the roadmap wording on purpose, because it closes the same leak.
+- **D-18:** **The Shops page stays Org-Admin-only** (`@org_admin_required` and the sidebar are unchanged). SCOPE-01 is enforced at the API (`GET /api/v1/shops/`, credit endpoints), and Staff see credits in the reply composer. The UI-SPEC's Staff "No shops assigned" empty state is built defensively behind a role prop but cannot be reached yet.
+
 ### Carried forward (locked by earlier phases / roadmap — do not re-decide)
 - Server is the source of truth for cost, remaining, `is_enabled`, `period_label`, `renews_on`; dates render with `timeZone: "UTC"` (ROADMAP notes).
 - Backend shape (ROADMAP notes): shop credits GET returning the virtual balance, never writes, `Cache-Control: no-store`; `list_shops(with_credits=True)` as one annotation (fixed query count for 1 vs 20 shops), serializer fields default `None`; one shared `get_accessible_shop_for_credits` selector; Activity Log selector change.

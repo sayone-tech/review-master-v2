@@ -2,18 +2,18 @@
 gsd_state_version: "1.0"
 milestone: v0.9
 milestone_name: AI Reply Credits
-current_phase: 32
-current_phase_name: Superadmin Credit Controls
-status: verifying
+current_phase: 33
+current_phase_name: Credit Visibility & Staff Scoping
+status: executing
 stopped_at: Completed 32-05-PLAN.md
-last_updated: "2026-11-11T16:02:12.781Z"
+last_updated: "2026-11-11T16:34:29.998Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 32 execution started
-state_head: ec5a007c4a9855a3d9830842e4e922798f971ea0
+state_head: 1d6f1b89c701fefd24460203bee76ed68861d83a
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 16
+  total_plans: 23
   completed_plans: 16
   percent: 0
 ---
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 
 ## Current Position
 
-Phase: 32 (Superadmin Credit Controls) — EXECUTING
+Phase: 33 (Credit Visibility & Staff Scoping) — READY TO EXECUTE
 Plan: 5 of 5
-Status: Phase complete — ready for verification
+Status: Ready to execute
 Last activity: 2026-11-11 — Phase 32 execution started
 
 ### v0.9 phase map (Phases 29–33)

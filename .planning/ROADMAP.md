@@ -315,7 +315,22 @@ Plans:
   4. A "Buy More Credits" modal opens from the credits card, the Shops-list badge, and the composer. It offers a Contact Admin mailto to `REVIEWBEE_SUPPORT_EMAIL`, traps focus, carries ARIA labels, closes on ESC or a backdrop click, and has no payment flow.
   5. Org Admins see `shop.credits.*` and `organisation.credits.set` events in the Activity Log; Staff do not. The Shops list and every credit endpoint return only shops in a Staff user's StaffAccessScope. Negative tests prove that cross-org access, out-of-scope Staff, and Staff calls to Superadmin endpoints are refused.
 
-**Plans**: TBD
+**Plans**: 7 plans (waves 1 → 2 → 3)
+
+Plans:
+
+**Wave 1**
+- [ ] 33-01-PLAN.md — Tracer: Staff GET /api/v1/shops/ returns only in-scope shops with virtual credit fields; scope matrix, Staff-scoped retrieve (D-17), shared `get_accessible_shop_for_credits`, fixed query count; Shops-page `credit-contact` bootstrap (SCOPE-01, CVIS-02, CVIS-04)
+- [ ] 33-02-PLAN.md — Tracer: Org Admin sees "Credits used — {shop}" in the Activity Log; Org-only credit filter, org-bounded `shop_name`, Staff exclusion incl. PK collisions, query ceiling, Credits pill and seven labels (CVIS-05)
+- [ ] 33-03-PLAN.md — Tracer: Buy More Credits modal opens an encoded Contact Admin mailto from the bootstrap; modal/mailto matrix (D-13..D-16); shared band helper, formatters and shop-keyed store (CVIS-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 33-04-PLAN.md — Tracer: Staff reads an in-scope shop's credits (virtual balance, period label, renews_on, no-store), 404 out of scope; edge matrix; SCOPE-01 negative sweep over every credit route (CVIS-01, SCOPE-01) — depends on 33-01
+- [ ] 33-05-PLAN.md — Tracer: composer shows "Generate with AI · N credits" and the remaining line, updated after generate; not enabled / insufficient + Buy More / load-error states; 402 keeps the draft, 409 banner; Reviews-page bootstrap (CVIS-03, CVIS-04) — depends on 33-03
+- [ ] 33-06-PLAN.md — Tracer: credits badge → Shop Details with the AI Reply Credits card; card states, stacked Buy More with Escape ordering, badge states and store seeding, defensive Staff empty state (CVIS-01, CVIS-02, CVIS-04) — depends on 33-03, codes against 33-01/33-04 frozen contracts
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 33-07-PLAN.md — Tracer: whole-phase walk-through test + contract cross-check; tenant-security-auditor + orm-performance-auditor + code-reviewer + frontend-react-builder with dispositions; PostgreSQL proof of the audit text compare; runbook + CLAUDE.md; full gates; validation sign-off
 **UI hint**: yes
 **Notes**:
 
