@@ -36,6 +36,8 @@ const BASE_ROW: OrgRow = {
   activation_status: "pending",
   last_invited_at: "2026-04-22T10:00:00Z",
   allow_custom_sync_depth: false,
+  monthly_credit_allocation: 0,
+  current_month_credit_allocation: 0,
 };
 
 function noopHandlers() {

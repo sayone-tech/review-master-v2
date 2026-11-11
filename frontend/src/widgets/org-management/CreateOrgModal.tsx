@@ -66,6 +66,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
       address: address.trim(),
       number_of_stores: Number(stores),
       allow_custom_sync_depth: allowCustomSyncDepth,
+      monthly_credit_allocation: 0, // wired to the field in Task 3
     };
     try {
       await createOrg(payload);
@@ -138,7 +139,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
         </>
       }
     >
-      <form id="create-org-form" onSubmit={submit} className="space-y-4">
+      <form id="create-org-form" onSubmit={submit} noValidate className="space-y-4">
         <Field label="Organisation Name" id="new-org-name" error={errors.name}>
           <input
             id="new-org-name"

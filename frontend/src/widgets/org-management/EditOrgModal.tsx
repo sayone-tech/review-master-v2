@@ -4,6 +4,7 @@ import { updateOrg, ApiError } from "./api";
 import { emitToast } from "../../lib/toast";
 import type { OrgRow, OrgType, UpdateOrgPayload } from "./types";
 import { ToggleSwitch } from "./ToggleSwitch";
+import { computeCreditHint, parseCreditInput } from "./creditHint";
 
 const ORG_TYPE_OPTIONS: { value: OrgType; label: string }[] = [
   { value: "RETAIL", label: "Retail" },
@@ -24,6 +25,11 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
   const [stores, setStores] = useState("");
   const [address, setAddress] = useState("");
   const [allowCustomSyncDepth, setAllowCustomSyncDepth] = useState(false);
+  const [credits, setCredits] = useState("0");
+  // Value captured when the modal opened: the allocation is sent only when the
+  // typed value differs, so a stale form can never silently revert another
+  // admin's change (T-32-09).
+  const [openedCredits, setOpenedCredits] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,6 +40,8 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
       setStores(String(org.number_of_stores));
       setAddress(org.address ?? "");
       setAllowCustomSyncDepth(org.allow_custom_sync_depth ?? false);
+      setCredits(String(org.monthly_credit_allocation));
+      setOpenedCredits(org.monthly_credit_allocation);
       setErrors({});
     }
   }, [org]);
@@ -51,6 +59,8 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
     if (!Number.isInteger(n) || n < 1 || n > 1000)
       e.number_of_stores = "Enter a whole number between 1 and 1000.";
     if (address.length > 500) e.address = "Address must be 500 characters or fewer.";
+    if (parseCreditInput(credits) === null)
+      e.monthly_credit_allocation = "Enter a whole number between 0 and 10,000.";
     return e;
   }
 
@@ -67,6 +77,9 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
       address: address.trim(),
       allow_custom_sync_depth: allowCustomSyncDepth,
     };
+    const parsedCredits = parseCreditInput(credits);
+    if (parsedCredits !== null && parsedCredits !== openedCredits)
+      payload.monthly_credit_allocation = parsedCredits;
     try {
       await updateOrg(currentOrg.id, payload);
       emitToast({ kind: "success", title: "Organisation updated." });
@@ -88,6 +101,16 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
       setSubmitting(false);
     }
   }
+
+  const creditHint = computeCreditHint({
+    mode: "edit",
+    saved: currentOrg.monthly_credit_allocation,
+    thisMonth: currentOrg.current_month_credit_allocation,
+    typed: credits,
+    nowUtc: new Date(),
+  });
+  const creditHintDeferred =
+    creditHint.kind === "deferred" || creditHint.kind === "deferred-off";
 
   const inputBase =
     "w-full px-3 py-2 text-[14px] bg-white border rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
@@ -126,7 +149,7 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
         </>
       }
     >
-      <form id="edit-org-form" onSubmit={submit} className="space-y-4">
+      <form id="edit-org-form" onSubmit={submit} noValidate className="space-y-4">
         <div>
           <label className="block text-[12px] font-semibold text-subtle uppercase tracking-[0.05em] mb-1">
             Organisation Name
@@ -196,6 +219,52 @@ export function EditOrgModal({ org, onClose, onUpdated }: Props) {
               {errors.number_of_stores}
             </p>
           )}
+        </div>
+        <div>
+          <label
+            htmlFor="edit-org-credits"
+            className="block text-[12px] font-semibold text-subtle uppercase tracking-[0.05em] mb-1"
+          >
+            Monthly credits per shop
+          </label>
+          <input
+            id="edit-org-credits"
+            type="number"
+            min={0}
+            max={10000}
+            step={1}
+            inputMode="numeric"
+            value={credits}
+            onChange={(e) => setCredits(e.target.value)}
+            aria-describedby="edit-org-credits-help"
+            className={`${inputBase} ${errors.monthly_credit_allocation ? "border-red" : "border-line"}`}
+            data-testid="edit-field-monthly_credit_allocation"
+          />
+          {errors.monthly_credit_allocation && (
+            <p className="mt-1 text-[12px] text-red" role="alert">
+              {errors.monthly_credit_allocation}
+            </p>
+          )}
+          <div id="edit-org-credits-help">
+            <p className="mt-1 text-[12px] text-muted">
+              Each shop in this organisation gets this many credits at the start of
+              every month. Unused credits lapse.
+            </p>
+            <p
+              data-testid="credit-allocation-hint"
+              role="status"
+              aria-live="polite"
+              className={
+                creditHint.kind === "hidden"
+                  ? undefined
+                  : creditHintDeferred
+                    ? "mt-2 bg-amber-tint text-[#92400E] px-4 py-2 rounded-md text-[12px]"
+                    : "mt-1 text-[12px] text-muted"
+              }
+            >
+              {creditHint.text}
+            </p>
+          </div>
         </div>
         <div>
           <label className="block text-[12px] font-semibold text-subtle uppercase tracking-[0.05em] mb-1">
