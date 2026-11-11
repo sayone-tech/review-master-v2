@@ -5,16 +5,16 @@ milestone_name: AI Reply Credits
 current_phase: 31
 current_phase_name: Monthly Renewal & Reservation Reaper
 status: executing
-stopped_at: Completed 31-01-PLAN.md
-last_updated: "2026-11-11T14:20:10.831Z"
+stopped_at: Completed 31-02-PLAN.md
+last_updated: "2026-11-11T14:25:54.090Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 31 execution started
-state_head: 97e2dadb6adc7a966775306dff158b067cfb93e1
+state_head: 811bb57728be2e9e61c8174bd08aa2b23573face
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 ## Current Position
 
 Phase: 31 (Monthly Renewal & Reservation Reaper) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-11-11 — Phase 31 execution started
 
@@ -94,6 +94,7 @@ Last activity: 2026-11-11 — Phase 31 execution started
 | Phase 30 P03 | 35min | 2 tasks | 6 files |
 | Phase 30 P04 | 25 min | 3 tasks | 5 files |
 | Phase 31 P01 | 10 min | 3 tasks | 14 files |
+| Phase 31 P02 | 12 min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,8 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 30]: 30-03: output-stage moderation block consumes, every other non-success outcome refunds; 400/409 bodies carry only {code, detail}, 402 is {code, reason, required, remaining}
 - [Phase 30]: 30-04: Postgres races (N vs K, cost 2/3, mixed refunds, same review, commit vs refund, client abort) all pass on PG14 with no production change
 - [Phase 31]: lapsed_at marker (not ledger row) is the lapse done-flag; zero-remaining balances are marked with no LAPSED/AuditLog row; late commit reads the marker (D-01/D-02)
+- [Phase 31]: Reaper is CAS-only: no skip_locked pre-select and no outer transaction; refund_reservation's per-row CAS arbitrates races with late commits and other reaper runs
+- [Phase 31]: Reaper refund that cannot apply (RuntimeError) raises an ids-only Sentry error, leaves the row RESERVED and the balance unlapsed; no quarantine column
 
 ### Pending Todos
 
@@ -143,6 +146,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T14:20:10.672Z
-Stopped at: Completed 31-01-PLAN.md
+Last session: 2026-11-11T14:25:53.939Z
+Stopped at: Completed 31-02-PLAN.md
 Resume file: None
