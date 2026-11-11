@@ -12,6 +12,7 @@ from apps.credits.exceptions import AppendOnlyViolation, InvalidStatusTransition
 from apps.credits.models import CreditTransaction
 from apps.credits.services.ledger import transition_status
 from apps.credits.tests.factories import CreditTransactionFactory, ShopCreditBalanceFactory
+from apps.integrations.openai.tests.factories import AiUsageLogFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -242,6 +243,73 @@ def test_refund_after_commit_returns_false_and_keeps_committed_when_already_sett
         is False
     )
     assert _stored_status(tx) == Status.COMMITTED
+
+
+# --- the AiUsageLog link rides the same conditional UPDATE (D-14, D-17) -------
+
+
+def _stored_link(tx: CreditTransaction) -> int | None:
+    return CreditTransaction.objects.values_list("ai_usage_log_id", flat=True).get(pk=tx.pk)
+
+
+def test_transition_links_usage_log_when_reserved_row_is_committed():
+    tx = CreditTransactionFactory()
+    log = AiUsageLogFactory()
+    assert transition_status(
+        transaction_id=tx.pk,
+        from_status=Status.RESERVED,
+        to_status=Status.COMMITTED,
+        ai_usage_log_id=log.pk,
+    )
+    assert _stored_status(tx) == Status.COMMITTED
+    assert _stored_link(tx) == log.pk
+
+
+def test_transition_links_usage_log_when_reserved_row_is_refunded():
+    tx = CreditTransactionFactory()
+    log = AiUsageLogFactory()
+    assert transition_status(
+        transaction_id=tx.pk,
+        from_status=Status.RESERVED,
+        to_status=Status.REFUNDED,
+        ai_usage_log_id=log.pk,
+    )
+    assert _stored_status(tx) == Status.REFUNDED
+    assert _stored_link(tx) == log.pk
+
+
+def test_transition_leaves_link_null_when_cas_is_lost():
+    tx = CreditTransactionFactory(status=Status.COMMITTED, transaction_type="CONSUMPTION")
+    log = AiUsageLogFactory()
+    assert (
+        transition_status(
+            transaction_id=tx.pk,
+            from_status=Status.RESERVED,
+            to_status=Status.COMMITTED,
+            ai_usage_log_id=log.pk,
+        )
+        is False
+    )
+    assert _stored_link(tx) is None
+    assert _stored_status(tx) == Status.COMMITTED
+
+
+def test_transition_leaves_link_null_when_usage_log_id_omitted():
+    tx = CreditTransactionFactory()
+    assert transition_status(
+        transaction_id=tx.pk, from_status=Status.RESERVED, to_status=Status.COMMITTED
+    )
+    assert _stored_link(tx) is None
+
+
+def test_save_raises_when_update_fields_include_usage_log_link():
+    tx = CreditTransactionFactory()
+    tx.ai_usage_log = AiUsageLogFactory()
+    tx.status = Status.COMMITTED
+    with pytest.raises(AppendOnlyViolation):
+        tx.save(update_fields=["status", "ai_usage_log"])
+    assert _stored_status(tx) == Status.RESERVED
+    assert _stored_link(tx) is None
 
 
 # --- instance.save(update_fields=["status"]) goes through the same CAS --------

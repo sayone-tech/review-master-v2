@@ -9,6 +9,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
+from django.core.cache import caches
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -16,11 +17,16 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import StaffAccessScope
 from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
+from apps.common.models import AuditLog
+from apps.credits.models import CreditTransaction, ShopCreditBalance
+from apps.credits.services.allocation import ensure_balance
+from apps.credits.tests.helpers import assert_ledger_reconciles
 from apps.integrations.openai.exceptions import (
     ContentModeratedException,
     OpenAIPermanentError,
     OpenAITransientError,
 )
+from apps.integrations.openai.models import AiUsageLog
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.reviews.models import Review, TagMergeJob
 from apps.reviews.tests.factories import (
@@ -33,9 +39,22 @@ from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
 
+
+def _usage_data() -> dict:
+    return {
+        "prompt_tokens": 100,
+        "completion_tokens": 50,
+        "cached_tokens": 0,
+        "total_tokens": 150,
+        "latency_ms": 500,
+        "langsmith_trace_id": "trace-reply-001",
+    }
+
+
 LIST_URL = "/api/v1/reviews/"
 TAGS_URL = "/api/v1/reviews/tags/"
 STATS_URL = "/api/v1/reviews/stats/"
+GENERATE_QUERY_CEILING = 21  # measured 19 (cost-1 and cost-3), +2 headroom
 
 
 @pytest.fixture
@@ -401,13 +420,20 @@ def _generate_reply_url(review_pk: int) -> str:
 class TestGenerateReplyEndpoint:
     """Phase 19 Plan 02: POST /api/v1/reviews/{id}/generate-reply/.
 
-    Covers D-09 through D-13 and D-17/D-18.
+    Covers D-09 through D-13 and D-17/D-18. Phase 30 (CQA-02): the draft seam is patched
+    below the credits layer, and each test that reaches reserve gets an allocation.
     """
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @pytest.fixture(autouse=True)
+    def _clear_throttle_cache(self) -> None:
+        # CQA-02 ordering edge: the throttle cache survives the DB rollback, so an earlier
+        # test's bucket must not push a later request into 429.
+        caches["throttle"].clear()
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_success_returns_draft(self, mock_generate) -> None:
-        mock_generate.return_value = "Great reply!"
-        org = OrganisationFactory()
+        mock_generate.return_value = ("Great reply!", None)
+        org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
         review = ReviewFactory(organisation=org)
         client = APIClient()
@@ -416,7 +442,8 @@ class TestGenerateReplyEndpoint:
         resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
 
         assert resp.status_code == 200
-        assert resp.data == {"draft": "Great reply!"}
+        assert resp.data["draft"] == "Great reply!"
+        assert set(resp.data) == {"draft", "credits_charged", "credits_remaining"}
         mock_generate.assert_called_once()
         kwargs = mock_generate.call_args.kwargs
         assert kwargs["tone"] == "professional"
@@ -442,10 +469,10 @@ class TestGenerateReplyEndpoint:
 
         assert resp.status_code == 403
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_transient_error_returns_502(self, mock_generate) -> None:
         mock_generate.side_effect = OpenAITransientError("boom")
-        org = OrganisationFactory()
+        org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
         review = ReviewFactory(organisation=org)
         client = APIClient()
@@ -457,10 +484,10 @@ class TestGenerateReplyEndpoint:
         assert resp.data["code"] == "ai_unavailable"
         assert "AI generation failed" in resp.data["detail"]
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_permanent_error_returns_502(self, mock_generate) -> None:
         mock_generate.side_effect = OpenAIPermanentError("nope")
-        org = OrganisationFactory()
+        org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
         review = ReviewFactory(organisation=org)
         client = APIClient()
@@ -472,10 +499,10 @@ class TestGenerateReplyEndpoint:
         assert resp.data["code"] == "ai_unavailable"
         assert "AI generation failed" in resp.data["detail"]
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_generic_exception_returns_502(self, mock_generate) -> None:
         mock_generate.side_effect = ValueError("unexpected")
-        org = OrganisationFactory()
+        org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
         review = ReviewFactory(organisation=org)
         client = APIClient()
@@ -486,10 +513,10 @@ class TestGenerateReplyEndpoint:
         assert resp.status_code == 502
         assert resp.data["code"] == "ai_unavailable"
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_staff_admin_accessible_shop(self, mock_generate) -> None:
-        mock_generate.return_value = "Reply draft."
-        org = OrganisationFactory()
+        mock_generate.return_value = ("Reply draft.", None)
+        org = OrganisationFactory(monthly_credit_allocation=10)
         shop = ShopFactory(organisation=org)
         review = ReviewFactory(organisation=org, shop=shop)
         staff = StaffAdminFactory(organisation=org)
@@ -502,9 +529,10 @@ class TestGenerateReplyEndpoint:
         resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
 
         assert resp.status_code == 200
-        assert resp.data == {"draft": "Reply draft."}
+        assert resp.data["draft"] == "Reply draft."
+        assert resp.data["credits_charged"] >= 1
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_staff_admin_inaccessible_shop_returns_404(self, mock_generate) -> None:
         org = OrganisationFactory()
         s1 = ShopFactory(organisation=org)
@@ -522,44 +550,42 @@ class TestGenerateReplyEndpoint:
         assert resp.status_code == 404
         mock_generate.assert_not_called()
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_generate_reply_query_count(self, mock_generate) -> None:
-        """N+1 guard: ≤4 queries on the generate_reply path.
+        """N+1 guard on the metered generate path.
 
-        Verifies select_related("shop__organisation") so the service can read
-        review.shop.organisation.name without an extra query.
+        The ceiling is fixed and identical for a cost-1 and a cost-3 review (the credit tier
+        must not change the number of queries). Verifies select_related("shop__organisation").
         """
-        # Clear throttle cache so an earlier-test bucket can't push this request
-        # into 429 (Redis throttle cache survives the DB-transaction rollback).
-        from django.core.cache import caches
-
-        caches["throttle"].clear()
-        mock_generate.return_value = "draft"
-        org = OrganisationFactory()
+        mock_generate.return_value = ("draft", None)
+        org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
-        review = ReviewFactory(organisation=org)
         client = APIClient()
         client.force_authenticate(user=user)
 
-        with CaptureQueriesContext(connection) as ctx:
-            resp = client.post(
-                _generate_reply_url(review.pk),
-                {"tone": "professional"},
-                format="json",
-            )
+        counts = []
+        for comment in ("x" * 50, "x" * 600):
+            review = ReviewFactory(organisation=org, comment=comment)
+            ensure_balance(shop_id=review.shop_id)
+            with CaptureQueriesContext(connection) as ctx:
+                resp = client.post(
+                    _generate_reply_url(review.pk), {"tone": "professional"}, format="json"
+                )
+            assert resp.status_code == 200
+            counts.append(len(ctx.captured_queries))
 
-        assert resp.status_code == 200
-        assert len(ctx.captured_queries) <= 4, [q["sql"] for q in ctx.captured_queries]
+        assert counts[0] == counts[1], counts
+        assert counts[0] <= GENERATE_QUERY_CEILING, counts
 
     # ------------------------------------------------------------------
     # Plan 20-07: ContentModeratedException -> HTTP 422 with canonical body
     # ------------------------------------------------------------------
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_generate_reply_returns_422_on_content_moderated(self, mock_generate) -> None:
         """D-16/D-26/D-32: moderation block maps to HTTP 422 with canonical body."""
         mock_generate.side_effect = ContentModeratedException("input flagged")
-        org = OrganisationFactory()
+        org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
         review = ReviewFactory(organisation=org)
         client = APIClient()
@@ -573,11 +599,11 @@ class TestGenerateReplyEndpoint:
             "detail": "AI reply isn't available for this review. Please write your reply manually.",
         }
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_generate_reply_422_canonical_detail_string_byte_exact(self, mock_generate) -> None:
         """D-26 regression: the user-facing copy must match byte-for-byte."""
         mock_generate.side_effect = ContentModeratedException("output flagged")
-        org = OrganisationFactory()
+        org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
         review = ReviewFactory(organisation=org)
         client = APIClient()
@@ -591,13 +617,13 @@ class TestGenerateReplyEndpoint:
             == "AI reply isn't available for this review. Please write your reply manually."
         )
 
-    @patch("apps.reviews.views.generate_reply_draft")
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_generate_reply_422_does_not_leak_categories_or_review_text(
         self, mock_generate
     ) -> None:
         """T-20-LK: 422 body must contain only ``code`` and ``detail`` keys."""
         mock_generate.side_effect = ContentModeratedException("input flagged")
-        org = OrganisationFactory()
+        org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
         review = ReviewFactory(organisation=org)
         client = APIClient()
@@ -607,6 +633,148 @@ class TestGenerateReplyEndpoint:
 
         assert resp.status_code == 422
         assert set(resp.json().keys()) == {"code", "detail"}
+
+
+class TestGenerateReplyCredits:
+    """Phase 30 tracer: an end-to-end metered generate (CCON-01, CCON-06, CCON-07)."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_throttle_cache(self) -> None:
+        caches["throttle"].clear()
+
+    @staticmethod
+    def _patch_lowest_seams():
+        return (
+            patch(
+                "apps.reviews.services.reply_generation.moderate_input",
+                side_effect=lambda text, **kw: text,
+            ),
+            patch(
+                "apps.reviews.services.reply_generation.call_openai_reply_generation",
+                return_value=("A fine draft.", _usage_data()),
+            ),
+            patch(
+                "apps.reviews.services.reply_generation.moderate_output",
+                side_effect=lambda text, **kw: text,
+            ),
+        )
+
+    def test_org_admin_is_charged_and_ledger_links_usage_log_when_generating(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        p_in, p_call, p_out = self._patch_lowest_seams()
+        with p_in, p_call, p_out:
+            resp = client.post(
+                _generate_reply_url(review.pk), {"tone": "professional"}, format="json"
+            )
+
+        assert resp.status_code == 200
+        assert resp.data == {"draft": "A fine draft.", "credits_charged": 2, "credits_remaining": 8}
+        balance = ShopCreditBalance.objects.get(shop=review.shop)
+        assert balance.consumed_credits == 2
+        tx = CreditTransaction.objects.get(
+            review=review, transaction_type=CreditTransaction.Type.CONSUMPTION
+        )
+        assert tx.status == CreditTransaction.Status.COMMITTED
+        assert tx.credits_delta == -2
+        assert tx.actor_id == user.pk
+        log = AiUsageLog.objects.get(review=review, status=AiUsageLog.Status.SUCCESS)
+        assert AiUsageLog.objects.filter(review=review).count() == 1
+        assert tx.ai_usage_log_id == log.pk
+        assert AuditLog.objects.filter(action="shop.credits.consumed").count() == 1
+        assert_ledger_reconciles(balance)
+
+    def test_in_scope_staff_is_charged_when_generating(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        shop = ShopFactory(organisation=org)
+        review = ReviewFactory(organisation=org, shop=shop, comment="x" * 150)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=shop
+        )
+        client = APIClient()
+        client.force_authenticate(user=staff)
+
+        p_in, p_call, p_out = self._patch_lowest_seams()
+        with p_in, p_call, p_out:
+            resp = client.post(
+                _generate_reply_url(review.pk), {"tone": "professional"}, format="json"
+            )
+
+        assert resp.status_code == 200
+        assert resp.data["credits_charged"] == 2
+        assert resp.data["credits_remaining"] == 8
+        assert ShopCreditBalance.objects.get(shop=shop).consumed_credits == 2
+
+    def test_out_of_scope_staff_gets_404_and_nothing_is_written_when_generating(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        s1 = ShopFactory(organisation=org)
+        s2 = ShopFactory(organisation=org)
+        review = ReviewFactory(organisation=org, shop=s2, comment="x" * 150)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=s1
+        )
+        client = APIClient()
+        client.force_authenticate(user=staff)
+
+        p_in, p_call, p_out = self._patch_lowest_seams()
+        with p_in, p_call as call_mock, p_out:
+            resp = client.post(
+                _generate_reply_url(review.pk), {"tone": "professional"}, format="json"
+            )
+
+        assert resp.status_code == 404
+        call_mock.assert_not_called()
+        assert ShopCreditBalance.objects.count() == 0
+        assert CreditTransaction.objects.count() == 0
+
+    def test_openai_failure_is_refunded_and_returns_502_when_generating(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        user = OrgAdminFactory(organisation=org)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        p_in, _p_call, p_out = self._patch_lowest_seams()
+        with (
+            p_in,
+            p_out,
+            patch(
+                "apps.reviews.services.reply_generation.call_openai_reply_generation",
+                side_effect=OpenAITransientError("boom"),
+            ),
+        ):
+            resp = client.post(
+                _generate_reply_url(review.pk), {"tone": "professional"}, format="json"
+            )
+
+        assert resp.status_code == 502
+        balance = ShopCreditBalance.objects.get(shop=review.shop)
+        assert balance.consumed_credits == 0
+        tx = CreditTransaction.objects.get(
+            review=review, transaction_type=CreditTransaction.Type.CONSUMPTION
+        )
+        assert tx.status == CreditTransaction.Status.REFUNDED
+        assert AuditLog.objects.filter(action="shop.credits.refunded").count() == 1
+        assert (
+            AiUsageLog.objects.filter(review=review, status=AiUsageLog.Status.FAILED).count() == 1
+        )
+        assert AiUsageLog.objects.filter(review=review).count() == 1
+        assert_ledger_reconciles(balance)
+
+    def test_assert_no_open_transaction_raises_only_inside_real_atomic_block(self) -> None:
+        from django.db import transaction
+
+        from apps.reviews.services.reply_generation import _assert_no_open_transaction
+
+        _assert_no_open_transaction()  # pytest-django's own wrapper is ignored
+        with transaction.atomic(), pytest.raises(RuntimeError, match="database transaction"):
+            _assert_no_open_transaction()
 
 
 # ---------------------------------------------------------------------------

@@ -10,10 +10,12 @@ truncation are wired around the OpenAI call per D-07 / D-08 / D-14 / D-22 /
 D-29 / D-33. Both moderate_* calls run OUTSIDE any transaction.atomic block
 so the MODERATED audit row written by guardrails survives caller rollbacks.
 
-Idempotency: Reply generation is a synchronous, user-initiated action — there
-is NO Redis lock or three-layer pattern here (unlike enrichment in Phase 12).
-Each click costs one OpenAI call. If the user clicks twice, that is two calls
-intentionally; the view layer throttle (10/min/user, D-12) is the only guard.
+Metering (Phase 30): every click is metered. ``generate_reply_with_credits``
+reserves the review's credit cost (short row-locked transaction), calls OpenAI
+outside any transaction, then settles in a ``finally`` (commit on success,
+refund on failure). A regenerate charges again (D-11), and a second request
+for a review with an unsettled reservation is rejected (D-12). There is still
+no Redis lock: the shop balance row lock is the serialiser.
 
 Exception handling (D-17): every exception writes one FAILED AiUsageLog row
 before propagating. The view layer maps these to HTTP 502.
@@ -22,10 +24,20 @@ before propagating. The view layer maps these to HTTP 502.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 
 from django.conf import settings
+from django.db import connection
 
+from apps.credits.selectors.balances import get_shop_credit_balance
+from apps.credits.services.consumption import (
+    SettleResult,
+    commit_reservation,
+    refund_reservation,
+    reserve_credits,
+)
+from apps.credits.services.credit_cost import credit_cost
 from apps.integrations.openai.client import call_openai_reply_generation
 from apps.integrations.openai.exceptions import (
     OpenAIPermanentError,
@@ -81,10 +93,41 @@ def _write_failure_log(*, review: Review, exc: Exception) -> None:
         logger.exception("reply_generation_failed_log_write_failed review_id=%s", review.pk)
 
 
-def generate_reply_draft(*, review: Review, tone: str) -> str:
+class EmptyCommentError(Exception):
+    """The review has no chargeable text (empty or whitespace-only comment, CCON-04)."""
+
+
+@dataclass(frozen=True, slots=True)
+class ReplyResult:
+    draft: str
+    credits_charged: int
+    credits_remaining: int | None
+
+
+def read_credits_remaining(*, shop_id: int) -> int | None:
+    """Current remaining credits for the shop, or None when the read itself fails."""
+    try:
+        return get_shop_credit_balance(shop_id=shop_id).remaining
+    except Exception:
+        logger.exception("reply_generation_remaining_read_failed shop_id=%s", shop_id)
+        return None
+
+
+def _assert_no_open_transaction() -> None:
+    """D-07 / D-18: the OpenAI call must never run inside a database transaction.
+
+    A real raise (``python -O`` strips ``assert``). Atomic blocks opened by pytest-django's
+    test wrapper (``_from_testcase``) are ignored so default ``django_db`` tests are not flagged.
+    """
+    if any(not getattr(b, "_from_testcase", False) for b in connection.atomic_blocks):
+        raise RuntimeError("OpenAI call must not run inside a database transaction")
+
+
+def _generate_reply_draft_with_log(*, review: Review, tone: str) -> tuple[str, int]:
     """Generate a reply draft for `review` using the requested tone.
 
-    Returns the draft text. Writes exactly one AiUsageLog row per call:
+    Returns ``(draft, usage_log_id)`` where ``usage_log_id`` is the pk of the SUCCESS
+    AiUsageLog row. Writes exactly one AiUsageLog row per call:
       - status=SUCCESS on the happy path
       - status=FAILED for OpenAITransientError, OpenAIPermanentError, or any
         other exception (D-17); the original exception is then re-raised so
@@ -160,7 +203,7 @@ def generate_reply_draft(*, review: Review, tone: str) -> str:
     # already-safe draft, not a safety gate).
     draft = truncate_reply_at_sentence(draft)
 
-    AiUsageLog.objects.create(
+    usage_log = AiUsageLog.objects.create(
         organisation_id=review.organisation_id,
         review_id=review.pk,
         request_type="reply_generation",
@@ -176,4 +219,76 @@ def generate_reply_draft(*, review: Review, tone: str) -> str:
         error_code=pricing_error_code,
         error_message=pricing_error_message,
     )
-    return draft
+    return draft, usage_log.pk
+
+
+def generate_reply_draft(*, review: Review, tone: str) -> str:
+    """Thin wrapper over ``_generate_reply_draft_with_log`` returning only the draft."""
+    return _generate_reply_draft_with_log(review=review, tone=tone)[0]
+
+
+def _settle(
+    *,
+    transaction_id: int,
+    review_id: int,
+    committed: bool,
+    usage_log_id: int | None,
+    actor_id: int | None,
+) -> SettleResult | None:
+    """Commit or refund the reservation. Never raises: a settle failure must not mask the
+    original outcome (the Phase 31 reaper refunds anything left RESERVED)."""
+    try:
+        if committed:
+            return commit_reservation(
+                transaction_id=transaction_id,
+                ai_usage_log_id=usage_log_id,
+                outcome="success",
+                actor_id=actor_id,
+            )
+        refund_reservation(
+            transaction_id=transaction_id, reason="unexpected_error", actor_id=actor_id
+        )
+    except Exception:
+        logger.exception(
+            "reply_generation_settle_failed tx_id=%s review_id=%s", transaction_id, review_id
+        )
+    return None
+
+
+def generate_reply_with_credits(*, review: Review, tone: str, actor_id: int | None) -> ReplyResult:
+    """Metered generation: reserve -> OpenAI call -> settle (commit or refund in ``finally``).
+
+    Raises ``EmptyCommentError`` before any reservation for a non-chargeable comment,
+    ``InsufficientCreditsError`` / ``GenerationInProgressError`` from the reserve, and
+    propagates any draft-call exception unchanged after refunding (D-04). Settlement runs in
+    this ``finally`` so it completes even if the client has gone away (D-03).
+    """
+    if tone not in _ALLOWED_TONES:
+        raise ValueError(f"Unknown tone: {tone!r}")
+    cost = credit_cost(review.comment)
+    if cost == 0:
+        raise EmptyCommentError(f"review {review.pk} has no chargeable comment")
+
+    reservation = reserve_credits(
+        shop_id=review.shop_id, review_id=review.pk, credits=cost, actor_id=actor_id
+    )
+    committed = False
+    draft = ""
+    usage_log_id: int | None = None
+    try:
+        _assert_no_open_transaction()
+        draft, usage_log_id = _generate_reply_draft_with_log(review=review, tone=tone)
+        committed = True
+    finally:
+        settle = _settle(
+            transaction_id=reservation.transaction_id,
+            review_id=review.pk,
+            committed=committed,
+            usage_log_id=usage_log_id,
+            actor_id=actor_id,
+        )
+    return ReplyResult(
+        draft=draft,
+        credits_charged=settle.credits_charged if settle is not None else 0,
+        credits_remaining=read_credits_remaining(shop_id=review.shop_id),
+    )

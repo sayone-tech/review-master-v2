@@ -60,7 +60,7 @@ from apps.reviews.serializers import (
 )
 from apps.reviews.services.progress import read_progress_snapshot
 from apps.reviews.services.replies import remove_reply, submit_reply
-from apps.reviews.services.reply_generation import generate_reply_draft
+from apps.reviews.services.reply_generation import generate_reply_with_credits
 from apps.reviews.services.tag_management import create_merge_job, rename_canonical_tag
 
 logger = logging.getLogger(__name__)
@@ -288,9 +288,17 @@ class ReviewViewSet(
             200: OpenApiResponse(
                 response=inline_serializer(
                     name="GenerateReplyResponse",
-                    fields={"draft": drf_serializers.CharField()},
+                    fields={
+                        "draft": drf_serializers.CharField(),
+                        "credits_charged": drf_serializers.IntegerField(),
+                        "credits_remaining": drf_serializers.IntegerField(allow_null=True),
+                    },
                 ),
-                description="Draft generated successfully. Length capped at 300 words by D-08.",
+                description=(
+                    "Draft generated successfully. Length capped at 300 words by D-08. "
+                    "`credits_charged` is the credit cost deducted for this request and "
+                    "`credits_remaining` the shop's remaining credits this month."
+                ),
                 examples=[
                     OpenApiExample(
                         "Professional draft",
@@ -299,7 +307,9 @@ class ReviewViewSet(
                                 "Thank you for taking the time to share your feedback. "
                                 "We're sorry to hear about your experience and would "
                                 "appreciate the opportunity to make this right..."
-                            )
+                            ),
+                            "credits_charged": 2,
+                            "credits_remaining": 8,
                         },
                     )
                 ],
@@ -386,7 +396,7 @@ class ReviewViewSet(
     def generate_reply(self, request: Request, pk: int | None = None) -> Response:
         """POST: generate an AI draft reply for the given review.
 
-        Returns 200 {draft: str} on success.
+        Returns 200 {draft, credits_charged, credits_remaining} on success.
         Returns 400 on invalid tone (serializer validation).
         Returns 502 on any OpenAI failure (transient/permanent/unexpected).
         D-09, D-10, D-11, D-12, D-13, D-17, D-18.
@@ -399,7 +409,7 @@ class ReviewViewSet(
         serializer.is_valid(raise_exception=True)
         tone: str = serializer.validated_data["tone"]
         try:
-            draft = generate_reply_draft(review=review, tone=tone)
+            result = generate_reply_with_credits(review=review, tone=tone, actor_id=request.user.pk)
         except ContentModeratedException:
             # D-16/D-26/D-32: input or output blocked by moderation.
             # Caught BEFORE OpenAITransient/Permanent because
@@ -458,7 +468,14 @@ class ReviewViewSet(
                 },
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        return Response({"draft": draft}, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "draft": result.draft,
+                "credits_charged": result.credits_charged,
+                "credits_remaining": result.credits_remaining,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 # ---------------------------------------------------------------------------

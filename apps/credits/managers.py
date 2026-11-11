@@ -48,10 +48,24 @@ class CreditTransactionQuerySet(models.QuerySet["CreditTransaction"]):
     def delete(self) -> NoReturn:
         raise AppendOnlyViolation("CreditTransaction rows are append-only and cannot be deleted.")
 
-    def cas_status(self, *, pk: int, from_status: str, to_status: str) -> int:
+    def cas_status(
+        self,
+        *,
+        pk: int,
+        from_status: str,
+        to_status: str,
+        ai_usage_log_id: int | None = None,
+    ) -> int:
         """Single conditional UPDATE; returns rows affected (1 = won, 0 = lost/absent).
+
+        The AiUsageLog link (``ai_usage_log_id``, D-14) is the only other column the CAS may
+        write, and only inside the same conditional UPDATE as the status, so a lost CAS leaves
+        the FK untouched. ``credits_delta`` and ``note`` stay unwritable.
 
         Escape hatch: the only callers are ``services/ledger.py`` and
         ``CreditTransaction.save``. Calls the base ``QuerySet.update`` to bypass the guard.
         """
-        return models.QuerySet.update(self.filter(pk=pk, status=from_status), status=to_status)
+        fields: dict[str, Any] = {"status": to_status}
+        if ai_usage_log_id is not None:
+            fields["ai_usage_log_id"] = ai_usage_log_id
+        return models.QuerySet.update(self.filter(pk=pk, status=from_status), **fields)
