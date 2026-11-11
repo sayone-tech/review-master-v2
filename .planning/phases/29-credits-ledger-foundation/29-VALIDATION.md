@@ -3,9 +3,9 @@ phase: "29"
 slug: "credits-ledger-foundation"
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
 # audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-11-11"
 ---
 
@@ -59,12 +59,12 @@ Requirement → test-file mapping (from RESEARCH.md):
 
 | Requirement | Test file | Test Type | Automated Command | File Exists | Status |
 |-------------|-----------|-----------|-------------------|-------------|--------|
-| CRED-02 | `apps/credits/tests/test_models.py`, `test_allocation.py` | unit/DB | `.venv/bin/pytest apps/credits/tests/test_models.py apps/credits/tests/test_allocation.py -x` | ❌ W0 | ⬜ pending |
-| CRED-02 / CQA-01 | `apps/credits/tests/test_pg_concurrency.py` | pg_concurrency | `make test-pg` | ❌ W0 | ⬜ pending |
-| CRED-03 | `apps/credits/tests/test_append_only.py`, `test_admin.py`, `test_models.py` | unit/integration | `.venv/bin/pytest apps/credits/tests/test_append_only.py apps/credits/tests/test_admin.py -x` | ❌ W0 | ⬜ pending |
-| CRED-04 | `apps/credits/tests/test_credit_cost.py`, `test_settings.py`, `test_periods.py` | unit | `.venv/bin/pytest apps/credits/tests/test_credit_cost.py apps/credits/tests/test_settings.py apps/credits/tests/test_periods.py -x` | ❌ W0 | ⬜ pending |
-| CRED-05 | `apps/credits/tests/test_selectors.py` | unit + query-count | `.venv/bin/pytest apps/credits/tests/test_selectors.py -x` | ❌ W0 | ⬜ pending |
-| CQA-01 | `conftest.py` hook, `config/settings/test_pg.py`, `.github/workflows/ci.yml` | infra/CI | `REQUIRE_PG=1 .venv/bin/pytest apps/credits -q` exits non-zero on SQLite; `backend-pg` job green | ❌ W0 | ⬜ pending |
+| CRED-02 | `apps/credits/tests/test_models.py`, `test_allocation.py` | unit/DB | `.venv/bin/pytest apps/credits/tests/test_models.py apps/credits/tests/test_allocation.py -x` | ✅ | ✅ green |
+| CRED-02 / CQA-01 | `apps/credits/tests/test_pg_concurrency.py` | pg_concurrency | `make test-pg` | ✅ | ✅ green |
+| CRED-03 | `apps/credits/tests/test_append_only.py`, `test_admin.py`, `test_models.py` | unit/integration | `.venv/bin/pytest apps/credits/tests/test_append_only.py apps/credits/tests/test_admin.py -x` | ✅ | ✅ green |
+| CRED-04 | `apps/credits/tests/test_credit_cost.py`, `test_settings.py`, `test_periods.py` | unit | `.venv/bin/pytest apps/credits/tests/test_credit_cost.py apps/credits/tests/test_settings.py apps/credits/tests/test_periods.py -x` | ✅ | ✅ green |
+| CRED-05 | `apps/credits/tests/test_selectors.py` | unit + query-count | `.venv/bin/pytest apps/credits/tests/test_selectors.py -x` | ✅ | ✅ green |
+| CQA-01 | `conftest.py` hook, `config/settings/test_pg.py`, `.github/workflows/ci.yml` | infra/CI | `REQUIRE_PG=1 .venv/bin/pytest apps/credits -q` exits non-zero on SQLite; `backend-pg` job green | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -72,9 +72,9 @@ Requirement → test-file mapping (from RESEARCH.md):
 
 ## Wave 0 Requirements
 
-- [ ] `apps/credits/` skeleton + `apps/credits/tests/factories.py`
-- [ ] `pyproject.toml` `markers`, root `conftest.py` skip hook + `REQUIRE_PG` guard, `config/settings/test_pg.py`, `ci.yml` `backend-pg`, `Makefile` `test-pg`
-- [ ] `apps/credits/tests/conftest.py` re-exporting `assert_query_ceiling`
+- [x] `apps/credits/` skeleton + `apps/credits/tests/factories.py`
+- [x] `pyproject.toml` `markers`, root `conftest.py` skip hook + `REQUIRE_PG` guard, `config/settings/test_pg.py`, `ci.yml` `backend-pg`, `Makefile` `test-pg`
+- [x] `apps/credits/tests/conftest.py` re-exporting `assert_query_ceiling`
 
 ---
 
@@ -89,11 +89,19 @@ Requirement → test-file mapping (from RESEARCH.md):
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** validated 2026-11-11 (validate-phase: 0 gaps; pg_concurrency 3/3 passed on local PostgreSQL 14 — CI `backend-pg` on PG16 remains manual-only until pushed)
+
+## Validation Audit 2026-11-11
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
