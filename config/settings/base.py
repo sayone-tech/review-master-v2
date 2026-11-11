@@ -235,6 +235,13 @@ POLARITY_RECLASSIFY_MIN_REVIEWS = env.int("POLARITY_RECLASSIFY_MIN_REVIEWS", def
 REVIEWBEE_CREDIT_TIERS: list[tuple[int | None, int]] = [(100, 1), (500, 2), (None, 3)]
 # REVIEWBEE_CREDIT_RESERVATION_TTL_MINUTES: age after which a RESERVED credit is reaped (Phase 31).
 REVIEWBEE_CREDIT_RESERVATION_TTL_MINUTES = 5
+# Reply path only: per-request OpenAI timeout (s). The whole request must stay well under the
+# reservation TTL above; enforced by apps/credits/tests/test_settings.py.
+REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS = env.int(
+    "REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS", default=30
+)
+# Reply path only: SDK retries on the chat call (moderation uses client.REPLY_MODERATION_MAX_RETRIES).
+REVIEWBEE_REPLY_OPENAI_MAX_RETRIES = env.int("REVIEWBEE_REPLY_OPENAI_MAX_RETRIES", default=1)
 REVIEWBEE_SUPPORT_EMAIL = env("REVIEWBEE_SUPPORT_EMAIL", default="support@reviewbee.in")
 
 # ---------------------------------------------------------------------------

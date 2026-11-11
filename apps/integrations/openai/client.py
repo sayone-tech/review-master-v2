@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, Final
 
 import openai
 from django.conf import settings
@@ -53,6 +53,24 @@ def _get_client() -> OpenAI:
         api_key = settings.OPENAI_API_KEY
         _client = OpenAI(api_key=api_key) if api_key else OpenAI()
     return _client
+
+
+# The reply path passes this with the reply timeout to both moderation calls (D-15);
+# the guardrails app-level retry already makes a second attempt, so no SDK retries.
+REPLY_MODERATION_MAX_RETRIES: Final[int] = 0
+
+
+def _get_reply_client() -> OpenAI:
+    """Bounded copy of the shared client for the reply path only (D-05, CCON-08).
+
+    Timeout and retries come from settings at call time. The shared singleton used
+    by enrichment keeps the SDK defaults. LangSmith tracing is the @traceable
+    decorator around the call, not a wrapped client, so the copy is traced identically.
+    """
+    return _get_client().with_options(
+        timeout=settings.REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS,
+        max_retries=settings.REVIEWBEE_REPLY_OPENAI_MAX_RETRIES,
+    )
 
 
 def _map_openai_error(exc: Exception) -> Exception:
@@ -298,13 +316,17 @@ def _do_chat_completions_create(*, messages: list[dict[str, str]], model: str) -
         # Cast through Any to satisfy mypy without re-typing every message.
         from typing import cast
 
-        return _get_client().chat.completions.create(
+        return _get_reply_client().chat.completions.create(
             model=model,
             messages=cast(Any, messages),
             response_format=cast(Any, {"type": "text"}),
         )
     except (openai.RateLimitError, openai.APIStatusError) as exc:
         raise _map_openai_error(exc) from exc
+    except openai.APIConnectionError as exc:
+        # Also covers APITimeoutError. Mapped here so a timeout never reaches the
+        # untraced LangSmith fallback, which would call OpenAI a second time (D-15).
+        raise OpenAITransientError(str(exc)) from exc
 
 
 @traceable(run_type="llm", name="generate_reply")
