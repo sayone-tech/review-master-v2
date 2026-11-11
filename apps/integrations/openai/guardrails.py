@@ -136,9 +136,22 @@ def truncate_reply_at_sentence(text: str) -> str:
     return " ".join(words[:_REPLY_WORD_CAP]) + _REPLY_SUFFIX
 
 
-def _call_moderation_api(text: str) -> Any:
-    """One Moderation API call. Caller (`_moderate_with_retry`) handles retry."""
-    return _get_client().moderations.create(input=text, model=_MODERATION_MODEL)
+def _call_moderation_api(
+    text: str, *, timeout: float | None = None, max_retries: int | None = None
+) -> Any:
+    """One Moderation API call. Caller (`_moderate_with_retry`) handles retry.
+
+    When `timeout` / `max_retries` are given (reply path, D-15) the call goes
+    through `with_options` on the shared client; otherwise the shared client is
+    used unchanged so enrichment moderation is not affected.
+    """
+    options: dict[str, Any] = {}
+    if timeout is not None:
+        options["timeout"] = timeout
+    if max_retries is not None:
+        options["max_retries"] = max_retries
+    client = _get_client().with_options(**options) if options else _get_client()
+    return client.moderations.create(input=text, model=_MODERATION_MODEL)
 
 
 def _evaluate(response: Any) -> tuple[bool, list[str]]:
@@ -155,7 +168,12 @@ def _evaluate(response: Any) -> tuple[bool, list[str]]:
 
 
 def _moderate_with_retry(
-    text: str, *, stage: str, entity_id: int | str | None
+    text: str,
+    *,
+    stage: str,
+    entity_id: int | str | None,
+    timeout: float | None = None,
+    max_retries: int | None = None,
 ) -> tuple[bool, list[str]]:
     """Run the Moderation API with one 1s-delayed retry (D-24).
 
@@ -172,10 +190,15 @@ def _moderate_with_retry(
     CLAUDE.md §21, we log only the error class name + sanitized message —
     never the moderation input text.
     """
+    options: dict[str, Any] = {}
+    if timeout is not None:
+        options["timeout"] = timeout
+    if max_retries is not None:
+        options["max_retries"] = max_retries
     last_exc: BaseException | None = None
     for attempt in (1, 2):
         try:
-            resp = _call_moderation_api(text)
+            resp = _call_moderation_api(text, **options)
             return _evaluate(resp)
         except Exception as exc:
             last_exc = exc
@@ -204,8 +227,8 @@ def _persist_moderated_log(
     cached_tokens: int = 0,
     total_tokens: int = 0,
     estimated_cost_usd: Decimal = Decimal("0"),
-) -> None:
-    """Write a MODERATED AiUsageLog row.
+) -> int:
+    """Write a MODERATED AiUsageLog row and return its pk.
 
     NOT wrapped in a Django atomic block per D-33: if the caller is inside an
     atomic block that later rolls back, this audit row must still survive so
@@ -213,7 +236,7 @@ def _persist_moderated_log(
     `moderate_*` OUTSIDE their atomic blocks.
     """
     error_code = "content_moderated" if stage == "input" else "output_moderated"
-    AiUsageLog.objects.create(
+    row = AiUsageLog.objects.create(
         organisation_id=review.organisation_id,
         review_id=review.pk,
         request_type=request_type,
@@ -227,6 +250,7 @@ def _persist_moderated_log(
         error_code=error_code,
         error_message=f"flagged_categories={flagged}",
     )
+    return int(row.pk)
 
 
 # --- Public surface -----------------------------------------------------------
@@ -262,17 +286,27 @@ def moderate_input(
     *,
     review: Review | None = None,
     request_type: str = "enrichment",
+    timeout: float | None = None,
+    max_retries: int | None = None,
 ) -> str:
     """Truncate input text and screen it through the Moderation API.
 
     Returns the (possibly-truncated) text when not blocked. Raises
     `ContentModeratedException` when a high-severity category fires. When a
     Review is provided and the call is blocked, writes a MODERATED AiUsageLog
-    row BEFORE raising (D-04/D-33).
+    row BEFORE raising (D-04/D-33). The exception carries `stage="input"` and the
+    row's pk as `usage_log_id` (None when no review). Optional `timeout` /
+    `max_retries` bound the moderation call for the reply path (D-15).
     """
     truncated = _truncate_input(text)
     entity_id = getattr(review, "pk", None)
-    blocked, flagged = _moderate_with_retry(truncated, stage="input", entity_id=entity_id)
+    blocked, flagged = _moderate_with_retry(
+        truncated,
+        stage="input",
+        entity_id=entity_id,
+        timeout=timeout,
+        max_retries=max_retries,
+    )
     if flagged:
         logger.warning(
             "ai.moderation.flagged stage=input entity_type=review entity_id=%s "
@@ -282,14 +316,15 @@ def moderate_input(
             blocked,
         )
     if blocked:
+        usage_log_id: int | None = None
         if review is not None:
-            _persist_moderated_log(
+            usage_log_id = _persist_moderated_log(
                 review=review,
                 stage="input",
                 flagged=flagged,
                 request_type=request_type,
             )
-        raise ContentModeratedException("input flagged")
+        raise ContentModeratedException("input flagged", stage="input", usage_log_id=usage_log_id)
     return truncated
 
 
@@ -299,6 +334,8 @@ def moderate_output(
     review: Review | None = None,
     request_type: str = "reply_generation",
     usage_data: dict[str, Any] | None = None,
+    timeout: float | None = None,
+    max_retries: int | None = None,
 ) -> str:
     """Screen a generated reply through the Moderation API.
 
@@ -307,10 +344,18 @@ def moderate_output(
     Raises `ContentModeratedException` when a high-severity category fires.
     When a Review is provided and the call is blocked, writes a MODERATED
     AiUsageLog row carrying REAL tokens/cost from `usage_data` per D-29
-    (the OpenAI call already executed and consumed tokens).
+    (the OpenAI call already executed and consumed tokens). The exception carries
+    `stage="output"` and the row's pk as `usage_log_id` (None when no review).
+    Optional `timeout` / `max_retries` bound the moderation call (D-15).
     """
     entity_id = getattr(review, "pk", None)
-    blocked, flagged = _moderate_with_retry(text, stage="output", entity_id=entity_id)
+    blocked, flagged = _moderate_with_retry(
+        text,
+        stage="output",
+        entity_id=entity_id,
+        timeout=timeout,
+        max_retries=max_retries,
+    )
     if flagged:
         logger.warning(
             "ai.moderation.flagged stage=output entity_type=review entity_id=%s "
@@ -320,9 +365,10 @@ def moderate_output(
             blocked,
         )
     if blocked:
+        usage_log_id: int | None = None
         if review is not None:
             usage = usage_data or {}
-            _persist_moderated_log(
+            usage_log_id = _persist_moderated_log(
                 review=review,
                 stage="output",
                 flagged=flagged,
@@ -335,5 +381,5 @@ def moderate_output(
                     str(usage.get("estimated_cost_usd", Decimal("0")) or Decimal("0"))
                 ),
             )
-        raise ContentModeratedException("output flagged")
+        raise ContentModeratedException("output flagged", stage="output", usage_log_id=usage_log_id)
     return text
