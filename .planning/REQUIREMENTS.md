@@ -13,8 +13,8 @@
 - [ ] **CRED-01**: Superadmin can set an organisation's monthly credits per shop (integer 0–10,000, default 0) on Create and Edit Organisation; the value persists (whitelisted in `update_organisation`) and every change writes an `organisation.credits.set` AuditLog row
 - [x] **CRED-02**: Each shop has one credit balance per UTC calendar month (allocated / bonus / consumed), created lazily on first use; the DB enforces uniqueness on `(shop, year, month)` and `0 <= consumed <= allocated + bonus`
 - [x] **CRED-03**: Every credit event is recorded in an append-only ledger (`INITIAL_ALLOCATION | BONUS_ALLOCATION | CONSUMPTION | LAPSED`, status `RESERVED | COMMITTED | REFUNDED`); no update/delete path exists and status is the only permitted mutation, via named service functions; Django admin is read-only
-- [ ] **CRED-04**: Credit cost is 1 / 2 / 3 for trimmed comment length 1–100 / 101–500 / 501+, computed by one pure function with thresholds in settings and an open-ended top tier; unit tests cover 0, 1, 100, 101, 500, 501, 10000, 10001, emoji, and whitespace-only
-- [ ] **CRED-05**: Reading a balance never creates a row; a shop with no row for the current month reports its full organisation allocation (not 0)
+- [x] **CRED-04**: Credit cost is 1 / 2 / 3 for trimmed comment length 1–100 / 101–500 / 501+, computed by one pure function with thresholds in settings and an open-ended top tier; unit tests cover 0, 1, 100, 101, 500, 501, 10000, 10001, emoji, and whitespace-only
+- [x] **CRED-05**: Reading a balance never creates a row; a shop with no row for the current month reports its full organisation allocation (not 0)
 - [ ] **CRED-06**: Changing an organisation's allocation from 0 → N takes effect immediately for the current month; any other change (N → M) takes effect from the next month, and current-month balances keep the previous value
 
 ### Consumption (CCON)
@@ -86,8 +86,8 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CRED-01 | Phase 32 | Pending |
 | CRED-02 | Phase 29 | Complete |
 | CRED-03 | Phase 29 | Complete |
-| CRED-04 | Phase 29 | Pending |
-| CRED-05 | Phase 29 | Pending |
+| CRED-04 | Phase 29 | Complete |
+| CRED-05 | Phase 29 | Complete |
 | CRED-06 | Phase 32 | Pending |
 | CCON-01 | Phase 30 | Pending |
 | CCON-02 | Phase 30 | Pending |

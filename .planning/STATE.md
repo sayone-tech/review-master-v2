@@ -5,11 +5,11 @@ milestone_name: AI Reply Credits
 current_phase: 29
 current_phase_name: Credits Ledger Foundation
 status: executing
-stopped_at: Completed 29-02-PLAN.md
-last_updated: "2026-11-11T11:54:32.748Z"
+stopped_at: Completed 29-03-PLAN.md
+last_updated: "2026-11-11T12:04:22.108Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 29 execution started
-state_head: dc9540271a6725e9bc1a0c300506b96af3a0c741
+state_head: ca7f8e698a5c680be8c46e8b93993686df2363de
 progress:
   total_phases: 5
   completed_phases: 0
@@ -87,6 +87,7 @@ Last activity: 2026-11-11 — Phase 29 execution started
 |------|----------|-------|-------|
 | Phase 29 P01 | 9 min | 3 tasks | 23 files |
 | Phase 29 P02 | 22 min | 2 tasks | 10 files |
+| Phase 29 P03 | 35 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,8 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase ?]: emitToast uses {kind, title, msg} not {kind, title, body} — matched actual lib/toast.ts signature
 - [Phase 29]: Organisation.monthly_credit_allocation is IntegerField (not Positive) to avoid Coalesce mixed-type FieldError; shop/org FKs on credits models use db_index=False (composite indexes lead)
 - [Phase 29]: 29-02: Ledger append-only enforced in app layer; single status CAS (RESERVED->COMMITTED/REFUNDED) via ledger.transition_status/cas_status, callers pinned by source-scan test
+- [Phase 29]: credit_cost is the single pricing source; settings test scans that only credit_cost.py and base.py reference REVIEWBEE_CREDIT_TIERS
+- [Phase 29]: Balance selectors use FilteredRelation + Coalesce (1 query for any list size) and never write; unmaterialised shops report live org allocation
 
 ### Pending Todos
 
@@ -129,6 +132,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T11:54:32.726Z
-Stopped at: Completed 29-02-PLAN.md
+Last session: 2026-11-11T12:04:22.086Z
+Stopped at: Completed 29-03-PLAN.md
 Resume file: None
