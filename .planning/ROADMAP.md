@@ -277,7 +277,7 @@ Plans:
   3. From any organisation row, Superadmin can open a credits action that lists that org's shops with current-month balances, then pick a shop, enter 1–10,000 bonus credits with an optional reason, review a before/after preview, and confirm. The shop's balance rises at once, for the current UTC month only, with one BONUS_ALLOCATION ledger row and one `shop.credits.bonus_allocated` AuditLog row.
   4. Every Superadmin credit endpoint returns 403 to Org Admins and Staff, and no Org Admin or Staff path can change an allocation or add bonus credits.
 
-**Plans**: 4/5 plans executed (waves 1 → 2 → 3)
+**Plans**: 5/5 plans executed (waves 1 → 2 → 3)
 
 Plans:
 
@@ -290,7 +290,7 @@ Plans:
 - [x] 32-04-PLAN.md — Tracer: "Manage Credits" row action → shop list → Add bonus → preview → Allocate → refreshed list; all list/form states incl. 409/404/400; "Credits/shop" column and View Organisation pending note (CSUP-01, CRED-06) — depends on 32-02, codes against 32-03's frozen contract
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 32-05-PLAN.md — Tracer: concurrent bonuses on PostgreSQL; org edit vs first use, bonus vs reserve, bonus vs 0 → N races; CLAUDE.md §3 + rollout runbook; contract cross-check; tenant-security-auditor + orm-performance-auditor + code-reviewer; full gates
+- [x] 32-05-PLAN.md — Tracer: concurrent bonuses on PostgreSQL; org edit vs first use, bonus vs reserve, bonus vs 0 → N races; CLAUDE.md §3 + rollout runbook; contract cross-check; tenant-security-auditor + orm-performance-auditor + code-reviewer; full gates
 
 **UI hint**: yes
 **Notes**:
@@ -363,5 +363,5 @@ Plans:
 | 29. Credits Ledger Foundation | v0.9 | 4/4 | ⬜ Not started | - |
 | 30. Metered AI Reply Generation | v0.9 | 4/4 | ⬜ Not started | - |
 | 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ⬜ Not started | - |
-| 32. Superadmin Credit Controls | v0.9 | 4/5 | ⬜ Not started | - |
+| 32. Superadmin Credit Controls | v0.9 | 5/5 | ⬜ Not started | - |
 | 33. Credit Visibility & Staff Scoping | v0.9 | 0/TBD | ⬜ Not started | - |

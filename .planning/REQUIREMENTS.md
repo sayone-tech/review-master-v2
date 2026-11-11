@@ -15,7 +15,7 @@
 - [x] **CRED-03**: Every credit event is recorded in an append-only ledger (`INITIAL_ALLOCATION | BONUS_ALLOCATION | CONSUMPTION | LAPSED`, status `RESERVED | COMMITTED | REFUNDED`); no update/delete path exists and status is the only permitted mutation, via named service functions; Django admin is read-only
 - [ ] **CRED-04**: Credit cost is 1 / 2 / 3 for trimmed comment length 1–100 / 101–500 / 501+, computed by one pure function with thresholds in settings and an open-ended top tier; unit tests cover 0, 1, 100, 101, 500, 501, 10000, 10001, emoji, and whitespace-only
 - [ ] **CRED-05**: Reading a balance never creates a row; a shop with no row for the current month reports its full organisation allocation (not 0)
-- [ ] **CRED-06**: Changing an organisation's allocation from 0 → N takes effect immediately for the current month; any other change (N → M) takes effect from the next month, and current-month balances keep the previous value
+- [x] **CRED-06**: Changing an organisation's allocation from 0 → N takes effect immediately for the current month; any other change (N → M) takes effect from the next month, and current-month balances keep the previous value
 
 ### Consumption (CCON)
 
@@ -44,8 +44,8 @@
 
 ### Superadmin Controls (CSUP)
 
-- [ ] **CSUP-01**: Superadmin can open a credits action on any organisation row, see that org's shops with current balances, select a shop, and allocate bonus credits for the current month (1–10,000, optional reason) with a before/after preview; each allocation writes a BONUS_ALLOCATION ledger row and a `shop.credits.bonus_allocated` AuditLog row
-- [ ] **CSUP-02**: Superadmin credit endpoints return 403 to non-Superadmins; Org Admin and Staff cannot change the allocation or allocate bonus credits
+- [x] **CSUP-01**: Superadmin can open a credits action on any organisation row, see that org's shops with current balances, select a shop, and allocate bonus credits for the current month (1–10,000, optional reason) with a before/after preview; each allocation writes a BONUS_ALLOCATION ledger row and a `shop.credits.bonus_allocated` AuditLog row
+- [x] **CSUP-02**: Superadmin credit endpoints return 403 to non-Superadmins; Org Admin and Staff cannot change the allocation or allocate bonus credits
 
 ### Staff Scoping (SCOPE)
 
@@ -88,7 +88,7 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CRED-03 | Phase 29 | Complete |
 | CRED-04 | Phase 29 | Gaps Found |
 | CRED-05 | Phase 29 | Gaps Found |
-| CRED-06 | Phase 32 | Pending |
+| CRED-06 | Phase 32 | Complete |
 | CCON-01 | Phase 30 | Complete |
 | CCON-02 | Phase 30 | Complete |
 | CCON-03 | Phase 30 | Complete |
@@ -105,8 +105,8 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CVIS-03 | Phase 33 | Pending |
 | CVIS-04 | Phase 33 | Pending |
 | CVIS-05 | Phase 33 | Pending |
-| CSUP-01 | Phase 32 | Pending |
-| CSUP-02 | Phase 32 | Pending |
+| CSUP-01 | Phase 32 | Complete |
+| CSUP-02 | Phase 32 | Complete |
 | SCOPE-01 | Phase 33 | Pending |
 | CQA-01 | Phase 29 | Gaps Found |
 | CQA-02 | Phase 30 | Complete |

@@ -4,17 +4,17 @@ milestone: v0.9
 milestone_name: AI Reply Credits
 current_phase: 32
 current_phase_name: Superadmin Credit Controls
-status: executing
-stopped_at: Completed 32-04-PLAN.md
-last_updated: "2026-11-11T15:52:34.151Z"
+status: verifying
+stopped_at: Completed 32-05-PLAN.md
+last_updated: "2026-11-11T16:02:12.781Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 32 execution started
-state_head: f718a8c7baa440434cb1e125be80eaf994abafdb
+state_head: ec5a007c4a9855a3d9830842e4e922798f971ea0
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 
 Phase: 32 (Superadmin Credit Controls) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-11-11 — Phase 32 execution started
 
 ### v0.9 phase map (Phases 29–33)
@@ -100,6 +100,7 @@ Last activity: 2026-11-11 — Phase 32 execution started
 | Phase 32 P02 | 11 min | 3 tasks | 11 files |
 | Phase 32 P03 | 25 min | 3 tasks | 10 files |
 | Phase 32 P04 | 25 min | 3 tasks | 9 files |
+| Phase 32 P05 | 9 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 32]: Credits hint keys on current_month_credit_allocation (D-21); Create/Edit org forms use noValidate so the inline 0-10,000 error shows; Edit sends monthly_credit_allocation only when changed
 - [Phase 32]: Bonus order: period echo 409 (read-only) -> 404 availability -> one atomic (org lock, ensure_balance, balance lock, F() increment, ledger, audit); reason only in CreditTransaction.note
 - [Phase 32]: 32-04: 409 period_mismatch applies server balance/period, reloads, keeps typed values and requires a fresh Allocate click; 404 toast copy is D-23 'This shop is no longer active.'
+- [Phase 32]: Lock the organisation row FOR NO KEY UPDATE (no_key=True) in update_organisation and allocate_bonus: plain FOR UPDATE deadlocks against a concurrent first-use balance insert FK KEY SHARE (proven on PostgreSQL)
 
 ### Pending Todos
 
@@ -156,6 +158,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T15:52:33.895Z
-Stopped at: Completed 32-04-PLAN.md
+Last session: 2026-11-11T16:02:12.550Z
+Stopped at: Completed 32-05-PLAN.md
 Resume file: None
