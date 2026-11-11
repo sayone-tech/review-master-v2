@@ -222,7 +222,11 @@ Plans:
   4. Successful drafts and output-moderation blocks consume the credits (OpenAI billed). OpenAI failures and input-moderation blocks refund them. Each settled request writes one `shop.credits.consumed` or `shop.credits.refunded` AuditLog row and exactly one AiUsageLog row, which its consumption ledger row links to.
   5. The reply-path OpenAI call has an explicit timeout well below the reservation TTL (a settings test enforces the margin), and the generate-reply throttle is still 10/min. The existing Phase 19/20 generate-reply tests and factories pass with credits in place, and a deploy note states that organisations start at 0 credits until Superadmin sets an allocation.
 
-**Plans**: TBD
+**Plans**: 1/4 plans executed
+- [x] 30-01-PLAN.md
+- [ ] 30-02-PLAN.md
+- [ ] 30-03-PLAN.md
+- [ ] 30-04-PLAN.md
 **Notes**:
 
 - **Consumption core: never merge with a UI phase.**
@@ -337,7 +341,7 @@ Plans:
 | 27. Sync Progress Reliability | v0.8 | 2/2 | ✅ Complete | 2026-06-24 |
 | 28. Superadmin Data Reset & Re-Sync | v0.8 | — | ⏸ Deferred (pre-launch) | — |
 | 29. Credits Ledger Foundation | v0.9 | 4/4 | ⬜ Not started | - |
-| 30. Metered AI Reply Generation | v0.9 | 0/TBD | ⬜ Not started | - |
+| 30. Metered AI Reply Generation | v0.9 | 1/4 | ⬜ Not started | - |
 | 31. Monthly Renewal & Reservation Reaper | v0.9 | 0/TBD | ⬜ Not started | - |
 | 32. Superadmin Credit Controls | v0.9 | 0/TBD | ⬜ Not started | - |
 | 33. Credit Visibility & Staff Scoping | v0.9 | 0/TBD | ⬜ Not started | - |

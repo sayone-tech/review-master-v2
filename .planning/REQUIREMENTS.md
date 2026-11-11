@@ -19,7 +19,7 @@
 
 ### Consumption (CCON)
 
-- [ ] **CCON-01**: Org Admin, or Staff for shops in their scope, generating an AI reply is charged the review's credit cost via reserve (short row-locked transaction) → OpenAI call outside any transaction → commit
+- [x] **CCON-01**: Org Admin, or Staff for shops in their scope, generating an AI reply is charged the review's credit cost via reserve (short row-locked transaction) → OpenAI call outside any transaction → commit
 - [ ] **CCON-02**: Concurrent generate requests on the same shop can never spend beyond the shop's remaining credits (proven by a Postgres concurrency test)
 - [ ] **CCON-03**: When remaining credits are below the cost, generate returns 402 with `reason` (`not_enabled` | `exhausted`), `required`, and `remaining`, and no reservation is created
 - [ ] **CCON-04**: Generate returns 400 for a review whose comment is empty or whitespace-only, before any reservation
@@ -89,7 +89,7 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CRED-04 | Phase 29 | Gaps Found |
 | CRED-05 | Phase 29 | Gaps Found |
 | CRED-06 | Phase 32 | Pending |
-| CCON-01 | Phase 30 | Pending |
+| CCON-01 | Phase 30 | Complete |
 | CCON-02 | Phase 30 | Pending |
 | CCON-03 | Phase 30 | Pending |
 | CCON-04 | Phase 30 | Pending |

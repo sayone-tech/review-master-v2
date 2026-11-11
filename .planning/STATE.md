@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v0.9
 milestone_name: AI Reply Credits
-current_phase: 29
-current_phase_name: Credits Ledger Foundation
-status: verifying
-stopped_at: Completed 29-04-PLAN.md
-last_updated: "2026-11-11T13:07:26.572Z"
+current_phase: 30
+current_phase_name: Metered AI Reply Generation
+status: executing
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-11-11T13:21:01.193Z"
 last_activity: 2026-11-11
-last_activity_desc: Phase 29 execution started
-state_head: bd5ff507847e140e9ddecd6f378592acb7fe218a
+last_activity_desc: Phase 30 execution started
+state_head: 54cc4a6ef0f23987c3184fbe533c6513a249ecb4
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -25,14 +25,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-11)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — and AI reply spend is capped by a visible per-shop monthly credit budget that Superadmin controls.
-**Current focus:** Phase 29 — Credits Ledger Foundation
+**Current focus:** Phase 30 — Metered AI Reply Generation
 
 ## Current Position
 
-Phase: 29 (Credits Ledger Foundation) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-11-11 — Phase 29 execution started
+Phase: 30 (Metered AI Reply Generation) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-11-11 — Phase 30 execution started
 
 ### v0.9 phase map (Phases 29–33)
 
@@ -89,6 +89,7 @@ Last activity: 2026-11-11 — Phase 29 execution started
 | Phase 29 P02 | 22 min | 2 tasks | 10 files |
 | Phase 29 P03 | 35 min | 3 tasks | 8 files |
 | Phase 29 P04 | 8 min | 2 tasks | 3 files |
+| Phase 30 P01 | 28 min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 29]: 29-02: Ledger append-only enforced in app layer; single status CAS (RESERVED->COMMITTED/REFUNDED) via ledger.transition_status/cas_status, callers pinned by source-scan test
 - [Phase 29]: credit_cost is the single pricing source; settings test scans that only credit_cost.py and base.py reference REVIEWBEE_CREDIT_TIERS
 - [Phase 29]: Balance selectors use FilteredRelation + Coalesce (1 query for any list size) and never write; unmaterialised shops report live org allocation
+- [Phase 30]: 30-01: D-14 ledger link written inside the same CAS UPDATE; no D-12 partial index (balance-row lock serialises in-flight check); late commit re-deducts only REFUNDED + current month + no LAPSED + capacity
 
 ### Pending Todos
 
@@ -133,6 +135,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T13:07:26.546Z
-Stopped at: Completed 29-04-PLAN.md
+Last session: 2026-11-11T13:21:01.110Z
+Stopped at: Completed 30-01-PLAN.md
 Resume file: None
