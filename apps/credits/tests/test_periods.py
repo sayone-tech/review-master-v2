@@ -44,3 +44,16 @@ def test_next_period_start_is_first_of_following_month_when_mid_year():
 
 def test_next_period_start_rolls_to_january_when_december():
     assert periods.next_period_start(Period(2026, 12)) == datetime(2027, 1, 1, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("period", "label"),
+    [
+        (Period(2026, 11), "November 2026"),
+        (Period(2026, 9), "September 2026"),
+        (Period(2027, 1), "January 2027"),
+        (Period(2026, 12), "December 2026"),
+    ],
+)
+def test_period_label_is_english_month_name_and_year(period, label):
+    assert periods.period_label(period) == label

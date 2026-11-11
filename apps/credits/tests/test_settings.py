@@ -123,3 +123,7 @@ def test_budget_boundary_is_inclusive_when_worst_case_equals_ttl():
     )
     assert worst == 300
     assert worst <= _ttl_seconds()
+
+
+def test_shop_credits_throttle_rate_is_120_per_minute():
+    assert settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["shop_credits"] == "120/minute"
