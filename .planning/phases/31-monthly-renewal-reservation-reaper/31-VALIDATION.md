@@ -86,3 +86,11 @@ Filled by the planner from PLAN.md task IDs.
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** local gates green 2026-11-11 (31-03); Manual-Only rows left open for `/gsd-verify-work`
+
+## Validation Audit 2026-11-11
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
