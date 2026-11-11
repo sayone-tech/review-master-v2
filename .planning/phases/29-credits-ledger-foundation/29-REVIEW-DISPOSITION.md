@@ -5,11 +5,11 @@ titles: json
 findings:
   - id: WR-01
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "Append-only guard bypassable by saving a hand-built instance with an existing pk"
   - id: WR-02
     severity: warning
-    disposition: open
+    disposition: fixed
     title: "`bulk_create(update_conflicts=True)` is an unguarded rewrite path"
   - id: WR-03
     severity: warning
@@ -39,7 +39,7 @@ findings:
     severity: info
     disposition: open
     title: "Inconsistent import discipline for credits → shops"
-open: 9
+open: 7
 total: 9
 recorded: 2026-11-11T12:13:50.890Z
 ---
@@ -48,8 +48,8 @@ recorded: 2026-11-11T12:13:50.890Z
 
 | Finding | Severity | Disposition | Source |
 |---------|----------|-------------|--------|
-| WR-01 | warning | open | - |
-| WR-02 | warning | open | - |
+| WR-01 | warning | fixed | 29-04 (d866fe0) |
+| WR-02 | warning | fixed | 29-04 (e848817) |
 | WR-03 | warning | open | - |
 | IN-01 | info | open | - |
 | IN-02 | info | open | - |
