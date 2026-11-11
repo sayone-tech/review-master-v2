@@ -96,12 +96,16 @@ def test_api_list_organisations_query_count_ceiling(api_client_superadmin):
     though every org has a variable number of active/inactive shops, proving the
     SQL-side aggregate does not add per-row queries.
     """
+    from apps.credits.tests.factories import ShopCreditBalanceFactory
     from apps.shops.tests.factories import ShopFactory
 
     orgs = OrganisationFactory.create_batch(25)
     for org in orgs[:5]:
         ShopFactory.create_batch(2, organisation=org, is_active=True)
         ShopFactory(organisation=org, is_active=False)
+    # Current-month balance rows on two organisations prove the credit Subquery adds no query.
+    for org in orgs[:2]:
+        ShopCreditBalanceFactory(shop=org.shops.first(), allocated_credits=20)
 
     with CaptureQueriesContext(connection) as ctx:
         resp = api_client_superadmin.get("/api/v1/organisations/")
@@ -700,3 +704,170 @@ def test_patch_credit_allocation_keeps_shops_at_old_value_this_month_and_lists_b
     row = next(r for r in results if r["id"] == org.id)
     assert row["monthly_credit_allocation"] == 50
     assert row["current_month_credit_allocation"] == 100
+
+
+def _credit_audit_count() -> int:
+    from apps.common.models import AuditLog
+
+    return AuditLog.objects.filter(action="organisation.credits.set").count()
+
+
+def _create_payload(**extra):
+    return {
+        "name": "Credit Co",
+        "org_type": "RETAIL",
+        "email": "credit@example.com",
+        "address": "",
+        "number_of_stores": 3,
+        **extra,
+    }
+
+
+@pytest.mark.parametrize("bad_value", [-1, 10001, "abc"])
+def test_patch_credit_allocation_returns_400_when_out_of_range(api_client_superadmin, bad_value):
+    org = OrganisationFactory(monthly_credit_allocation=5)
+
+    resp = api_client_superadmin.patch(
+        f"/api/v1/organisations/{org.id}/", {"monthly_credit_allocation": bad_value}, format="json"
+    )
+
+    assert resp.status_code == 400
+    assert "monthly_credit_allocation" in resp.json()
+    org.refresh_from_db()
+    assert org.monthly_credit_allocation == 5
+    assert _credit_audit_count() == 0
+
+
+def _assert_credit_state_untouched(org, expected: int) -> None:
+    from apps.common.models import AuditLog
+    from apps.credits.models import CreditTransaction, ShopCreditBalance
+
+    org.refresh_from_db()
+    assert org.monthly_credit_allocation == expected
+    assert ShopCreditBalance.objects.count() == 0
+    assert CreditTransaction.objects.count() == 0
+    assert AuditLog.objects.filter(action="organisation.credits.set").count() == 0
+
+
+def test_patch_credit_allocation_returns_403_when_org_admin_targets_own_org():
+    from rest_framework.test import APIClient
+
+    from apps.accounts.tests.factories import OrgAdminFactory
+
+    org = OrganisationFactory(monthly_credit_allocation=100)
+    ShopFactory(organisation=org)
+    client = APIClient()
+    client.force_authenticate(user=OrgAdminFactory(organisation=org))
+
+    resp = client.patch(
+        f"/api/v1/organisations/{org.id}/", {"monthly_credit_allocation": 50}, format="json"
+    )
+
+    assert resp.status_code == 403
+    _assert_credit_state_untouched(org, 100)
+
+
+def test_patch_credit_allocation_returns_403_when_staff_user():
+    from rest_framework.test import APIClient
+
+    from apps.accounts.tests.factories import StaffAdminFactory
+
+    org = OrganisationFactory(monthly_credit_allocation=100)
+    ShopFactory(organisation=org)
+    client = APIClient()
+    client.force_authenticate(user=StaffAdminFactory(organisation=org))
+
+    resp = client.patch(
+        f"/api/v1/organisations/{org.id}/", {"monthly_credit_allocation": 50}, format="json"
+    )
+
+    assert resp.status_code == 403
+    _assert_credit_state_untouched(org, 100)
+
+
+def test_patch_credit_allocation_is_refused_when_anonymous(anon_api_client):
+    org = OrganisationFactory(monthly_credit_allocation=100)
+
+    resp = anon_api_client.patch(
+        f"/api/v1/organisations/{org.id}/", {"monthly_credit_allocation": 50}, format="json"
+    )
+
+    assert resp.status_code in (401, 403)
+    _assert_credit_state_untouched(org, 100)
+
+
+def test_patch_credit_allocation_succeeds_when_org_is_disabled(api_client_superadmin):
+    org = OrganisationFactory(monthly_credit_allocation=10, status=Organisation.Status.DISABLED)
+
+    resp = api_client_superadmin.patch(
+        f"/api/v1/organisations/{org.id}/", {"monthly_credit_allocation": 20}, format="json"
+    )
+
+    assert resp.status_code == 200
+    org.refresh_from_db()
+    assert org.monthly_credit_allocation == 20
+    assert _credit_audit_count() == 1
+
+
+def test_create_org_defaults_credit_allocation_to_zero_without_audit_when_field_omitted(
+    api_client_superadmin,
+):
+    resp = api_client_superadmin.post("/api/v1/organisations/", _create_payload(), format="json")
+
+    assert resp.status_code == 201
+    assert Organisation.objects.get(email="credit@example.com").monthly_credit_allocation == 0
+    assert _credit_audit_count() == 0
+
+
+def test_create_org_stores_allocation_and_audits_once_when_field_given(
+    api_client_superadmin, superadmin
+):
+    from apps.common.models import AuditLog
+
+    resp = api_client_superadmin.post(
+        "/api/v1/organisations/", _create_payload(monthly_credit_allocation=25), format="json"
+    )
+
+    assert resp.status_code == 201
+    org = Organisation.objects.get(email="credit@example.com")
+    assert org.monthly_credit_allocation == 25
+    audit = AuditLog.objects.get(action="organisation.credits.set")
+    assert audit.actor_id == superadmin.pk
+    assert audit.entity_id == str(org.pk)
+    assert audit.before_data == {"monthly_credit_allocation": 0}
+    assert audit.after_data["monthly_credit_allocation"] == 25
+    assert audit.after_data["effective"] == "immediate"
+    assert audit.after_data["shops_touched"] == 0
+
+
+def test_create_org_returns_400_when_allocation_out_of_range(api_client_superadmin):
+    resp = api_client_superadmin.post(
+        "/api/v1/organisations/", _create_payload(monthly_credit_allocation=10001), format="json"
+    )
+
+    assert resp.status_code == 400
+    assert "monthly_credit_allocation" in resp.json()
+    assert not Organisation.objects.filter(email="credit@example.com").exists()
+
+
+def test_list_exposes_saved_and_current_month_allocation(api_client_superadmin):
+    from apps.credits.tests.factories import ShopCreditBalanceFactory
+
+    plain = OrganisationFactory(monthly_credit_allocation=50)
+    pending = OrganisationFactory(monthly_credit_allocation=50)
+    ShopCreditBalanceFactory(shop=ShopFactory(organisation=pending), allocated_credits=100)
+
+    results = api_client_superadmin.get("/api/v1/organisations/").json()["results"]
+    by_id = {r["id"]: r for r in results}
+    assert (
+        by_id[plain.id]["monthly_credit_allocation"],
+        by_id[plain.id]["current_month_credit_allocation"],
+    ) == (50, 50)
+    assert (
+        by_id[pending.id]["monthly_credit_allocation"],
+        by_id[pending.id]["current_month_credit_allocation"],
+    ) == (50, 100)
+
+    detail = api_client_superadmin.get(f"/api/v1/organisations/{pending.id}/").json()
+    assert detail["monthly_credit_allocation"] == 50
+    assert detail["current_month_credit_allocation"] == 100

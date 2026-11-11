@@ -64,6 +64,9 @@ class OrganisationCreateSerializer(serializers.ModelSerializer[Organisation]):
     )
     address = serializers.CharField(max_length=500, allow_blank=True, required=False, default="")
     number_of_stores = serializers.IntegerField(min_value=1, max_value=1000)
+    monthly_credit_allocation = serializers.IntegerField(
+        min_value=0, max_value=10000, required=False, default=0
+    )
 
     class Meta:
         model = Organisation
@@ -74,6 +77,7 @@ class OrganisationCreateSerializer(serializers.ModelSerializer[Organisation]):
             "address",
             "number_of_stores",
             "allow_custom_sync_depth",
+            "monthly_credit_allocation",
         ]
 
 
