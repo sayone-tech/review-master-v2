@@ -193,6 +193,9 @@ class CreditTransaction(models.Model):
         COMMITTED/REFUNDED), so a stale or already-settled instance fails closed.
         """
         if self._state.adding:
+            # WR-01: force a plain INSERT so a new instance carrying an existing pk
+            # collides (IntegrityError) instead of Django's UPDATE-then-INSERT rewriting it.
+            kwargs["force_insert"] = True
             super().save(*args, **kwargs)
             return
         update_fields = kwargs.get("update_fields")
