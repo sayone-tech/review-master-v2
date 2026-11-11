@@ -5,16 +5,16 @@ milestone_name: AI Reply Credits
 current_phase: 29
 current_phase_name: Credits Ledger Foundation
 status: executing
-stopped_at: Completed 29-01-PLAN.md
-last_updated: "2026-11-11T11:45:51.445Z"
+stopped_at: Completed 29-02-PLAN.md
+last_updated: "2026-11-11T11:54:32.748Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 29 execution started
-state_head: 8b4816c5ffdccee42c98accba2e841b3ae39ec60
+state_head: dc9540271a6725e9bc1a0c300506b96af3a0c741
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 ## Current Position
 
 Phase: 29 (Credits Ledger Foundation) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-11-11 — Phase 29 execution started
 
@@ -86,6 +86,7 @@ Last activity: 2026-11-11 — Phase 29 execution started
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 29 P01 | 9 min | 3 tasks | 23 files |
+| Phase 29 P02 | 22 min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [v0.4]: `IsOrgScoped` used on APIView directly, not TenantScopedViewSet — for pure-read views
 - [Phase ?]: emitToast uses {kind, title, msg} not {kind, title, body} — matched actual lib/toast.ts signature
 - [Phase 29]: Organisation.monthly_credit_allocation is IntegerField (not Positive) to avoid Coalesce mixed-type FieldError; shop/org FKs on credits models use db_index=False (composite indexes lead)
+- [Phase 29]: 29-02: Ledger append-only enforced in app layer; single status CAS (RESERVED->COMMITTED/REFUNDED) via ledger.transition_status/cas_status, callers pinned by source-scan test
 
 ### Pending Todos
 
@@ -127,6 +129,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T11:45:51.419Z
-Stopped at: Completed 29-01-PLAN.md
+Last session: 2026-11-11T11:54:32.726Z
+Stopped at: Completed 29-02-PLAN.md
 Resume file: None
