@@ -14,12 +14,14 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.accounts.models import StaffAccessScope
-from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
+from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory, UserFactory
 from apps.common.models import AuditLog
 from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.services.allocation import ensure_balance
+from apps.credits.services.consumption import reserve_credits
 from apps.credits.tests.helpers import assert_ledger_reconciles
 from apps.integrations.openai.exceptions import (
     ContentModeratedException,
@@ -647,6 +649,174 @@ class TestGenerateReplyEndpoint:
         assert "UNIQUE-REVIEW-TEXT" not in body
         assert review.comment not in body
 
+    # ------------------------------------------------------------------
+    # Phase 30 Plan 03: 400 / 402 / 409 ladder before any OpenAI spend
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _client(user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    @staticmethod
+    def _post(client: APIClient, review, tone: str = "professional"):
+        return client.post(_generate_reply_url(review.pk), {"tone": tone}, format="json")
+
+    @staticmethod
+    def _nothing_written() -> bool:
+        return (
+            ShopCreditBalance.objects.count() == 0
+            and CreditTransaction.objects.count() == 0
+            and AiUsageLog.objects.count() == 0
+        )
+
+    @pytest.mark.parametrize("comment", ["", "   ", " \t\n \u00a0\u3000"])
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_empty_comment_returns_400_and_writes_nothing(self, mock_generate, comment) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment=comment)
+
+        resp = self._post(self._client(OrgAdminFactory(organisation=org)), review)
+
+        assert resp.status_code == 400
+        assert resp.json()["code"] == "empty_comment"
+        assert set(resp.json()) == {"code", "detail"}
+        mock_generate.assert_not_called()
+        assert self._nothing_written()
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_invalid_tone_with_empty_comment_returns_tone_error_not_empty_comment(
+        self, mock_generate
+    ) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="")
+
+        resp = self._post(self._client(OrgAdminFactory(organisation=org)), review, tone="formal")
+
+        assert resp.status_code == 400
+        assert "tone" in resp.json()
+        assert resp.json().get("code") != "empty_comment"
+        mock_generate.assert_not_called()
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_not_enabled_returns_402_and_writes_nothing(self, mock_generate) -> None:
+        org = OrganisationFactory()  # factory default allocation 0
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+
+        resp = self._post(self._client(OrgAdminFactory(organisation=org)), review)
+
+        assert resp.status_code == 402
+        assert resp.json() == {
+            "code": "insufficient_credits",
+            "reason": "not_enabled",
+            "required": 2,
+            "remaining": 0,
+        }
+        mock_generate.assert_not_called()
+        assert self._nothing_written()
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_exhausted_returns_402_and_reserves_nothing(self, mock_generate) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=1)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+
+        resp = self._post(self._client(OrgAdminFactory(organisation=org)), review)
+
+        assert resp.status_code == 402
+        assert resp.json() == {
+            "code": "insufficient_credits",
+            "reason": "exhausted",
+            "required": 2,
+            "remaining": 1,
+        }
+        mock_generate.assert_not_called()
+        assert (
+            CreditTransaction.objects.filter(
+                transaction_type=CreditTransaction.Type.CONSUMPTION
+            ).count()
+            == 0
+        )
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_exact_capacity_succeeds_then_next_request_is_exhausted(self, mock_generate) -> None:
+        mock_generate.return_value = ("draft", None)
+        org = OrganisationFactory(monthly_credit_allocation=2)
+        shop = ShopFactory(organisation=org)
+        first = ReviewFactory(organisation=org, shop=shop, comment="x" * 150)
+        second = ReviewFactory(organisation=org, shop=shop, comment="x" * 150)
+        client = self._client(OrgAdminFactory(organisation=org))
+
+        ok = self._post(client, first)
+        blocked = self._post(client, second)
+
+        assert ok.status_code == 200
+        assert ok.json()["credits_remaining"] == 0
+        assert blocked.status_code == 402
+        assert blocked.json()["reason"] == "exhausted"
+        assert blocked.json()["remaining"] == 0
+        assert mock_generate.call_count == 1
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_in_progress_reservation_returns_409_and_changes_nothing(self, mock_generate) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+        reserve_credits(shop_id=review.shop_id, review_id=review.pk, credits=2, actor_id=None)
+        tx_count = CreditTransaction.objects.count()
+        consumed = ShopCreditBalance.objects.get(shop=review.shop).consumed_credits
+
+        resp = self._post(self._client(OrgAdminFactory(organisation=org)), review)
+
+        assert resp.status_code == 409
+        assert resp.json()["code"] == "generation_in_progress"
+        assert set(resp.json()) == {"code", "detail"}
+        mock_generate.assert_not_called()
+        assert CreditTransaction.objects.count() == tx_count
+        assert ShopCreditBalance.objects.get(shop=review.shop).consumed_credits == consumed
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_regenerate_is_charged_again(self, mock_generate) -> None:
+        mock_generate.return_value = ("draft", None)
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+        client = self._client(OrgAdminFactory(organisation=org))
+
+        first = self._post(client, review)
+        second = self._post(client, review)
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        committed = CreditTransaction.objects.filter(
+            review=review, status=CreditTransaction.Status.COMMITTED
+        )
+        assert committed.count() == 2
+        balance = ShopCreditBalance.objects.get(shop=review.shop)
+        assert balance.consumed_credits == 4
+        assert_ledger_reconciles(balance)
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_superadmin_gets_403_and_nothing_is_written(self, mock_generate) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+
+        resp = self._post(self._client(UserFactory()), review)
+
+        assert resp.status_code == 403
+        mock_generate.assert_not_called()
+        assert self._nothing_written()
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_cross_tenant_admin_gets_404_and_nothing_is_written(self, mock_generate) -> None:
+        owner = OrganisationFactory(monthly_credit_allocation=10)
+        other = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=owner, comment="x" * 150)
+
+        resp = self._post(self._client(OrgAdminFactory(organisation=other)), review)
+
+        assert resp.status_code == 404
+        mock_generate.assert_not_called()
+        assert self._nothing_written()
+
 
 class TestGenerateReplyCredits:
     """Phase 30 tracer: an end-to-end metered generate (CCON-01, CCON-06, CCON-07)."""
@@ -788,6 +958,162 @@ class TestGenerateReplyCredits:
         _assert_no_open_transaction()  # pytest-django's own wrapper is ignored
         with transaction.atomic(), pytest.raises(RuntimeError, match="database transaction"):
             _assert_no_open_transaction()
+
+
+class TestReviewCreditCost:
+    """Phase 30 Plan 03: GET /api/v1/reviews/{id}/credit-cost/ (CCON-07, D-10)."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_throttle_cache(self) -> None:
+        caches["throttle"].clear()
+
+    @staticmethod
+    def _client(user) -> APIClient:
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    @staticmethod
+    def _url(review_pk: int) -> str:
+        return f"/api/v1/reviews/{review_pk}/credit-cost/"
+
+    def test_org_admin_gets_cost_remaining_and_is_enabled(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+
+        resp = self._client(OrgAdminFactory(organisation=org)).get(self._url(review.pk))
+
+        assert resp.status_code == 200
+        assert resp.json() == {"cost": 2, "remaining": 10, "is_enabled": True}
+
+    def test_in_scope_staff_gets_200_and_out_of_scope_staff_gets_404(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        s1 = ShopFactory(organisation=org)
+        s2 = ShopFactory(organisation=org)
+        mine = ReviewFactory(organisation=org, shop=s1, comment="x" * 150)
+        theirs = ReviewFactory(organisation=org, shop=s2, comment="x" * 150)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=s1
+        )
+        client = self._client(staff)
+
+        assert client.get(self._url(mine.pk)).status_code == 200
+        assert client.get(self._url(theirs.pk)).status_code == 404
+
+    def test_cross_tenant_admin_gets_404(self) -> None:
+        owner = OrganisationFactory(monthly_credit_allocation=10)
+        other = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=owner, comment="x" * 150)
+
+        resp = self._client(OrgAdminFactory(organisation=other)).get(self._url(review.pk))
+
+        assert resp.status_code == 404
+
+    def test_superadmin_gets_403(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+
+        assert self._client(UserFactory()).get(self._url(review.pk)).status_code == 403
+
+    def test_whitespace_only_review_costs_zero(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment=" \t\n \u00a0\u3000")
+
+        resp = self._client(OrgAdminFactory(organisation=org)).get(self._url(review.pk))
+
+        assert resp.status_code == 200
+        assert resp.json()["cost"] == 0
+
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_cost_equals_credits_charged_by_following_generate(self, mock_generate) -> None:
+        mock_generate.return_value = ("draft", None)
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        client = self._client(OrgAdminFactory(organisation=org))
+        for comment in ("x" * 50, "x" * 150, "x" * 600):
+            review = ReviewFactory(organisation=org, comment=comment)
+            cost = client.get(self._url(review.pk)).json()["cost"]
+            charged = client.post(
+                _generate_reply_url(review.pk), {"tone": "professional"}, format="json"
+            ).json()["credits_charged"]
+            assert cost == charged
+
+    def test_never_writes_and_unfunded_shop_gets_no_balance_row(self) -> None:
+        org = OrganisationFactory()  # allocation 0: not enabled
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+        client = self._client(OrgAdminFactory(organisation=org))
+
+        with CaptureQueriesContext(connection) as ctx:
+            resp = client.get(self._url(review.pk))
+
+        assert resp.status_code == 200
+        assert resp.json() == {"cost": 2, "remaining": 0, "is_enabled": False}
+        assert ShopCreditBalance.objects.count() == 0
+        assert CreditTransaction.objects.count() == 0
+        writes = [
+            q["sql"]
+            for q in ctx.captured_queries
+            if q["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+        ]
+        assert writes == []
+
+    def test_never_writes_when_balance_row_exists(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+        ensure_balance(shop_id=review.shop_id)
+        before = (ShopCreditBalance.objects.count(), CreditTransaction.objects.count())
+        client = self._client(OrgAdminFactory(organisation=org))
+
+        with CaptureQueriesContext(connection) as ctx:
+            assert client.get(self._url(review.pk)).status_code == 200
+
+        assert (ShopCreditBalance.objects.count(), CreditTransaction.objects.count()) == before
+        assert not [
+            q
+            for q in ctx.captured_queries
+            if q["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+        ]
+
+    def test_query_count_is_fixed_and_independent_of_review_count(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        shop = ShopFactory(organisation=org)
+        client = self._client(OrgAdminFactory(organisation=org))
+        counts = []
+        for total in (2, 10):
+            ReviewFactory.create_batch(total - Review.objects.count(), organisation=org, shop=shop)
+            review = Review.objects.filter(organisation=org).latest("pk")
+            with CaptureQueriesContext(connection) as ctx:
+                assert client.get(self._url(review.pk)).status_code == 200
+            counts.append(len(ctx.captured_queries))
+
+        assert counts[0] == counts[1], counts
+        assert counts[0] <= 4, counts
+
+    def test_remaining_already_excludes_inflight_reservation(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+        reserve_credits(shop_id=review.shop_id, review_id=review.pk, credits=2, actor_id=None)
+
+        resp = self._client(OrgAdminFactory(organisation=org)).get(self._url(review.pk))
+
+        assert resp.json()["remaining"] == 8
+
+    def test_credit_cost_is_throttled_on_its_own_scope(self, settings) -> None:
+        rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+        assert rates["credit_cost"] == "120/minute"
+        assert rates["generate_reply"] == "10/minute"
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        review = ReviewFactory(organisation=org, comment="x" * 150)
+        client = self._client(OrgAdminFactory(organisation=org))
+
+        with patch.object(
+            ScopedRateThrottle, "THROTTLE_RATES", {**rates, "credit_cost": "1/minute"}
+        ):
+            first = client.get(self._url(review.pk))
+            second = client.get(self._url(review.pk))
+
+        assert first.status_code == 200
+        assert second.status_code == 429
 
 
 # ---------------------------------------------------------------------------
