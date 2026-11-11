@@ -122,6 +122,13 @@ repo-root/
 │   │   └── selectors/items.py
 │   ├── notifications/               # In-app bell counter + delivery model (Phase 3+)
 │   │   └── services/dispatch.py
+│   ├── credits/                     # Per-shop monthly AI-reply credit balances + append-only ledger (v0.9)
+│   │   ├── services/
+│   │   │   ├── periods.py           # UTC period seam (current_period, next_period_start)
+│   │   │   ├── credit_cost.py       # The single pure pricing function (tiers from settings)
+│   │   │   ├── allocation.py        # Lazy, race-safe first-use balance creation
+│   │   │   └── ledger.py            # Status-only CAS transitions on ledger rows
+│   │   └── selectors/balances.py    # Virtual-balance reads (never writes)
 │   ├── integrations/                # External API clients
 │   │   ├── google/
 │   │   │   ├── client.py
