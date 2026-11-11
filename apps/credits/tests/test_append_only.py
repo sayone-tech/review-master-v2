@@ -75,6 +75,50 @@ def test_save_raises_when_update_fields_is_not_status_only():
     assert _stored_status(tx) == Status.RESERVED
 
 
+def test_bulk_create_raises_when_update_conflicts_requested():
+    # WR-02: bulk_create(update_conflicts=True) is an upsert that rewrites committed rows.
+    tx = CreditTransactionFactory()
+    clone = CreditTransaction(
+        pk=tx.pk,
+        shop_credit_balance=tx.shop_credit_balance,
+        shop=tx.shop,
+        organisation=tx.organisation,
+        transaction_type=CreditTransaction.Type.CONSUMPTION,
+        status=Status.RESERVED,
+        credits_delta=-7,
+        created_at=timezone.now(),
+    )
+    with pytest.raises(AppendOnlyViolation), transaction.atomic():
+        CreditTransaction.objects.bulk_create(
+            [clone],
+            update_conflicts=True,
+            unique_fields=["id"],
+            update_fields=["credits_delta"],
+        )
+    tx.refresh_from_db()
+    assert tx.credits_delta == -1
+
+
+def test_bulk_create_inserts_rows_when_update_conflicts_not_requested():
+    balance = ShopCreditBalanceFactory()
+    rows = CreditTransaction.objects.bulk_create(
+        [
+            CreditTransaction(
+                shop_credit_balance=balance,
+                shop=balance.shop,
+                organisation=balance.organisation,
+                transaction_type=CreditTransaction.Type.CONSUMPTION,
+                status=Status.RESERVED,
+                credits_delta=-1,
+            )
+            for _ in range(2)
+        ],
+        update_conflicts=False,
+    )
+    assert len(rows) == 2
+    assert CreditTransaction.objects.filter(shop_credit_balance=balance).count() == 2
+
+
 def test_save_raises_integrity_error_when_new_instance_reuses_existing_pk():
     # WR-01: an in-memory instance (adding=True) carrying an existing pk must never
     # fall through to Django's UPDATE-then-INSERT; the insert is forced and collides.
