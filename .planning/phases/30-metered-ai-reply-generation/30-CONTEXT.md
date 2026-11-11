@@ -106,6 +106,19 @@ Requirements: CCON-01..08, CQA-02.
   - How to set `monthly_credit_allocation` through Django admin or the shell until Phase 32 ships the Superadmin control.
   - Verification steps.
 
+### Post-research decisions (2026-11-11, resolving 30-RESEARCH.md F1/F2/F6, OQ-1..OQ-4)
+- **D-14 (F1/OQ-2):** Phase 29's append-only ledger only permits status writes. **Plan 30-01, Task 1** extends `cas_status`/`transition_status` with an optional `ai_usage_log_id` kwarg, written in the same single conditional UPDATE. No other column becomes writable, and the append-only tests prove that. This is what makes CCON-06 linkage possible. — **Reversibility:** costly — it widens the ledger's mutation surface, and later phases (the Phase 31 reaper) build on it.
+- **D-15 (F2/OQ-1):** The reply path bounds **moderation as well**. It passes a bounded client (`max_retries=0`, same timeout) to the input and output moderation calls. It also maps `openai.APIConnectionError`/`APITimeoutError` to `OpenAITransientError` on the reply path, so a timeout never triggers the untraced fallback call. Enrichment is unchanged. Worst case is about 182s, below the 300s TTL, and the D-06 settings test asserts the full margin.
+- **D-16 (F6/OQ-3), refining D-01/D-02:** On a commit CAS miss, re-read the reservation's status:
+  - **REFUNDED:** attempt one guarded re-deduct on the *current-month* balance. If there's no capacity, the draft is free.
+  - **COMMITTED:** no-op, plus an `already_settled` audit row. Never re-deduct, so there is never a double charge.
+  - **Reservation balance is a past or lapsed month:** the draft is free and audited. No cross-month charging.
+
+  The draft is always returned.
+- **D-17 (OQ-4):** Refunded consumption rows also link `ai_usage_log` when its id is known (an input-moderation block or a FAILED log), using the same CAS kwarg.
+- **D-18 (F3), refining D-07:** The in-transaction guard ignores test-case atomic blocks: `any(not getattr(b, "_from_testcase", False) for b in connection.atomic_blocks)`. A pinning test covers it.
+- **D-19:** The 402 pre-check is **read-only** (`get_shop_credit_balance`), so orgs with 0 credits don't write zero-balance rows on every click. `ensure_balance` runs only once a reservation will actually be attempted.
+
 ### Claude's Discretion
 - Exact service-function names and split in `apps/credits/services/consumption.py` (reserve / commit / refund / late re-deduct) and exception classes (`InsufficientCreditsError`, `EmptyCommentError`, `GenerationInProgressError`).
 - The `credit-cost` throttle scope.
