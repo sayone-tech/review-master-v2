@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from django.db import transaction
+from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from apps.credits.exceptions import AppendOnlyViolation, InvalidStatusTransition
 from apps.credits.models import CreditTransaction
@@ -72,6 +73,27 @@ def test_save_raises_when_update_fields_is_not_status_only():
     with pytest.raises(AppendOnlyViolation):
         tx.save(update_fields=["status", "note"])
     assert _stored_status(tx) == Status.RESERVED
+
+
+def test_save_raises_integrity_error_when_new_instance_reuses_existing_pk():
+    # WR-01: an in-memory instance (adding=True) carrying an existing pk must never
+    # fall through to Django's UPDATE-then-INSERT; the insert is forced and collides.
+    tx = CreditTransactionFactory()
+    clone = CreditTransaction(
+        pk=tx.pk,
+        shop_credit_balance=tx.shop_credit_balance,
+        shop=tx.shop,
+        organisation=tx.organisation,
+        transaction_type=CreditTransaction.Type.CONSUMPTION,
+        status=Status.COMMITTED,
+        credits_delta=-7,
+        created_at=timezone.now(),
+    )
+    with pytest.raises(IntegrityError), transaction.atomic():
+        clone.save()
+    tx.refresh_from_db()
+    assert tx.credits_delta == -1
+    assert tx.status == Status.RESERVED
 
 
 def test_create_and_bulk_create_insert_rows_when_ledger_is_append_only():
