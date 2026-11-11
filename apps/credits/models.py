@@ -6,11 +6,14 @@ bounded context (no model imports from shops / reviews / organisations / openai)
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar, NoReturn
 
 from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
+
+from apps.credits.exceptions import AppendOnlyViolation, InvalidStatusTransition
+from apps.credits.managers import CreditTransactionQuerySet
 
 
 class ShopCreditBalance(models.Model):
@@ -89,6 +92,14 @@ class CreditTransaction(models.Model):
         COMMITTED = "COMMITTED", "Committed"
         REFUNDED = "REFUNDED", "Refunded"
 
+    # D-06: the only legal status moves; anything else (incl. COMMITTED -> REFUNDED) is rejected.
+    ALLOWED_STATUS_TRANSITIONS: ClassVar[frozenset[tuple[str, str]]] = frozenset(
+        {
+            (Status.RESERVED, Status.COMMITTED),
+            (Status.RESERVED, Status.REFUNDED),
+        }
+    )
+
     shop_credit_balance = models.ForeignKey(
         ShopCreditBalance,
         on_delete=models.PROTECT,
@@ -133,6 +144,8 @@ class CreditTransaction(models.Model):
     note = models.CharField(max_length=255, null=True, blank=True)  # noqa: DJ001
     created_at = models.DateTimeField(auto_now_add=True)
 
+    objects: CreditTransactionQuerySet = CreditTransactionQuerySet.as_manager()  # type: ignore[assignment]
+
     class Meta:
         constraints: ClassVar[list[models.BaseConstraint]] = [
             models.UniqueConstraint(
@@ -172,3 +185,32 @@ class CreditTransaction(models.Model):
 
     def __str__(self) -> str:
         return f"CreditTransaction({self.transaction_type} {self.credits_delta:+d} {self.status})"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Insert freely; for an existing row only a status-only save is allowed (D-05).
+
+        A status-only save is the same CAS as ``ledger.transition_status`` (RESERVED ->
+        COMMITTED/REFUNDED), so a stale or already-settled instance fails closed.
+        """
+        if self._state.adding:
+            super().save(*args, **kwargs)
+            return
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None and len(args) > 3:  # positional save(..., update_fields)
+            update_fields = args[3]
+        if update_fields is None or set(update_fields) != {"status"}:
+            raise AppendOnlyViolation(
+                "CreditTransaction rows are append-only; only save(update_fields=['status'])."
+            )
+        if (self.Status.RESERVED, self.status) not in self.ALLOWED_STATUS_TRANSITIONS:
+            raise InvalidStatusTransition(f"RESERVED -> {self.status} is not an allowed transition")
+        changed = type(self).objects.cas_status(
+            pk=self.pk, from_status=self.Status.RESERVED, to_status=self.status
+        )
+        if changed != 1:
+            raise InvalidStatusTransition(
+                f"CreditTransaction {self.pk} is not RESERVED; status unchanged"
+            )
+
+    def delete(self, *args: Any, **kwargs: Any) -> NoReturn:
+        raise AppendOnlyViolation("CreditTransaction rows are append-only and cannot be deleted.")

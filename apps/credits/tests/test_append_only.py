@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from django.db import transaction
 
 from apps.credits.exceptions import AppendOnlyViolation, InvalidStatusTransition
 from apps.credits.models import CreditTransaction
@@ -40,7 +41,8 @@ def test_queryset_delete_raises_when_called_on_ledger_rows():
 def test_bulk_update_raises_when_called_on_ledger_rows():
     tx = CreditTransactionFactory()
     tx.status = Status.COMMITTED
-    with pytest.raises(AppendOnlyViolation):
+    # bulk_update opens atomic(savepoint=False), so isolate it in our own savepoint.
+    with pytest.raises(AppendOnlyViolation), transaction.atomic():
         CreditTransaction.objects.bulk_update([tx], ["status"])
     assert _stored_status(tx) == Status.RESERVED
 
