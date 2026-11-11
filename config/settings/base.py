@@ -423,6 +423,9 @@ REST_FRAMEWORK = {
         "login": "10/15min",
         "review_reply": "30/minute",
         "generate_reply": "10/minute",
+        # Phase 30 D-10: cheap read the UI calls per visible review; its own bucket so it never
+        # eats the 30/min review_reply budget (research A4, trivial to raise).
+        "credit_cost": "120/minute",
         "audit_log_list": "120/minute",
         "sync_progress": SYNC_PROGRESS_THROTTLE_RATE,  # Phase 27 SYNC-REL-01 snapshot poll
     },

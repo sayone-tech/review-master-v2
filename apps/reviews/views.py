@@ -37,6 +37,9 @@ from apps.accounts.permissions import IsOrgAdmin, org_admin_required
 from apps.common.pagination import DefaultPageNumberPagination
 from apps.common.permissions import IsOrgScoped
 from apps.common.viewsets import TenantScopedViewSet
+from apps.credits.exceptions import GenerationInProgressError, InsufficientCreditsError
+from apps.credits.selectors.balances import get_shop_credit_balance
+from apps.credits.services.credit_cost import credit_cost as compute_credit_cost
 from apps.reviews.exceptions import ReplyConflictError, ReplyFailedError
 from apps.reviews.filters import ReviewFilterSet
 from apps.reviews.models import OrgCanonicalTag, Review, TagMergeJob
@@ -56,6 +59,7 @@ from apps.reviews.serializers import (
 from apps.reviews.services.progress import read_progress_snapshot
 from apps.reviews.services.replies import remove_reply, submit_reply
 from apps.reviews.services.reply_generation import (
+    EmptyCommentError,
     ReplyModeratedError,
     ReplyUnavailableError,
     generate_reply_with_credits,
@@ -99,6 +103,8 @@ class ReviewViewSet(
         """
         if self.action == "generate_reply":
             self.throttle_scope = "generate_reply"
+        elif self.action == "credit_cost":
+            self.throttle_scope = "credit_cost"
         elif self.action == "reply":
             self.throttle_scope = "review_reply"
         return super().get_throttles()
@@ -317,9 +323,57 @@ class ReviewViewSet(
                     )
                 ],
             ),
-            400: OpenApiResponse(description="Invalid tone (not in `professional`/`friendly`)."),
+            400: OpenApiResponse(
+                response=inline_serializer(
+                    name="GenerateReplyBadRequestResponse",
+                    fields={
+                        "code": drf_serializers.CharField(required=False),
+                        "detail": drf_serializers.CharField(required=False),
+                    },
+                ),
+                description=(
+                    "Invalid tone (not in `professional`/`friendly`), or the review has no "
+                    "text to reply to (`code` = `empty_comment`, nothing is reserved)."
+                ),
+            ),
             401: OpenApiResponse(description="Authentication required."),
+            402: OpenApiResponse(
+                response=inline_serializer(
+                    name="InsufficientCreditsResponse",
+                    fields={
+                        "code": drf_serializers.CharField(),
+                        "reason": drf_serializers.CharField(help_text="not_enabled | exhausted"),
+                        "required": drf_serializers.IntegerField(),
+                        "remaining": drf_serializers.IntegerField(),
+                    },
+                ),
+                description=(
+                    "The shop cannot afford this review's credit cost. `reason` is "
+                    "`not_enabled` (no allocation) or `exhausted`. Nothing is reserved."
+                ),
+                examples=[
+                    OpenApiExample(
+                        "Exhausted",
+                        value={
+                            "code": "insufficient_credits",
+                            "reason": "exhausted",
+                            "required": 2,
+                            "remaining": 1,
+                        },
+                    )
+                ],
+            ),
             403: OpenApiResponse(description="Review is outside the caller's accessible shops."),
+            409: OpenApiResponse(
+                response=inline_serializer(
+                    name="GenerationInProgressResponse",
+                    fields={
+                        "code": drf_serializers.CharField(),
+                        "detail": drf_serializers.CharField(),
+                    },
+                ),
+                description="A reply is already being generated for this review.",
+            ),
             422: OpenApiResponse(
                 response=inline_serializer(
                     name="ContentModeratedResponse",
@@ -423,6 +477,35 @@ class ReviewViewSet(
         tone: str = serializer.validated_data["tone"]
         try:
             result = generate_reply_with_credits(review=review, tone=tone, actor_id=request.user.pk)
+        except EmptyCommentError:
+            # CCON-04: nothing chargeable; no reservation was made.
+            return Response(
+                {"code": "empty_comment", "detail": "This review has no text to reply to."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except InsufficientCreditsError as exc:
+            # CCON-03 / D-08: nothing reserved, no OpenAI spend.
+            return Response(
+                {
+                    "code": "insufficient_credits",
+                    "reason": exc.reason,
+                    "required": exc.required,
+                    "remaining": exc.remaining,
+                },
+                status=status.HTTP_402_PAYMENT_REQUIRED,
+            )
+        except GenerationInProgressError:
+            # D-12: an unsettled reservation exists for this review.
+            return Response(
+                {
+                    "code": "generation_in_progress",
+                    "detail": (
+                        "A reply is already being generated for this review. "
+                        "Please wait a moment and try again."
+                    ),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         except ReplyModeratedError as exc:
             # D-26 / T-20-LK: canonical body only; no categories or review text.
             logger.info("generate_reply blocked by moderation review_id=%s", review.pk)
@@ -482,6 +565,52 @@ class ReviewViewSet(
                 "draft": result.draft,
                 "credits_charged": result.credits_charged,
                 "credits_remaining": result.credits_remaining,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        operation_id="reviews_credit_cost",
+        summary="Credit cost of generating a reply for this review",
+        description=(
+            "Read-only. Returns the exact credit cost generate-reply will charge for this "
+            "review plus the shop's remaining credits this month. Writes nothing. Throttled "
+            "at 120/min/user (scope `credit_cost`)."
+        ),
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="ReviewCreditCostResponse",
+                    fields={
+                        "cost": drf_serializers.IntegerField(),
+                        "remaining": drf_serializers.IntegerField(),
+                        "is_enabled": drf_serializers.BooleanField(),
+                    },
+                ),
+                description="`cost` is 0 for a review with no chargeable text.",
+            ),
+            401: OpenApiResponse(description="Authentication required."),
+            403: OpenApiResponse(description="Caller is not an Org Admin or Staff user."),
+            404: OpenApiResponse(description="Review not found in the caller's scope."),
+            429: OpenApiResponse(description="Rate limit exceeded (120/min/user)."),
+        },
+        tags=["reviews"],
+    )
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="credit-cost",
+        throttle_classes=[ScopedRateThrottle],
+    )
+    def credit_cost(self, request: Request, pk: int | None = None) -> Response:
+        """GET: the credit price generate-reply will charge (D-10). Never writes."""
+        review = self.get_object()
+        view = get_shop_credit_balance(shop_id=review.shop_id)
+        return Response(
+            {
+                "cost": compute_credit_cost(review.comment),
+                "remaining": view.remaining,
+                "is_enabled": view.is_enabled,
             },
             status=status.HTTP_200_OK,
         )
