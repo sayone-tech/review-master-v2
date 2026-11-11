@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v0.9
 milestone_name: AI Reply Credits
-current_phase: 31
-current_phase_name: Monthly Renewal & Reservation Reaper
-status: verifying
-stopped_at: Phase 33 context gathered
-last_updated: "2026-11-11T14:56:57.521Z"
+current_phase: 32
+current_phase_name: Superadmin Credit Controls
+status: executing
+stopped_at: Completed 32-01-PLAN.md
+last_updated: "2026-11-11T15:35:26.039Z"
 last_activity: 2026-11-11
-last_activity_desc: Phase 31 execution started
-state_head: 8580df3104fa4222c4e7a4243ea58a12bc6d2dc8
+last_activity_desc: Phase 32 execution started
+state_head: eafd4fe06550a50cbec0c880060152c941510650
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 16
+  completed_plans: 12
   percent: 0
 ---
 
@@ -25,14 +25,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-11)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — and AI reply spend is capped by a visible per-shop monthly credit budget that Superadmin controls.
-**Current focus:** Phase 31 — Monthly Renewal & Reservation Reaper
+**Current focus:** Phase 32 — Superadmin Credit Controls
 
 ## Current Position
 
-Phase: 31 (Monthly Renewal & Reservation Reaper) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-11-11 — Phase 31 execution started
+Phase: 32 (Superadmin Credit Controls) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-11-11 — Phase 32 execution started
 
 ### v0.9 phase map (Phases 29–33)
 
@@ -96,6 +96,7 @@ Last activity: 2026-11-11 — Phase 31 execution started
 | Phase 31 P01 | 10 min | 3 tasks | 14 files |
 | Phase 31 P02 | 12 min | 3 tasks | 11 files |
 | Phase 31 P03 | 8 min | 3 tasks | 3 files |
+| Phase 32 P01 | 30 min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 31]: Reaper is CAS-only: no skip_locked pre-select and no outer transaction; refund_reservation's per-row CAS arbitrates races with late commits and other reaper runs
 - [Phase 31]: Reaper refund that cannot apply (RuntimeError) raises an ids-only Sentry error, leaves the row RESERVED and the balance unlapsed; no quarantine column
 - [Phase 31]: 31-03: race tests accept either winner but force both orderings each run (odd-round 3 ms committer delay); no production change needed on Postgres
+- [Phase 32]: organisation.credits.set audit: entity_type organisation, after_data {monthly_credit_allocation, effective, shops_touched, period_year, period_month}; create audits only when > 0
 
 ### Pending Todos
 
@@ -148,6 +150,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T14:56:57.235Z
-Stopped at: Phase 33 context gathered
-Resume file: .planning/phases/33-credit-visibility-staff-scoping/33-CONTEXT.md
+Last session: 2026-11-11T15:35:25.872Z
+Stopped at: Completed 32-01-PLAN.md
+Resume file: None
