@@ -36,6 +36,28 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/admin/org/shops/");
 });
 
+describe("ShopTableWidget credits column", () => {
+  it("should render a credits badge that dispatches shop:open-credits with the row when clicked", () => {
+    const shop = fakeRow({ credits_remaining: 35, credits_total: 100 });
+    const handler = vi.fn();
+    window.addEventListener("shop:open-credits", handler);
+    render(
+      <ShopTableWidget
+        initial={{
+          rows: [shop],
+          allocation: { current: 1, max: 5, at_limit: false },
+          hasRegions: true,
+        }}
+      />,
+    );
+    expect(screen.getByText("CREDITS")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "35 credits remaining this month" }));
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect((handler.mock.calls[0][0] as CustomEvent).detail).toEqual(shop);
+    window.removeEventListener("shop:open-credits", handler);
+  });
+});
+
 describe("ShopTableWidget", () => {
   it("renders shop name and Active status for a connected shop", () => {
     render(

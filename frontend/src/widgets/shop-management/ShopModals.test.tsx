@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ShopModals } from "./ShopModals";
 import type { ShopRow } from "./types";
 import * as api from "./api";
+import * as creditsApi from "../credits/creditsApi";
+import { resetCreditsStoreForTests } from "../credits/creditsStore";
 
 function row(over: Partial<ShopRow> = {}): ShopRow {
   return {
@@ -24,8 +26,49 @@ function row(over: Partial<ShopRow> = {}): ShopRow {
   };
 }
 
+function creditsPayload(over: Partial<creditsApi.ShopCredits> = {}): creditsApi.ShopCredits {
+  return {
+    shop_id: 1,
+    period: { year: 2026, month: 11 },
+    period_label: "November 2026",
+    renews_on: "2026-12-01",
+    allocated: 100,
+    bonus: 0,
+    consumed: 65,
+    remaining: 35,
+    total: 100,
+    is_enabled: true,
+    ...over,
+  };
+}
+
 describe("ShopModals", () => {
-  beforeEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetCreditsStoreForTests();
+  });
+
+  it("should open Shop Details with a populated credits card focused on its heading when shop:open-credits fires", async () => {
+    vi.spyOn(creditsApi, "getShopCredits").mockResolvedValue(creditsPayload());
+    render(
+      <ShopModals allocation={{ current: 0, max: 5, at_limit: false }} regions={[]} />,
+    );
+    act(() => {
+      window.dispatchEvent(new CustomEvent("shop:open-credits", { detail: row() }));
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "Shop Details" });
+    expect(await within(dialog).findByText("/ 100")).toBeInTheDocument();
+    expect(within(dialog).getByText("AI Reply Credits")).toBeInTheDocument();
+    expect(within(dialog).getByText("35")).toBeInTheDocument();
+    expect(within(dialog).getByText("November 2026")).toBeInTheDocument();
+    expect(within(dialog).getByText("Renews 1 Dec 2026 (UTC)")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(dialog).getByRole("heading", { name: "AI Reply Credits" }),
+      ),
+    );
+  });
 
   it("opens deactivate confirm on shop:open-deactivate", () => {
     render(

@@ -31,6 +31,11 @@ export interface ShopRow {
   updated_at: string;
   /** Phase 11-08: present on create/reconnect responses when a backfill was dispatched */
   open_progress_shop_id?: number | null;
+  /** Phase 33: AI reply credit fields; null/absent when the list did not request credits */
+  credits_allocated?: number | null;
+  credits_bonus?: number | null;
+  credits_remaining?: number | null;
+  credits_total?: number | null;
 }
 
 export interface AllocationStatus {

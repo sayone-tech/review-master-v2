@@ -7,6 +7,7 @@ import { ShopDetailsModal } from "./ShopDetailsModal";
 import { OAuthConnectionSection } from "./OAuthConnectionSection";
 import { activateShop, deactivateShop, reconnectShop } from "./api";
 import { emitToast } from "../../lib/toast";
+import type { CreditRequestShop } from "../credits/mailto";
 import type { AllocationStatus, ShopRow } from "./types";
 
 interface RegionLite {
@@ -75,11 +76,18 @@ export function ShopModals({
   const [takenPlaceIds, setTakenPlaceIds] = useState<Set<string>>(new Set(initialPlaceIds));
   const [selected, setSelected] = useState<ShopRow | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [focusCredits, setFocusCredits] = useState(false);
+  const [buyMoreShop, setBuyMoreShop] = useState<CreditRequestShop | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [activateOpen, setActivateOpen] = useState(false);
   const [reconnectOpen, setReconnectOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Reset the focus flag however Shop Details closes (Close, Edit, Activate, ...).
+  useEffect(() => {
+    if (!detailsOpen) setFocusCredits(false);
+  }, [detailsOpen]);
 
   const handleOpenCreate = useCallback(() => setCreateOpen(true), []);
 
@@ -89,6 +97,14 @@ export function ShopModals({
         "shop:open-details",
         (e) => {
           setSelected((e as CustomEvent<ShopRow>).detail);
+          setDetailsOpen(true);
+        },
+      ],
+      [
+        "shop:open-credits",
+        (e) => {
+          setSelected((e as CustomEvent<ShopRow>).detail);
+          setFocusCredits(true);
           setDetailsOpen(true);
         },
       ],
@@ -217,8 +233,11 @@ export function ShopModals({
         open={detailsOpen}
         shop={selected}
         isOrgAdmin={isOrgAdmin}
+        focusCredits={focusCredits}
+        onBuyMore={setBuyMoreShop}
         onClose={() => {
           setDetailsOpen(false);
+          setFocusCredits(false);
           setSelected(null);
         }}
         onEdit={() => {

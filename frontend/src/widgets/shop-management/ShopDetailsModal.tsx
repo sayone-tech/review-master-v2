@@ -1,6 +1,8 @@
 import { type ReactNode } from "react";
 import { Modal } from "../modal/Modal";
 import { ConnectionStatusPill } from "./ConnectionStatusPill";
+import { CreditsCard } from "../credits/CreditsCard";
+import type { CreditRequestShop } from "../credits/mailto";
 import type { ShopRow } from "./types";
 import { SYNC_DEPTH_LABELS } from "./types";
 
@@ -13,6 +15,9 @@ interface Props {
   onActivate: () => void;
   onDeactivate: () => void;
   onReconnect: () => void;
+  focusCredits?: boolean;
+  dismissible?: boolean;
+  onBuyMore: (shop: CreditRequestShop) => void;
 }
 
 const dtCls = "text-[12px] font-semibold text-subtle tracking-[0.05em] uppercase mb-0.5";
@@ -49,6 +54,9 @@ export function ShopDetailsModal({
   onActivate,
   onDeactivate,
   onReconnect,
+  focusCredits = false,
+  dismissible = true,
+  onBuyMore,
 }: Props) {
   const showReconnect =
     shop?.connection_method === "GOOGLE_OAUTH" &&
@@ -63,6 +71,7 @@ export function ShopDetailsModal({
         open={open}
         title="Shop Details"
         size="lg"
+        dismissible={dismissible}
         onClose={handleModalClose}
         footer={
           <>
@@ -109,6 +118,17 @@ export function ShopDetailsModal({
           </>
         }
       >
+        {open && shop && (
+          <div className="mb-6">
+            <CreditsCard
+              key={shop.id}
+              shopId={shop.id}
+              shopName={shop.name}
+              focusOnMount={focusCredits}
+              onBuyMore={onBuyMore}
+            />
+          </div>
+        )}
         {shop ? (
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
             <Row label="Shop Name">{shop.name}</Row>

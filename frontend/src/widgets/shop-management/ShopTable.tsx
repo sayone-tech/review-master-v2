@@ -7,6 +7,7 @@ import { ShopRowActionsMenu, type RowAction } from "./ShopRowActionsMenu";
 import { useShops } from "./useShops";
 import type { AllocationStatus, ShopRow } from "./types";
 import { ProgressModal } from "../review-management/ProgressModal";
+import { CreditBadge } from "../credits/CreditBadge";
 
 function dispatchShopEvent(name: string, row: ShopRow) {
   window.dispatchEvent(new CustomEvent(name, { detail: row }));
@@ -195,6 +196,19 @@ export function ShopTableWidget({ initial, openProgressShopId }: ShopTableWidget
         >
           {row.is_active ? "Active" : "Inactive"}
         </span>
+      ),
+    },
+    {
+      key: "credits",
+      label: "CREDITS",
+      skeletonWidth: "72px",
+      accessor: (row: ShopRow) => (
+        <CreditBadge
+          shopId={row.id}
+          remaining={row.credits_remaining}
+          total={row.credits_total}
+          onOpen={() => dispatchShopEvent("shop:open-credits", row)}
+        />
       ),
     },
     {
