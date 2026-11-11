@@ -21,11 +21,11 @@
 
 - [x] **CCON-01**: Org Admin, or Staff for shops in their scope, generating an AI reply is charged the review's credit cost via reserve (short row-locked transaction) → OpenAI call outside any transaction → commit
 - [ ] **CCON-02**: Concurrent generate requests on the same shop can never spend beyond the shop's remaining credits (proven by a Postgres concurrency test)
-- [ ] **CCON-03**: When remaining credits are below the cost, generate returns 402 with `reason` (`not_enabled` | `exhausted`), `required`, and `remaining`, and no reservation is created
-- [ ] **CCON-04**: Generate returns 400 for a review whose comment is empty or whitespace-only, before any reservation
-- [ ] **CCON-05**: Credits are refunded when the OpenAI call fails or input moderation blocks the review, and consumed when output moderation blocks the draft; each outcome writes a `shop.credits.consumed` or `shop.credits.refunded` AuditLog row
-- [ ] **CCON-06**: Each consumption ledger row links to the single AiUsageLog row of its OpenAI call; a generate request still writes exactly one AiUsageLog row
-- [ ] **CCON-07**: The generate response includes `credits_charged` and `credits_remaining`, and a cost endpoint returns the credit cost for a given review
+- [x] **CCON-03**: When remaining credits are below the cost, generate returns 402 with `reason` (`not_enabled` | `exhausted`), `required`, and `remaining`, and no reservation is created
+- [x] **CCON-04**: Generate returns 400 for a review whose comment is empty or whitespace-only, before any reservation
+- [x] **CCON-05**: Credits are refunded when the OpenAI call fails or input moderation blocks the review, and consumed when output moderation blocks the draft; each outcome writes a `shop.credits.consumed` or `shop.credits.refunded` AuditLog row
+- [x] **CCON-06**: Each consumption ledger row links to the single AiUsageLog row of its OpenAI call; a generate request still writes exactly one AiUsageLog row
+- [x] **CCON-07**: The generate response includes `credits_charged` and `credits_remaining`, and a cost endpoint returns the credit cost for a given review
 - [x] **CCON-08**: The reply-path OpenAI call uses an explicit timeout well below the reservation TTL; the existing 10/min generate-reply throttle is unchanged
 
 ### Renewal & Reaper (CREN)
@@ -54,7 +54,7 @@
 ### Quality & Rollout (CQA)
 
 - [ ] **CQA-01**: A Postgres CI job runs `pg_concurrency`-marked tests covering the first-use race, N threads vs K credits, and reaper vs late commit
-- [ ] **CQA-02**: Existing Phase 19/20 generate-reply tests and factories are updated for credits, and a deploy note documents that organisations start at 0 credits until Superadmin sets an allocation (production org enabled via CRED-06)
+- [x] **CQA-02**: Existing Phase 19/20 generate-reply tests and factories are updated for credits, and a deploy note documents that organisations start at 0 credits until Superadmin sets an allocation (production org enabled via CRED-06)
 
 ## Future Requirements
 
@@ -91,11 +91,11 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CRED-06 | Phase 32 | Pending |
 | CCON-01 | Phase 30 | Complete |
 | CCON-02 | Phase 30 | Pending |
-| CCON-03 | Phase 30 | Pending |
-| CCON-04 | Phase 30 | Pending |
-| CCON-05 | Phase 30 | Pending |
-| CCON-06 | Phase 30 | Pending |
-| CCON-07 | Phase 30 | Pending |
+| CCON-03 | Phase 30 | Complete |
+| CCON-04 | Phase 30 | Complete |
+| CCON-05 | Phase 30 | Complete |
+| CCON-06 | Phase 30 | Complete |
+| CCON-07 | Phase 30 | Complete |
 | CCON-08 | Phase 30 | Complete |
 | CREN-01 | Phase 31 | Pending |
 | CREN-02 | Phase 31 | Pending |
@@ -109,7 +109,7 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CSUP-02 | Phase 32 | Pending |
 | SCOPE-01 | Phase 33 | Pending |
 | CQA-01 | Phase 29 | Gaps Found |
-| CQA-02 | Phase 30 | Pending |
+| CQA-02 | Phase 30 | Complete |
 
 **Coverage:**
 - v1 requirements: 27 total

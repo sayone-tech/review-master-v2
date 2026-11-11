@@ -5,16 +5,16 @@ milestone_name: AI Reply Credits
 current_phase: 30
 current_phase_name: Metered AI Reply Generation
 status: executing
-stopped_at: Completed 30-02-PLAN.md
-last_updated: "2026-11-11T13:25:51.835Z"
+stopped_at: Completed 30-03-PLAN.md
+last_updated: "2026-11-11T13:33:44.342Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 30 execution started
-state_head: 94f4d67c3b497220eed33add5952cec3c1684f1b
+state_head: 89a1542a1b273ae1f9f2aebaca2674af61de5060
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 ## Current Position
 
 Phase: 30 (Metered AI Reply Generation) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-11-11 — Phase 30 execution started
 
@@ -91,6 +91,7 @@ Last activity: 2026-11-11 — Phase 30 execution started
 | Phase 29 P04 | 8 min | 2 tasks | 3 files |
 | Phase 30 P01 | 28 min | 2 tasks | 9 files |
 | Phase 30 P02 | 14 min | 2 tasks | 7 files |
+| Phase 30 P03 | 35min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 29]: Balance selectors use FilteredRelation + Coalesce (1 query for any list size) and never write; unmaterialised shops report live org allocation
 - [Phase 30]: 30-01: D-14 ledger link written inside the same CAS UPDATE; no D-12 partial index (balance-row lock serialises in-flight check); late commit re-deducts only REFUNDED + current month + no LAPSED + capacity
 - [Phase 30]: Reply path bounded by with_options copy (30s/1 retry); moderation block exception carries only stage and AiUsageLog id; Plan 30-03 must pass timeout/max_retries to both reply-path moderation calls
+- [Phase 30]: 30-03: output-stage moderation block consumes, every other non-success outcome refunds; 400/409 bodies carry only {code, detail}, 402 is {code, reason, required, remaining}
 
 ### Pending Todos
 
@@ -137,6 +139,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T13:25:51.747Z
-Stopped at: Completed 30-02-PLAN.md
+Last session: 2026-11-11T13:33:44.261Z
+Stopped at: Completed 30-03-PLAN.md
 Resume file: None
