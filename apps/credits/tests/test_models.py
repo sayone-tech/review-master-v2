@@ -50,15 +50,20 @@ def test_overspend_is_rejected_when_consumed_exceeds_allocated_plus_bonus():
 
 
 @pytest.mark.parametrize(
-    "values",
+    ("values", "constraint_pattern"),
     [
-        {"consumed_credits": -1},
-        {"allocated_credits": -1, "consumed_credits": 0},
-        {"bonus_credits": -1},
+        ({"consumed_credits": -1}, "credit_balance_nonneg"),
+        # allocated=-1 also violates no_overspend (0 <= -1 is false); PostgreSQL does not
+        # guarantee which CHECK it reports first, so either name proves the row is rejected.
+        (
+            {"allocated_credits": -1, "consumed_credits": 0},
+            "credit_balance_(nonneg|no_overspend)",
+        ),
+        ({"bonus_credits": -1}, "credit_balance_nonneg"),
     ],
 )
-def test_negative_values_are_rejected_when_credits_go_below_zero(values):
-    with pytest.raises(IntegrityError, match="credit_balance_nonneg"), transaction.atomic():
+def test_negative_values_are_rejected_when_credits_go_below_zero(values, constraint_pattern):
+    with pytest.raises(IntegrityError, match=constraint_pattern), transaction.atomic():
         ShopCreditBalanceFactory(**values)
 
 
