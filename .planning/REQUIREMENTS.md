@@ -26,7 +26,7 @@
 - [ ] **CCON-05**: Credits are refunded when the OpenAI call fails or input moderation blocks the review, and consumed when output moderation blocks the draft; each outcome writes a `shop.credits.consumed` or `shop.credits.refunded` AuditLog row
 - [ ] **CCON-06**: Each consumption ledger row links to the single AiUsageLog row of its OpenAI call; a generate request still writes exactly one AiUsageLog row
 - [ ] **CCON-07**: The generate response includes `credits_charged` and `credits_remaining`, and a cost endpoint returns the credit cost for a given review
-- [ ] **CCON-08**: The reply-path OpenAI call uses an explicit timeout well below the reservation TTL; the existing 10/min generate-reply throttle is unchanged
+- [x] **CCON-08**: The reply-path OpenAI call uses an explicit timeout well below the reservation TTL; the existing 10/min generate-reply throttle is unchanged
 
 ### Renewal & Reaper (CREN)
 
@@ -96,7 +96,7 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CCON-05 | Phase 30 | Pending |
 | CCON-06 | Phase 30 | Pending |
 | CCON-07 | Phase 30 | Pending |
-| CCON-08 | Phase 30 | Pending |
+| CCON-08 | Phase 30 | Complete |
 | CREN-01 | Phase 31 | Pending |
 | CREN-02 | Phase 31 | Pending |
 | CREN-03 | Phase 31 | Pending |
