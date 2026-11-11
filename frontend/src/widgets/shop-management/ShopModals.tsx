@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import { Modal } from "../modal/Modal";
 import { CreateShopModal } from "./CreateShopModal";
@@ -7,6 +7,8 @@ import { ShopDetailsModal } from "./ShopDetailsModal";
 import { OAuthConnectionSection } from "./OAuthConnectionSection";
 import { activateShop, deactivateShop, reconnectShop } from "./api";
 import { emitToast } from "../../lib/toast";
+import { BuyMoreCreditsModal } from "../credits/BuyMoreCreditsModal";
+import { readCreditContact } from "../credits/contact";
 import type { CreditRequestShop } from "../credits/mailto";
 import type { AllocationStatus, ShopRow } from "./types";
 
@@ -78,6 +80,7 @@ export function ShopModals({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [focusCredits, setFocusCredits] = useState(false);
   const [buyMoreShop, setBuyMoreShop] = useState<CreditRequestShop | null>(null);
+  const creditContact = useMemo(() => readCreditContact(), []);
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [activateOpen, setActivateOpen] = useState(false);
@@ -234,6 +237,7 @@ export function ShopModals({
         shop={selected}
         isOrgAdmin={isOrgAdmin}
         focusCredits={focusCredits}
+        dismissible={buyMoreShop === null}
         onBuyMore={setBuyMoreShop}
         onClose={() => {
           setDetailsOpen(false);
@@ -256,6 +260,16 @@ export function ShopModals({
           setDetailsOpen(false);
           setReconnectOpen(true);
         }}
+      />
+
+      {/* Sibling of Shop Details (never nested). Shop Details is non-dismissible while this
+          is open, so the first Escape closes only Buy More. */}
+      <BuyMoreCreditsModal
+        open={buyMoreShop !== null}
+        onClose={() => setBuyMoreShop(null)}
+        organisationName={creditContact.organisationName}
+        supportEmail={creditContact.supportEmail}
+        shop={buyMoreShop ?? undefined}
       />
 
       {/* Deactivate — amber confirm with slot-retention message (SHOP-17) */}

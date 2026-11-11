@@ -21,8 +21,12 @@ const BUY_MORE_CLS =
  * balance fresh on every mount (D-11), writes it to the shop-keyed store so the
  * Shops badge agrees, and renders identically for Org Admin and Staff (D-10).
  */
+/** Outcome of one request, tagged with its shop so a stale one is never shown. */
+type Outcome = { shopId: number; data: ShopCredits } | { shopId: number; error: true };
+
 export function CreditsCard({ shopId, shopName, focusOnMount, onBuyMore }: CreditsCardProps) {
-  const [credits, setCredits] = useState<ShopCredits | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -36,11 +40,23 @@ export function CreditsCard({ shopId, shopName, focusOnMount, onBuyMore }: Credi
           isEnabled: data.is_enabled,
           periodLabel: data.period_label,
         });
-        setCredits(data);
+        setOutcome({ shopId, data });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!controller.signal.aborted) setOutcome({ shopId, error: true });
+      });
     return () => controller.abort();
-  }, [shopId]);
+  }, [shopId, attempt]);
+
+  // An outcome for another shop (fast switch) counts as still loading.
+  const current = outcome && outcome.shopId === shopId ? outcome : null;
+  const credits = current && "data" in current ? current.data : null;
+  const failed = current !== null && "error" in current;
+
+  const retry = () => {
+    setOutcome(null);
+    setAttempt((n) => n + 1);
+  };
 
   useEffect(() => {
     if (!focusOnMount) return;
@@ -50,9 +66,25 @@ export function CreditsCard({ shopId, shopName, focusOnMount, onBuyMore }: Credi
 
   const band = credits ? creditBand(credits.remaining, credits.total) : null;
   const renews = credits ? formatUtcDate(credits.renews_on) : null;
+  const loading = credits === null && !failed;
+
+  const openBuyMore = () => {
+    if (!credits) return;
+    onBuyMore({
+      name: shopName,
+      remaining: credits.remaining,
+      total: credits.total,
+      isEnabled: credits.is_enabled,
+      periodLabel: credits.period_label,
+    });
+  };
 
   return (
-    <div data-testid="credits-card" className="bg-line-soft rounded-md p-4">
+    <div
+      data-testid="credits-card"
+      aria-busy={loading ? "true" : undefined}
+      className="bg-line-soft rounded-md p-4"
+    >
       <div className="flex items-center gap-2">
         <Coins size={16} className="text-muted" aria-hidden="true" />
         <h3 ref={headingRef} tabIndex={-1} className="text-[14px] font-semibold text-ink">
@@ -62,6 +94,39 @@ export function CreditsCard({ shopId, shopName, focusOnMount, onBuyMore }: Credi
           <span className="ml-auto text-[12px] text-muted">{credits.period_label}</span>
         )}
       </div>
+      {loading && (
+        <div className="mt-4 space-y-2" aria-hidden="true">
+          <div className="animate-sk-pulse bg-line rounded-sm h-8 w-24" />
+          <div className="animate-sk-pulse bg-line rounded-sm h-2 w-full" />
+          <div className="animate-sk-pulse bg-line rounded-sm h-4 w-48" />
+        </div>
+      )}
+      {failed && (
+        <div
+          role="alert"
+          className="mt-4 bg-red-tint text-[#991B1B] rounded-md px-4 py-2 text-[12px]"
+        >
+          <p className="font-semibold">Couldn&apos;t load credits.</p>
+          <p>Please try again.</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="mt-2 h-8 px-4 text-[12px] font-normal bg-white text-ink border border-line rounded-md hover:bg-line-soft"
+          >
+            Retry Loading Credits
+          </button>
+        </div>
+      )}
+      {credits && band === "not_enabled" && (
+        <>
+          <p className="mt-4 text-[14px] text-muted">AI replies aren&apos;t enabled for this shop.</p>
+          <div className="mt-4 flex justify-end">
+            <button type="button" className={BUY_MORE_CLS} onClick={openBuyMore}>
+              Buy More Credits
+            </button>
+          </div>
+        </>
+      )}
       {credits && band && band !== "not_enabled" && (
         <>
           <div className="mt-4 flex items-baseline gap-2">
@@ -97,19 +162,7 @@ export function CreditsCard({ shopId, shopName, focusOnMount, onBuyMore }: Credi
             ) : (
               <span />
             )}
-            <button
-              type="button"
-              className={BUY_MORE_CLS}
-              onClick={() =>
-                onBuyMore({
-                  name: shopName,
-                  remaining: credits.remaining,
-                  total: credits.total,
-                  isEnabled: credits.is_enabled,
-                  periodLabel: credits.period_label,
-                })
-              }
-            >
+            <button type="button" className={BUY_MORE_CLS} onClick={openBuyMore}>
               Buy More Credits
             </button>
           </div>

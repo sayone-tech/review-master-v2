@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ShopModals } from "./ShopModals";
 import type { ShopRow } from "./types";
@@ -150,5 +150,96 @@ describe("ShopModals", () => {
       );
     });
     expect(screen.getByText("Shop Details")).toBeInTheDocument();
+  });
+});
+
+describe("ShopModals Buy More from the credits card", () => {
+  let contactEl: HTMLScriptElement;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetCreditsStoreForTests();
+    contactEl = document.createElement("script");
+    contactEl.id = "credit-contact";
+    contactEl.type = "application/json";
+    contactEl.textContent = JSON.stringify({
+      organisation_name: "Acme Org",
+      support_email: "support@reviewbee.test",
+    });
+    document.body.appendChild(contactEl);
+    vi.spyOn(creditsApi, "getShopCredits").mockResolvedValue(creditsPayload());
+  });
+
+  afterEach(() => contactEl.remove());
+
+  async function openBuyMore() {
+    render(<ShopModals allocation={{ current: 0, max: 5, at_limit: false }} regions={[]} />);
+    act(() => {
+      window.dispatchEvent(new CustomEvent("shop:open-credits", { detail: row({ name: "Downtown" }) }));
+    });
+    const button = await screen.findByRole("button", { name: "Buy More Credits" });
+    button.focus(); // a real click focuses the button; fireEvent.click alone does not
+    fireEvent.click(button);
+    return button;
+  }
+
+  it("should open Buy More as a sibling dialog with the shop context in the mailto", async () => {
+    await openBuyMore();
+
+    const buyMore = screen.getByRole("dialog", { name: "Buy More Credits" });
+    const details = screen.getByRole("dialog", { name: "Shop Details" });
+    expect(details.contains(buyMore)).toBe(false);
+    expect(buyMore.contains(details)).toBe(false);
+
+    const href = within(buyMore).getByRole("link", { name: "Contact Admin" }).getAttribute("href") ?? "";
+    const url = new URL(href);
+    expect(url.pathname).toBe("support@reviewbee.test");
+    expect(url.searchParams.get("subject")).toBe("Credit request — Acme Org / Downtown");
+    const body = url.searchParams.get("body") ?? "";
+    expect(body).toContain("Current balance: 35 of 100 credits remaining");
+    expect(body).toContain("Month: November 2026");
+  });
+
+  it("should close only Buy More on the first Escape and Shop Details on the second", async () => {
+    await openBuyMore();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Buy More Credits" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Shop Details" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Shop Details" })).not.toBeInTheDocument();
+  });
+
+  it("should return focus to the Buy More Credits button when Buy More closes", async () => {
+    const button = await openBuyMore();
+    const buyMore = screen.getByRole("dialog", { name: "Buy More Credits" });
+    fireEvent.click(within(buyMore).getByText("Close"));
+    await waitFor(() => expect(document.activeElement).toBe(button));
+  });
+
+  it("should keep Shop Details usable when the credits fetch fails", async () => {
+    vi.spyOn(creditsApi, "getShopCredits").mockRejectedValue(new creditsApi.ShopCreditsError(500));
+    render(<ShopModals allocation={{ current: 0, max: 5, at_limit: false }} regions={[]} />);
+    act(() => {
+      window.dispatchEvent(new CustomEvent("shop:open-details", { detail: row() }));
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load credits.");
+    expect(screen.getByRole("button", { name: "Edit" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.queryByRole("dialog", { name: "Shop Details" })).not.toBeInTheDocument();
+  });
+
+  it("should fetch credits again each time Shop Details is reopened", async () => {
+    const spy = creditsApi.getShopCredits as unknown as ReturnType<typeof vi.fn>;
+    render(<ShopModals allocation={{ current: 0, max: 5, at_limit: false }} regions={[]} />);
+    for (let i = 0; i < 2; i += 1) {
+      act(() => {
+        window.dispatchEvent(new CustomEvent("shop:open-details", { detail: row() }));
+      });
+      await screen.findByText("/ 100");
+      fireEvent.click(screen.getByText("Close"));
+    }
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 });
