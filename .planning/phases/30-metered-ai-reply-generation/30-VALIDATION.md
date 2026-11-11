@@ -1,9 +1,9 @@
 ---
 phase: "30"
 slug: "metered-ai-reply-generation"
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: executed
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-11-11"
 ---
 
@@ -40,15 +40,15 @@ created: "2026-11-11"
 
 | Task | Requirement / decisions | Test file(s) | Type | Status |
 |------|-------------------------|--------------|------|--------|
-| 30-01 T1 (tracer) | CCON-01, CCON-06, CCON-07, CQA-02; D-04, D-07, D-14, D-18, D-19 | `apps/credits/tests/test_append_only.py`, `apps/reviews/tests/test_views.py` (TestGenerateReplyCredits, re-pointed TestGenerateReplyEndpoint) | unit + view (e2e) | ⬜ pending |
-| 30-01 T2 | CCON-03, CCON-05; D-01, D-02, D-08, D-11, D-12, D-16, D-17, D-19 | `apps/credits/tests/test_consumption.py` | unit | ⬜ pending |
-| 30-02 T1 | CCON-05, CCON-06; D-15 | `apps/integrations/openai/tests/test_guardrails.py` | unit | ⬜ pending |
-| 30-02 T2 | CCON-08; D-05, D-06, D-15 | `apps/integrations/openai/tests/test_client.py`, `apps/credits/tests/test_settings.py` | unit | ⬜ pending |
-| 30-03 T1 | CCON-05, CCON-06; D-03, D-04, D-09, D-15, D-17, D-18 | `apps/reviews/tests/test_reply_generation_credits.py`, `test_reply_generation_service.py`, `test_views.py` | unit + view | ⬜ pending |
-| 30-03 T2 | CCON-03, CCON-04, CCON-07; D-08, D-10, D-11, D-12, D-19 | `apps/reviews/tests/test_views.py` (TestReviewCreditCost + 400/402/409) + spectacular | view | ⬜ pending |
-| 30-04 T1 | CCON-02; D-03, D-12, D-16 | `apps/credits/tests/test_pg_concurrency.py`, `apps/reviews/tests/test_pg_reply_concurrency.py` | pg_concurrency | ⬜ pending |
-| 30-04 T2 | CQA-02; D-13 | `docs/sre/v0.9-credits-rollout.md` (file checks) | file | ⬜ pending |
-| 30-04 T3 | phase gate (§27 reviews) | full suite + coverage, mypy, ruff, makemigrations, spectacular, PG | gate | ⬜ pending |
+| 30-01 T1 (tracer) | CCON-01, CCON-06, CCON-07, CQA-02; D-04, D-07, D-14, D-18, D-19 | `apps/credits/tests/test_append_only.py`, `apps/reviews/tests/test_views.py` (TestGenerateReplyCredits, re-pointed TestGenerateReplyEndpoint) | unit + view (e2e) | ✅ green |
+| 30-01 T2 | CCON-03, CCON-05; D-01, D-02, D-08, D-11, D-12, D-16, D-17, D-19 | `apps/credits/tests/test_consumption.py` | unit | ✅ green |
+| 30-02 T1 | CCON-05, CCON-06; D-15 | `apps/integrations/openai/tests/test_guardrails.py` | unit | ✅ green |
+| 30-02 T2 | CCON-08; D-05, D-06, D-15 | `apps/integrations/openai/tests/test_client.py`, `apps/credits/tests/test_settings.py` | unit | ✅ green |
+| 30-03 T1 | CCON-05, CCON-06; D-03, D-04, D-09, D-15, D-17, D-18 | `apps/reviews/tests/test_reply_generation_credits.py`, `test_reply_generation_service.py`, `test_views.py` | unit + view | ✅ green |
+| 30-03 T2 | CCON-03, CCON-04, CCON-07; D-08, D-10, D-11, D-12, D-19 | `apps/reviews/tests/test_views.py` (TestReviewCreditCost + 400/402/409) + spectacular | view | ✅ green |
+| 30-04 T1 | CCON-02; D-03, D-12, D-16 | `apps/credits/tests/test_pg_concurrency.py`, `apps/reviews/tests/test_pg_reply_concurrency.py` | pg_concurrency | ✅ green |
+| 30-04 T2 | CQA-02; D-13 | `docs/sre/v0.9-credits-rollout.md` (file checks) | file | ✅ green |
+| 30-04 T3 | phase gate (§27 reviews) | full suite + coverage, mypy, ruff, makemigrations, spectacular, PG | gate | ✅ green |
 
 Sampling continuity: every task carries at least one `<automated>` verify with a `<fails_when>`; no three consecutive tasks lack an automated check.
 
@@ -56,9 +56,9 @@ Sampling continuity: every task carries at least one `<automated>` verify with a
 
 ## Wave 0 Requirements
 
-- [ ] Phase 29 contract re-verification (fail fast if `credit_cost`, `get_shop_credit_balance`, `CreditBalanceView`, `transition_status` absent)
-- [ ] New test files listed above; credits-enabled fixture (factory default stays 0)
-- [ ] Re-point `TestGenerateReplyEndpoint` patches; update T-20-LK key-set tests
+- [x] Phase 29 contract re-verification (fail fast if `credit_cost`, `get_shop_credit_balance`, `CreditBalanceView`, `transition_status` absent)
+- [x] New test files listed above; credits-enabled fixture (factory default stays 0)
+- [x] Re-point `TestGenerateReplyEndpoint` patches; update T-20-LK key-set tests
 
 ---
 
@@ -73,11 +73,11 @@ Sampling continuity: every task carries at least one `<automated>` verify with a
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** local gates green 2026-11-11 (12 pg_concurrency passed, 0 skipped on throwaway PostgreSQL 14; full suite 1439 passed, 14 skipped, coverage 89.39%). Manual-Only rows above (CI `backend-pg` on PG16, UAT generate) remain open until after push.
