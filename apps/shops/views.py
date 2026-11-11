@@ -25,6 +25,7 @@ from apps.accounts.models import User
 from apps.accounts.permissions import IsOrgAdmin, org_admin_required
 from apps.common.permissions import IsOrgScoped, RequiresSessionAuth
 from apps.common.viewsets import TenantScopedViewSet
+from apps.credits.services.periods import current_period
 from apps.integrations.google.exceptions import (
     GoogleAuthError,
     GoogleUnreachableError,
@@ -39,7 +40,11 @@ from apps.regions.serializers import RegionReadSerializer
 from apps.reviews.tasks import initial_backfill_task
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
 from apps.shops.models import ReviewTarget, Shop
-from apps.shops.selectors.shops import get_allocation_status, get_has_regions, list_shops
+from apps.shops.selectors.shops import (
+    get_allocation_status,
+    get_has_regions,
+    list_shops,
+)
 from apps.shops.selectors.targets import list_target_history, list_targets_for_shop
 from apps.shops.serializers import (
     ReviewTargetHistorySerializer,
@@ -188,6 +193,9 @@ class ShopViewSet(
             region_id=int(request.query_params["region"])
             if request.query_params.get("region")
             else None,
+            user=user,
+            with_credits=True,
+            period=current_period(),
         )
         page = self.paginate_queryset(qs)
         serializer = self.get_serializer(page if page is not None else qs, many=True)

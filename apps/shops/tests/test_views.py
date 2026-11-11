@@ -1005,3 +1005,37 @@ class TestShopListContextAllowCustomSyncDepth:
         resp = dj_client.get("/admin/org/shops/")
         assert resp.status_code == 200
         assert resp.context["allow_custom_sync_depth"] is True
+
+
+@pytest.mark.django_db
+class TestShopsListStaffScopeAndCredits:
+    def test_staff_list_returns_only_in_scope_shops_with_credit_fields(self):
+        from apps.accounts.models import StaffAccessScope
+        from apps.accounts.tests.factories import StaffAdminFactory
+        from apps.common.models import AuditLog
+        from apps.credits.models import CreditTransaction, ShopCreditBalance
+
+        org = OrganisationFactory(number_of_stores=10, monthly_credit_allocation=40)
+        shop_a = ShopFactory(organisation=org)
+        ShopFactory(organisation=org)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=shop_a
+        )
+        client = APIClient()
+        client.force_authenticate(user=staff)
+        audit_before = AuditLog.objects.count()
+
+        resp = client.get("/api/v1/shops/")
+
+        assert resp.status_code == 200
+        results = resp.json()["results"]
+        assert [r["id"] for r in results] == [shop_a.pk]
+        row = results[0]
+        assert row["credits_remaining"] == 40
+        assert row["credits_total"] == 40
+        assert row["credits_allocated"] == 40
+        assert row["credits_bonus"] == 0
+        assert ShopCreditBalance.objects.count() == 0
+        assert CreditTransaction.objects.count() == 0
+        assert AuditLog.objects.count() == audit_before

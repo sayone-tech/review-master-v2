@@ -4,6 +4,9 @@ import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
+from apps.accounts.models import StaffAccessScope
+from apps.accounts.tests.factories import StaffAdminFactory
+from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.regions.tests.factories import RegionFactory
 from apps.shops.selectors.shops import (
@@ -127,3 +130,24 @@ class TestGetAllocationStatus:
         ShopFactory.create_batch(3, organisation=org)
         result = get_allocation_status(organisation=org)
         assert result["at_limit"] is True
+
+
+@pytest.mark.django_db
+class TestListShopsStaffScopeAndCredits:
+    def test_list_shops_returns_only_in_scope_shops_with_virtual_credits_when_staff(self) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=40)
+        shop_a = ShopFactory(organisation=org)
+        ShopFactory(organisation=org)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=shop_a
+        )
+        balances_before = ShopCreditBalance.objects.count()
+
+        rows = list(list_shops(organisation_id=org.pk, user=staff, with_credits=True))
+
+        assert [s.pk for s in rows] == [shop_a.pk]
+        assert rows[0].credit_remaining == 40
+        assert rows[0].credit_materialized is False
+        assert ShopCreditBalance.objects.count() == balances_before
+        assert CreditTransaction.objects.count() == 0
