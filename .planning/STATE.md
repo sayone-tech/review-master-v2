@@ -5,16 +5,16 @@ milestone_name: AI Reply Credits
 current_phase: 33
 current_phase_name: Credit Visibility & Staff Scoping
 status: executing
-stopped_at: Completed 33-01-PLAN.md
-last_updated: "2026-11-11T19:22:04.143Z"
+stopped_at: Completed 33-02-PLAN.md
+last_updated: "2026-11-11T19:25:26.641Z"
 last_activity: 2026-11-12
 last_activity_desc: Phase 33 execution started
-state_head: 1c1c22cf97329f5e9e4f50e4a2f9d8ef7bbf0b9b
+state_head: 9418462b3067abc5d7e88dd33abcaaf3e9b33cb4
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 23
-  completed_plans: 17
+  completed_plans: 18
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 ## Current Position
 
 Phase: 33 (Credit Visibility & Staff Scoping) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-11-12 — Phase 33 execution started
 
@@ -102,6 +102,7 @@ Last activity: 2026-11-12 — Phase 33 execution started
 | Phase 32 P04 | 25 min | 3 tasks | 9 files |
 | Phase 32 P05 | 9 min | 3 tasks | 6 files |
 | Phase 33 P01 | 8 min | 3 tasks | 6 files |
+| Phase 33 P33-02 | 6 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -144,6 +145,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 32]: 32-04: 409 period_mismatch applies server balance/period, reloads, keeps typed values and requires a fresh Allocate click; 404 toast copy is D-23 'This shop is no longer active.'
 - [Phase 32]: Lock the organisation row FOR NO KEY UPDATE (no_key=True) in update_organisation and allocate_bonus: plain FOR UPDATE deadlocks against a concurrent first-use balance insert FK KEY SHARE (proven on PostgreSQL)
 - [Phase 33]: 33-01: get_accessible_shop_for_credits lives in apps/shops (built on list_shops) to keep apps/credits free of apps.reviews imports; Staff scoping keyed off role, not id-list truthiness
+- [Phase 33]: 33-02: Credit audit events reach Org Admins via a separate CREDIT_AUDIT_FILTER (Staff selector and shared AUDIT_ENTITY_FILTER untouched); shop_name is an entity_type-gated, org-bounded, text-compared subquery; Superadmin actor names visible to Org Admins accepted (open question 2)
 
 ### Pending Todos
 
@@ -160,6 +162,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T19:22:03.916Z
-Stopped at: Completed 33-01-PLAN.md
+Last session: 2026-11-11T19:25:26.408Z
+Stopped at: Completed 33-02-PLAN.md
 Resume file: None
