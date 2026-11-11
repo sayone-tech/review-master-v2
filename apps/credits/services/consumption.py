@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+import sentry_sdk
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
@@ -35,6 +36,7 @@ from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.selectors.balances import get_shop_credit_balance
 from apps.credits.services.allocation import ensure_balance
 from apps.credits.services.ledger import transition_status
+from apps.credits.services.periods import current_period
 
 logger = logging.getLogger(__name__)
 
@@ -297,16 +299,86 @@ def _settle_lost_race(
     ai_usage_log_id: int | None,
     actor_id: int | None,
 ) -> SettleResult:
-    """The commit CAS lost: one policy for every cause (D-01, D-02). Never raises to the caller.
+    """The commit CAS lost: one policy for every cause (D-01, D-02, D-16). Never raises on
+    a business outcome.
 
-    Task 1 placeholder: log and treat the draft as free. Replaced by the D-16 policy.
+    * Not REFUNDED (already COMMITTED, or anything else): never re-deduct (``already_settled``).
+    * REFUNDED on a past or lapsed month: the draft is free, no balance is touched.
+    * REFUNDED on the current month: one guarded re-deduct if capacity remains (``rededucted``),
+      otherwise the draft is free.
+
+    Every outcome writes one ``shop.credits.late_commit`` AuditLog row and one Sentry warning
+    carrying ids only (a WARNING log record is only a breadcrumb, so ``capture_message``).
     """
-    logger.warning(
-        "credits.late_commit tx_id=%s review_id=%s outcome=free_draft",
-        transaction_id,
-        row.review_id,
+    prior_status = (
+        CreditTransaction.objects.filter(pk=transaction_id).values_list("status", flat=True).first()
     )
-    return SettleResult(credits_charged=0, outcome="free_draft")
+    new_transaction_id: int | None = None
+    reason: str | None = None
+
+    if prior_status != Status.REFUNDED:
+        outcome = "already_settled"
+        credits_charged = row.credits if prior_status == Status.COMMITTED else 0
+    else:
+        period = current_period()
+        lapsed = CreditTransaction.objects.filter(
+            shop_credit_balance_id=row.shop_credit_balance_id,
+            transaction_type=CreditTransaction.Type.LAPSED,
+        ).exists()
+        if (row.period_year, row.period_month) != (period.year, period.month) or lapsed:
+            outcome, credits_charged, reason = "free_draft", 0, "past_period"
+        else:
+            with transaction.atomic():
+                updated = ShopCreditBalance.objects.filter(
+                    pk=row.shop_credit_balance_id,
+                    consumed_credits__lte=F("allocated_credits") + F("bonus_credits") - row.credits,
+                ).update(
+                    consumed_credits=F("consumed_credits") + row.credits,
+                    updated_at=timezone.now(),
+                )
+                if updated == 1:
+                    new_tx = CreditTransaction.objects.create(
+                        shop_credit_balance_id=row.shop_credit_balance_id,
+                        shop_id=row.shop_id,
+                        organisation_id=row.organisation_id,
+                        transaction_type=CreditTransaction.Type.CONSUMPTION,
+                        status=Status.COMMITTED,
+                        credits_delta=-row.credits,
+                        review_id=row.review_id,
+                        ai_usage_log_id=ai_usage_log_id,
+                        actor_id=actor_id,
+                        note="late_commit",
+                    )
+                    new_transaction_id = new_tx.pk
+            if updated == 1:
+                outcome, credits_charged = "rededucted", row.credits
+            else:
+                outcome, credits_charged, reason = "free_draft", 0, "no_capacity"
+
+    AuditLog.objects.create(
+        organisation_id=row.organisation_id,
+        actor_id=actor_id,
+        entity_type="shop",
+        entity_id=str(row.shop_id),
+        action="shop.credits.late_commit",
+        before_data=None,
+        after_data={
+            "transaction_id": transaction_id,
+            "review_id": row.review_id,
+            "credits": row.credits,
+            "prior_status": prior_status,
+            "outcome": outcome,
+            "reason": reason,
+            "new_transaction_id": new_transaction_id,
+            "ai_usage_log_id": ai_usage_log_id,
+        },
+    )
+    message = (
+        f"credits.late_commit outcome={outcome} tx_id={transaction_id} review_id={row.review_id}"
+    )
+    logger.warning(message)
+    sentry_sdk.capture_message(message, level="warning")
+    return SettleResult(credits_charged=credits_charged, outcome=outcome)
 
 
 __all__ = [
