@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Avg, Count, Exists, OuterRef, Q, QuerySet
@@ -878,8 +879,14 @@ def review_list(request):  # type: ignore[no-untyped-def]
 
     shops_data: list[Any] = []
     has_connected = False
+    organisation_name = ""
     if org_id is not None:
+        from apps.organisations.models import Organisation
         from apps.shops.models import Shop
+
+        organisation_name = (
+            Organisation.objects.filter(pk=org_id).values_list("name", flat=True).first() or ""
+        )
 
         qs = Shop.objects.filter(organisation_id=org_id, is_active=True)
         if getattr(user, "role", "") == "STAFF_ADMIN":
@@ -896,5 +903,9 @@ def review_list(request):  # type: ignore[no-untyped-def]
             "current_user_role": getattr(user, "role", ""),
             "shops_json": shops_data,
             "has_connected_shops": has_connected,
+            "credit_contact": {
+                "organisation_name": organisation_name,
+                "support_email": settings.REVIEWBEE_SUPPORT_EMAIL,
+            },
         },
     )

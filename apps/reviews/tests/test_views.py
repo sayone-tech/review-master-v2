@@ -1414,3 +1414,58 @@ def test_sync_progress_unauthenticated_denied() -> None:
     client = APIClient()
     resp = client.get(_sync_progress_url(shop.pk))
     assert resp.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# Phase 33 Plan 05 — credit-contact bootstrap on the Reviews page (CVIS-04)
+# ---------------------------------------------------------------------------
+
+REVIEWS_PAGE_URL = "/admin/org/reviews/"
+
+
+class TestReviewListCreditContactBootstrap:
+    def _get(self, user):  # type: ignore[no-untyped-def]
+        from django.test import Client
+
+        client = Client()
+        client.force_login(user)
+        return client.get(REVIEWS_PAGE_URL)
+
+    @staticmethod
+    def _bootstrap(html: str) -> dict:
+        import json
+        import re
+
+        matches = re.findall(
+            r'<script id="credit-contact" type="application/json">(.*?)</script>', html, re.S
+        )
+        assert len(matches) == 1
+        return json.loads(matches[0])
+
+    @pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])
+    def test_renders_org_name_and_support_email_for_org_admin_and_staff(
+        self, factory, settings
+    ) -> None:
+        settings.REVIEWBEE_SUPPORT_EMAIL = "credits-sentinel@example.test"
+        org = OrganisationFactory(name="Acme Foods")
+        resp = self._get(factory(organisation=org))
+        assert resp.status_code == 200
+        assert resp.context["credit_contact"] == {
+            "organisation_name": "Acme Foods",
+            "support_email": "credits-sentinel@example.test",
+        }
+        assert self._bootstrap(resp.content.decode()) == {
+            "organisation_name": "Acme Foods",
+            "support_email": "credits-sentinel@example.test",
+        }
+
+    def test_org_name_is_empty_when_user_has_no_organisation(self) -> None:
+        resp = self._get(UserFactory(role="SUPERADMIN", organisation=None))
+        assert resp.status_code == 200
+        assert resp.context["credit_contact"]["organisation_name"] == ""
+
+    def test_org_name_is_escaped_when_it_contains_a_script_closing_tag(self) -> None:
+        org = OrganisationFactory(name="Acme </script><script>x</script>")
+        html = self._get(OrgAdminFactory(organisation=org)).content.decode()
+        assert "</script><script>x" not in html
+        assert "\\u003C/script\\u003E" in html

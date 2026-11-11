@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { CheckCircle, ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { emitToast } from "../../lib/toast";
-import { ApiError, deleteReply, generateReply, submitReply } from "./api";
+import { ApiError, deleteReply, generateReply, getCreditCost, submitReply } from "./api";
+import { setShopCredits, useShopCredits } from "../credits/creditsStore";
+import { creditsLabel } from "../credits/format";
 import { listTemplates } from "../reply-templates/api";
 import type { TemplateRow } from "../reply-templates/types";
 import { StarRating } from "./StarRating";
@@ -36,6 +38,33 @@ export function ReplyComposer({
   // composer unmounts mid-generation.
   const generateAbortRef = useRef<AbortController | null>(null);
 
+  // CVIS-03 — the cost always comes from the server (never derived client-side).
+  const hasReviewText = row.comment.trim() !== "";
+  const [cost, setCost] = useState<number | null>(null);
+  const [costStatus, setCostStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const credits = useShopCredits(row.shop_id);
+
+  // Fetch the credit cost on mount. AbortController keeps this StrictMode-safe
+  // (effects mount twice in dev) and cancels on unmount.
+  useEffect(() => {
+    if (!hasReviewText || row.is_replied) return;
+    const controller = new AbortController();
+    setCostStatus("loading");
+    getCreditCost(row.id, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setCost(res.cost);
+        setCostStatus("ready");
+        setShopCredits(row.shop_id, { remaining: res.remaining, isEnabled: res.is_enabled });
+      })
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setCostStatus("error");
+      });
+    return () => controller.abort();
+  }, [row.id, row.shop_id, row.is_replied, hasReviewText]);
+
   useEffect(() => {
     listTemplates().then(setTemplates).catch(() => {});
   }, []);
@@ -58,6 +87,11 @@ export function ReplyComposer({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [pickerOpen]);
+
+  const aiButtonLabel =
+    costStatus === "ready" && cost !== null
+      ? `Generate with AI · ${creditsLabel(cost)}`
+      : "Generate with AI";
 
   const charCount = comment.length;
   const counterCls =
@@ -86,8 +120,10 @@ export function ReplyComposer({
     setGeneratingTone(tone);
     setErrorMessage(null);
     try {
-      const { draft } = await generateReply(row.id, tone, controller.signal);
+      const { draft, credits_remaining } = await generateReply(row.id, tone, controller.signal);
       if (controller.signal.aborted) return;
+      // D-05: the shop-keyed store updates every composer's line without a reload.
+      setShopCredits(row.shop_id, { remaining: credits_remaining });
       setComment(draft);
       setGeneratorOpen(false);
       setGeneratingTone(null);
@@ -294,6 +330,16 @@ export function ReplyComposer({
           )}
         </div>
         <div className="px-4 py-4">
+          {costStatus === "ready" && credits && (
+            <p
+              id={`credit-status-${row.id}`}
+              role="status"
+              aria-live="polite"
+              className="text-[12px] text-muted mb-2"
+            >
+              This shop has {creditsLabel(credits.remaining)} remaining this month.
+            </p>
+          )}
           <div className="flex items-center justify-between mb-2">
             <label
               htmlFor={`reply-textarea-${row.id}`}
@@ -305,14 +351,14 @@ export function ReplyComposer({
               <button
                 ref={generatorButtonRef}
                 type="button"
-                aria-label="Generate reply with AI"
+                aria-label={aiButtonLabel}
                 aria-expanded={generatorOpen}
                 aria-controls={`ai-generator-${row.id}`}
                 onClick={handleToggleGenerator}
                 className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md text-ink transition-colors ${generatorOpen ? "bg-line-soft hover:bg-line" : "bg-white hover:bg-line-soft"}`}
               >
                 <Sparkles size={12} aria-hidden="true" />
-                Generate with AI
+                {aiButtonLabel}
               </button>
               {templates.length > 0 && (
                 <div ref={pickerRef} className="relative">

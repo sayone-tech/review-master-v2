@@ -144,11 +144,60 @@ export async function fetchSyncProgress(shopId: number): Promise<Record<string, 
   return (await handle(resp)) as Record<string, unknown>;
 }
 
+export interface CreditCost {
+  cost: number;
+  remaining: number;
+  is_enabled: boolean;
+}
+
+export async function getCreditCost(reviewId: number, signal?: AbortSignal): Promise<CreditCost> {
+  const resp = await fetch(`/api/v1/reviews/${reviewId}/credit-cost/`, {
+    method: "GET",
+    headers: headers("GET"),
+    credentials: "same-origin",
+    signal,
+  });
+  return (await handle(resp)) as CreditCost;
+}
+
+export interface GenerateReplyResult {
+  draft: string;
+  credits_charged: number;
+  credits_remaining: number | null;
+}
+
+export interface InsufficientCreditsBody {
+  code: "insufficient_credits";
+  reason: "not_enabled" | "exhausted";
+  required: number;
+  remaining: number;
+}
+
+/**
+ * The 402 branch of generateReply: an ApiError with status 402 and a
+ * well-formed insufficient_credits body, else null.
+ */
+export function readInsufficientCredits(e: unknown): InsufficientCreditsBody | null {
+  if (!(e instanceof ApiError) || e.status !== 402) return null;
+  const data = e.data;
+  if (typeof data !== "object" || data === null) return null;
+  const body = data as Record<string, unknown>;
+  if (body.code !== "insufficient_credits") return null;
+  if (body.reason !== "not_enabled" && body.reason !== "exhausted") return null;
+  if (typeof body.required !== "number" || typeof body.remaining !== "number") return null;
+  return {
+    code: "insufficient_credits",
+    reason: body.reason,
+    required: body.required,
+    remaining: body.remaining,
+  };
+}
+
 export async function generateReply(
   reviewId: number,
   tone: string,
   signal?: AbortSignal,
-): Promise<{ draft: string }> {
+): Promise<GenerateReplyResult> {
   // IN-04: callers pass an AbortSignal so they can cancel an in-flight
   // request (e.g., user re-clicks a different tone or closes the composer).
   const resp = await fetch(`/api/v1/reviews/${reviewId}/generate-reply/`, {
@@ -158,5 +207,5 @@ export async function generateReply(
     body: JSON.stringify({ tone }),
     signal,
   });
-  return (await handle(resp)) as { draft: string };
+  return (await handle(resp)) as GenerateReplyResult;
 }
