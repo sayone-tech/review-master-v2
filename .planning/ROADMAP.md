@@ -183,11 +183,11 @@ v0.9 (AI reply credits) is in progress; the mobile app follows v0.9.
   4. A review's credit cost is 1 / 2 / 3 for trimmed comment length 1–100 / 101–500 / 501+, computed by one pure function with thresholds in settings and an open-ended top tier. Boundary tests pass for 0, 1, 100, 101, 500, 501, 10000, 10001, emoji, and whitespace-only comments.
   5. Every pull request runs a Postgres CI job that executes all `pg_concurrency`-marked tests (marker registered under `--strict-markers`) alongside the existing SQLite suite.
 
-**Plans**: 3 plans (waves 1 → 2 → 3, sequential)
+**Plans**: 1/3 plans executed (waves 1 → 2 → 3, sequential)
 
 Plans:
 **Wave 1**
-- [ ] 29-01-PLAN.md — Tracer: `Organisation.monthly_credit_allocation` + full balance/ledger schema + `ensure_balance` first-use slice, then Postgres CI (`backend-pg`, `pg_concurrency`, first-use race)
+- [x] 29-01-PLAN.md — Tracer: `Organisation.monthly_credit_allocation` + full balance/ledger schema + `ensure_balance` first-use slice, then Postgres CI (`backend-pg`, `pg_concurrency`, first-use race)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 29-02-PLAN.md — Ledger integrity: append-only guards + `transition_status` CAS (Postgres race), DB-invariant proofs, read-only admin
@@ -334,7 +334,7 @@ Plans:
 | 26. v0.8 Post-UAT Polish & Sync Fixes | v0.8 | 2/2 | ✅ Complete | 2026-06-24 |
 | 27. Sync Progress Reliability | v0.8 | 2/2 | ✅ Complete | 2026-06-24 |
 | 28. Superadmin Data Reset & Re-Sync | v0.8 | — | ⏸ Deferred (pre-launch) | — |
-| 29. Credits Ledger Foundation | v0.9 | 0/TBD | ⬜ Not started | - |
+| 29. Credits Ledger Foundation | v0.9 | 1/3 | ⬜ Not started | - |
 | 30. Metered AI Reply Generation | v0.9 | 0/TBD | ⬜ Not started | - |
 | 31. Monthly Renewal & Reservation Reaper | v0.9 | 0/TBD | ⬜ Not started | - |
 | 32. Superadmin Credit Controls | v0.9 | 0/TBD | ⬜ Not started | - |

@@ -4,17 +4,17 @@ milestone: v0.9
 milestone_name: AI Reply Credits
 current_phase: 29
 current_phase_name: Credits Ledger Foundation
-status: planning
-stopped_at: Phase 29 context gathered
-last_updated: "2026-11-11T11:37:59.533Z"
+status: executing
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-11-11T11:45:51.445Z"
 last_activity: 2026-11-11
-last_activity_desc: v0.9 roadmap created; 5 phases (29–33), 27/27 requirements mapped
-state_head: 1aca7f3354a498b8ae8c197e9e8957c4336e5649
+last_activity_desc: Phase 29 execution started
+state_head: 8b4816c5ffdccee42c98accba2e841b3ae39ec60
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -25,14 +25,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-11)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — and AI reply spend is capped by a visible per-shop monthly credit budget that Superadmin controls.
-**Current focus:** v0.9 AI Reply Credits — roadmap created (Phases 29–33); next step is `/gsd-discuss-phase 29` or `/gsd-plan-phase 29`.
+**Current focus:** Phase 29 — Credits Ledger Foundation
 
 ## Current Position
 
-Phase: 29 (Credits Ledger Foundation) — READY TO EXECUTE
-Plan: —
-Status: Roadmap created, awaiting phase planning
-Last activity: 2026-11-11 — v0.9 roadmap created; 5 phases (29–33), 27/27 requirements mapped
+Phase: 29 (Credits Ledger Foundation) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-11-11 — Phase 29 execution started
 
 ### v0.9 phase map (Phases 29–33)
 
@@ -81,6 +81,11 @@ Last activity: 2026-11-11 — v0.9 roadmap created; 5 phases (29–33), 27/27 re
 | Phase 26 P01 | 34 | 3 tasks | 6 files |
 | Phase 27-sync-progress-reliability P01 | 45m | 2 tasks | 8 files |
 | 27 | 2 | - | - |
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 29 P01 | 9 min | 3 tasks | 23 files |
 
 ## Accumulated Context
 
@@ -105,6 +110,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [v0.4]: Cache key MUST include `accessible_shop_ids` hash — cross-user cache isolation (DASH-C1)
 - [v0.4]: `IsOrgScoped` used on APIView directly, not TenantScopedViewSet — for pure-read views
 - [Phase ?]: emitToast uses {kind, title, msg} not {kind, title, body} — matched actual lib/toast.ts signature
+- [Phase 29]: Organisation.monthly_credit_allocation is IntegerField (not Positive) to avoid Coalesce mixed-type FieldError; shop/org FKs on credits models use db_index=False (composite indexes lead)
 
 ### Pending Todos
 
@@ -121,6 +127,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T10:55:38.138Z
-Stopped at: Phase 29 context gathered
-Resume file: .planning/phases/29-credits-ledger-foundation/29-CONTEXT.md
+Last session: 2026-11-11T11:45:51.419Z
+Stopped at: Completed 29-01-PLAN.md
+Resume file: None
