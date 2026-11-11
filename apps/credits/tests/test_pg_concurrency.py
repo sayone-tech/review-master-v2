@@ -14,6 +14,8 @@ from django.db import connection, connections
 from apps.common.models import AuditLog
 from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.services.allocation import ensure_balance
+from apps.credits.services.ledger import transition_status
+from apps.credits.tests.factories import CreditTransactionFactory
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.shops.tests.factories import ShopFactory
 
@@ -68,3 +70,47 @@ def test_first_use_creates_one_balance_and_one_initial_when_n_threads_race():
         AuditLog.objects.filter(action="shop.credits.allocated", entity_id=str(shop.pk)).count()
         == 1
     )
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_cas_transition_succeeds_once_when_n_threads_settle_same_reservation():
+    tx = CreditTransactionFactory(credits_delta=-2)
+    barrier = threading.Barrier(N_THREADS)
+    results: list[tuple[bool, str]] = []
+    errors: list[str] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        target = (
+            CreditTransaction.Status.COMMITTED
+            if index % 2 == 0
+            else CreditTransaction.Status.REFUNDED
+        )
+        try:
+            barrier.wait(timeout=10)
+            won = transition_status(
+                transaction_id=tx.pk,
+                from_status=CreditTransaction.Status.RESERVED,
+                to_status=target,
+            )
+            with lock:
+                results.append((won, target))
+        except Exception as exc:
+            with lock:
+                errors.append(repr(exc))
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(N_THREADS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert not errors, errors
+    assert len(results) == N_THREADS
+    winners = [target for won, target in results if won]
+    assert len(winners) == 1
+    tx.refresh_from_db()
+    assert tx.status == winners[0]
