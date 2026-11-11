@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { CheckCircle, ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { emitToast } from "../../lib/toast";
-import { ApiError, deleteReply, generateReply, getCreditCost, submitReply } from "./api";
+import {
+  ApiError,
+  deleteReply,
+  generateReply,
+  getCreditCost,
+  readInsufficientCredits,
+  submitReply,
+} from "./api";
 import { setShopCredits, useShopCredits } from "../credits/creditsStore";
 import { creditsLabel } from "../credits/format";
 import { readCreditContact } from "../credits/contact";
@@ -162,8 +169,31 @@ export function ReplyComposer({
       if (e instanceof DOMException && e.name === "AbortError") return;
       setGeneratorOpen(false);
       setGeneratingTone(null);
+
+      // D-08: a 402 is a state change, not an error. Adopt the server's numbers
+      // (not stale local ones), keep the draft exactly as typed, show no banner.
+      const insufficient = readInsufficientCredits(e);
+      if (insufficient) {
+        setShopCredits(row.shop_id, {
+          remaining: insufficient.remaining,
+          isEnabled: insufficient.reason !== "not_enabled",
+        });
+        if (insufficient.reason === "exhausted") setCost(insufficient.required);
+        setCostStatus("ready");
+        document.getElementById(`reply-textarea-${row.id}`)?.focus();
+        return;
+      }
+
+      // 422 / 502 carry the shop's balance; a null credits_remaining is ignored by the store.
+      if (e instanceof ApiError && (e.status === 422 || e.status === 502)) {
+        const remaining = (e.data as { credits_remaining?: unknown } | null)?.credits_remaining;
+        if (typeof remaining === "number") setShopCredits(row.shop_id, { remaining });
+      }
+
       let message = "AI generation failed. Please try again or write your reply manually.";
-      if (e instanceof ApiError && e.status === 422 && typeof e.data === "object" && e.data && (e.data as { code?: string }).code === "content_moderated") {
+      if (e instanceof ApiError && e.status === 409 && (e.data as { code?: string } | null)?.code === "generation_in_progress") {
+        message = "A reply is already being generated for this review. Please wait a moment.";
+      } else if (e instanceof ApiError && e.status === 422 && typeof e.data === "object" && e.data && (e.data as { code?: string }).code === "content_moderated") {
         message = (e.data as { detail?: string }).detail ?? "AI reply isn't available for this review. Please write your reply manually.";
       } else if (e instanceof ApiError && e.status === 429) {
         if (typeof e.retryAfterSeconds === "number" && e.retryAfterSeconds > 0) {
