@@ -138,9 +138,9 @@ repo-root/
 │   │   │   ├── lapse.py             # Unlapsed past-period balance ids
 │   │   │   └── reservations.py      # RESERVED rows past the TTL
 │   │   ├── tasks.py                 # Beat: lapse daily 00:05 UTC, reaper every 10 min
-│   │   ├── serializers.py           # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32)
-│   │   ├── views.py                 # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32)
-│   │   └── api_urls.py              # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32)
+│   │   ├── serializers.py           # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32) + tenant shop credits read /api/v1/shops/{id}/credits/ (Phase 33)
+│   │   ├── views.py                 # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32) + tenant shop credits read /api/v1/shops/{id}/credits/ (Phase 33)
+│   │   └── api_urls.py              # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32) + tenant shop credits read /api/v1/shops/{id}/credits/ (Phase 33)
 │   ├── integrations/                # External API clients
 │   │   ├── google/
 │   │   │   ├── client.py
