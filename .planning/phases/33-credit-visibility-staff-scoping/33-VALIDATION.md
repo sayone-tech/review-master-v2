@@ -2,10 +2,10 @@
 phase: "33"
 slug: "credit-visibility-staff-scoping"
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
-# audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+# audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: true) (#2117)
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-11-11"
 ---
 
@@ -38,28 +38,37 @@ created: "2026-11-11"
 
 ## Per-Task Verification Map
 
-Filled in from the PLAN files (task IDs are assigned by the planner). Requirement → test map from RESEARCH.md:
+Results from the 33-07 gate run (full backend suite 1650 passed / 22 skipped, 90.34% coverage; frontend 349 passed; tsc, mypy, ruff clean; 85 backend tests re-run green on throwaway PostgreSQL with `config.settings.test_pg`).
 
-| Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
-|-------------|----------|-----------|-------------------|-------------|--------|
-| CVIS-01 | Credits GET: virtual balance, no writes, `period_label`, `renews_on`, `no-store`, total 0 → not enabled | API | `.venv/bin/pytest apps/credits/tests/test_shop_credits_view.py -x --no-cov` | ❌ W0 | ⬜ pending |
-| CVIS-01 | Credits card states, bands, no divide-by-zero, UTC dates | vitest | `cd frontend && npx vitest run src/widgets/credits` | ❌ W0 | ⬜ pending |
-| CVIS-02 | `list_shops(with_credits=True)` one annotation; fixed query count 1 vs 20 | selector/API | `.venv/bin/pytest apps/shops/tests/test_selectors.py apps/shops/tests/test_views.py -k credit -x --no-cov` | ✅ (new cases) | ⬜ pending |
-| CVIS-02 | Badge text/aria for all states | vitest | `cd frontend && npx vitest run src/widgets/shop-management src/widgets/credits` | partial | ⬜ pending |
-| CVIS-03 | Composer state machine, 402 handling, pills disabled while generating | vitest | `cd frontend && npx vitest run src/widgets/review-management` | ❌ W0 | ⬜ pending |
-| CVIS-04 | Buy More modal: focus trap, Esc, backdrop, encoded mailto, no payment | vitest | `cd frontend && npx vitest run src/widgets/credits` | ❌ W0 | ⬜ pending |
-| CVIS-05 | Org Admin sees credit audit rows; Staff never; `shop_name` org-bounded; query ceiling | selector/API | `.venv/bin/pytest apps/common/tests/test_audit_log_selectors.py apps/common/tests/test_audit_log_api.py -x --no-cov` | ✅ (new cases) | ⬜ pending |
-| SCOPE-01 | Staff list/credits GET scoped; out-of-scope 404; cross-org 404; Superadmin endpoints refuse Staff | API | `.venv/bin/pytest apps/credits/tests/test_access_selector.py apps/credits/tests/test_scope_sweep.py apps/shops/tests -k staff -x --no-cov` | ❌ W0 | ⬜ pending |
+| Task ID | Plan | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
+|---------|------|-------------|----------|-----------|-------------------|-------------|--------|
+| 33-01-T1, 33-01-T2 | 01 | SCOPE-01, CVIS-02 | `list_shops` Staff scope matrix, Staff retrieve 404 (D-17), `get_accessible_shop_for_credits`, one credit annotation, query count 1 vs 20 | selector/API | `.venv/bin/pytest apps/shops/tests/test_selectors.py apps/shops/tests/test_views.py --no-cov -q` | ✅ | ✅ green |
+| 33-01-T3 | 01 | CVIS-04 | Shops page `credit-contact` bootstrap | API | `.venv/bin/pytest apps/shops/tests/test_views.py --no-cov -q` | ✅ | ✅ green |
+| 33-02-T1, 33-02-T2 | 02 | CVIS-05 | Org Admin sees credit audit rows; Staff never; `shop_name` org-bounded; query ceiling | selector/API | `.venv/bin/pytest apps/common/tests/test_audit_log_selectors.py apps/common/tests/test_audit_log_api.py --no-cov -q` | ✅ | ✅ green (also on PostgreSQL) |
+| 33-02-T3 | 02 | CVIS-05 | Activity Log labels, Credits pill, shop-name cell | vitest | `cd frontend && npx vitest run src/widgets/audit-log` | ✅ | ✅ green |
+| 33-03-T1, 33-03-T2 | 03 | CVIS-04 | Buy More modal: focus trap, Esc, backdrop, encoded mailto, no payment | vitest | `cd frontend && npx vitest run src/widgets/credits` | ✅ | ✅ green |
+| 33-03-T3 | 03 | CVIS-01, CVIS-02 | Band helper, UTC date formatters, shop-keyed store | vitest | `cd frontend && npx vitest run src/widgets/credits` | ✅ | ✅ green |
+| 33-04-T1, 33-04-T2 | 04 | CVIS-01, SCOPE-01 | Credits GET: virtual balance, no writes, `period_label`, `renews_on`, `no-store`, not enabled, 404 | API | `.venv/bin/pytest apps/credits/tests/test_shop_credits_view.py apps/credits/tests/test_periods.py --no-cov -q` | ✅ | ✅ green (also on PostgreSQL) |
+| 33-04-T3 | 04 | SCOPE-01 | Table-driven negative sweep plus route-coverage guard | API | `.venv/bin/pytest apps/credits/tests/test_scope_sweep.py --no-cov -q` | ✅ | ✅ green |
+| 33-05-T1 | 05 | CVIS-03, CVIS-04 | Reviews page bootstrap; composer shows server cost and remaining | API/vitest | `.venv/bin/pytest apps/reviews/tests/test_views.py -k CreditContact --no-cov -q` ; `cd frontend && npx vitest run src/widgets/review-management` | ✅ | ✅ green |
+| 33-05-T2, 33-05-T3 | 05 | CVIS-03 | Composer disabled states, 402/409/422/502 handling, tone-pill cost | vitest | `cd frontend && npx vitest run src/widgets/review-management` | ✅ | ✅ green |
+| 33-06-T1, 33-06-T2 | 06 | CVIS-01, CVIS-04 | Credits card states, stacked Buy More flow | vitest | `cd frontend && npx vitest run src/widgets/credits src/widgets/shop-management` | ✅ | ✅ green |
+| 33-06-T3 | 06 | CVIS-02 | Badge states, store seeding, Staff empty state | vitest | `cd frontend && npx vitest run src/widgets/shop-management src/widgets/credits` | ✅ | ✅ green |
+| 33-07-T1 | 07 | CVIS-01..05, SCOPE-01 | Whole-phase walk-through across Org Admin, Superadmin and Staff; frontend/backend contract keys | API | `.venv/bin/pytest apps/credits/tests/test_phase33_flow.py --no-cov -q` | ✅ | ✅ green (also on PostgreSQL) |
+| 33-07-T2 | 07 | SCOPE-01, CVIS-05 | Four section 27 reviews dispositioned; runbook and CLAUDE.md match shipped behaviour | review/docs | PostgreSQL run of audit, Shops selector and credits view tests | ✅ | ✅ green |
+| 33-07-T3 | 07 | all | Full gates: coverage >= 85, mypy, ruff, makemigrations --check, check --deploy, frontend suite, tsc | gates | see Full suite command | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+Note: the draft referenced `apps/credits/tests/test_access_selector.py`; Plan 33-01 placed `get_accessible_shop_for_credits` in `apps/shops`, so its tests live in `apps/shops/tests/test_selectors.py` (keeps `apps/credits` free of `apps.reviews` imports).
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `apps/credits/tests/test_shop_credits_view.py`, `test_access_selector.py`, `test_scope_sweep.py`
-- [ ] Credit + Staff cases in `apps/shops/tests/test_selectors.py`, `test_views.py`; audit cases in `apps/common/tests/`
-- [ ] `frontend/src/widgets/credits/*.test.ts(x)` and `frontend/src/widgets/review-management/ReplyComposer.test.tsx`
+- [x] `apps/credits/tests/test_shop_credits_view.py`, `test_scope_sweep.py`, `test_phase33_flow.py` (selector tests live in `apps/shops/tests/test_selectors.py`)
+- [x] Credit + Staff cases in `apps/shops/tests/test_selectors.py`, `test_views.py`; audit cases in `apps/common/tests/`
+- [x] `frontend/src/widgets/credits/*.test.ts(x)` and `frontend/src/widgets/review-management/ReplyComposer.test.tsx`
 - Framework install: none.
 
 ---
@@ -75,11 +84,11 @@ Filled in from the PLAN files (task IDs are assigned by the planner). Requiremen
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** automated rows validated by Plan 33-07 on 2026-11-12. Still open for `/gsd-verify-work` (manual / UI-SPEC backstop): colour bands in the real UI, OS mail client opening from card, badge and composer, two 360px composer checks, the 200-character / emoji mailto check, and the two-Escape ordering over stacked modals. CI `backend-pg` (pg_concurrency) remains authoritative after push.
