@@ -6,6 +6,7 @@ from apps.common.models import AuditLog
 from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.services.allocation import ensure_balance
 from apps.credits.services.periods import Period, current_period
+from apps.credits.tests.factories import CreditTransactionFactory, ShopCreditBalanceFactory
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.shops.models import Shop
 from apps.shops.tests.factories import ShopFactory
@@ -108,3 +109,31 @@ def test_stamps_shop_organisation_on_balance():
 def test_raises_does_not_exist_when_shop_missing():
     with pytest.raises(Shop.DoesNotExist):
         ensure_balance(shop_id=999_999)
+
+
+def test_honours_prebuilt_balance_without_extra_writes_when_row_exists():
+    org = OrganisationFactory(monthly_credit_allocation=50)
+    shop = ShopFactory(organisation=org)
+    balance = ShopCreditBalanceFactory(shop=shop)
+    reservation = CreditTransactionFactory(shop_credit_balance=balance)
+
+    result, created = ensure_balance(
+        shop_id=shop.pk, period=Period(balance.period_year, balance.period_month)
+    )
+
+    assert created is False
+    assert result.pk == balance.pk
+    assert result.allocated_credits == 10  # prebuilt value, not the org's 50
+    assert (
+        CreditTransaction.objects.filter(
+            transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+        ).count()
+        == 0
+    )
+    assert AuditLog.objects.filter(action="shop.credits.allocated").count() == 0
+    reservation.refresh_from_db()
+    assert reservation.status == CreditTransaction.Status.RESERVED
+    assert reservation.credits_delta == -1
+    assert reservation.shop_id == shop.pk
+    assert reservation.organisation_id == org.pk
+    assert result.organisation_id == org.pk
