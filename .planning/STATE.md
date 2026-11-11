@@ -4,17 +4,17 @@ milestone: v0.9
 milestone_name: AI Reply Credits
 current_phase: 31
 current_phase_name: Monthly Renewal & Reservation Reaper
-status: executing
-stopped_at: Completed 31-02-PLAN.md
-last_updated: "2026-11-11T14:25:54.090Z"
+status: verifying
+stopped_at: Completed 31-03-PLAN.md
+last_updated: "2026-11-11T14:36:01.963Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 31 execution started
-state_head: 811bb57728be2e9e61c8174bd08aa2b23573face
+state_head: c6b5b5fc3803857f1ced97c5654a09fc2664f484
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 
 Phase: 31 (Monthly Renewal & Reservation Reaper) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-11-11 — Phase 31 execution started
 
 ### v0.9 phase map (Phases 29–33)
@@ -95,6 +95,7 @@ Last activity: 2026-11-11 — Phase 31 execution started
 | Phase 30 P04 | 25 min | 3 tasks | 5 files |
 | Phase 31 P01 | 10 min | 3 tasks | 14 files |
 | Phase 31 P02 | 12 min | 3 tasks | 11 files |
+| Phase 31 P03 | 8 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 31]: lapsed_at marker (not ledger row) is the lapse done-flag; zero-remaining balances are marked with no LAPSED/AuditLog row; late commit reads the marker (D-01/D-02)
 - [Phase 31]: Reaper is CAS-only: no skip_locked pre-select and no outer transaction; refund_reservation's per-row CAS arbitrates races with late commits and other reaper runs
 - [Phase 31]: Reaper refund that cannot apply (RuntimeError) raises an ids-only Sentry error, leaves the row RESERVED and the balance unlapsed; no quarantine column
+- [Phase 31]: 31-03: race tests accept either winner but force both orderings each run (odd-round 3 ms committer delay); no production change needed on Postgres
 
 ### Pending Todos
 
@@ -146,6 +148,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T14:25:53.939Z
-Stopped at: Completed 31-02-PLAN.md
+Last session: 2026-11-11T14:36:01.793Z
+Stopped at: Completed 31-03-PLAN.md
 Resume file: None

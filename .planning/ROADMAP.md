@@ -250,12 +250,12 @@ Plans:
   3. Every 10 minutes, RESERVED transactions older than the reservation TTL are refunded and their credits returned. No reservation is refunded twice and no committed transaction is ever refunded, as proven by a Postgres reaper-versus-late-commit test.
   4. A reservation that straddles midnight at month end settles against its original month's balance, and that balance lapses only after the reservation is settled.
 
-**Plans**: 2/3 plans executed (waves 1 → 2 → 3, sequential)
+**Plans**: 3/3 plans executed (waves 1 → 2 → 3, sequential)
 
 Plans:
 - [x] 31-01-PLAN.md — Tracer: daily 00:05 UTC Beat lapse end to end (`lapsed_at` + partial index, lapse service/selector/task, Beat seed 0003), sweep edge proofs, late commit honours `lapsed_at`, CREN-02 renewal tests
 - [x] 31-02-PLAN.md — Tracer: 10-minute Beat reaper end to end (CAS-only via `refund_reservation`, Beat seed 0004), D-08 re-lapse, D-09 failure path, CLAUDE.md §3/§12.5 and runbook
-- [ ] 31-03-PLAN.md — Postgres races (reaper vs late commit, overlapping reapers/sweeps, past-period three-way race) and phase gate (orm-performance-auditor, code-reviewer, tenant-security-auditor)
+- [x] 31-03-PLAN.md — Postgres races (reaper vs late commit, overlapping reapers/sweeps, past-period three-way race) and phase gate (orm-performance-auditor, code-reviewer, tenant-security-auditor)
 
 **Notes**:
 
@@ -348,6 +348,6 @@ Plans:
 | 28. Superadmin Data Reset & Re-Sync | v0.8 | — | ⏸ Deferred (pre-launch) | — |
 | 29. Credits Ledger Foundation | v0.9 | 4/4 | ⬜ Not started | - |
 | 30. Metered AI Reply Generation | v0.9 | 4/4 | ⬜ Not started | - |
-| 31. Monthly Renewal & Reservation Reaper | v0.9 | 2/3 | ⬜ Not started | - |
+| 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ⬜ Not started | - |
 | 32. Superadmin Credit Controls | v0.9 | 0/TBD | ⬜ Not started | - |
 | 33. Credit Visibility & Staff Scoping | v0.9 | 0/TBD | ⬜ Not started | - |

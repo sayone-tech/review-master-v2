@@ -30,9 +30,9 @@
 
 ### Renewal & Reaper (CREN)
 
-- [ ] **CREN-01**: A Celery Beat job at 00:05 UTC on the 1st lapses unused credits for every past-month balance not yet lapsed — idempotent on re-run and self-healing after a missed run — writing a LAPSED ledger row and a `shop.credits.lapsed` AuditLog row per shop
+- [x] **CREN-01**: A Celery Beat job at 00:05 UTC on the 1st lapses unused credits for every past-month balance not yet lapsed — idempotent on re-run and self-healing after a missed run — writing a LAPSED ledger row and a `shop.credits.lapsed` AuditLog row per shop
 - [x] **CREN-02**: Each new month every shop starts from the organisation's monthly allocation; bonus credits never carry over
-- [ ] **CREN-03**: A Celery Beat job every 10 minutes refunds RESERVED transactions older than the reservation TTL, and can never double-refund or refund an already-committed transaction
+- [x] **CREN-03**: A Celery Beat job every 10 minutes refunds RESERVED transactions older than the reservation TTL, and can never double-refund or refund an already-committed transaction
 
 ### Visibility (CVIS)
 
@@ -97,9 +97,9 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CCON-06 | Phase 30 | Complete |
 | CCON-07 | Phase 30 | Complete |
 | CCON-08 | Phase 30 | Complete |
-| CREN-01 | Phase 31 | Pending |
+| CREN-01 | Phase 31 | Complete |
 | CREN-02 | Phase 31 | Complete |
-| CREN-03 | Phase 31 | Pending |
+| CREN-03 | Phase 31 | Complete |
 | CVIS-01 | Phase 33 | Pending |
 | CVIS-02 | Phase 33 | Pending |
 | CVIS-03 | Phase 33 | Pending |
