@@ -4,17 +4,17 @@ milestone: v0.9
 milestone_name: AI Reply Credits
 current_phase: 30
 current_phase_name: Metered AI Reply Generation
-status: executing
-stopped_at: Completed 30-03-PLAN.md
-last_updated: "2026-11-11T13:33:44.342Z"
+status: verifying
+stopped_at: Completed 30-04-PLAN.md
+last_updated: "2026-11-11T13:41:42.627Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 30 execution started
-state_head: 89a1542a1b273ae1f9f2aebaca2674af61de5060
+state_head: 0c0c1af6ec42ea6b835f7e9b42bc3ec22bce8a1a
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 
 Phase: 30 (Metered AI Reply Generation) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-11-11 — Phase 30 execution started
 
 ### v0.9 phase map (Phases 29–33)
@@ -92,6 +92,7 @@ Last activity: 2026-11-11 — Phase 30 execution started
 | Phase 30 P01 | 28 min | 2 tasks | 9 files |
 | Phase 30 P02 | 14 min | 2 tasks | 7 files |
 | Phase 30 P03 | 35min | 2 tasks | 6 files |
+| Phase 30 P04 | 25 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 30]: 30-01: D-14 ledger link written inside the same CAS UPDATE; no D-12 partial index (balance-row lock serialises in-flight check); late commit re-deducts only REFUNDED + current month + no LAPSED + capacity
 - [Phase 30]: Reply path bounded by with_options copy (30s/1 retry); moderation block exception carries only stage and AiUsageLog id; Plan 30-03 must pass timeout/max_retries to both reply-path moderation calls
 - [Phase 30]: 30-03: output-stage moderation block consumes, every other non-success outcome refunds; 400/409 bodies carry only {code, detail}, 402 is {code, reason, required, remaining}
+- [Phase 30]: 30-04: Postgres races (N vs K, cost 2/3, mixed refunds, same review, commit vs refund, client abort) all pass on PG14 with no production change
 
 ### Pending Todos
 
@@ -139,6 +141,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T13:33:44.261Z
-Stopped at: Completed 30-03-PLAN.md
+Last session: 2026-11-11T13:41:42.532Z
+Stopped at: Completed 30-04-PLAN.md
 Resume file: None
