@@ -1,7 +1,7 @@
 ---
 phase: "30"
 slug: "metered-ai-reply-generation"
-status: executed
+status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: "2026-11-11"
@@ -81,3 +81,11 @@ Sampling continuity: every task carries at least one `<automated>` verify with a
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** local gates green 2026-11-11 (12 pg_concurrency passed, 0 skipped on throwaway PostgreSQL 14; full suite 1439 passed, 14 skipped, coverage 89.39%). Manual-Only rows above (CI `backend-pg` on PG16, UAT generate) remain open until after push.
+
+## Validation Audit 2026-11-11
+
+| Metric | Count |
+|---|---|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
