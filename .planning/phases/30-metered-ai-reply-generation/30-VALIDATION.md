@@ -38,18 +38,19 @@ created: "2026-11-11"
 
 ## Per-Task Verification Map
 
-| Requirement | Test file(s) | Type | Status |
-|-------------|--------------|------|--------|
-| D-14 (CAS + ai_usage_log_id) | `apps/credits/tests/test_append_only.py` | unit | ⬜ pending |
-| CCON-01, CCON-03, D-12, D-16 | `apps/credits/tests/test_consumption.py` | unit | ⬜ pending |
-| CCON-01, CCON-05, CCON-06, D-18 | `apps/reviews/tests/test_reply_generation_credits.py` | unit | ⬜ pending |
-| CCON-02, D-12 | `apps/credits/tests/test_pg_concurrency.py`, `apps/reviews/tests/test_pg_reply_concurrency.py` | pg_concurrency | ⬜ pending |
-| CCON-03, CCON-04, CCON-07 | `apps/reviews/tests/test_views.py` | view | ⬜ pending |
-| CCON-08, D-15 | `apps/integrations/openai/tests/test_client.py`, `test_guardrails.py` | unit | ⬜ pending |
-| CCON-08, D-06 | `apps/credits/tests/test_settings.py` | unit | ⬜ pending |
-| CQA-02 | `apps/reviews`, `apps/integrations` suites + `docs/sre/v0.9-credits-rollout.md` | unit + file | ⬜ pending |
+| Task | Requirement / decisions | Test file(s) | Type | Status |
+|------|-------------------------|--------------|------|--------|
+| 30-01 T1 (tracer) | CCON-01, CCON-06, CCON-07, CQA-02; D-04, D-07, D-14, D-18, D-19 | `apps/credits/tests/test_append_only.py`, `apps/reviews/tests/test_views.py` (TestGenerateReplyCredits, re-pointed TestGenerateReplyEndpoint) | unit + view (e2e) | ⬜ pending |
+| 30-01 T2 | CCON-03, CCON-05; D-01, D-02, D-08, D-11, D-12, D-16, D-17, D-19 | `apps/credits/tests/test_consumption.py` | unit | ⬜ pending |
+| 30-02 T1 | CCON-05, CCON-06; D-15 | `apps/integrations/openai/tests/test_guardrails.py` | unit | ⬜ pending |
+| 30-02 T2 | CCON-08; D-05, D-06, D-15 | `apps/integrations/openai/tests/test_client.py`, `apps/credits/tests/test_settings.py` | unit | ⬜ pending |
+| 30-03 T1 | CCON-05, CCON-06; D-03, D-04, D-09, D-15, D-17, D-18 | `apps/reviews/tests/test_reply_generation_credits.py`, `test_reply_generation_service.py`, `test_views.py` | unit + view | ⬜ pending |
+| 30-03 T2 | CCON-03, CCON-04, CCON-07; D-08, D-10, D-11, D-12, D-19 | `apps/reviews/tests/test_views.py` (TestReviewCreditCost + 400/402/409) + spectacular | view | ⬜ pending |
+| 30-04 T1 | CCON-02; D-03, D-12, D-16 | `apps/credits/tests/test_pg_concurrency.py`, `apps/reviews/tests/test_pg_reply_concurrency.py` | pg_concurrency | ⬜ pending |
+| 30-04 T2 | CQA-02; D-13 | `docs/sre/v0.9-credits-rollout.md` (file checks) | file | ⬜ pending |
+| 30-04 T3 | phase gate (§27 reviews) | full suite + coverage, mypy, ruff, makemigrations, spectacular, PG | gate | ⬜ pending |
 
-*Planner refines this into task IDs.*
+Sampling continuity: every task carries at least one `<automated>` verify with a `<fails_when>`; no three consecutive tasks lack an automated check.
 
 ---
 
