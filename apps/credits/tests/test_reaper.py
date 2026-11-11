@@ -361,3 +361,25 @@ def test_list_stale_reservations_issues_one_query_regardless_of_row_count(count)
 
     assert len(rows) == count
     assert len(ctx.captured_queries) == 1
+
+
+def test_reaper_attributes_refund_audit_rows_to_each_reservations_own_organisation():
+    org_a, shop_a, review_a = _shop_review(allocation=10)
+    org_b, shop_b, review_b = _shop_review(allocation=10)
+    res_a = reserve_credits(shop_id=shop_a.pk, review_id=review_a.pk, credits=2, actor_id=None)
+    res_b = reserve_credits(shop_id=shop_b.pk, review_id=review_b.pk, credits=3, actor_id=None)
+    age_reservation(res_a.transaction_id, minutes=6)
+    age_reservation(res_b.transaction_id, minutes=6)
+
+    with patch(SENTRY):
+        summary = reap_stale_reservations()
+
+    assert (summary.reaped, summary.errored) == (2, 0)
+    audits = AuditLog.objects.filter(action="shop.credits.refunded")
+    assert audits.count() == 2
+    for org, shop, res in ((org_a, shop_a, res_a), (org_b, shop_b, res_b)):
+        audit = audits.get(entity_id=str(shop.pk))
+        assert audit.organisation_id == org.pk
+        assert audit.after_data["transaction_id"] == res.transaction_id
+        assert _balance(res.shop_credit_balance_id).consumed_credits == 0
+        assert_ledger_reconciles(_balance(res.shop_credit_balance_id))
