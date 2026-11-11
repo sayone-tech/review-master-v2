@@ -39,6 +39,13 @@ def test_lapse_chunk_size_is_positive_int_defaulting_to_500():
     assert size == 500
 
 
+def test_reaper_batch_size_is_positive_int_defaulting_to_500():
+    size = settings.REVIEWBEE_CREDIT_REAPER_BATCH_SIZE
+    assert isinstance(size, int)
+    assert size > 0
+    assert size == 500
+
+
 def test_support_email_is_non_empty_address():
     assert isinstance(settings.REVIEWBEE_SUPPORT_EMAIL, str)
     assert "@" in settings.REVIEWBEE_SUPPORT_EMAIL
