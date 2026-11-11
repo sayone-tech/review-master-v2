@@ -5,16 +5,16 @@ milestone_name: AI Reply Credits
 current_phase: 32
 current_phase_name: Superadmin Credit Controls
 status: executing
-stopped_at: Completed 32-03-PLAN.md
-last_updated: "2026-11-11T15:45:48.280Z"
+stopped_at: Completed 32-04-PLAN.md
+last_updated: "2026-11-11T15:52:34.151Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 32 execution started
-state_head: a401ffde5e6db12b4d0994b26c6d466b3125e5d7
+state_head: f718a8c7baa440434cb1e125be80eaf994abafdb
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 ## Current Position
 
 Phase: 32 (Superadmin Credit Controls) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-11-11 — Phase 32 execution started
 
@@ -99,6 +99,7 @@ Last activity: 2026-11-11 — Phase 32 execution started
 | Phase 32 P01 | 30 min | 3 tasks | 10 files |
 | Phase 32 P02 | 11 min | 3 tasks | 11 files |
 | Phase 32 P03 | 25 min | 3 tasks | 10 files |
+| Phase 32 P04 | 25 min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 32]: organisation.credits.set audit: entity_type organisation, after_data {monthly_credit_allocation, effective, shops_touched, period_year, period_month}; create audits only when > 0
 - [Phase 32]: Credits hint keys on current_month_credit_allocation (D-21); Create/Edit org forms use noValidate so the inline 0-10,000 error shows; Edit sends monthly_credit_allocation only when changed
 - [Phase 32]: Bonus order: period echo 409 (read-only) -> 404 availability -> one atomic (org lock, ensure_balance, balance lock, F() increment, ledger, audit); reason only in CreditTransaction.note
+- [Phase 32]: 32-04: 409 period_mismatch applies server balance/period, reloads, keeps typed values and requires a fresh Allocate click; 404 toast copy is D-23 'This shop is no longer active.'
 
 ### Pending Todos
 
@@ -154,6 +156,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T15:45:48.060Z
-Stopped at: Completed 32-03-PLAN.md
+Last session: 2026-11-11T15:52:33.895Z
+Stopped at: Completed 32-04-PLAN.md
 Resume file: None
