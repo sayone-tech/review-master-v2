@@ -5,16 +5,16 @@ milestone_name: AI Reply Credits
 current_phase: 32
 current_phase_name: Superadmin Credit Controls
 status: executing
-stopped_at: Completed 32-02-PLAN.md
-last_updated: "2026-11-11T15:40:02.558Z"
+stopped_at: Completed 32-03-PLAN.md
+last_updated: "2026-11-11T15:45:48.280Z"
 last_activity: 2026-11-11
 last_activity_desc: Phase 32 execution started
-state_head: c6344cc63becd0948061b01984f66b29096adb16
+state_head: a401ffde5e6db12b4d0994b26c6d466b3125e5d7
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 ## Current Position
 
 Phase: 32 (Superadmin Credit Controls) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-11-11 — Phase 32 execution started
 
@@ -98,6 +98,7 @@ Last activity: 2026-11-11 — Phase 32 execution started
 | Phase 31 P03 | 8 min | 3 tasks | 3 files |
 | Phase 32 P01 | 30 min | 3 tasks | 10 files |
 | Phase 32 P02 | 11 min | 3 tasks | 11 files |
+| Phase 32 P03 | 25 min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 31]: 31-03: race tests accept either winner but force both orderings each run (odd-round 3 ms committer delay); no production change needed on Postgres
 - [Phase 32]: organisation.credits.set audit: entity_type organisation, after_data {monthly_credit_allocation, effective, shops_touched, period_year, period_month}; create audits only when > 0
 - [Phase 32]: Credits hint keys on current_month_credit_allocation (D-21); Create/Edit org forms use noValidate so the inline 0-10,000 error shows; Edit sends monthly_credit_allocation only when changed
+- [Phase 32]: Bonus order: period echo 409 (read-only) -> 404 availability -> one atomic (org lock, ensure_balance, balance lock, F() increment, ledger, audit); reason only in CreditTransaction.note
 
 ### Pending Todos
 
@@ -152,6 +154,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T15:40:02.364Z
-Stopped at: Completed 32-02-PLAN.md
+Last session: 2026-11-11T15:45:48.060Z
+Stopped at: Completed 32-03-PLAN.md
 Resume file: None
