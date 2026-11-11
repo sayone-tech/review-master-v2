@@ -632,3 +632,71 @@ def test_org_dashboard_store_filter_excludes_deactivated_shops(client):
     assert response.status_code == 200
     assert [shop["id"] for shop in response.context["shops_json"]] == [active.pk]
     assert response.context["is_single_shop"] is True
+
+
+def test_patch_credit_allocation_keeps_shops_at_old_value_this_month_and_lists_both_values_when_superadmin_changes_n_to_m(
+    api_client_superadmin, superadmin
+):
+    """CRED-01 + CRED-06 tracer: N -> M mid-month, end to end through the API."""
+    from apps.common.models import AuditLog
+    from apps.credits.models import CreditTransaction, ShopCreditBalance
+    from apps.credits.services.allocation import ensure_balance
+    from apps.credits.services.periods import current_period
+
+    org = OrganisationFactory(monthly_credit_allocation=100)
+    holder = ShopFactory(organisation=org)
+    ShopFactory(organisation=org)
+    ShopFactory(organisation=org, is_active=False)
+    balance, _ = ensure_balance(shop_id=holder.pk)
+    ShopCreditBalance.objects.filter(pk=balance.pk).update(consumed_credits=7)
+    AuditLog.objects.all().delete()
+
+    resp = api_client_superadmin.patch(
+        f"/api/v1/organisations/{org.id}/", {"monthly_credit_allocation": 50}, format="json"
+    )
+
+    assert resp.status_code == 200
+    org.refresh_from_db()
+    assert org.monthly_credit_allocation == 50
+    period = current_period()
+    rows = ShopCreditBalance.objects.filter(
+        organisation=org, period_year=period.year, period_month=period.month
+    )
+    assert rows.count() == 3
+    assert {r.allocated_credits for r in rows} == {100}
+    kept = rows.get(shop=holder)
+    assert kept.consumed_credits == 7
+    assert (
+        CreditTransaction.objects.filter(
+            shop_credit_balance=kept, transaction_type="INITIAL_ALLOCATION"
+        ).count()
+        == 1
+    )
+    assert (
+        CreditTransaction.objects.filter(
+            organisation=org, transaction_type="INITIAL_ALLOCATION"
+        ).count()
+        == 3
+    )
+    # Two new shops each wrote one allocated audit row; the pre-existing one was cleared above.
+    assert AuditLog.objects.filter(action="shop.credits.allocated").count() == 2
+    audit = AuditLog.objects.get(action="organisation.credits.set")
+    assert audit.actor_id == superadmin.pk
+    assert audit.entity_type == "organisation"
+    assert audit.entity_id == str(org.pk)
+    assert audit.before_data == {"monthly_credit_allocation": 100}
+    assert set(audit.after_data) == {
+        "monthly_credit_allocation",
+        "effective",
+        "shops_touched",
+        "period_year",
+        "period_month",
+    }
+    assert audit.after_data["effective"] == "next_month"
+    assert audit.after_data["shops_touched"] == 2
+
+    listing = api_client_superadmin.get("/api/v1/organisations/").json()
+    results = listing["results"] if isinstance(listing, dict) else listing
+    row = next(r for r in results if r["id"] == org.id)
+    assert row["monthly_credit_allocation"] == 50
+    assert row["current_month_credit_allocation"] == 100

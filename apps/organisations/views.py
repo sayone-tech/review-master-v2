@@ -280,8 +280,11 @@ class OrganisationViewSet(viewsets.ModelViewSet[Organisation]):
     def perform_update(self, serializer: serializers.BaseSerializer[Organisation]) -> None:
         if serializer.instance is None:
             raise ValueError("serializer.instance must be set before update")
+        if not isinstance(self.request.user, User):
+            raise TypeError("Authenticated User required")
         update_organisation(
             organisation=serializer.instance,
+            actor=self.request.user,
             **serializer.validated_data,
         )
 

@@ -15,6 +15,7 @@ from apps.organisations.selectors.organisations import (
 class OrganisationListSerializer(serializers.ModelSerializer[Organisation]):
     total_stores = serializers.IntegerField(read_only=True)
     active_stores = serializers.IntegerField(read_only=True)
+    current_month_credit_allocation = serializers.IntegerField(read_only=True)
     activation_status = serializers.SerializerMethodField()
     last_invited_at = serializers.SerializerMethodField()
 
@@ -28,6 +29,8 @@ class OrganisationListSerializer(serializers.ModelSerializer[Organisation]):
             "address",
             "number_of_stores",
             "allow_custom_sync_depth",
+            "monthly_credit_allocation",
+            "current_month_credit_allocation",
             "status",
             "created_at",
             "total_stores",
@@ -79,6 +82,9 @@ class OrganisationUpdateSerializer(serializers.ModelSerializer[Organisation]):
     org_type = serializers.ChoiceField(choices=Organisation.OrgType.choices, required=False)
     address = serializers.CharField(max_length=500, allow_blank=True, required=False)
     number_of_stores = serializers.IntegerField(min_value=1, max_value=1000, required=False)
+    monthly_credit_allocation = serializers.IntegerField(
+        min_value=0, max_value=10000, required=False
+    )
     status = serializers.ChoiceField(
         choices=[
             (Organisation.Status.ACTIVE.value, "Active"),
@@ -96,6 +102,7 @@ class OrganisationUpdateSerializer(serializers.ModelSerializer[Organisation]):
             "number_of_stores",
             "status",
             "allow_custom_sync_depth",
+            "monthly_credit_allocation",
         ]
         # Explicitly NO email here (EORG-02). DRF silently drops unknown fields from
         # the input, so a PATCH body containing email is safe but ignored.

@@ -23,8 +23,11 @@ from django.db.models import (
     F,
     FilteredRelation,
     IntegerField,
+    Max,
+    OuterRef,
     Q,
     QuerySet,
+    Subquery,
     Value,
 )
 from django.db.models.functions import Coalesce
@@ -135,3 +138,43 @@ def annotate_credit_state(
         )
     )
     return annotated
+
+
+def org_has_current_month_allocation(*, organisation_id: int, period: Period) -> bool:
+    """True when any shop of the organisation holds an allocation > 0 for ``period``.
+
+    The D-18 test for the 0 -> N "immediate" case: a change is immediate only when no
+    current-month balance row has ``allocated_credits > 0``. One ``exists()`` query, a read
+    that never writes.
+    """
+    return ShopCreditBalance.objects.filter(
+        organisation_id=organisation_id,
+        period_year=period.year,
+        period_month=period.month,
+        allocated_credits__gt=0,
+    ).exists()
+
+
+def org_current_month_allocation_expression(*, period: Period | None = None) -> Coalesce:
+    """Expression for an ``Organisation`` queryset: this month's per-shop allocation (D-21).
+
+    MAX of the organisation's current-month ``allocated_credits``, else the live
+    ``monthly_credit_allocation`` when no row exists. A ``Subquery`` is required because
+    ``ShopCreditBalance.organisation`` has ``related_name="+"`` (no reverse accessor); it is
+    served by ``credit_bal_org_period_idx`` and adds no query to a list.
+    """
+    p = period or current_period()
+    current_max = (
+        ShopCreditBalance.objects.filter(
+            organisation_id=OuterRef("pk"), period_year=p.year, period_month=p.month
+        )
+        .order_by()
+        .values("organisation_id")
+        .annotate(m=Max("allocated_credits"))
+        .values("m")
+    )
+    return Coalesce(
+        Subquery(current_max, output_field=IntegerField()),
+        F("monthly_credit_allocation"),
+        output_field=IntegerField(),
+    )
