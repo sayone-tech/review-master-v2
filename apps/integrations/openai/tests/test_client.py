@@ -21,10 +21,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import httpx
 import openai
 import pytest
+from django.test import override_settings
 
+from apps.integrations.openai import client as client_module
 from apps.integrations.openai.client import (
+    _get_reply_client,
     call_openai_enrichment,
     call_openai_reply_generation,
 )
@@ -286,7 +290,7 @@ class TestCallOpenAiReplyGeneration:
         fake_client = MagicMock()
         fake_client.chat.completions.create.return_value = response
         with patch(
-            "apps.integrations.openai.client._get_client",
+            "apps.integrations.openai.client._get_reply_client",
             return_value=fake_client,
         ):
             draft, usage = call_openai_reply_generation(review=review, tone="professional")
@@ -318,7 +322,7 @@ class TestCallOpenAiReplyGeneration:
         fake_client.chat.completions.create.side_effect = err
         with (
             patch(
-                "apps.integrations.openai.client._get_client",
+                "apps.integrations.openai.client._get_reply_client",
                 return_value=fake_client,
             ),
             pytest.raises(OpenAITransientError),
@@ -339,7 +343,7 @@ class TestCallOpenAiReplyGeneration:
         fake_client.chat.completions.create.side_effect = err
         with (
             patch(
-                "apps.integrations.openai.client._get_client",
+                "apps.integrations.openai.client._get_reply_client",
                 return_value=fake_client,
             ),
             pytest.raises(OpenAITransientError),
@@ -360,9 +364,96 @@ class TestCallOpenAiReplyGeneration:
         fake_client.chat.completions.create.side_effect = err
         with (
             patch(
-                "apps.integrations.openai.client._get_client",
+                "apps.integrations.openai.client._get_reply_client",
                 return_value=fake_client,
             ),
             pytest.raises(OpenAIPermanentError),
         ):
             call_openai_reply_generation(review=review, tone="professional")
+
+
+# ---------------------------------------------------------------------------
+# Phase 30 — bounded reply-path client + timeout mapping (D-05, D-15, CCON-08)
+# ---------------------------------------------------------------------------
+
+_CHAT_REQUEST = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+
+
+class TestReplyClient:
+    def test_with_options_called_once_with_settings_values_when_getting_reply_client(self) -> None:
+        shared = MagicMock()
+        with patch("apps.integrations.openai.client._get_client", return_value=shared):
+            result = _get_reply_client()
+
+        shared.with_options.assert_called_once_with(timeout=30, max_retries=1)
+        assert result is shared.with_options.return_value
+
+    def test_timeout_passes_through_unchanged_when_setting_overridden(self) -> None:
+        shared = MagicMock()
+        with (
+            override_settings(REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS=12),
+            patch("apps.integrations.openai.client._get_client", return_value=shared),
+        ):
+            _get_reply_client()
+
+        shared.with_options.assert_called_once_with(timeout=12, max_retries=1)
+
+    def test_real_sdk_copy_is_bounded_when_shared_client_keeps_defaults(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(client_module, "_client", None)
+        try:
+            with override_settings(OPENAI_API_KEY="sk-test"):
+                shared = client_module._get_client()
+                shared_retries = shared.max_retries
+                shared_timeout = shared.timeout
+                reply = _get_reply_client()
+
+            assert reply is not shared
+            assert reply.timeout == 30
+            assert reply.max_retries == 1
+            assert shared.max_retries == shared_retries
+            assert shared.timeout == shared_timeout
+        finally:
+            monkeypatch.setattr(client_module, "_client", None)
+
+    def test_enrichment_path_still_uses_shared_client_when_parsing(self) -> None:
+        shared = MagicMock()
+        with (
+            patch("apps.integrations.openai.client._get_client", return_value=shared),
+            patch("apps.integrations.openai.client._get_reply_client") as reply_client,
+        ):
+            client_module._do_responses_parse(
+                messages=[{"role": "user", "content": "x"}], model="m"
+            )
+
+        shared.responses.parse.assert_called_once()
+        reply_client.assert_not_called()
+
+
+class TestReplyTimeoutMapping:
+    @pytest.mark.django_db
+    @pytest.mark.parametrize(
+        "error",
+        [
+            openai.APITimeoutError(request=_CHAT_REQUEST),
+            openai.APIConnectionError(request=_CHAT_REQUEST),
+        ],
+        ids=["timeout", "connection"],
+    )
+    def test_transient_raised_with_single_create_call_when_connection_fails(
+        self, error: Exception
+    ) -> None:
+        review = ReviewFactory()
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = error
+        with (
+            patch(
+                "apps.integrations.openai.client._get_reply_client",
+                return_value=fake_client,
+            ),
+            pytest.raises(OpenAITransientError),
+        ):
+            call_openai_reply_generation(review=review, tone="professional")
+
+        assert fake_client.chat.completions.create.call_count == 1
