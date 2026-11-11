@@ -5,16 +5,16 @@ milestone_name: AI Reply Credits
 current_phase: 33
 current_phase_name: Credit Visibility & Staff Scoping
 status: executing
-stopped_at: Completed 32-05-PLAN.md
-last_updated: "2026-11-11T16:34:29.998Z"
-last_activity: 2026-11-11
-last_activity_desc: Phase 32 execution started
-state_head: 1d6f1b89c701fefd24460203bee76ed68861d83a
+stopped_at: Completed 33-01-PLAN.md
+last_updated: "2026-11-11T19:22:04.143Z"
+last_activity: 2026-11-12
+last_activity_desc: Phase 33 execution started
+state_head: 1c1c22cf97329f5e9e4f50e4a2f9d8ef7bbf0b9b
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 23
-  completed_plans: 16
+  completed_plans: 17
   percent: 0
 ---
 
@@ -25,14 +25,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-11)
 
 **Core value:** Org Admins and Staff can view, respond to, and action Google reviews — and AI reply spend is capped by a visible per-shop monthly credit budget that Superadmin controls.
-**Current focus:** Phase 32 — Superadmin Credit Controls
+**Current focus:** Phase 33 — Credit Visibility & Staff Scoping
 
 ## Current Position
 
-Phase: 33 (Credit Visibility & Staff Scoping) — READY TO EXECUTE
-Plan: 5 of 5
+Phase: 33 (Credit Visibility & Staff Scoping) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-11-11 — Phase 32 execution started
+Last activity: 2026-11-12 — Phase 33 execution started
 
 ### v0.9 phase map (Phases 29–33)
 
@@ -101,6 +101,7 @@ Last activity: 2026-11-11 — Phase 32 execution started
 | Phase 32 P03 | 25 min | 3 tasks | 10 files |
 | Phase 32 P04 | 25 min | 3 tasks | 9 files |
 | Phase 32 P05 | 9 min | 3 tasks | 6 files |
+| Phase 33 P01 | 8 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 32]: Bonus order: period echo 409 (read-only) -> 404 availability -> one atomic (org lock, ensure_balance, balance lock, F() increment, ledger, audit); reason only in CreditTransaction.note
 - [Phase 32]: 32-04: 409 period_mismatch applies server balance/period, reloads, keeps typed values and requires a fresh Allocate click; 404 toast copy is D-23 'This shop is no longer active.'
 - [Phase 32]: Lock the organisation row FOR NO KEY UPDATE (no_key=True) in update_organisation and allocate_bonus: plain FOR UPDATE deadlocks against a concurrent first-use balance insert FK KEY SHARE (proven on PostgreSQL)
+- [Phase 33]: 33-01: get_accessible_shop_for_credits lives in apps/shops (built on list_shops) to keep apps/credits free of apps.reviews imports; Staff scoping keyed off role, not id-list truthiness
 
 ### Pending Todos
 
@@ -158,6 +160,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T16:02:12.550Z
-Stopped at: Completed 32-05-PLAN.md
+Last session: 2026-11-11T19:22:03.916Z
+Stopped at: Completed 33-01-PLAN.md
 Resume file: None

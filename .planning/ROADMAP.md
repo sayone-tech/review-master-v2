@@ -315,12 +315,12 @@ Plans:
   4. A "Buy More Credits" modal opens from the credits card, the Shops-list badge, and the composer. It offers a Contact Admin mailto to `REVIEWBEE_SUPPORT_EMAIL`, traps focus, carries ARIA labels, closes on ESC or a backdrop click, and has no payment flow.
   5. Org Admins see `shop.credits.*` and `organisation.credits.set` events in the Activity Log; Staff do not. The Shops list and every credit endpoint return only shops in a Staff user's StaffAccessScope. Negative tests prove that cross-org access, out-of-scope Staff, and Staff calls to Superadmin endpoints are refused.
 
-**Plans**: 7 plans (waves 1 → 2 → 3)
+**Plans**: 1/7 plans executed (waves 1 → 2 → 3)
 
 Plans:
 
 **Wave 1**
-- [ ] 33-01-PLAN.md — Tracer: Staff GET /api/v1/shops/ returns only in-scope shops with virtual credit fields; scope matrix, Staff-scoped retrieve (D-17), shared `get_accessible_shop_for_credits`, fixed query count; Shops-page `credit-contact` bootstrap (SCOPE-01, CVIS-02, CVIS-04)
+- [x] 33-01-PLAN.md — Tracer: Staff GET /api/v1/shops/ returns only in-scope shops with virtual credit fields; scope matrix, Staff-scoped retrieve (D-17), shared `get_accessible_shop_for_credits`, fixed query count; Shops-page `credit-contact` bootstrap (SCOPE-01, CVIS-02, CVIS-04)
 - [ ] 33-02-PLAN.md — Tracer: Org Admin sees "Credits used — {shop}" in the Activity Log; Org-only credit filter, org-bounded `shop_name`, Staff exclusion incl. PK collisions, query ceiling, Credits pill and seven labels (CVIS-05)
 - [ ] 33-03-PLAN.md — Tracer: Buy More Credits modal opens an encoded Contact Admin mailto from the bootstrap; modal/mailto matrix (D-13..D-16); shared band helper, formatters and shop-keyed store (CVIS-04)
 
@@ -379,4 +379,4 @@ Plans:
 | 30. Metered AI Reply Generation | v0.9 | 4/4 | ⬜ Not started | - |
 | 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ⬜ Not started | - |
 | 32. Superadmin Credit Controls | v0.9 | 5/5 | ⬜ Not started | - |
-| 33. Credit Visibility & Staff Scoping | v0.9 | 0/TBD | ⬜ Not started | - |
+| 33. Credit Visibility & Staff Scoping | v0.9 | 1/7 | ⬜ Not started | - |
