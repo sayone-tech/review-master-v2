@@ -13,10 +13,12 @@ from collections.abc import Callable
 import pytest
 from django.db import connection, connections
 
+from apps.accounts.tests.factories import UserFactory
 from apps.common.models import AuditLog
 from apps.credits.exceptions import GenerationInProgressError, InsufficientCreditsError
 from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.services.allocation import ensure_balance
+from apps.credits.services.bonus import allocate_bonus
 from apps.credits.services.consumption import (
     SettleResult,
     commit_reservation,
@@ -652,3 +654,57 @@ def test_past_period_reservation_settles_once_and_balance_lapses_once_when_commi
         assert balance.lapsed_at is not None
         assert_ledger_reconciles(balance)
     print(f"past-period straddle split: {split}")  # noqa: T201 - recorded in the SUMMARY
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_bonuses_sum_exactly_when_n_threads_allocate_to_one_never_used_shop():
+    """Tracer (CSUP-01): N simultaneous bonuses on a never-used shop are lossless.
+
+    The first bonus creates the balance (organisation allocation 10) and the rest wait on the
+    organisation row lock, then on the balance row; every +5 must be counted exactly once.
+    """
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org)
+    user = UserFactory()
+    period = current_period()
+    assert not ShopCreditBalance.objects.filter(shop=shop).exists()
+    barrier = threading.Barrier(N_THREADS)
+
+    def worker(_index: int) -> None:
+        barrier.wait(timeout=10)
+        allocate_bonus(shop_id=shop.pk, amount=5, reason=None, period=period, actor_id=user.pk)
+
+    errors = _run_threads(N_THREADS, worker)
+
+    assert not errors, errors
+    balances = ShopCreditBalance.objects.filter(
+        shop=shop, period_year=period.year, period_month=period.month
+    )
+    assert balances.count() == 1
+    balance = balances.get()
+    assert balance.allocated_credits == 10
+    assert balance.bonus_credits == 5 * N_THREADS
+    initial = CreditTransaction.objects.filter(
+        shop=shop, transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+    )
+    assert initial.count() == 1
+    assert initial.get().credits_delta == 10
+    bonus_rows = CreditTransaction.objects.filter(
+        shop=shop, transaction_type=CreditTransaction.Type.BONUS_ALLOCATION
+    )
+    assert bonus_rows.count() == N_THREADS
+    assert {r.credits_delta for r in bonus_rows} == {5}
+    assert {r.status for r in bonus_rows} == {CreditTransaction.Status.COMMITTED}
+    assert {r.actor_id for r in bonus_rows} == {user.pk}
+    assert (
+        AuditLog.objects.filter(
+            action="shop.credits.bonus_allocated", entity_id=str(shop.pk)
+        ).count()
+        == N_THREADS
+    )
+    assert (
+        AuditLog.objects.filter(action="shop.credits.allocated", entity_id=str(shop.pk)).count()
+        == 1
+    )
+    assert_ledger_reconciles(balance)
