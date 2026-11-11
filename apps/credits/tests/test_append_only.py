@@ -99,6 +99,25 @@ def test_bulk_create_raises_when_update_conflicts_requested():
     assert tx.credits_delta == -1
 
 
+def test_bulk_create_raises_when_update_conflicts_passed_positionally():
+    # WR-02 follow-up: Django also accepts update_conflicts as the 4th positional argument.
+    tx = CreditTransactionFactory()
+    clone = CreditTransaction(
+        pk=tx.pk,
+        shop_credit_balance=tx.shop_credit_balance,
+        shop=tx.shop,
+        organisation=tx.organisation,
+        transaction_type=CreditTransaction.Type.CONSUMPTION,
+        status=Status.RESERVED,
+        credits_delta=-7,
+        created_at=timezone.now(),
+    )
+    with pytest.raises(AppendOnlyViolation), transaction.atomic():
+        CreditTransaction.objects.bulk_create([clone], None, False, True, ["credits_delta"], ["id"])
+    tx.refresh_from_db()
+    assert tx.credits_delta == -1
+
+
 def test_bulk_create_inserts_rows_when_update_conflicts_not_requested():
     balance = ShopCreditBalanceFactory()
     rows = CreditTransaction.objects.bulk_create(
