@@ -238,8 +238,11 @@ def update_organisation(
             raise ValidationError(f"You cannot set this below the current in-use count ({in_use}).")
     credit_change: dict[str, Any] | None = None
     if "monthly_credit_allocation" in data:
+        # no_key=True (FOR NO KEY UPDATE): a plain FOR UPDATE would block the foreign-key check
+        # of a concurrent first-use ``ensure_balance`` insert, which in turn holds the unique
+        # index entry this block's bulk insert waits on (a deadlock proven on PostgreSQL).
         old = (
-            Organisation.objects.select_for_update(of=("self",))
+            Organisation.objects.select_for_update(of=("self",), no_key=True)
             .filter(pk=organisation.pk)
             .values_list("monthly_credit_allocation", flat=True)
             .get()

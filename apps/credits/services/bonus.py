@@ -79,9 +79,12 @@ def allocate_bonus(
     note = (reason or "").strip() or None
 
     with transaction.atomic():
-        Organisation.objects.select_for_update(of=("self",)).filter(pk=org_id).values_list(
-            "pk", flat=True
-        ).get()
+        # FOR NO KEY UPDATE, not FOR UPDATE: a concurrent first-use ``ensure_balance`` for the
+        # same shop holds the balance unique-index entry and needs a KEY SHARE on this row for
+        # its organisation FK check; FOR UPDATE would make that a deadlock (proven on PostgreSQL).
+        Organisation.objects.select_for_update(of=("self",), no_key=True).filter(
+            pk=org_id
+        ).values_list("pk", flat=True).get()
         balance, _ = ensure_balance(shop_id=shop_id, period=period)
         locked = (
             ShopCreditBalance.objects.select_for_update(of=("self",))

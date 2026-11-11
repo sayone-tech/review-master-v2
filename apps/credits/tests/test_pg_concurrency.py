@@ -31,6 +31,8 @@ from apps.credits.services.periods import current_period
 from apps.credits.services.reaper import ReapSummary, reap_stale_reservations
 from apps.credits.tests.factories import CreditTransactionFactory, ShopCreditBalanceFactory
 from apps.credits.tests.helpers import age_reservation, assert_ledger_reconciles
+from apps.organisations.models import Organisation
+from apps.organisations.services.organisations import update_organisation
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.reviews.tests.factories import ReviewFactory
 from apps.shops.tests.factories import ShopFactory
@@ -708,3 +710,169 @@ def test_concurrent_bonuses_sum_exactly_when_n_threads_allocate_to_one_never_use
         == 1
     )
     assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_org_edit_materialises_one_row_per_shop_at_old_value_when_first_uses_race():
+    """CRED-06 / D-20: an allocation edit racing first uses never splits a month's value.
+
+    Whichever side wins, every shop ends with exactly one current-month row at the OLD value
+    (10), one INITIAL row and one ``shop.credits.allocated`` row, and the field reads 20.
+    """
+    n_shops = 6
+    period = current_period()
+    for _round in range(3):
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        shops = [ShopFactory(organisation=org) for _ in range(n_shops)]
+        barrier = threading.Barrier(n_shops + 1)
+
+        def worker(
+            index: int,
+            org_pk: int = org.pk,
+            shops: list = shops,  # type: ignore[type-arg]
+            barrier: threading.Barrier = barrier,
+        ) -> None:
+            barrier.wait(timeout=10)
+            if index == 0:
+                fresh = Organisation.objects.get(pk=org_pk)
+                update_organisation(organisation=fresh, monthly_credit_allocation=20)
+            else:
+                ensure_balance(shop_id=shops[index - 1].pk)
+
+        errors = _run_threads(n_shops + 1, worker)
+
+        assert not errors, errors
+        for shop in shops:
+            rows = ShopCreditBalance.objects.filter(
+                shop=shop, period_year=period.year, period_month=period.month
+            )
+            assert rows.count() == 1
+            assert rows.get().allocated_credits == 10
+        initial = CreditTransaction.objects.filter(
+            organisation=org, transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+        )
+        assert initial.count() == n_shops
+        assert {t.credits_delta for t in initial} == {10}
+        assert (
+            AuditLog.objects.filter(organisation=org, action="shop.credits.allocated").count()
+            == n_shops
+        )
+        org.refresh_from_db()
+        assert org.monthly_credit_allocation == 20
+        set_rows = AuditLog.objects.filter(organisation=org, action="organisation.credits.set")
+        assert set_rows.count() == 1
+        assert set_rows.get().after_data["effective"] == "next_month"
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_bonus_and_reserve_keep_ledger_consistent_when_racing_on_one_balance():
+    n_bonus, n_reserve = 4, 8
+    org = OrganisationFactory(monthly_credit_allocation=4)
+    shop = ShopFactory(organisation=org)
+    reviews = [ReviewFactory(organisation=org, shop=shop) for _ in range(n_reserve)]
+    user = UserFactory()
+    period = current_period()
+    barrier = threading.Barrier(n_bonus + n_reserve)
+    reserved: list[int] = []
+    denied: list[str] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        barrier.wait(timeout=10)
+        if index < n_bonus:
+            allocate_bonus(shop_id=shop.pk, amount=1, reason=None, period=period, actor_id=user.pk)
+            return
+        try:
+            res = reserve_credits(
+                shop_id=shop.pk, review_id=reviews[index - n_bonus].pk, credits=1, actor_id=None
+            )
+        except InsufficientCreditsError as exc:
+            with lock:
+                denied.append(exc.reason)
+            return
+        with lock:
+            reserved.append(res.transaction_id)
+
+    errors = _run_threads(n_bonus + n_reserve, worker)
+
+    assert not errors, errors
+    assert len(reserved) + len(denied) == n_reserve
+    balance = ShopCreditBalance.objects.get(shop=shop)
+    assert balance.allocated_credits == 4
+    assert balance.bonus_credits == n_bonus
+    assert (
+        CreditTransaction.objects.filter(
+            shop=shop, transaction_type=CreditTransaction.Type.BONUS_ALLOCATION
+        ).count()
+        == n_bonus
+    )
+    assert balance.consumed_credits == len(reserved)
+    assert balance.consumed_credits <= balance.allocated_credits + balance.bonus_credits
+    assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_bonus_and_zero_to_n_edit_leave_no_zero_allocation_row_when_racing():
+    """Research Pitfall 6: a bonus racing a 0 -> N edit never strands a zero-allocation row.
+
+    Odd rounds delay the bonus 3 ms, even rounds delay the edit, so both orderings occur in
+    every run (bonus first: the zero row is raised; edit first: the row is created at 20).
+    """
+    user = UserFactory()
+    period = current_period()
+    split = {"bonus_first_or_equal": 0, "edit_first_or_equal": 0}
+    for round_index in range(6):
+        org = OrganisationFactory(monthly_credit_allocation=0)
+        shop = ShopFactory(organisation=org)
+        barrier = threading.Barrier(2)
+        delay_bonus = round_index % 2 == 1
+
+        def worker(
+            index: int,
+            org_pk: int = org.pk,
+            shop_pk: int = shop.pk,
+            barrier: threading.Barrier = barrier,
+            delay_bonus: bool = delay_bonus,
+        ) -> None:
+            barrier.wait(timeout=10)
+            if index == 0:
+                if delay_bonus:
+                    time.sleep(0.003)
+                allocate_bonus(
+                    shop_id=shop_pk, amount=5, reason=None, period=period, actor_id=user.pk
+                )
+            else:
+                if not delay_bonus:
+                    time.sleep(0.003)
+                fresh = Organisation.objects.get(pk=org_pk)
+                update_organisation(organisation=fresh, monthly_credit_allocation=20)
+
+        errors = _run_threads(2, worker)
+
+        assert not errors, errors
+        split["edit_first_or_equal" if delay_bonus else "bonus_first_or_equal"] += 1
+        balances = ShopCreditBalance.objects.filter(
+            shop=shop, period_year=period.year, period_month=period.month
+        )
+        assert balances.count() == 1
+        balance = balances.get()
+        assert balance.allocated_credits == 20
+        assert balance.bonus_credits == 5
+        initial = CreditTransaction.objects.filter(
+            shop=shop, transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+        )
+        assert initial.count() == 1
+        assert initial.get().credits_delta == 20
+        assert (
+            CreditTransaction.objects.filter(
+                shop=shop, transaction_type=CreditTransaction.Type.BONUS_ALLOCATION
+            ).count()
+            == 1
+        )
+        set_rows = AuditLog.objects.filter(organisation=org, action="organisation.credits.set")
+        assert set_rows.count() == 1
+        assert set_rows.get().after_data["effective"] == "immediate"
+        assert_ledger_reconciles(balance)
