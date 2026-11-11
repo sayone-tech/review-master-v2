@@ -250,11 +250,17 @@ Plans:
   3. Every 10 minutes, RESERVED transactions older than the reservation TTL are refunded and their credits returned. No reservation is refunded twice and no committed transaction is ever refunded, as proven by a Postgres reaper-versus-late-commit test.
   4. A reservation that straddles midnight at month end settles against its original month's balance, and that balance lapses only after the reservation is settled.
 
-**Plans**: TBD
+**Plans**: 3 plans (waves 1 → 2 → 3, sequential)
+
+Plans:
+- [ ] 31-01-PLAN.md — Tracer: daily 00:05 UTC Beat lapse end to end (`lapsed_at` + partial index, lapse service/selector/task, Beat seed 0003), sweep edge proofs, late commit honours `lapsed_at`, CREN-02 renewal tests
+- [ ] 31-02-PLAN.md — Tracer: 10-minute Beat reaper end to end (CAS-only via `refund_reservation`, Beat seed 0004), D-08 re-lapse, D-09 failure path, CLAUDE.md §3/§12.5 and runbook
+- [ ] 31-03-PLAN.md — Postgres races (reaper vs late commit, overlapping reapers/sweeps, past-period three-way race) and phase gate (orm-performance-auditor, code-reviewer, tenant-security-auditor)
+
 **Notes**:
 
 - Lapse is a catch-up sweep over every past period without a LAPSED row; a partial unique index makes LAPSED once-per-balance. Each balance lapses in its own atomic, the sweep is chunked, and it skips balances still holding RESERVED rows.
-- The reaper uses `skip_locked`, a bounded batch, and a per-row atomic. It logs at WARNING without review text and re-lapses past-period balances after refunding.
+- The reaper refunds a bounded batch (oldest first) through `refund_reservation`, whose status CAS plus per-row atomic makes overlap and late commits safe (CAS-only, no `skip_locked` pre-select; Phase 31 D-10). It logs at WARNING without review text and re-lapses past-period balances after refunding.
 - Seed both Beat schedules by migration (copy `reviews/0013` / `0016`), with explicit `timezone="UTC"`, on the `default` queue. Add them to `CELERY_TASK_ROUTES` and the CLAUDE.md §12.5 Beat table.
 - Standard patterns, so skip the research phase. The "lapse not complete by 00:30 UTC" alert is infra outside this repo; flag it to the deployment owner.
 - Parallel-eligible with Phases 32 and 33.
