@@ -292,3 +292,109 @@ def test_org_admin_sees_credit_consumed_row_with_shop_name(org_admin_setup) -> N
     assert rows[0]["action"] == "shop.credits.consumed"
     assert rows[0]["entity_type"] == "shop"
     assert rows[0]["shop_name"] == "Downtown Store"
+
+
+def _credit_rows(org, count: int) -> None:
+    for i in range(count):
+        shop = ShopFactory(organisation=org, name=f"Credit Shop {i}")
+        AuditLogFactory(
+            organisation=org,
+            actor=None,
+            entity_type="shop",
+            entity_id=str(shop.pk),
+            action="shop.credits.consumed",
+        )
+
+
+def test_org_admin_credit_rows_query_count_equal_for_1_and_20(org_admin_setup) -> None:
+    """CVIS-05 / CLAUDE.md §6.9: shop_name resolution adds no per-row queries."""
+    client, _user, org = org_admin_setup
+    _credit_rows(org, 1)
+    with CaptureQueriesContext(connection) as ctx_one:
+        resp_one = client.get(LIST_URL)
+    assert resp_one.status_code == 200
+    assert len(resp_one.data["results"]) == 1
+
+    _credit_rows(org, 19)
+    with CaptureQueriesContext(connection) as ctx_twenty:
+        resp_twenty = client.get(LIST_URL)
+    assert resp_twenty.status_code == 200
+    assert len(resp_twenty.data["results"]) == 20
+    assert len(ctx_twenty.captured_queries) == len(ctx_one.captured_queries)
+    assert len(ctx_twenty.captured_queries) <= 5
+
+
+def test_staff_api_never_returns_credit_rows_on_pk_collision(staff_setup) -> None:
+    client, _staff, org, accessible_shop, _inaccessible = staff_setup
+    review = ReviewFactory(organisation=org, shop=accessible_shop)
+    item = ActionItemFactory(organisation=org, shop=accessible_shop, scope=ActionItem.Scope.SHOP)
+    AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(review.pk),
+        action="shop.credits.consumed",
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(accessible_shop.pk),
+        action="shop.credits.allocated",
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="organisation",
+        entity_id=str(item.pk),
+        action="organisation.credits.set",
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="review",
+        entity_id=str(review.pk),
+        action="reply_posted",
+    )
+    resp = client.get(LIST_URL)
+    assert resp.status_code == 200
+    assert {r["entity_type"] for r in resp.data["results"]} == {"review"}
+    assert all(r["shop_name"] is None for r in resp.data["results"])
+
+
+def test_type_filter_whitelist_is_not_extended_for_credit_types(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    _credit_rows(org, 1)
+    assert client.get(LIST_URL, {"entity_type": "shop"}).status_code == 400
+    assert len(client.get(LIST_URL).data["results"]) == 1
+
+
+def _activity_log_actor_ids(user) -> set[int]:
+    client = APIClient()
+    client.force_login(user)
+    resp = client.get("/admin/org/activity-log/")
+    assert resp.status_code == 200
+    return {a["id"] for a in resp.context["actors_json"]}
+
+
+def test_actor_dropdown_includes_superadmin_for_org_admin_not_for_staff(staff_setup) -> None:
+    """RESEARCH open question 2 (accepted): an Org Admin may see the Superadmin
+    who changed their credits; Staff never do. Disposition recorded in 33-07."""
+    _client, staff, org, accessible_shop, _inaccessible = staff_setup
+    org_admin = OrgAdminFactory(organisation=org)
+    superadmin = UserFactory(role=User.Role.SUPERADMIN, organisation=None)
+    AuditLogFactory(
+        organisation=org,
+        actor=superadmin,
+        entity_type="organisation",
+        entity_id=str(org.pk),
+        action="organisation.credits.set",
+    )
+    # A staff-visible row so the Staff dropdown query is non-trivial.
+    review = ReviewFactory(organisation=org, shop=accessible_shop)
+    AuditLogFactory(
+        organisation=org,
+        actor=staff,
+        entity_type="review",
+        entity_id=str(review.pk),
+        action="reply_posted",
+    )
+
+    assert superadmin.pk in _activity_log_actor_ids(org_admin)
+    assert superadmin.pk not in _activity_log_actor_ids(staff)
