@@ -22,6 +22,9 @@ class ShopCreditBalance(models.Model):
     Invariants are DB-enforced (CheckConstraints) so SQLite and PostgreSQL agree.
     NOTE: ``updated_at`` uses ``auto_now``, which fires only on ``save()``. Any future
     ``QuerySet.update()`` on balances MUST set ``updated_at`` explicitly.
+
+    ``lapsed_at`` is the only non-counter field written after creation, and only by the
+    lapse service (``apps/credits/services/lapse.py``), once (NULL -> timestamp).
     """
 
     # db_index=False on shop/organisation: the unique (shop, year, month) and the
@@ -43,6 +46,9 @@ class ShopCreditBalance(models.Model):
     allocated_credits = models.IntegerField()
     bonus_credits = models.IntegerField(default=0)
     consumed_credits = models.IntegerField(default=0)
+    # Lapse done-marker: written only by services/lapse.py, NULL -> timestamp once. No column
+    # index (see the partial index in Meta).
+    lapsed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -71,6 +77,14 @@ class ShopCreditBalance(models.Model):
             models.Index(
                 fields=["organisation", "period_year", "period_month"],
                 name="credit_bal_org_period_idx",
+            ),
+            # The unlapsed set is ~one row per active shop plus stragglers, while the table
+            # grows by shops x months; the daily lapse sweep predicate is exactly that partial
+            # set (mirrors credit_tx_reserved_idx).
+            models.Index(
+                fields=["period_year", "period_month"],
+                condition=Q(lapsed_at__isnull=True),
+                name="credit_bal_unlapsed_idx",
             ),
         ]
 
