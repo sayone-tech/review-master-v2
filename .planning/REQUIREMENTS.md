@@ -36,10 +36,10 @@
 
 ### Visibility (CVIS)
 
-- [ ] **CVIS-01**: Shop Details shows an "AI Reply Credits" card: remaining / total, colour-coded progress bar, used and available counts, org allocation and bonus, "Renews {date} (UTC)", a "Not enabled" state when total is 0, and a Buy More Credits link
-- [ ] **CVIS-02**: Each Shops list row shows a colour-coded credits badge, with a fixed query count regardless of the number of shops
+- [x] **CVIS-01**: Shop Details shows an "AI Reply Credits" card: remaining / total, colour-coded progress bar, used and available counts, org allocation and bonus, "Renews {date} (UTC)", a "Not enabled" state when total is 0, and a Buy More Credits link
+- [x] **CVIS-02**: Each Shops list row shows a colour-coded credits badge, with a fixed query count regardless of the number of shops
 - [ ] **CVIS-03**: In the reply composer the AI button is hidden for star-only reviews, its label and aria-label show the cost ("Generate with AI · N credits"), remaining credits are shown, the button is disabled with distinct "not enabled" vs "not enough credits" messaging, tone pills are disabled while generating, and a 402 response is handled
-- [ ] **CVIS-04**: A "Buy More Credits" modal opens from the credits card, Shops-list badge, and composer; it shows a Contact Admin mailto to `REVIEWBEE_SUPPORT_EMAIL`, is accessible (focus trap, ARIA labels, ESC/backdrop close), and has no payment flow
+- [x] **CVIS-04**: A "Buy More Credits" modal opens from the credits card, Shops-list badge, and composer; it shows a Contact Admin mailto to `REVIEWBEE_SUPPORT_EMAIL`, is accessible (focus trap, ARIA labels, ESC/backdrop close), and has no payment flow
 - [ ] **CVIS-05**: Org Admin sees `shop.credits.*` and `organisation.credits.set` events in the Activity Log; Staff do not
 
 ### Superadmin Controls (CSUP)
@@ -100,10 +100,10 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CREN-01 | Phase 31 | Complete |
 | CREN-02 | Phase 31 | Complete |
 | CREN-03 | Phase 31 | Complete |
-| CVIS-01 | Phase 33 | Pending |
-| CVIS-02 | Phase 33 | Pending |
+| CVIS-01 | Phase 33 | Complete |
+| CVIS-02 | Phase 33 | Complete |
 | CVIS-03 | Phase 33 | Pending |
-| CVIS-04 | Phase 33 | Pending |
+| CVIS-04 | Phase 33 | Complete |
 | CVIS-05 | Phase 33 | Pending |
 | CSUP-01 | Phase 32 | Complete |
 | CSUP-02 | Phase 32 | Complete |

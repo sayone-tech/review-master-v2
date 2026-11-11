@@ -5,11 +5,11 @@ milestone_name: AI Reply Credits
 current_phase: 33
 current_phase_name: Credit Visibility & Staff Scoping
 status: executing
-stopped_at: Completed 33-05-PLAN.md
-last_updated: "2026-11-11T19:40:18.215Z"
+stopped_at: Completed 33-06-PLAN.md
+last_updated: "2026-11-11T19:45:15.327Z"
 last_activity: 2026-11-12
 last_activity_desc: Phase 33 execution started
-state_head: 4eb7fed44b0b52f6fab198611fd6fa89e95239fc
+state_head: 485326884c2e2693c7061d81494ade598f3e8290
 progress:
   total_phases: 5
   completed_phases: 0
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 ## Current Position
 
 Phase: 33 (Credit Visibility & Staff Scoping) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-11-12 — Phase 33 execution started
 
@@ -106,6 +106,7 @@ Last activity: 2026-11-12 — Phase 33 execution started
 | Phase 33 P03 | 6 min | 3 tasks | 12 files |
 | Phase 33 P04 | 20 min | 3 tasks | 9 files |
 | Phase 33 P05 | 15 min | 3 tasks | 6 files |
+| Phase 33 P06 | 12 min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -153,6 +154,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 33]: Balance store keyed by shop_id is a module-level useSyncExternalStore store shared across React roots
 - [Phase 33]: 33-04: ShopCreditsView lives in apps/credits at /api/v1/shops/<id>/credits/, gated by get_accessible_shop_for_credits; uniform 404 shop_not_found, no-store, shop_credits 120/minute
 - [Phase 33]: 33-05: composer cost only from the server; a 402 keeps the draft and switches the composer state in place (no banner)
+- [Phase 33]: 33-06: CreditsCard keys results by shopId and treats another shop's outcome as loading; stacked Buy More is a sibling modal with Shop Details dismissible=false while open; credit dates use formatUtcDate (Sep, not Sept)
 
 ### Pending Todos
 
@@ -169,6 +171,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T19:40:17.899Z
-Stopped at: Completed 33-05-PLAN.md
+Last session: 2026-11-11T19:45:15.018Z
+Stopped at: Completed 33-06-PLAN.md
 Resume file: None
