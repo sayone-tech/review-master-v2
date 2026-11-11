@@ -39,6 +39,10 @@ function mount() {
     allow_custom_sync_depth: false,
   });
 
+  const modalsRoot = document.getElementById("shop-modals-root");
+  // Absent modals root -> treat as Org Admin (the Shops page is Org-Admin-only today).
+  const isOrgAdmin = modalsRoot ? modalsRoot.dataset.isOrgAdmin === "true" : true;
+
   const tableRoot = document.getElementById("shop-table-root");
   if (tableRoot && !tableRoot.dataset.mounted) {
     tableRoot.dataset.mounted = "1";
@@ -51,16 +55,15 @@ function mount() {
             hasRegions: initialHasRegions,
           }}
           openProgressShopId={readOpenProgressShopId()}
+          isOrgAdmin={isOrgAdmin}
         />
       </StrictMode>,
     );
   }
 
-  const modalsRoot = document.getElementById("shop-modals-root");
   if (modalsRoot && !modalsRoot.dataset.mounted) {
     modalsRoot.dataset.mounted = "1";
     const initialPlaceIds = initialRows.map((r) => r.place_id).filter(Boolean);
-    const isOrgAdmin = modalsRoot.dataset.isOrgAdmin === "true";
     createRoot(modalsRoot).render(
       <StrictMode>
         <ShopModals

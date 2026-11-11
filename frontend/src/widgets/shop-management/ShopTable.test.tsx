@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ShopTableWidget } from "./ShopTable";
 import type { ShopRow } from "./types";
 import * as api from "./api";
+import { getShopCredits, resetCreditsStoreForTests } from "../credits/creditsStore";
 
 function fakeRow(over: Partial<ShopRow> = {}): ShopRow {
   return {
@@ -25,6 +26,7 @@ function fakeRow(over: Partial<ShopRow> = {}): ShopRow {
 }
 
 beforeEach(() => {
+  resetCreditsStoreForTests();
   vi.spyOn(api, "listShops").mockResolvedValue({
     count: 1,
     next: null,
@@ -55,6 +57,103 @@ describe("ShopTableWidget credits column", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect((handler.mock.calls[0][0] as CustomEvent).detail).toEqual(shop);
     window.removeEventListener("shop:open-credits", handler);
+  });
+});
+
+const ALLOC = { current: 1, max: 5, at_limit: false };
+
+describe("ShopTableWidget credit seeding", () => {
+  it("should seed the store from bootstrap rows that carry credit fields", () => {
+    render(
+      <ShopTableWidget
+        initial={{
+          rows: [fakeRow({ id: 5, credits_remaining: 35, credits_total: 100 })],
+          allocation: ALLOC,
+          hasRegions: true,
+        }}
+      />,
+    );
+    expect(getShopCredits(5)).toMatchObject({ remaining: 35, total: 100, isEnabled: true });
+  });
+
+  it("should seed from refreshed rows and keep the last known badge when a later row lacks credit fields", async () => {
+    render(
+      <ShopTableWidget
+        initial={{ rows: [], allocation: ALLOC, hasRegions: true }}
+      />,
+    );
+    // Let the widget's debounced initial search refresh settle before scripting refreshes.
+    const list = vi.mocked(api.listShops);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    list.mockResolvedValueOnce({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [fakeRow({ id: 5, credits_remaining: 20, credits_total: 100 })],
+      allocation_status: ALLOC,
+      has_regions: true,
+    });
+    act(() => {
+      window.dispatchEvent(new CustomEvent("shop:refresh"));
+    });
+    expect(await screen.findByTestId("credits-badge-5")).toHaveTextContent("20 credits");
+
+    list.mockResolvedValueOnce({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [fakeRow({ id: 5 })],
+      allocation_status: ALLOC,
+      has_regions: true,
+    });
+    act(() => {
+      window.dispatchEvent(new CustomEvent("shop:refresh"));
+    });
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(3));
+    expect(await screen.findByTestId("credits-badge-5")).toHaveTextContent("20 credits");
+  });
+
+  it("should show a dash for a row that never had credit fields", () => {
+    render(
+      <ShopTableWidget
+        initial={{
+          rows: [fakeRow({ id: 6, phone: "555-0100" })],
+          allocation: ALLOC,
+          hasRegions: true,
+        }}
+      />,
+    );
+    expect(screen.queryByTestId("credits-badge-6")).not.toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+});
+
+describe("ShopTableWidget Staff empty state", () => {
+  const empty = { rows: [], allocation: ALLOC, hasRegions: true };
+
+  it("should show No shops assigned without a create call to action when not an Org Admin", () => {
+    render(<ShopTableWidget initial={empty} isOrgAdmin={false} />);
+    expect(screen.getByText("No shops assigned")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "You don't have access to any shops yet. Ask your organisation admin to give you access.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("+ Add your first shop")).not.toBeInTheDocument();
+    expect(screen.queryByText("Go to Regions")).not.toBeInTheDocument();
+  });
+
+  it("should keep the existing empty states for an Org Admin by default", () => {
+    render(<ShopTableWidget initial={empty} />);
+    expect(screen.getByTestId("empty-state-b")).toBeInTheDocument();
+    expect(screen.queryByText("No shops assigned")).not.toBeInTheDocument();
+  });
+
+  it("should keep the filtered-empty copy for Staff when a filter is active", async () => {
+    window.history.replaceState({}, "", "/admin/org/shops/?region=3");
+    render(<ShopTableWidget initial={empty} isOrgAdmin={false} />);
+    expect(await screen.findByText("No matching shops.")).toBeInTheDocument();
+    expect(screen.queryByText("No shops assigned")).not.toBeInTheDocument();
   });
 });
 

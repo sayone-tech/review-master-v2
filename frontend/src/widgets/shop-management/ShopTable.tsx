@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Eye, Edit2, Power, PowerOff, RefreshCcw, BarChart2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Eye, Edit2, Power, PowerOff, RefreshCcw, BarChart2, Store } from "lucide-react";
 import { DataTable } from "../data-table/DataTable";
 import { ShopsEmptyStateA } from "./ShopsEmptyStateA";
 import { ShopsEmptyStateB } from "./ShopsEmptyStateB";
@@ -74,9 +74,15 @@ const inputCls =
 interface ShopTableWidgetProps {
   initial: { rows: ShopRow[]; allocation: AllocationStatus; hasRegions: boolean };
   openProgressShopId?: number | null;
+  /** Page's data-is-org-admin; Staff get a dedicated empty state instead of create CTAs (D-18). */
+  isOrgAdmin?: boolean;
 }
 
-export function ShopTableWidget({ initial, openProgressShopId }: ShopTableWidgetProps) {
+export function ShopTableWidget({
+  initial,
+  openProgressShopId,
+  isOrgAdmin = true,
+}: ShopTableWidgetProps) {
   const {
     rows,
     count,
@@ -140,7 +146,22 @@ export function ShopTableWidget({ initial, openProgressShopId }: ShopTableWidget
     !filters.search && !filters.status && (filters.region === undefined || filters.region === "");
 
   const emptyState = noActiveFilters ? (
-    !hasRegions ? <ShopsEmptyStateA /> : <ShopsEmptyStateB />
+    !isOrgAdmin ? (
+      <div
+        data-testid="empty-state-staff"
+        className="flex flex-col items-center justify-center py-16"
+      >
+        <Store size={40} className="text-faint" aria-hidden="true" />
+        <h3 className="text-[15px] font-semibold text-ink mt-4">No shops assigned</h3>
+        <p className="text-[13.5px] text-muted mt-1.5">
+          You don&apos;t have access to any shops yet. Ask your organisation admin to give you access.
+        </p>
+      </div>
+    ) : !hasRegions ? (
+      <ShopsEmptyStateA />
+    ) : (
+      <ShopsEmptyStateB />
+    )
   ) : (
     <div className="p-12 text-center text-muted text-[13.5px]">No matching shops.</div>
   );
