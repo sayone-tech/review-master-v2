@@ -126,16 +126,21 @@ repo-root/
 │   │   ├── services/
 │   │   │   ├── periods.py           # UTC period seam (current_period, next_period_start)
 │   │   │   ├── credit_cost.py       # The single pure pricing function (tiers from settings)
-│   │   │   ├── allocation.py        # Lazy, race-safe first-use balance creation
+│   │   │   ├── allocation.py        # Lazy, race-safe first-use balance creation + set-based org-edit materialisation (Phase 32)
+│   │   │   ├── bonus.py             # Superadmin bonus top-up: period echo, org-row lock, F() increment (Phase 32)
 │   │   │   ├── ledger.py            # Status-only CAS transitions on ledger rows
 │   │   │   ├── consumption.py       # Reserve -> commit/refund + the single late-commit path (Phase 30)
 │   │   │   ├── lapse.py             # Daily idempotent lapse sweep, lapsed_at marker (Phase 31)
 │   │   │   └── reaper.py            # Refunds stale RESERVED rows via refund_reservation (Phase 31)
 │   │   ├── selectors/
 │   │   │   ├── balances.py          # Virtual-balance reads (never writes)
+│   │   │   ├── shop_credits.py      # Superadmin shop credit list + allocation per shop (never writes) (Phase 32)
 │   │   │   ├── lapse.py             # Unlapsed past-period balance ids
 │   │   │   └── reservations.py      # RESERVED rows past the TTL
-│   │   └── tasks.py                 # Beat: lapse daily 00:05 UTC, reaper every 10 min
+│   │   ├── tasks.py                 # Beat: lapse daily 00:05 UTC, reaper every 10 min
+│   │   ├── serializers.py           # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32)
+│   │   ├── views.py                 # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32)
+│   │   └── api_urls.py              # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32)
 │   ├── integrations/                # External API clients
 │   │   ├── google/
 │   │   │   ├── client.py

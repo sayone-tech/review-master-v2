@@ -1,9 +1,9 @@
 ---
 phase: "32"
 slug: "superadmin-credit-controls"
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: complete-local
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-11-11"
 ---
 
@@ -38,17 +38,16 @@ created: "2026-11-11"
 
 ## Per-Task Verification Map
 
-Filled by the planner from PLAN.md task IDs.
-
-| Requirement | Test file(s) | Type | Status |
-|-------------|--------------|------|--------|
-| CRED-01 (field persist/validate/audit, create default 0, D-22 admin read-only) | `apps/organisations/tests/test_views.py`, `test_services.py`, admin test | API/service | ⬜ pending |
-| CRED-06 (0→N immediate, N→M, N→0, D-18, raise zero rows, next month, idempotent, equivalence, query ceiling, rollback) | `apps/credits/tests/test_org_allocation.py` | service | ⬜ pending |
-| CSUP-01 (list never writes, search/pagination, bonus ledger/audit, validation, 409/404, rollover) | `apps/credits/tests/test_views.py`, `test_bonus.py` | API/service | ⬜ pending |
-| CSUP-02 (403 Org Admin/Staff/anon on every credit endpoint + PATCH field) | `apps/credits/tests/test_views.py`, `apps/organisations/tests/test_views.py` | API | ⬜ pending |
-| D-14/D-15/D-21 (`current_month_credit_allocation`, query ceiling unchanged) | `apps/organisations/tests/test_views.py` | API | ⬜ pending |
-| PG races (edit vs ensure_balance, concurrent bonuses, bonus vs reserve, bonus vs 0→N) | `apps/credits/tests/test_pg_concurrency.py` | pg_concurrency | ⬜ pending |
-| UI (creditHint, OrgTable column/action, Create/Edit/View modals, ManageCreditsModal incl. 409/404) | `frontend/src/widgets/org-management/*.test.ts(x)` | vitest | ⬜ pending |
+| Plan-Task | Requirement | Test file(s) | Type | Status |
+|-----------|-------------|--------------|------|--------|
+| 32-01-T1..T3 | CRED-01 (field persist/validate/audit, create default 0, D-22 admin read-only) | `apps/organisations/tests/test_views.py`, `test_admin.py`, `apps/credits/tests/test_org_allocation.py` | API/service | ✅ green |
+| 32-01-T1, T2 | CRED-06 (0→N immediate, N→M, N→0, D-18, raise zero rows, next month, idempotent, equivalence, query ceiling, rollback) | `apps/credits/tests/test_org_allocation.py` | service | ✅ green |
+| 32-03-T1..T3 | CSUP-01 (list never writes, search/pagination, bonus ledger/audit, validation, 409/404, rollover) | `apps/credits/tests/test_views.py`, `test_bonus.py` | API/service | ✅ green |
+| 32-01-T3, 32-03-T1..T3 | CSUP-02 (403 Org Admin/Staff/anon on every credit endpoint + PATCH field) | `apps/credits/tests/test_views.py`, `apps/organisations/tests/test_views.py` | API | ✅ green |
+| 32-01-T1, 32-03-T3 | D-14/D-15/D-21 (`current_month_credit_allocation`, query ceiling unchanged) | `apps/organisations/tests/test_views.py` | API | ✅ green |
+| 32-05-T1, T2 | PG races (edit vs ensure_balance, concurrent bonuses, bonus vs reserve, bonus vs 0→N); 20 passed, 0 skipped on throwaway PostgreSQL 14.20 | `apps/credits/tests/test_pg_concurrency.py` | pg_concurrency | ✅ green (local PG 14; CI PG 16 pending push) |
+| 32-02-T1..T3, 32-04-T1..T3 | UI (creditHint, OrgTable column/action, Create/Edit/View modals, ManageCreditsModal incl. 409/404) | `frontend/src/widgets/org-management/*.test.ts(x)` | vitest | ✅ green (193 tests, tsc clean) |
+| 32-05-T3 | Phase gate (coverage 89.88%, mypy, ruff, makemigrations --check, check --deploy, contract cross-check, no migration added) | full suite + gates | gate | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -56,11 +55,11 @@ Filled by the planner from PLAN.md task IDs.
 
 ## Wave 0 Requirements
 
-- [ ] New backend tests: `test_org_allocation.py`, `test_bonus.py`, `apps/credits/tests/test_views.py` (+ Superadmin/Staff client fixtures in credits conftest)
-- [ ] PG tests appended to `apps/credits/tests/test_pg_concurrency.py`
-- [ ] New frontend tests: `creditHint.test.ts`, `ManageCreditsModal.test.tsx`, `EditOrgModal.test.tsx`, `ViewOrgModal.test.tsx`
-- [ ] Update `OrgRow` fixtures in 4 existing frontend test files (or `tsc --noEmit` breaks)
-- [ ] No framework install
+- [x] New backend tests: `test_org_allocation.py`, `test_bonus.py`, `apps/credits/tests/test_views.py` (+ Superadmin/Staff client fixtures in credits conftest)
+- [x] PG tests appended to `apps/credits/tests/test_pg_concurrency.py`
+- [x] New frontend tests: `creditHint.test.ts`, `ManageCreditsModal.test.tsx`, `EditOrgModal.test.tsx`, `ViewOrgModal.test.tsx`
+- [x] Update `OrgRow` fixtures in 4 existing frontend test files (or `tsc --noEmit` breaks)
+- [x] No framework install
 
 ---
 
@@ -75,11 +74,11 @@ Filled by the planner from PLAN.md task IDs.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s (quick run)
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** local gates signed off 2026-11-11. Still open for `/gsd-verify-work 32`: CI `backend-pg` on PostgreSQL 16 after push (expect 20 `pg_concurrency` tests, 0 skipped); Manage Credits UX walk including a forced month rollover for the 409 banner; the two 360px backstop checks.
