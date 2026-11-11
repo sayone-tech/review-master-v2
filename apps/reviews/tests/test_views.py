@@ -483,6 +483,9 @@ class TestGenerateReplyEndpoint:
         assert resp.status_code == 502
         assert resp.data["code"] == "ai_unavailable"
         assert "AI generation failed" in resp.data["detail"]
+        assert set(resp.json()) == {"code", "detail", "credits_charged", "credits_remaining"}
+        assert resp.data["credits_charged"] == 0
+        assert resp.data["credits_remaining"] == 10
 
     @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_permanent_error_returns_502(self, mock_generate) -> None:
@@ -498,6 +501,8 @@ class TestGenerateReplyEndpoint:
         assert resp.status_code == 502
         assert resp.data["code"] == "ai_unavailable"
         assert "AI generation failed" in resp.data["detail"]
+        assert resp.data["credits_charged"] == 0
+        assert resp.data["credits_remaining"] == 10
 
     @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_generic_exception_returns_502(self, mock_generate) -> None:
@@ -512,6 +517,8 @@ class TestGenerateReplyEndpoint:
 
         assert resp.status_code == 502
         assert resp.data["code"] == "ai_unavailable"
+        assert resp.data["credits_charged"] == 0
+        assert resp.data["credits_remaining"] == 10
 
     @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_staff_admin_accessible_shop(self, mock_generate) -> None:
@@ -581,35 +588,45 @@ class TestGenerateReplyEndpoint:
     # Plan 20-07: ContentModeratedException -> HTTP 422 with canonical body
     # ------------------------------------------------------------------
 
-    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
-    def test_generate_reply_returns_422_on_content_moderated(self, mock_generate) -> None:
-        """D-16/D-26/D-32: moderation block maps to HTTP 422 with canonical body."""
-        mock_generate.side_effect = ContentModeratedException("input flagged")
+    @staticmethod
+    def _post_blocked(stage: str, comment: str = "x" * 150):
         org = OrganisationFactory(monthly_credit_allocation=10)
         user = OrgAdminFactory(organisation=org)
-        review = ReviewFactory(organisation=org)
+        review = ReviewFactory(organisation=org, comment=comment)
         client = APIClient()
         client.force_authenticate(user=user)
+        with patch(
+            "apps.reviews.services.reply_generation._generate_reply_draft_with_log",
+            side_effect=ContentModeratedException("flagged self_harm_intent", stage=stage),
+        ):
+            resp = client.post(
+                _generate_reply_url(review.pk), {"tone": "professional"}, format="json"
+            )
+        return resp, review
 
-        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+    def test_generate_reply_returns_422_on_content_moderated(self) -> None:
+        """D-16/D-26/D-32: an output block maps to 422 and is charged (OpenAI billed)."""
+        resp, _ = self._post_blocked("output")
 
         assert resp.status_code == 422
         assert resp.json() == {
             "code": "content_moderated",
             "detail": "AI reply isn't available for this review. Please write your reply manually.",
+            "credits_charged": 2,
+            "credits_remaining": 8,
         }
 
-    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
-    def test_generate_reply_422_canonical_detail_string_byte_exact(self, mock_generate) -> None:
-        """D-26 regression: the user-facing copy must match byte-for-byte."""
-        mock_generate.side_effect = ContentModeratedException("output flagged")
-        org = OrganisationFactory(monthly_credit_allocation=10)
-        user = OrgAdminFactory(organisation=org)
-        review = ReviewFactory(organisation=org)
-        client = APIClient()
-        client.force_authenticate(user=user)
+    def test_generate_reply_422_input_block_is_not_charged(self) -> None:
+        resp, _ = self._post_blocked("input")
 
-        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+        assert resp.status_code == 422
+        assert resp.json()["code"] == "content_moderated"
+        assert resp.json()["credits_charged"] == 0
+        assert resp.json()["credits_remaining"] == 10
+
+    def test_generate_reply_422_canonical_detail_string_byte_exact(self) -> None:
+        """D-26 regression: the user-facing copy must match byte-for-byte."""
+        resp, _ = self._post_blocked("output")
 
         assert resp.status_code == 422
         assert (
@@ -617,22 +634,18 @@ class TestGenerateReplyEndpoint:
             == "AI reply isn't available for this review. Please write your reply manually."
         )
 
-    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
-    def test_generate_reply_422_does_not_leak_categories_or_review_text(
-        self, mock_generate
-    ) -> None:
-        """T-20-LK: 422 body must contain only ``code`` and ``detail`` keys."""
-        mock_generate.side_effect = ContentModeratedException("input flagged")
-        org = OrganisationFactory(monthly_credit_allocation=10)
-        user = OrgAdminFactory(organisation=org)
-        review = ReviewFactory(organisation=org)
-        client = APIClient()
-        client.force_authenticate(user=user)
-
-        resp = client.post(_generate_reply_url(review.pk), {"tone": "professional"}, format="json")
+    @pytest.mark.parametrize("stage", ["input", "output"])
+    def test_generate_reply_422_does_not_leak_categories_or_review_text(self, stage) -> None:
+        """T-20-LK: only the credit integers are added; no category name, no review text."""
+        comment = "UNIQUE-REVIEW-TEXT-" + "x" * 150
+        resp, review = self._post_blocked(stage, comment=comment)
 
         assert resp.status_code == 422
-        assert set(resp.json().keys()) == {"code", "detail"}
+        assert set(resp.json().keys()) == {"code", "detail", "credits_charged", "credits_remaining"}
+        body = resp.content.decode()
+        assert "self_harm" not in body
+        assert "UNIQUE-REVIEW-TEXT" not in body
+        assert review.comment not in body
 
 
 class TestGenerateReplyCredits:

@@ -197,7 +197,7 @@ class TestGenerateReplyDraftModeration:
         review = ReviewFactory()
         call_order: list[str] = []
 
-        def _input_se(text: str, *, review: object, request_type: str) -> str:
+        def _input_se(text: str, *, review: object, request_type: str, **_kw: object) -> str:
             call_order.append("input")
             return "clean text"
 
@@ -211,6 +211,7 @@ class TestGenerateReplyDraftModeration:
             review: object,
             request_type: str,
             usage_data: dict | None = None,
+            **_kw: object,
         ) -> str:
             call_order.append("output")
             return text
@@ -432,7 +433,7 @@ class TestGenerateReplyDraftModeration:
         review = ReviewFactory()
         recorded: list[bool] = []
 
-        def _input_se(text: str, *, review: object, request_type: str) -> str:
+        def _input_se(text: str, *, review: object, request_type: str, **_kw: object) -> str:
             recorded.append(transaction.get_connection().in_atomic_block)
             return "clean input"
 
@@ -442,6 +443,7 @@ class TestGenerateReplyDraftModeration:
             review: object,
             request_type: str,
             usage_data: dict | None = None,
+            **_kw: object,
         ) -> str:
             recorded.append(transaction.get_connection().in_atomic_block)
             return text
@@ -463,3 +465,31 @@ class TestGenerateReplyDraftModeration:
             generate_reply_draft(review=review, tone="professional")
 
         assert recorded == [False, False]
+
+
+class TestReplyPathModerationBounds:
+    @pytest.mark.django_db
+    def test_forwards_timeout_and_zero_retries_to_both_moderation_calls(self) -> None:
+        """D-15: the reply path bounds both moderation calls (timeout 30, no app retry)."""
+        from apps.reviews.services.reply_generation import generate_reply_draft
+
+        review = ReviewFactory()
+        with (
+            patch(
+                "apps.reviews.services.reply_generation.moderate_input",
+                side_effect=lambda text, **kw: text,
+            ) as m_in,
+            patch(
+                "apps.reviews.services.reply_generation.call_openai_reply_generation",
+                return_value=("Nice.", _usage_data()),
+            ),
+            patch(
+                "apps.reviews.services.reply_generation.moderate_output",
+                side_effect=lambda text, **kw: text,
+            ) as m_out,
+        ):
+            generate_reply_draft(review=review, tone="professional")
+
+        for mock in (m_in, m_out):
+            assert mock.call_args.kwargs["timeout"] == 30
+            assert mock.call_args.kwargs["max_retries"] == 0
