@@ -7,6 +7,7 @@ import {
   Ban,
   CheckCircle,
   Trash2,
+  Coins,
 } from "lucide-react";
 import { DataTable, type DataTableColumn } from "../data-table";
 import { RowActionsMenu, type RowAction } from "./RowActionsMenu";
@@ -37,6 +38,7 @@ export interface OrgTableHandlers {
   onOpenEdit: (row: OrgRow) => void;
   onOpenResend: (row: OrgRow) => void;
   onOpenAdjustStores: (row: OrgRow) => void;
+  onOpenManageCredits: (row: OrgRow) => void;
   onOpenEnable: (row: OrgRow) => void;
   onOpenDisable: (row: OrgRow) => void;
   onOpenDelete: (row: OrgRow) => void;
@@ -178,6 +180,12 @@ export function buildRowActions(handlers: OrgTableHandlers): RowAction[] {
       label: "Adjust Store Count",
       icon: <Layers size={14} aria-hidden="true" />,
       onSelect: handlers.onOpenAdjustStores,
+    },
+    {
+      key: "credits",
+      label: "Manage Credits",
+      icon: <Coins size={14} aria-hidden="true" />,
+      onSelect: handlers.onOpenManageCredits,
     },
     {
       key: "disable",

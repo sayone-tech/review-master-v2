@@ -46,6 +46,7 @@ function noopHandlers() {
     onOpenEdit: vi.fn(),
     onOpenResend: vi.fn(),
     onOpenAdjustStores: vi.fn(),
+    onOpenManageCredits: vi.fn(),
     onOpenEnable: vi.fn(),
     onOpenDisable: vi.fn(),
     onOpenDelete: vi.fn(),
@@ -93,6 +94,17 @@ describe("OrgTable", () => {
     const menu = screen.getByTestId("row-actions-menu-2");
     expect(within(menu).getByText("Enable")).toBeInTheDocument();
     expect(within(menu).queryByText("Disable")).not.toBeInTheDocument();
+  });
+
+  it("should show Manage Credits for ACTIVE and DISABLED orgs and call the handler when selected", async () => {
+    const h = noopHandlers();
+    const disabled: OrgRow = { ...BASE_ROW, id: 5, status: "DISABLED" };
+    render(<OrgTable rows={[BASE_ROW, disabled]} loading={false} handlers={h} />);
+    await userEvent.click(screen.getByTestId("row-actions-trigger-1"));
+    await userEvent.click(within(screen.getByTestId("row-actions-menu-1")).getByText("Manage Credits"));
+    expect(h.onOpenManageCredits).toHaveBeenCalledWith(BASE_ROW);
+    await userEvent.click(screen.getByTestId("row-actions-trigger-5"));
+    expect(within(screen.getByTestId("row-actions-menu-5")).getByText("Manage Credits")).toBeInTheDocument();
   });
 
   it("row action menu hides Resend when activation_status is active", async () => {
