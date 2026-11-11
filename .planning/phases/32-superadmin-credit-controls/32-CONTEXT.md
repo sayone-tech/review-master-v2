@@ -44,6 +44,10 @@ Requirements: CRED-01, CRED-06, CSUP-01, CSUP-02. Org Admin / Staff credit **vis
 - **D-16:** The "Manage credits" modal header shows **org name, current month, and allocation per shop** only (e.g. "Acme — November 2026 · 100 credits per shop"). **No org-level aggregate totals** — cross-shop usage reporting is out of scope (spec §8.3).
 - **D-17:** The org row action is labelled **"Manage credits"**, placed alongside "Adjust stores" in the row actions menu.
 
+### Edge cases settled during /gsd-ui-phase 32 (UI-consideration probe)
+- **D-18:** A change counts as "immediate" (the 0 → N case) **only when every shop in the org had 0 credits for the whole current month**, i.e. no current-month balance exists with `allocated_credits > 0`. Otherwise (e.g. 100 → 0 earlier this month, then 0 → 50) it is an N → M change and applies from the 1st of next month. The Edit form's live hint (D-01) and the backend use this same rule.
+- **D-19:** Allocating bonus to a shop that was **deactivated while the modal was open** returns **404**; the UI shows a toast ("This shop is no longer active") and returns to a reloaded list without that shop (consistent with D-05).
+
 ### Carried forward (locked by earlier phases / roadmap — do not re-decide)
 - Allocation range 0–10,000 is enforced by DB CHECK `org_monthly_credit_allocation_range` + model validators (Phase 29, T-29-08).
 - `ensure_balance(shop_id=...)` is the only way to materialise a balance; read selectors (`get_shop_credit_balance`, `annotate_credit_state`) never write (Phase 29, CRED-05).
