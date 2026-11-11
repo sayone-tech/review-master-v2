@@ -23,9 +23,11 @@ from apps.credits.services.consumption import (
     refund_reservation,
     reserve_credits,
 )
+from apps.credits.services.lapse import LapseSummary, lapse_past_balances
 from apps.credits.services.ledger import transition_status
+from apps.credits.services.periods import current_period
 from apps.credits.services.reaper import ReapSummary, reap_stale_reservations
-from apps.credits.tests.factories import CreditTransactionFactory
+from apps.credits.tests.factories import CreditTransactionFactory, ShopCreditBalanceFactory
 from apps.credits.tests.helpers import age_reservation, assert_ledger_reconciles
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.reviews.tests.factories import ReviewFactory
@@ -333,6 +335,11 @@ def test_charges_once_when_commit_and_refund_race():
     assert_ledger_reconciles(balance)
 
 
+def _previous_period() -> tuple[int, int]:
+    p = current_period()
+    return (p.year - 1, 12) if p.month == 1 else (p.year, p.month - 1)
+
+
 def _refunded_audit_rows(shop_id: int, transaction_id: int) -> list[AuditLog]:
     return [
         a
@@ -429,3 +436,219 @@ def test_reaper_and_late_commit_settle_each_reservation_once_when_racing():
     assert_ledger_reconciles(balance)
     assert split["committed"] + split["refunded"] == n_rounds
     print(f"reaper-vs-late-commit split: {split}")  # noqa: T201 - recorded in the SUMMARY
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_overlapping_reapers_refund_each_stale_reservation_once_when_k_threads_race():
+    n_threads = 4
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shops = [ShopFactory(organisation=org) for _ in range(2)]
+    tx_ids: list[tuple[int, int]] = []
+    for shop in shops:
+        for _ in range(6):
+            review = ReviewFactory(organisation=org, shop=shop)
+            res = reserve_credits(shop_id=shop.pk, review_id=review.pk, credits=1, actor_id=None)
+            age_reservation(res.transaction_id, minutes=6)
+            tx_ids.append((shop.pk, res.transaction_id))
+    barrier = threading.Barrier(n_threads)
+    summaries: list[ReapSummary] = []
+    lock = threading.Lock()
+
+    def worker(_index: int) -> None:
+        barrier.wait(timeout=10)
+        summary = reap_stale_reservations()
+        with lock:
+            summaries.append(summary)
+
+    errors = _run_threads(n_threads, worker)
+
+    assert not errors, errors
+    assert len(summaries) == n_threads
+    assert sum(s.reaped for s in summaries) == 12
+    assert all(s.errored == 0 for s in summaries)
+    for shop_id, tx_id in tx_ids:
+        assert CreditTransaction.objects.get(pk=tx_id).status == CreditTransaction.Status.REFUNDED
+        assert len(_refunded_audit_rows(shop_id, tx_id)) == 1
+    for shop in shops:
+        balance = ShopCreditBalance.objects.get(shop=shop)
+        assert balance.consumed_credits == 0
+        assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_overlapping_lapse_sweeps_write_one_lapsed_row_per_balance_when_n_threads_race():
+    n_threads = 6
+    year, month = _previous_period()
+    cur = current_period()
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shops = [ShopFactory(organisation=org) for _ in range(7)]
+    with_credit = []
+    for i, shop in enumerate(shops[:5]):
+        with_credit.append(
+            ShopCreditBalanceFactory(
+                shop=shop,
+                period_year=year,
+                period_month=month,
+                allocated_credits=10,
+                bonus_credits=i,
+                consumed_credits=i,
+            )
+        )
+    used_up = ShopCreditBalanceFactory(
+        shop=shops[5],
+        period_year=year,
+        period_month=month,
+        allocated_credits=10,
+        bonus_credits=2,
+        consumed_credits=12,
+    )
+    held = ShopCreditBalanceFactory(
+        shop=shops[6],
+        period_year=year,
+        period_month=month,
+        allocated_credits=10,
+        consumed_credits=2,
+    )
+    CreditTransactionFactory(
+        shop_credit_balance=held,
+        credits_delta=-2,
+        review=ReviewFactory(organisation=org, shop=shops[6]),
+        status=CreditTransaction.Status.RESERVED,
+    )
+    current_balances = [
+        ShopCreditBalanceFactory(shop=shop, period_year=cur.year, period_month=cur.month)
+        for shop in shops
+    ]
+    barrier = threading.Barrier(n_threads)
+    summaries: list[LapseSummary] = []
+    lock = threading.Lock()
+
+    def worker(_index: int) -> None:
+        barrier.wait(timeout=10)
+        summary = lapse_past_balances()
+        with lock:
+            summaries.append(summary)
+
+    errors = _run_threads(n_threads, worker)
+
+    assert not errors, errors
+    assert len(summaries) == n_threads
+    for balance in with_credit:
+        balance.refresh_from_db()
+        rows = CreditTransaction.objects.filter(
+            shop_credit_balance=balance, transaction_type=CreditTransaction.Type.LAPSED
+        )
+        assert rows.count() == 1
+        assert rows.get().credits_delta == -(
+            balance.allocated_credits + balance.bonus_credits - balance.consumed_credits
+        )
+        assert balance.lapsed_at is not None
+        audits = AuditLog.objects.filter(
+            action="shop.credits.lapsed", entity_id=str(balance.shop_id)
+        )
+        assert audits.count() == 1
+    used_up.refresh_from_db()
+    assert used_up.lapsed_at is not None
+    assert not CreditTransaction.objects.filter(
+        shop_credit_balance=used_up, transaction_type=CreditTransaction.Type.LAPSED
+    ).exists()
+    assert not AuditLog.objects.filter(
+        action="shop.credits.lapsed", entity_id=str(used_up.shop_id)
+    ).exists()
+    held.refresh_from_db()
+    assert held.lapsed_at is None
+    assert not CreditTransaction.objects.filter(
+        shop_credit_balance=held, transaction_type=CreditTransaction.Type.LAPSED
+    ).exists()
+    assert not AuditLog.objects.filter(
+        action="shop.credits.lapsed", entity_id=str(held.shop_id)
+    ).exists()
+    for balance in current_balances:
+        balance.refresh_from_db()
+        assert balance.lapsed_at is None
+    assert sum(s.lapsed for s in summaries) == 5
+    assert sum(s.lapsed_zero for s in summaries) == 1
+    assert all(s.errored == 0 for s in summaries)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_past_period_reservation_settles_once_and_balance_lapses_once_when_commit_reaper_and_sweep_race():
+    n_rounds = 6
+    year, month = _previous_period()
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    split = {"committed": 0, "free_draft": 0}
+
+    for _ in range(n_rounds):
+        shop = ShopFactory(organisation=org)
+        review = ReviewFactory(organisation=org, shop=shop)
+        balance = ShopCreditBalanceFactory(
+            shop=shop,
+            period_year=year,
+            period_month=month,
+            allocated_credits=10,
+            consumed_credits=3,
+        )
+        tx = CreditTransactionFactory(
+            shop_credit_balance=balance,
+            credits_delta=-3,
+            review=review,
+            status=CreditTransaction.Status.RESERVED,
+        )
+        age_reservation(tx.pk, minutes=6)
+        barrier = threading.Barrier(3)
+        settled: list[SettleResult] = []
+        lock = threading.Lock()
+
+        def worker(
+            index: int,
+            barrier: threading.Barrier = barrier,
+            tx_id: int = tx.pk,
+            settled: list[SettleResult] = settled,
+            lock: threading.Lock = lock,
+        ) -> None:
+            barrier.wait(timeout=10)
+            if index == 0:
+                result = commit_reservation(
+                    transaction_id=tx_id, ai_usage_log_id=None, outcome="success", actor_id=None
+                )
+                with lock:
+                    settled.append(result)
+            elif index == 1:
+                reap_stale_reservations()
+            else:
+                lapse_past_balances()
+
+        errors = _run_threads(3, worker)
+
+        assert not errors, errors
+        lapse_past_balances()
+        assert len(settled) == 1
+        outcome = settled[0].outcome
+        tx.refresh_from_db()
+        balance.refresh_from_db()
+        lapsed_rows = CreditTransaction.objects.filter(
+            shop_credit_balance=balance, transaction_type=CreditTransaction.Type.LAPSED
+        )
+        if outcome == "committed":
+            split["committed"] += 1
+            assert tx.status == CreditTransaction.Status.COMMITTED
+            assert balance.consumed_credits == 3
+            assert lapsed_rows.get().credits_delta == -7
+        else:
+            assert outcome == "free_draft", outcome
+            split["free_draft"] += 1
+            assert tx.status == CreditTransaction.Status.REFUNDED
+            assert balance.consumed_credits == 0
+            assert lapsed_rows.get().credits_delta == -10
+            assert not CreditTransaction.objects.filter(review=review, note="late_commit").exists()
+        assert lapsed_rows.count() == 1
+        assert (
+            AuditLog.objects.filter(action="shop.credits.lapsed", entity_id=str(shop.pk)).count()
+            == 1
+        )
+        assert balance.lapsed_at is not None
+        assert_ledger_reconciles(balance)
+    print(f"past-period straddle split: {split}")  # noqa: T201 - recorded in the SUMMARY
