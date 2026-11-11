@@ -315,7 +315,7 @@ Plans:
   4. A "Buy More Credits" modal opens from the credits card, the Shops-list badge, and the composer. It offers a Contact Admin mailto to `REVIEWBEE_SUPPORT_EMAIL`, traps focus, carries ARIA labels, closes on ESC or a backdrop click, and has no payment flow.
   5. Org Admins see `shop.credits.*` and `organisation.credits.set` events in the Activity Log; Staff do not. The Shops list and every credit endpoint return only shops in a Staff user's StaffAccessScope. Negative tests prove that cross-org access, out-of-scope Staff, and Staff calls to Superadmin endpoints are refused.
 
-**Plans**: 6/7 plans executed (waves 1 → 2 → 3)
+**Plans**: 7/7 plans executed (waves 1 → 2 → 3)
 
 Plans:
 
@@ -330,7 +330,7 @@ Plans:
 - [x] 33-06-PLAN.md — Tracer: credits badge → Shop Details with the AI Reply Credits card; card states, stacked Buy More with Escape ordering, badge states and store seeding, defensive Staff empty state (CVIS-01, CVIS-02, CVIS-04) — depends on 33-03, codes against 33-01/33-04 frozen contracts
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 33-07-PLAN.md — Tracer: whole-phase walk-through test + contract cross-check; tenant-security-auditor + orm-performance-auditor + code-reviewer + frontend-react-builder with dispositions; PostgreSQL proof of the audit text compare; runbook + CLAUDE.md; full gates; validation sign-off
+- [x] 33-07-PLAN.md — Tracer: whole-phase walk-through test + contract cross-check; tenant-security-auditor + orm-performance-auditor + code-reviewer + frontend-react-builder with dispositions; PostgreSQL proof of the audit text compare; runbook + CLAUDE.md; full gates; validation sign-off
 **UI hint**: yes
 **Notes**:
 
@@ -379,4 +379,4 @@ Plans:
 | 30. Metered AI Reply Generation | v0.9 | 4/4 | ⬜ Not started | - |
 | 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ⬜ Not started | - |
 | 32. Superadmin Credit Controls | v0.9 | 5/5 | ⬜ Not started | - |
-| 33. Credit Visibility & Staff Scoping | v0.9 | 6/7 | ⬜ Not started | - |
+| 33. Credit Visibility & Staff Scoping | v0.9 | 7/7 | ⬜ Not started | - |

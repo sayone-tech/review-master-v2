@@ -4,17 +4,17 @@ milestone: v0.9
 milestone_name: AI Reply Credits
 current_phase: 33
 current_phase_name: Credit Visibility & Staff Scoping
-status: executing
-stopped_at: Completed 33-06-PLAN.md
-last_updated: "2026-11-11T19:45:15.327Z"
+status: verifying
+stopped_at: Completed 33-07-PLAN.md
+last_updated: "2026-11-11T19:52:29.170Z"
 last_activity: 2026-11-12
 last_activity_desc: Phase 33 execution started
-state_head: 485326884c2e2693c7061d81494ade598f3e8290
+state_head: b23e0c9e396c0035f81b1581f01b02e3192fac25
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 23
-  completed_plans: 21
+  completed_plans: 23
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 
 Phase: 33 (Credit Visibility & Staff Scoping) — EXECUTING
 Plan: 7 of 7
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-11-12 — Phase 33 execution started
 
 ### v0.9 phase map (Phases 29–33)
@@ -107,6 +107,7 @@ Last activity: 2026-11-12 — Phase 33 execution started
 | Phase 33 P04 | 20 min | 3 tasks | 9 files |
 | Phase 33 P05 | 15 min | 3 tasks | 6 files |
 | Phase 33 P06 | 12 min | 3 tasks | 13 files |
+| Phase 33 P07 | 25 min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -155,6 +156,7 @@ Decisions carried forward (from v0.8 and earlier):
 - [Phase 33]: 33-04: ShopCreditsView lives in apps/credits at /api/v1/shops/<id>/credits/, gated by get_accessible_shop_for_credits; uniform 404 shop_not_found, no-store, shop_credits 120/minute
 - [Phase 33]: 33-05: composer cost only from the server; a 402 keeps the draft and switches the composer state in place (no banner)
 - [Phase 33]: 33-06: CreditsCard keys results by shopId and treats another shop's outcome as loading; stacked Buy More is a sibling modal with Shop Details dismissible=false while open; credit dates use formatUtcDate (Sep, not Sept)
+- [Phase 33]: 33-07: section 27 reviews run inline (Agent tool unavailable); Superadmin actor names, Staff list scoping and D-17 accepted; ReviewTargetViewSet Staff scoping and allocation_status/has_regions recorded as follow-ups
 
 ### Pending Todos
 
@@ -171,6 +173,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-11-11T19:45:15.018Z
-Stopped at: Completed 33-06-PLAN.md
+Last session: 2026-11-11T19:52:28.852Z
+Stopped at: Completed 33-07-PLAN.md
 Resume file: None
