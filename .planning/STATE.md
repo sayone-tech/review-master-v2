@@ -17,18 +17,30 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-08)
+See: .planning/PROJECT.md (updated 2026-11-11)
 
-**Core value:** Org Admins and Staff can view, respond to, and action Google reviews — backed by Celery background sync, AI enrichment, and an Action Items workflow.
-**Current focus:** None — **v0.8 Canonical Tag System shipped 2026-06-30.** Next milestone (mobile app) starts via `/gsd-new-milestone`.
+**Core value:** Org Admins and Staff can view, respond to, and action Google reviews — and AI reply spend is capped by a visible per-shop monthly credit budget that Superadmin controls.
+**Current focus:** v0.9 AI Reply Credits — roadmap created (Phases 29–33); next step is `/gsd-discuss-phase 29` or `/gsd-plan-phase 29`.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 29 — Credits Ledger Foundation (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-11-11 — Milestone v0.9 started
+Status: Roadmap created, awaiting phase planning
+Last activity: 2026-11-11 — v0.9 roadmap created; 5 phases (29–33), 27/27 requirements mapped
 
+### v0.9 phase map (Phases 29–33)
+
+| Phase | Name | Requirements | Depends on | UI contract |
+|-------|------|--------------|------------|-------------|
+| 29 | Credits Ledger Foundation | CRED-02..05, CQA-01 | Phase 27 (v0.8) | — |
+| 30 | Metered AI Reply Generation | CCON-01..08, CQA-02 | 29 | — (backend only) |
+| 31 | Monthly Renewal & Reservation Reaper | CREN-01..03 | 30 | — |
+| 32 | Superadmin Credit Controls | CRED-01, CRED-06, CSUP-01..02 | 29 | `/gsd-ui-phase 32` |
+| 33 | Credit Visibility & Staff Scoping | CVIS-01..05, SCOPE-01 | 30, 32 | `/gsd-ui-phase 33` |
+
+**Dependency waves:** A: 29 → B: 30 ∥ 32 → C: 31 ∥ 33. Numeric order 29 → 33 is a valid sequential fallback.
+**Model split:** planning/discuss on Opus; execution (`gsd-executor`, `gsd-debugger`, `gsd-doc-writer`) on latest Sonnet, via `.planning/config.json` `models`.
 
 ### v0.8 phase map (Phases 22–27) — SHIPPED 2026-06-30
 
@@ -70,7 +82,16 @@ Last activity: 2026-11-11 — Milestone v0.9 started
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Decisions carried forward (relevant to v0.8):
+Decisions for v0.9 (AI Reply Credits):
+
+- [v0.9 roadmap]: Coarse granularity — research's six-phase plan compressed to five: Read API + Org Admin/Staff frontend merged into one vertical slice (Phase 33); Superadmin backend + UI kept together (Phase 32). The consumption core (Phase 30) is never merged with a UI phase.
+- [v0.9 roadmap]: `Organisation.monthly_credit_allocation`, `ensure_balance()`, and the virtual-balance selectors land in Phase 29 so Phases 32 and 33 build on them independently; the Superadmin-facing set/audit/UI (CRED-01) is Phase 32.
+- [v0.9 roadmap]: CQA-01 (Postgres CI + `pg_concurrency`) lands in Phase 29 with the first-use race test; CCON-02 (Phase 30) and CREN-03 (Phase 31) add their concurrency tests to the same job.
+- [v0.9 roadmap]: SCOPE-01 resolves research option (b) — `list_shops` gains real Staff scoping (Staff stop seeing out-of-scope shops), not null-field masking.
+- [v0.9]: "Manager" = Org Admin; cost from trimmed `Review.comment`; cost function in `apps/credits/services/credit_cost.py`; BigAutoField PKs; generate-reply throttle stays 10/min; no click-confirmation (cost on button label); refund on OpenAI failure + input-moderation block, consume on output-moderation block; §9.3 shop-switcher badge deferred (CFUT-03).
+- [v0.9]: Rollout = deploy note (CQA-02), no backfill — orgs start at 0 credits; Superadmin enables via CRED-06 (0 → N is immediate; N → M applies next month).
+
+Decisions carried forward (from v0.8 and earlier):
 
 - [v0.8]: Tag-merge progress uses HTTP polling, NOT a new WebSocket consumer — keeps Channels surface narrow per §13.2
 - [v0.8]: Superadmin data reset is a hard wipe — deliberate one-time pre-production exception to §11 soft-delete rule
@@ -87,10 +108,14 @@ None.
 ### Blockers/Concerns
 
 - Phase 8 (carried forward): GBP API production approval from Google is a non-code prerequisite for production launch.
-- [v0.8]: Queue split (QUEUE-01) touches deploy config in multiple places — routes, `CELERY_QUEUE_NAMES`, worker `-Q`, queue-depth metric; plan Phase 23 with that breadth in mind.
+- [v0.9 rollout]: Default allocation 0 disables AI replies for every existing org on deploy — Superadmin must set allocations at deploy time per the CQA-02 deploy note; the 402 gate must not reach production without it.
+- [v0.9 Phase 30]: Research flags — client-disconnect settlement under Daphne, reply-path `with_options` timeout vs LangSmith wrapper, late-commit policy. Mandatory `ai-enrichment-specialist` review.
+- [v0.9 Phase 32]: Superadmin shop-credits surface has no precedent (no Superadmin Shop Details screen) — largest scope risk; UI-SPEC first.
+- [v0.9 Phase 33]: Activity Log Staff-scoping change not verified in depth; `list_shops` Staff scoping is a behaviour change. Mandatory `tenant-security-auditor` + `orm-performance-auditor`.
+- [v0.9 Phase 31]: Beat "lapse not complete by 00:30 UTC" alert is infra outside this repo — flag to deployment owner.
 
 ## Session Continuity
 
-Last session: 2026-06-24T10:04:56.010Z
-Stopped at: Phase 25 UI-SPEC approved
+Last session: 2026-11-11
+Stopped at: v0.9 roadmap created (Phases 29–33); awaiting Phase 29 discuss/plan
 Resume file: None

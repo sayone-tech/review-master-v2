@@ -83,11 +83,41 @@ Deferred — tracked but not in the v0.9 roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| CRED-01 | Phase 32 | Pending |
+| CRED-02 | Phase 29 | Pending |
+| CRED-03 | Phase 29 | Pending |
+| CRED-04 | Phase 29 | Pending |
+| CRED-05 | Phase 29 | Pending |
+| CRED-06 | Phase 32 | Pending |
+| CCON-01 | Phase 30 | Pending |
+| CCON-02 | Phase 30 | Pending |
+| CCON-03 | Phase 30 | Pending |
+| CCON-04 | Phase 30 | Pending |
+| CCON-05 | Phase 30 | Pending |
+| CCON-06 | Phase 30 | Pending |
+| CCON-07 | Phase 30 | Pending |
+| CCON-08 | Phase 30 | Pending |
+| CREN-01 | Phase 31 | Pending |
+| CREN-02 | Phase 31 | Pending |
+| CREN-03 | Phase 31 | Pending |
+| CVIS-01 | Phase 33 | Pending |
+| CVIS-02 | Phase 33 | Pending |
+| CVIS-03 | Phase 33 | Pending |
+| CVIS-04 | Phase 33 | Pending |
+| CVIS-05 | Phase 33 | Pending |
+| CSUP-01 | Phase 32 | Pending |
+| CSUP-02 | Phase 32 | Pending |
+| SCOPE-01 | Phase 33 | Pending |
+| CQA-01 | Phase 29 | Pending |
+| CQA-02 | Phase 30 | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 0 (pending roadmap)
+- Mapped to phases: 27 ✓
+- Unmapped: 0
+- Per phase: Phase 29 → 5 · Phase 30 → 9 · Phase 31 → 3 · Phase 32 → 4 · Phase 33 → 6
+- Note: CQA-01 is delivered in Phase 29 (Postgres CI job + `pg_concurrency` marker + first-use race test); the N-threads-vs-K-credits test (CCON-02, Phase 30) and the reaper-vs-late-commit test (CREN-03, Phase 31) are added to the same job.
 
 ---
 *Requirements defined: 2026-11-11*
-*Last updated: 2026-11-11 after initial definition*
+*Last updated: 2026-11-11 after v0.9 roadmap creation (traceability filled, Phases 29–33)*
