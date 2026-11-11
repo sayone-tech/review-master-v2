@@ -8,6 +8,8 @@ from unittest.mock import patch
 
 import pytest
 from django.core.cache import caches
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 from rest_framework.throttling import ScopedRateThrottle
 
@@ -15,6 +17,7 @@ from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory, Us
 from apps.common.models import AuditLog
 from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.services.periods import Period, current_period
+from apps.credits.tests.factories import ShopCreditBalanceFactory
 from apps.credits.tests.helpers import assert_ledger_reconciles
 from apps.organisations.models import Organisation
 from apps.organisations.tests.factories import OrganisationFactory
@@ -330,3 +333,166 @@ def test_bonus_returns_429_when_write_rate_exceeded(superadmin_client, org_shop,
     ]
 
     assert codes == [201, 201, 429]
+
+
+# --- Shop list ---------------------------------------------------------------------------
+
+
+def _list_url(org_id: int) -> str:
+    return f"/api/v1/superadmin/organisations/{org_id}/credits/shops/"
+
+
+def test_shop_list_returns_active_shops_with_virtual_and_materialised_balances(superadmin_client):
+    org = OrganisationFactory(monthly_credit_allocation=100)
+    ShopFactory(organisation=org, name="Bravo")
+    alpha = ShopFactory(organisation=org, name="Alpha")
+    ShopFactory(organisation=org, name="Zulu", is_active=False)
+    ShopCreditBalanceFactory(
+        shop=alpha, allocated_credits=100, bonus_credits=20, consumed_credits=85
+    )
+
+    resp = superadmin_client.get(_list_url(org.pk))
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body) == {"count", "next", "previous", "period", "allocation_per_shop", "results"}
+    assert body["period"] == {"year": current_period().year, "month": current_period().month}
+    assert body["allocation_per_shop"] == 100
+    assert body["count"] == 2
+    assert [r["name"] for r in body["results"]] == ["Alpha", "Bravo"]
+    for row in body["results"]:
+        assert set(row) == {
+            "id",
+            "name",
+            "allocated",
+            "bonus",
+            "consumed",
+            "remaining",
+            "is_materialized",
+        }
+    a, b = body["results"]
+    assert (a["allocated"], a["bonus"], a["consumed"], a["remaining"], a["is_materialized"]) == (
+        100,
+        20,
+        85,
+        35,
+        True,
+    )
+    assert (b["allocated"], b["bonus"], b["consumed"], b["remaining"], b["is_materialized"]) == (
+        100,
+        0,
+        0,
+        100,
+        False,
+    )
+
+
+def test_shop_list_never_writes_when_shops_have_no_rows(superadmin_client):
+    org = OrganisationFactory(monthly_credit_allocation=100)
+    ShopFactory.create_batch(3, organisation=org)
+    before = _counts()
+
+    with CaptureQueriesContext(connection) as ctx:
+        resp = superadmin_client.get(_list_url(org.pk))
+
+    assert resp.status_code == 200
+    assert _counts() == before
+    writes = [
+        q["sql"]
+        for q in ctx.captured_queries
+        if q["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))
+    ]
+    assert writes == []
+
+
+def test_shop_list_reports_this_months_allocation_when_change_is_pending(superadmin_client):
+    org = OrganisationFactory(monthly_credit_allocation=50)
+    ShopCreditBalanceFactory(shop=ShopFactory(organisation=org), allocated_credits=100)
+
+    resp = superadmin_client.get(_list_url(org.pk))
+
+    assert resp.json()["allocation_per_shop"] == 100
+
+
+def test_shop_list_filters_by_case_insensitive_name_search(superadmin_client):
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    ShopFactory(organisation=org, name="Alpha")
+    ShopFactory(organisation=org, name="Bravo")
+
+    filtered = superadmin_client.get(_list_url(org.pk), {"search": "alp"}).json()
+    everything = superadmin_client.get(_list_url(org.pk), {"search": ""}).json()
+
+    assert [r["name"] for r in filtered["results"]] == ["Alpha"]
+    assert filtered["count"] == 1
+    assert everything["count"] == 2
+
+
+def test_shop_list_paginates_ten_per_page_with_stable_order(superadmin_client):
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    for i in range(11):
+        ShopFactory(organisation=org, name=f"Shop {i % 10}")
+    ShopFactory(organisation=org, name="Shop 0")
+
+    page1 = superadmin_client.get(_list_url(org.pk), {"page": 1}).json()
+    page2 = superadmin_client.get(_list_url(org.pk), {"page": 2}).json()
+
+    assert page1["count"] == 12
+    assert len(page1["results"]) == 10
+    assert len(page2["results"]) == 2
+    ids = [r["id"] for r in page1["results"] + page2["results"]]
+    assert len(set(ids)) == 12
+    assert page1["next"] is not None
+    assert page2["next"] is None
+
+
+def test_shop_list_query_count_is_constant_when_shop_count_grows(superadmin_client):
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    ShopFactory.create_batch(2, organisation=org)
+    with CaptureQueriesContext(connection) as small:
+        assert superadmin_client.get(_list_url(org.pk)).status_code == 200
+
+    ShopFactory.create_batch(10, organisation=org)
+    for shop in org.shops.all()[:5]:
+        ShopCreditBalanceFactory(shop=shop, allocated_credits=10)
+    with CaptureQueriesContext(connection) as large:
+        resp = superadmin_client.get(_list_url(org.pk))
+
+    assert resp.status_code == 200
+    assert len(small.captured_queries) == len(large.captured_queries)
+    assert len(large.captured_queries) <= 4
+
+
+def test_shop_list_returns_404_when_organisation_deleted_or_unknown(superadmin_client):
+    deleted = OrganisationFactory(status=Organisation.Status.DELETED)
+
+    for org_id in (deleted.pk, 999999):
+        resp = superadmin_client.get(_list_url(org_id))
+        assert resp.status_code == 404
+        assert resp.json()["code"] == "organisation_not_found"
+
+
+def test_shop_list_returns_403_when_org_admin_of_same_org():
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    ShopFactory(organisation=org)
+    client = APIClient()
+    client.force_authenticate(user=OrgAdminFactory(organisation=org))
+    before = _counts()
+
+    resp = client.get(_list_url(org.pk))
+
+    assert resp.status_code == 403
+    assert _counts() == before
+
+
+def test_shop_list_returns_403_when_staff_user():
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    client = APIClient()
+    client.force_authenticate(user=StaffAdminFactory(organisation=org))
+
+    assert client.get(_list_url(org.pk)).status_code == 403
+
+
+def test_shop_list_is_refused_when_anonymous():
+    org = OrganisationFactory()
+
+    assert APIClient().get(_list_url(org.pk)).status_code in (401, 403)
