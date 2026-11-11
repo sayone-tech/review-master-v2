@@ -15,6 +15,22 @@ class Period(NamedTuple):
     month: int
 
 
+_MONTH_NAMES = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)
 
@@ -34,3 +50,12 @@ def current_period(now: datetime | None = None) -> Period:
 def next_period_start(period: Period) -> datetime:
     """First instant (aware, UTC) of the month after ``period``; December rolls to January."""
     return datetime(period.year + period.month // 12, period.month % 12 + 1, 1, tzinfo=UTC)
+
+
+def period_label(period: Period) -> str:
+    """Server-owned month label, e.g. ``"November 2026"``.
+
+    Hard-coded English names, never locale formatting: the server locale must not change
+    the label the credits card shows.
+    """
+    return f"{_MONTH_NAMES[period.month - 1]} {period.year}"

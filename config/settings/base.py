@@ -437,6 +437,8 @@ REST_FRAMEWORK = {
         # Phase 32: Superadmin credit endpoints (shop list read, bonus write).
         "superadmin_credits_read": "120/minute",
         "superadmin_credits_write": "30/minute",
+        # Phase 33: Org Admin / Staff shop credits card read (CVIS-01).
+        "shop_credits": "120/minute",
         "audit_log_list": "120/minute",
         "sync_progress": SYNC_PROGRESS_THROTTLE_RATE,  # Phase 27 SYNC-REL-01 snapshot poll
     },

@@ -7,6 +7,8 @@ from typing import Any
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.credits.services.periods import Period, period_label
+
 
 class BonusAllocationSerializer(serializers.Serializer[Any]):
     amount = serializers.IntegerField(min_value=1, max_value=10000)
@@ -50,6 +52,31 @@ class CreditShopRowSerializer(serializers.Serializer[Any]):
     consumed = serializers.IntegerField(source="credit_consumed", read_only=True)
     remaining = serializers.IntegerField(source="credit_remaining", read_only=True)
     is_materialized = serializers.BooleanField(source="credit_materialized", read_only=True)
+
+
+class ShopCreditsSerializer(serializers.Serializer[Any]):
+    """Shape of ``CreditBalanceView`` for the tenant shop-credits read (CVIS-01)."""
+
+    shop_id = serializers.IntegerField()
+    period = serializers.SerializerMethodField()
+    period_label = serializers.SerializerMethodField()
+    renews_on = serializers.DateField()
+    allocated = serializers.IntegerField()
+    bonus = serializers.IntegerField()
+    consumed = serializers.IntegerField()
+    remaining = serializers.IntegerField()
+    total = serializers.SerializerMethodField()
+    is_enabled = serializers.BooleanField()
+
+    @extend_schema_field(CreditPeriodSerializer)
+    def get_period(self, obj: Any) -> dict[str, int]:
+        return {"year": obj.year, "month": obj.month}
+
+    def get_period_label(self, obj: Any) -> str:
+        return period_label(Period(obj.year, obj.month))
+
+    def get_total(self, obj: Any) -> int:
+        return int(obj.allocated + obj.bonus)
 
 
 # Schema-only serializers (never instantiated for output) ----------------------------------
