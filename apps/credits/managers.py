@@ -17,13 +17,28 @@ class CreditTransactionQuerySet(models.QuerySet["CreditTransaction"]):
     ``bulk_create(update_conflicts=True)`` is rejected (it is an upsert that rewrites rows);
     the only mutation is the status CAS below (``update`` also backs ``bulk_update``)."""
 
-    def bulk_create(self, objs: Any, *args: Any, **kwargs: Any) -> Any:
-        if kwargs.get("update_conflicts"):
+    def bulk_create(
+        self,
+        objs: Any,
+        batch_size: int | None = None,
+        ignore_conflicts: bool = False,
+        update_conflicts: bool = False,
+        update_fields: Any = None,
+        unique_fields: Any = None,
+    ) -> Any:
+        # Explicit signature so update_conflicts is caught whether passed by keyword or position.
+        if update_conflicts:
             raise AppendOnlyViolation(
                 "CreditTransaction rows are append-only; "
                 "bulk_create(update_conflicts=True) would rewrite rows."
             )
-        return super().bulk_create(objs, *args, **kwargs)
+        return super().bulk_create(
+            objs,
+            batch_size=batch_size,
+            ignore_conflicts=ignore_conflicts,
+            update_fields=update_fields,
+            unique_fields=unique_fields,
+        )
 
     def update(self, **kwargs: Any) -> NoReturn:
         raise AppendOnlyViolation(
