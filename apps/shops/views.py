@@ -8,6 +8,7 @@ from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views import View
@@ -44,6 +45,7 @@ from apps.shops.selectors.shops import (
     get_allocation_status,
     get_has_regions,
     list_shops,
+    restrict_to_staff_scope,
 )
 from apps.shops.selectors.targets import list_target_history, list_targets_for_shop
 from apps.shops.serializers import (
@@ -164,6 +166,13 @@ class ShopViewSet(
             return [RequiresSessionAuth(), IsOrgAdmin(), IsOrgScoped()]
         # Read actions (list, retrieve) are open to both ORG_ADMIN and STAFF_ADMIN.
         return [IsOrgScoped()]
+
+    def get_queryset(self) -> QuerySet[Shop]:
+        # Organisation filter first (TenantScopedViewSet), then the shared Staff rule so
+        # retrieve answers 404 for an out-of-scope shop (D-17).
+        qs = super().get_queryset()
+        user = self.request.user
+        return restrict_to_staff_scope(queryset=qs, user=user if isinstance(user, User) else None)
 
     def get_serializer_class(self) -> type[drf_serializers.BaseSerializer[Any]]:
         if self.action == "create":

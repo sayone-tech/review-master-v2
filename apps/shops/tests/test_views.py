@@ -1039,3 +1039,90 @@ class TestShopsListStaffScopeAndCredits:
         assert ShopCreditBalance.objects.count() == 0
         assert CreditTransaction.objects.count() == 0
         assert AuditLog.objects.count() == audit_before
+
+
+def _scoped_staff(org, *shops):  # type: ignore[no-untyped-def]
+    from apps.accounts.models import StaffAccessScope
+    from apps.accounts.tests.factories import StaffAdminFactory
+
+    staff = StaffAdminFactory(organisation=org)
+    for shop in shops:
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=shop
+        )
+    return staff
+
+
+def _client_for(user):  # type: ignore[no-untyped-def]
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+@pytest.mark.django_db
+class TestShopsStaffScopeRetrieveAndCounts:
+    def test_staff_list_is_empty_when_staff_has_no_scope(self):
+        org = OrganisationFactory(number_of_stores=10)
+        ShopFactory.create_batch(2, organisation=org)
+        resp = _client_for(_scoped_staff(org)).get("/api/v1/shops/")
+        assert resp.status_code == 200
+        assert resp.json()["results"] == []
+
+    def test_staff_list_does_not_leak_when_region_scope_is_foreign_org(self):
+        from apps.accounts.models import StaffAccessScope
+
+        org = OrganisationFactory(number_of_stores=10)
+        other = OrganisationFactory(number_of_stores=10)
+        foreign_region = RegionFactory(organisation=other)
+        ShopFactory.create_batch(2, organisation=other, region=foreign_region)
+        own = ShopFactory(organisation=org)
+        staff = _scoped_staff(org, own)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.REGION, region=foreign_region
+        )
+        resp = _client_for(staff).get("/api/v1/shops/")
+        assert [r["id"] for r in resp.json()["results"]] == [own.pk]
+
+    def test_staff_retrieve_is_404_when_shop_out_of_scope_and_200_when_in_scope(self):
+        org = OrganisationFactory(number_of_stores=10)
+        in_scope = ShopFactory(organisation=org)
+        out_scope = ShopFactory(organisation=org)
+        client = _client_for(_scoped_staff(org, in_scope))
+        assert client.get(f"/api/v1/shops/{in_scope.pk}/").status_code == 200
+        assert client.get(f"/api/v1/shops/{out_scope.pk}/").status_code == 404
+
+    def test_org_admin_retrieve_is_200_for_own_and_404_for_other_org(self, org_and_admin):
+        org, _, client = org_and_admin
+        own = ShopFactory(organisation=org)
+        foreign = ShopFactory(organisation=OrganisationFactory())
+        assert client.get(f"/api/v1/shops/{own.pk}/").status_code == 200
+        assert client.get(f"/api/v1/shops/{foreign.pk}/").status_code == 404
+
+    def test_retrieve_emits_null_credit_keys_when_row_is_not_annotated(self, org_and_admin):
+        org, _, client = org_and_admin
+        shop = ShopFactory(organisation=org)
+        body = client.get(f"/api/v1/shops/{shop.pk}/").json()
+        for key in ("credits_allocated", "credits_bonus", "credits_remaining", "credits_total"):
+            assert key in body
+            assert body[key] is None
+
+    @pytest.mark.parametrize("who", ["admin", "staff"])
+    def test_list_query_count_is_equal_for_1_and_20_shops_when_credits_enabled(self, who):
+        counts = []
+        for n in (1, 20):
+            org = OrganisationFactory(number_of_stores=50)
+            region = RegionFactory(organisation=org)
+            shops = ShopFactory.create_batch(n, organisation=org, region=region)
+            user = (
+                UserFactory(role="ORG_ADMIN", organisation=org)
+                if who == "admin"
+                else _scoped_staff(org, *shops)
+            )
+            client = _client_for(user)
+            with CaptureQueriesContext(connection) as ctx:
+                resp = client.get("/api/v1/shops/?page_size=100")
+            assert resp.status_code == 200
+            assert len(resp.json()["results"]) == n
+            counts.append(len(ctx.captured_queries))
+        assert counts[0] == counts[1]
+        assert counts[0] <= 7
