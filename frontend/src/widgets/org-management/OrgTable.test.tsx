@@ -54,13 +54,14 @@ function noopHandlers() {
 }
 
 describe("OrgTable", () => {
-  it("renders 6 data columns plus auto-emitted Actions column header (aria-labelled)", () => {
+  it("renders 7 data columns plus auto-emitted Actions column header (aria-labelled)", () => {
     render(<OrgTable rows={[BASE_ROW]} loading={false} handlers={noopHandlers()} />);
-    // 6 data columns — all have visible text in the thead
+    // 7 data columns — all have visible text in the thead
     expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Type")).toBeInTheDocument();
     expect(screen.getByText("Email")).toBeInTheDocument();
     expect(screen.getByText("Stores")).toBeInTheDocument();
+    expect(screen.getByText("Credits/shop")).toBeInTheDocument();
     expect(screen.getByText("Status")).toBeInTheDocument();
     expect(screen.getByText("Created")).toBeInTheDocument();
     // Actions column — auto-emitted by DataTable when renderRowActions is passed;
@@ -68,6 +69,16 @@ describe("OrgTable", () => {
     expect(screen.getByLabelText("Actions")).toBeInTheDocument();
     // Row content smoke-check
     expect(screen.getByText("0 used of 10 allocated")).toBeInTheDocument();
+  });
+
+  it("should show Off for a zero allocation and a thousands separator for 1000 in the Credits/shop column", () => {
+    const rows: OrgRow[] = [
+      { ...BASE_ROW, id: 10, name: "Zero", monthly_credit_allocation: 0 },
+      { ...BASE_ROW, id: 11, name: "Many", monthly_credit_allocation: 1000 },
+    ];
+    render(<OrgTable rows={rows} loading={false} handlers={noopHandlers()} />);
+    expect(screen.getByText("Off")).toBeInTheDocument();
+    expect(screen.getByText("1,000")).toBeInTheDocument();
   });
 
   it("clicking the name column calls onOpenView", async () => {
@@ -130,6 +141,15 @@ describe("OrgTable — mobile card layout (SA-090)", () => {
     const card = screen.getByTestId("org-card-1");
     expect(within(card).getByText("Acme")).toBeInTheDocument();
     expect(within(card).getByText("0 used of 10 allocated")).toBeInTheDocument();
+  });
+
+  it("should show Credits/shop on the mobile card", () => {
+    mockMatchMedia(true);
+    const row: OrgRow = { ...BASE_ROW, monthly_credit_allocation: 250 };
+    render(<OrgTable rows={[row]} loading={false} handlers={noopHandlers()} />);
+    const card = screen.getByTestId("org-card-1");
+    expect(within(card).getByText("Credits/shop")).toBeInTheDocument();
+    expect(within(card).getByText("250")).toBeInTheDocument();
   });
 
   it("card name button calls onOpenView", async () => {

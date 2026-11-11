@@ -1,4 +1,5 @@
 import { Modal } from "../modal";
+import { formatCount, formatNextMonthStart } from "./creditHint";
 import { ORG_TYPE_LABELS, type OrgRow } from "./types";
 
 interface Props {
@@ -28,6 +29,9 @@ function formatDateTime(iso: string | null): string {
 export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
   if (!org) return null;
   const actLabel = ACTIVATION_LABEL[org.activation_status];
+  const saved = org.monthly_credit_allocation;
+  const thisMonth = org.current_month_credit_allocation;
+  const nextStart = formatNextMonthStart(new Date());
   return (
     <Modal
       open={true}
@@ -86,6 +90,25 @@ export function ViewOrgModal({ org, onClose, onEdit, onResend }: Props) {
         </dt>
         <dd className="text-[14px] text-ink">
           {org.active_stores} used of {org.number_of_stores} allocated
+        </dd>
+
+        <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
+          Monthly credits per shop
+        </dt>
+        <dd className="text-[14px] text-ink">
+          {saved === 0
+            ? "Off — AI replies are disabled"
+            : `${formatCount(saved)} ${saved === 1 ? "credit" : "credits"}`}
+          {thisMonth !== saved && (
+            <span
+              className="block w-fit max-w-full mt-1 bg-amber-tint text-[#92400E] px-2 py-1 rounded-sm text-[12px] break-words"
+              data-testid="view-credit-pending"
+            >
+              {saved === 0
+                ? `This month: ${formatCount(thisMonth)} (turns off on ${nextStart})`
+                : `This month: ${formatCount(thisMonth)} (changes to ${formatCount(saved)} on ${nextStart})`}
+            </span>
+          )}
         </dd>
 
         <dt className="text-[12px] text-subtle uppercase tracking-[0.05em]">
