@@ -68,7 +68,11 @@ export function ReplyComposer({
         if (controller.signal.aborted) return;
         setCost(res.cost);
         setCostStatus("ready");
-        setShopCredits(row.shop_id, { remaining: res.remaining, isEnabled: res.is_enabled });
+        setShopCredits(row.shop_id, {
+          remaining: res.remaining,
+          total: res.total,
+          isEnabled: res.is_enabled,
+        });
       })
       .catch((e: unknown) => {
         if (controller.signal.aborted) return;
@@ -122,7 +126,11 @@ export function ReplyComposer({
   let creditStatusText = "";
   if (creditState === "loading") creditStatusText = "Checking credits…";
   else if (creditState === "ready" && credits)
-    creditStatusText = `This shop has ${creditsLabel(credits.remaining)} remaining this month.`;
+    // SHOP-23: show remaining of total so users see the monthly budget; fall back if total is unknown.
+    creditStatusText =
+      credits.total !== undefined
+        ? `${formatCount(credits.remaining)} of ${creditsLabel(credits.total)} left this month`
+        : `This shop has ${creditsLabel(credits.remaining)} remaining this month.`;
   else if (creditState === "not_enabled") creditStatusText = "AI replies aren't enabled for this shop.";
   else if (creditState === "insufficient" && credits && cost !== null)
     creditStatusText = `Not enough credits — this reply needs ${formatCount(cost)}, you have ${formatCount(credits.remaining)}.`;

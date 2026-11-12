@@ -102,6 +102,14 @@ describe("ReplyComposer credit awareness (tracer, CVIS-03)", () => {
     expect(generateSpy).toHaveBeenCalledTimes(1);
     expect(screen.getByText("This shop has 33 credits remaining this month.")).toBeInTheDocument();
   });
+
+  it("should show remaining of total under the AI button when the server sends the monthly total", async () => {
+    costSpy.mockResolvedValue({ cost: 2, remaining: 18, total: 20, is_enabled: true });
+    renderComposer();
+
+    expect(await screen.findByText("18 of 20 credits left this month")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate with AI (requires 2 credits)" })).toBeEnabled();
+  });
 });
 
 describe("ReplyComposer credit states (CVIS-03, D-06, D-07)", () => {

@@ -147,6 +147,8 @@ export async function fetchSyncProgress(shopId: number): Promise<Record<string, 
 export interface CreditCost {
   cost: number;
   remaining: number;
+  /** allocated + bonus this month; optional so an older server response still works. */
+  total?: number;
   is_enabled: boolean;
 }
 

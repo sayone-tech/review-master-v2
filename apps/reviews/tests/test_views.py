@@ -22,6 +22,7 @@ from apps.common.models import AuditLog
 from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.services.allocation import ensure_balance
 from apps.credits.services.consumption import reserve_credits
+from apps.credits.tests.factories import ShopCreditBalanceFactory
 from apps.credits.tests.helpers import assert_ledger_reconciles
 from apps.integrations.openai.exceptions import (
     ContentModeratedException,
@@ -984,7 +985,20 @@ class TestReviewCreditCost:
         resp = self._client(OrgAdminFactory(organisation=org)).get(self._url(review.pk))
 
         assert resp.status_code == 200
-        assert resp.json() == {"cost": 2, "remaining": 10, "is_enabled": True}
+        assert resp.json() == {"cost": 2, "remaining": 10, "total": 10, "is_enabled": True}
+
+    def test_returns_total_with_bonus_when_shop_has_bonus_and_usage(self) -> None:
+        """SHOP-23: total = allocated + bonus for the current month."""
+        org = OrganisationFactory(monthly_credit_allocation=20)
+        review = ReviewFactory(organisation=org, comment="x" * 50)
+        ShopCreditBalanceFactory(
+            shop=review.shop, allocated_credits=20, bonus_credits=5, consumed_credits=7
+        )
+
+        resp = self._client(OrgAdminFactory(organisation=org)).get(self._url(review.pk))
+
+        assert resp.status_code == 200
+        assert resp.json() == {"cost": 1, "remaining": 18, "total": 25, "is_enabled": True}
 
     def test_in_scope_staff_gets_200_and_out_of_scope_staff_gets_404(self) -> None:
         org = OrganisationFactory(monthly_credit_allocation=10)
@@ -1047,7 +1061,7 @@ class TestReviewCreditCost:
             resp = client.get(self._url(review.pk))
 
         assert resp.status_code == 200
-        assert resp.json() == {"cost": 2, "remaining": 0, "is_enabled": False}
+        assert resp.json() == {"cost": 2, "remaining": 0, "total": 0, "is_enabled": False}
         assert ShopCreditBalance.objects.count() == 0
         assert CreditTransaction.objects.count() == 0
         writes = [

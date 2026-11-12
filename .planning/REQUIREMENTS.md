@@ -63,6 +63,7 @@ Small changes outside the v0.9 credits scope, captured here so nothing ships unt
 ### Shop Connection (SHOP)
 
 - [ ] **SHOP-22**: The Google connect button (Create Shop → Connect step, and the Reconnect Google modal) shows a permission note directly above it, before Google's consent screen. The note explains that Google only offers the one broad "manage your Business Profile" permission, and lists the app's actual use: read reviews and the location list; post, edit or delete replies only when the user chooses to. It states that the app never changes business details, hours, photos or ownership. It must not claim the app never deletes anything, because users can delete their own replies (`apps/reviews/services/replies.py`). No "Learn more" link until a help page exists.
+- [ ] **SHOP-23**: When the reply composer shows no credit warning (ready state), the line under the Generate with AI button shows remaining of total, e.g. "18 of 20 credits left this month", so users see the shop's monthly budget. `GET /api/v1/reviews/{id}/credit-cost/` gains an additive `total` field (allocated + bonus for the current month, read from the same virtual balance, no extra query, same Staff scoping). If `total` is missing the composer falls back to "This shop has N credits remaining this month."
 
 ## Future Requirements
 
@@ -119,13 +120,14 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CQA-01 | Phase 29 | Gaps Found |
 | CQA-02 | Phase 30 | Complete |
 | SHOP-22 | Off-milestone (quick change) | Pending |
+| SHOP-23 | Off-milestone (quick change) | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
 - Mapped to phases: 27 ✓
 - Unmapped: 0
 - Per phase: Phase 29 → 5 · Phase 30 → 9 · Phase 31 → 3 · Phase 32 → 4 · Phase 33 → 6
-- Off-milestone: 1 (SHOP-22, not counted in the v1 total)
+- Off-milestone: 2 (SHOP-22, SHOP-23, not counted in the v1 total)
 - Note: CQA-01 is delivered in Phase 29 (Postgres CI job + `pg_concurrency` marker + first-use race test); the N-threads-vs-K-credits test (CCON-02, Phase 30) and the reaper-vs-late-commit test (CREN-03, Phase 31) are added to the same job.
 
 ---

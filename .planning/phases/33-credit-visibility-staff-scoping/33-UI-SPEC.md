@@ -171,7 +171,7 @@ Title Case for buttons and titles ("Buy More Credits", "Contact Admin"); sentenc
 
 | Element | Copy |
 |---------|------|
-| Credits line (enabled) | `This shop has {n} credits remaining this month.` (`1 credit remaining`) |
+| Credits line (enabled) | `{remaining} of {total} credits left this month` when the cost response carries `total` (SHOP-23); otherwise `This shop has {n} credits remaining this month.` (`1 credit remaining`) |
 | Credits line (loading) | `Checking credits…` |
 | AI button label and `aria-label` (identical text) | `Generate with AI (requires {N} credits)` (`(requires 1 credit)`); while the cost is unknown (loading, load error) and when not enabled: `Generate with AI` |
 | Not-enabled message (inline, no link, D-07) | `AI replies aren't enabled for this shop.` |
@@ -257,7 +257,7 @@ Applies to every `ReplyComposer` whose review has a comment (`row.comment.trim()
 | State | Trigger | AI button | Line | Beneath composer |
 |-------|---------|-----------|------|------------------|
 | loading | cost request in flight | `disabled`, `aria-busy`, label `Generate with AI` | `Checking credits…` | — |
-| ready | `is_enabled` and `remaining >= cost` | enabled, label `Generate with AI (requires {cost} credits)` | `This shop has {remaining} credits remaining this month.` (`text-muted`) | — |
+| ready | `is_enabled` and `remaining >= cost` | enabled, label `Generate with AI (requires {cost} credits)` | `{remaining} of {total} credits left this month` (SHOP-23; fallback `This shop has {remaining} credits remaining this month.`) (`text-muted`) | — |
 | not enabled | `is_enabled === false` (cost response or 402 `reason: not_enabled`) | `disabled`, label `Generate with AI` | `AI replies aren't enabled for this shop.` (`text-muted`) | nothing (no Buy More link here, D-07) |
 | insufficient | `is_enabled` and `remaining < cost` (cost response, post-generate, or 402 `reason: exhausted`) | `disabled`, label with cost | `Not enough credits — this reply needs {cost}, you have {remaining}.` (`text-[#92400E]`) | `Buy More Credits` link |
 | load error | cost request failed | enabled (fail open), label `Generate with AI`, no cost suffix | `Couldn't check your credit balance.` + `Retry Credit Check` text button | — (the server still enforces; 402 below handles it) |

@@ -585,10 +585,14 @@ class ReviewViewSet(
                     fields={
                         "cost": drf_serializers.IntegerField(),
                         "remaining": drf_serializers.IntegerField(),
+                        "total": drf_serializers.IntegerField(),
                         "is_enabled": drf_serializers.BooleanField(),
                     },
                 ),
-                description="`cost` is 0 for a review with no chargeable text.",
+                description=(
+                    "`cost` is 0 for a review with no chargeable text. `total` is this "
+                    "month's allocated + bonus credits (SHOP-23)."
+                ),
             ),
             401: OpenApiResponse(description="Authentication required."),
             403: OpenApiResponse(description="Caller is not an Org Admin or Staff user."),
@@ -611,6 +615,7 @@ class ReviewViewSet(
             {
                 "cost": compute_credit_cost(review.comment),
                 "remaining": view.remaining,
+                "total": view.allocated + view.bonus,
                 "is_enabled": view.is_enabled,
             },
             status=status.HTTP_200_OK,
