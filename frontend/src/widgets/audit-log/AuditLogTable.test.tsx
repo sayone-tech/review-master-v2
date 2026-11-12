@@ -117,3 +117,32 @@ describe("AuditLogTable credit rows", () => {
     expect(screen.getByText("System")).toBeTruthy();
   });
 });
+
+describe("AuditLogTable AI reply rows (CVIS-06)", () => {
+  it("should show credit count and review when a credit row is per-review", () => {
+    renderTable([fakeRow({ after_data: { credits: 2, review_id: 41, outcome: "success" } })]);
+    expect(screen.getByText("Credits used: 2")).toBeTruthy();
+    expect(screen.getByText("— Downtown Store · Review #41")).toBeTruthy();
+  });
+
+  it("should show the tone when the row is ai_reply_generated", () => {
+    renderTable([
+      fakeRow({
+        entity_type: "review",
+        entity_id: "41",
+        action: "ai_reply_generated",
+        shop_name: null,
+        after_data: { tone: "professional", ai_usage_log_id: 9 },
+      }),
+    ]);
+    expect(screen.getByText("AI reply generated (Professional)")).toBeTruthy();
+    expect(screen.getByText("Reply")).toBeTruthy();
+  });
+
+  it("should fall back to the plain label when ai_reply_generated has no known tone", () => {
+    renderTable([
+      fakeRow({ entity_type: "review", action: "ai_reply_generated", after_data: null }),
+    ]);
+    expect(screen.getByText("AI reply generated")).toBeTruthy();
+  });
+});

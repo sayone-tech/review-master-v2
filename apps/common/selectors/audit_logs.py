@@ -30,7 +30,8 @@ if TYPE_CHECKING:
 # user-facing viewer in Phase 21.
 AUDIT_ENTITY_FILTER = Q(entity_type="action_item") | Q(
     entity_type="review",
-    action__in=["reply_posted", "reply_deleted", "reply_failed"],
+    # CVIS-06: ai_reply_generated carries no credit numbers, so Staff may see it.
+    action__in=["reply_posted", "reply_deleted", "reply_failed", "ai_reply_generated"],
 )
 
 # CVIS-05: credit events (per-shop ledger actions + the org-level monthly

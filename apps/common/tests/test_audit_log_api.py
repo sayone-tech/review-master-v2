@@ -398,3 +398,149 @@ def test_actor_dropdown_includes_superadmin_for_org_admin_not_for_staff(staff_se
 
     assert superadmin.pk in _activity_log_actor_ids(org_admin)
     assert superadmin.pk not in _activity_log_actor_ids(staff)
+
+
+# ---------------------------------------------------------------------------
+# CVIS-06: AI reply generated event, Credits type filter, shop filter keeps credits
+# ---------------------------------------------------------------------------
+
+
+def _actions(resp) -> list[str]:
+    return sorted(r["action"] for r in resp.data["results"])
+
+
+def test_org_admin_sees_ai_reply_generated_under_review_type(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    review = ReviewFactory(organisation=org)
+    AuditLogFactory(
+        organisation=org,
+        entity_type="review",
+        entity_id=str(review.pk),
+        action="ai_reply_generated",
+        after_data={"tone": "professional", "ai_usage_log_id": 1},
+    )
+    resp = client.get(LIST_URL, {"entity_type": "review"})
+    assert resp.status_code == 200
+    assert _actions(resp) == ["ai_reply_generated"]
+
+
+def test_credits_type_filter_returns_only_credit_rows_for_org_admin(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org)
+    AuditLogFactory(organisation=org, entity_type="review", action="reply_posted")
+    AuditLogFactory(
+        organisation=org, entity_type="shop", entity_id=str(shop.pk), action="shop.credits.consumed"
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="organisation",
+        entity_id=str(org.pk),
+        action="organisation.credits.set",
+    )
+    resp = client.get(LIST_URL, {"entity_type": "credits"})
+    assert resp.status_code == 200
+    assert _actions(resp) == ["organisation.credits.set", "shop.credits.consumed"]
+
+
+def test_shop_filter_keeps_that_shops_credit_rows_for_org_admin(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    shop = ShopFactory(organisation=org)
+    other_shop = ShopFactory(organisation=org)
+    review = ReviewFactory(organisation=org, shop=shop)
+    AuditLogFactory(
+        organisation=org, entity_type="review", entity_id=str(review.pk), action="reply_posted"
+    )
+    AuditLogFactory(
+        organisation=org, entity_type="shop", entity_id=str(shop.pk), action="shop.credits.consumed"
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(other_shop.pk),
+        action="shop.credits.refunded",
+    )
+    resp = client.get(LIST_URL, {"shop": shop.pk})
+    assert resp.status_code == 200
+    assert _actions(resp) == ["reply_posted", "shop.credits.consumed"]
+
+
+def test_staff_sees_ai_reply_generated_only_for_accessible_shops(staff_setup) -> None:
+    client, _staff, org, accessible_shop, inaccessible_shop = staff_setup
+    review_in = ReviewFactory(organisation=org, shop=accessible_shop)
+    review_out = ReviewFactory(organisation=org, shop=inaccessible_shop)
+    for review in (review_in, review_out):
+        AuditLogFactory(
+            organisation=org,
+            entity_type="review",
+            entity_id=str(review.pk),
+            action="ai_reply_generated",
+        )
+    resp = client.get(LIST_URL)
+    assert resp.status_code == 200
+    assert [r["entity_id"] for r in resp.data["results"]] == [str(review_in.pk)]
+
+
+def test_staff_gets_no_credit_rows_from_credits_or_shop_filter(staff_setup) -> None:
+    client, _staff, org, accessible_shop, _inaccessible_shop = staff_setup
+    AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(accessible_shop.pk),
+        action="shop.credits.consumed",
+    )
+    assert client.get(LIST_URL, {"entity_type": "credits"}).data["results"] == []
+    assert client.get(LIST_URL, {"shop": accessible_shop.pk}).data["results"] == []
+
+
+def test_staff_ai_reply_generated_payload_is_tone_only(staff_setup) -> None:
+    """CVIS-06 / CVIS-05: the Staff-visible payload never carries credit fields.
+
+    Uses the real writer so a future change to its after_data fails here.
+    """
+    from apps.reviews.services.reply_generation import _record_ai_reply_generated
+
+    client, staff, org, accessible_shop, _inaccessible_shop = staff_setup
+    review = ReviewFactory(organisation=org, shop=accessible_shop)
+    _record_ai_reply_generated(review=review, tone="professional", actor_id=staff.pk)
+
+    rows = client.get(LIST_URL).data["results"]
+    assert [r["action"] for r in rows] == ["ai_reply_generated"]
+    for row in rows:
+        assert set((row["after_data"] or {}).keys()) <= {"tone"}
+        assert not any("credit" in key for key in (row["after_data"] or {}))
+
+
+def test_new_filter_paths_never_return_another_orgs_rows(org_admin_setup) -> None:
+    """CVIS-06 cross-tenant: credits and shop filters stay inside the caller's org."""
+    client, _user, _org = org_admin_setup
+    other_org = OrganisationFactory()
+    other_shop = ShopFactory(organisation=other_org)
+    other_review = ReviewFactory(organisation=other_org, shop=other_shop)
+    AuditLogFactory(
+        organisation=other_org,
+        entity_type="shop",
+        entity_id=str(other_shop.pk),
+        action="shop.credits.consumed",
+    )
+    AuditLogFactory(
+        organisation=other_org,
+        entity_type="organisation",
+        entity_id=str(other_org.pk),
+        action="organisation.credits.set",
+    )
+    AuditLogFactory(
+        organisation=other_org,
+        entity_type="review",
+        entity_id=str(other_review.pk),
+        action="ai_reply_generated",
+    )
+
+    assert client.get(LIST_URL, {"entity_type": "credits"}).data["results"] == []
+    assert client.get(LIST_URL, {"shop": other_shop.pk}).data["results"] == []
+    assert client.get(LIST_URL, {"entity_type": "review"}).data["results"] == []
+
+
+def test_staff_shop_filter_for_another_orgs_shop_returns_400(staff_setup) -> None:
+    client, _staff, _org, _accessible_shop, _inaccessible_shop = staff_setup
+    other_shop = ShopFactory(organisation=OrganisationFactory())
+    assert client.get(LIST_URL, {"shop": other_shop.pk}).status_code == 400

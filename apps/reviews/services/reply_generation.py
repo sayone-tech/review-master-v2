@@ -30,6 +30,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import connection
 
+from apps.common.models import AuditLog
 from apps.credits.selectors.balances import get_shop_credit_balance
 from apps.credits.services.consumption import (
     SettleResult,
@@ -305,6 +306,27 @@ def _settle(
     return None
 
 
+def _record_ai_reply_generated(*, review: Review, tone: str, actor_id: int | None) -> None:
+    """CVIS-06: one review-level Activity Log row per successful generation.
+
+    Visible to Staff for their shops, so ``after_data`` is the tone only: no credit numbers
+    (CVIS-05) and no AI usage log id (a platform-wide sequence). Both live on the
+    Org-Admin-only ``shop.credits.consumed`` row. Never
+    raises: the credits are already charged, so the user must still get the draft.
+    """
+    try:
+        AuditLog.objects.create(
+            organisation_id=review.organisation_id,
+            actor_id=actor_id,
+            entity_type="review",
+            entity_id=str(review.pk),
+            action="ai_reply_generated",
+            after_data={"tone": tone},
+        )
+    except Exception:
+        logger.exception("ai_reply_generated_audit_failed review_id=%s", review.pk)
+
+
 def generate_reply_with_credits(*, review: Review, tone: str, actor_id: int | None) -> ReplyResult:
     """Metered generation: reserve -> OpenAI call -> settle (commit or refund in ``finally``).
 
@@ -389,6 +411,8 @@ def generate_reply_with_credits(*, review: Review, tone: str, actor_id: int | No
         )
     charged = settle.credits_charged if settle is not None else 0
     remaining = read_credits_remaining(shop_id=review.shop_id)
+    if pending is None and reason == "success":
+        _record_ai_reply_generated(review=review, tone=tone, actor_id=actor_id)
     if pending is not None:
         pending.credits_charged = charged
         pending.credits_remaining = remaining

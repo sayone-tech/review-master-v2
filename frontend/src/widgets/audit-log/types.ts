@@ -38,6 +38,8 @@ export const ACTION_LABEL: Record<string, string> = {
   reply_posted: "Reply posted",
   reply_deleted: "Reply deleted",
   reply_failed: "Reply failed",
+  // CVIS-06: review-level event; carries the tone, never credit numbers.
+  ai_reply_generated: "AI reply generated",
   "action_item.created": "Action item created",
   "action_item.status_changed": "Status changed",
   "action_item.assigned": "Assigned",

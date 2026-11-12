@@ -290,3 +290,61 @@ class TestTransactionGuard:
         _assert_no_open_transaction()
         with transaction.atomic(), pytest.raises(RuntimeError, match="database transaction"):
             _assert_no_open_transaction()
+
+
+class TestAiReplyGeneratedAudit:
+    """CVIS-06: one review-level ``ai_reply_generated`` row per successful generation."""
+
+    def test_writes_review_event_with_tone_and_no_credit_numbers_when_draft_is_returned(
+        self, review
+    ) -> None:
+        with (
+            patch(MODERATION_API, return_value=CLEAN),
+            patch(CALL, return_value=("A fine draft.", _usage_data())),
+        ):
+            generate_reply_with_credits(review=review, tone="friendly", actor_id=None)
+
+        event = AuditLog.objects.get(action="ai_reply_generated")
+        assert event.entity_type == "review"
+        assert event.entity_id == str(review.pk)
+        assert event.organisation_id == review.organisation_id
+        # Staff can read this row: tone only, no credit numbers (CVIS-05), no usage log id.
+        assert event.after_data == {"tone": "friendly"}
+
+    def test_writes_no_review_event_when_openai_call_fails(self, review) -> None:
+        with (
+            patch(MODERATION_API, return_value=CLEAN),
+            patch(CALL, side_effect=OpenAITransientError("boom")),
+            pytest.raises(ReplyUnavailableError),
+        ):
+            _generate(review)
+
+        assert not AuditLog.objects.filter(action="ai_reply_generated").exists()
+
+    def test_writes_no_review_event_when_output_is_moderated(self, review) -> None:
+        with (
+            patch(MODERATION_API, side_effect=[CLEAN, BLOCKED]),
+            patch(CALL, return_value=("A blocked draft.", _usage_data())),
+            pytest.raises(ReplyModeratedError),
+        ):
+            _generate(review)
+
+        assert not AuditLog.objects.filter(action="ai_reply_generated").exists()
+
+    def test_still_returns_draft_when_audit_write_fails(self, review) -> None:
+        real_create = AuditLog.objects.create
+
+        def failing_create(**kwargs):
+            if kwargs.get("action") == "ai_reply_generated":
+                raise RuntimeError("audit down")
+            return real_create(**kwargs)
+
+        with (
+            patch(MODERATION_API, return_value=CLEAN),
+            patch(CALL, return_value=("A fine draft.", _usage_data())),
+            patch.object(AuditLog.objects, "create", side_effect=failing_create),
+        ):
+            result = _generate(review)
+
+        assert result.draft == "A fine draft."
+        assert result.credits_charged == COST

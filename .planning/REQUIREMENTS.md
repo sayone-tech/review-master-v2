@@ -41,6 +41,7 @@
 - [x] **CVIS-03**: In the reply composer the AI button is hidden for star-only reviews, its label and aria-label show the cost ("Generate with AI (requires N credits)"), the credit status sits under the button, remaining credits are shown, the button is disabled with distinct "not enabled" vs "not enough credits" messaging, tone pills are disabled while generating, and a 402 response is handled
 - [x] **CVIS-04**: A "Buy More Credits" modal opens from the credits card, Shops-list badge, and composer; it shows a Contact Admin mailto to `REVIEWBEE_SUPPORT_EMAIL`, is accessible (focus trap, ARIA labels, ESC/backdrop close), and has no payment flow
 - [x] **CVIS-05**: Org Admin sees `shop.credits.*` and `organisation.credits.set` events in the Activity Log; Staff do not
+- [ ] **CVIS-06**: Every successful AI reply generation writes an `ai_reply_generated` AuditLog row on the review (`after_data`: tone only; no credit numbers, no AI usage log id), shown in the Activity Log as "AI reply generated (Professional)" under the Replies type. Org Admin and Staff (for reviews in their shops) see it; Staff never see credit numbers (CVIS-05 holds). For Org Admin the `shop.credits.consumed` / `refunded` / `late_commit` rows show the credit count and review ("Credits used: 2 — {shop} · Review #{id}"), the Type filter offers "Credits" (Org Admin only), and the shop filter keeps that shop's credit rows
 
 ### Superadmin Controls (CSUP)
 
@@ -114,6 +115,7 @@ Deferred — tracked but not in the v0.9 roadmap.
 | CVIS-03 | Phase 33 | Complete |
 | CVIS-04 | Phase 33 | Complete |
 | CVIS-05 | Phase 33 | Complete |
+| CVIS-06 | Phase 33 (gap, 2026-11-12) | Pending |
 | CSUP-01 | Phase 32 | Complete |
 | CSUP-02 | Phase 32 | Complete |
 | SCOPE-01 | Phase 33 | Complete |
@@ -123,10 +125,10 @@ Deferred — tracked but not in the v0.9 roadmap.
 | SHOP-23 | Off-milestone (quick change) | Pending |
 
 **Coverage:**
-- v1 requirements: 27 total
-- Mapped to phases: 27 ✓
+- v1 requirements: 28 total
+- Mapped to phases: 28 ✓
 - Unmapped: 0
-- Per phase: Phase 29 → 5 · Phase 30 → 9 · Phase 31 → 3 · Phase 32 → 4 · Phase 33 → 6
+- Per phase: Phase 29 → 5 · Phase 30 → 9 · Phase 31 → 3 · Phase 32 → 4 · Phase 33 → 7
 - Off-milestone: 2 (SHOP-22, SHOP-23, not counted in the v1 total)
 - Note: CQA-01 is delivered in Phase 29 (Postgres CI job + `pg_concurrency` marker + first-use race test); the N-threads-vs-K-credits test (CCON-02, Phase 30) and the reaper-vs-late-commit test (CREN-03, Phase 31) are added to the same job.
 

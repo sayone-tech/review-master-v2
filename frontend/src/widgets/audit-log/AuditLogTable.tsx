@@ -18,6 +18,36 @@ interface Props {
   onExpand: (id: string | null) => void;
 }
 
+// CVIS-06: per-review credit rows carry `credits` and `review_id` in after_data.
+const PER_REVIEW_CREDIT_ACTIONS = new Set([
+  "shop.credits.consumed",
+  "shop.credits.late_commit",
+  "shop.credits.refunded",
+]);
+
+const TONE_LABEL: Record<string, string> = {
+  professional: "Professional",
+  friendly: "Friendly",
+};
+
+function numberField(data: AuditLogRow["after_data"], key: string): number | null {
+  const value = data?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function actionText(row: AuditLogRow, label: string): string {
+  if (row.action === "ai_reply_generated") {
+    const tone = row.after_data?.tone;
+    const toneLabel = typeof tone === "string" ? TONE_LABEL[tone] : undefined;
+    return toneLabel ? `${label} (${toneLabel})` : label;
+  }
+  if (PER_REVIEW_CREDIT_ACTIONS.has(row.action)) {
+    const credits = numberField(row.after_data, "credits");
+    if (credits !== null) return `${label}: ${credits}`;
+  }
+  return label;
+}
+
 function ExpandButton({
   expanded,
   onClick,
@@ -147,18 +177,21 @@ export function AuditLogTable({
       accessor: (row) => {
         const label = ACTION_LABEL[row.action];
         const base = label ? (
-          <span className="text-text">{label}</span>
+          <span className="text-text">{actionText(row, label)}</span>
         ) : (
           <span className="text-muted">{row.action}</span>
         );
         if (row.entity_type !== "shop") return base;
         // CVIS-05: shop credit rows name the shop; fall back to its id.
+        // CVIS-06: per-review credit rows also name the review.
+        const reviewId = numberField(row.after_data, "review_id");
         return (
           <span className="break-words">
             {base}
             <span className="text-muted break-words">
               {" \u2014 "}
               {row.shop_name ?? `Shop #${row.entity_id}`}
+              {reviewId !== null && ` \u00b7 Review #${reviewId}`}
             </span>
           </span>
         );

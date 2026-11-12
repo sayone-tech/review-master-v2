@@ -8,22 +8,26 @@ from __future__ import annotations
 from typing import ClassVar
 
 import django_filters  # type: ignore[import-untyped]
+from django.db.models import Q
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from apps.common.models import AuditLog
 
-# WR-01 fix: explicit whitelist for entity_type (D-07 restricts to these two).
+# WR-01 fix: explicit whitelist for entity_type (D-07; CVIS-06 added "credits").
 ENTITY_TYPE_CHOICES = [
     ("review", "Review"),
     ("action_item", "Action Item"),
+    # CVIS-06: "credits" maps to CREDIT_AUDIT_FILTER (shop.credits.* + organisation.credits.set).
+    # Staff selectors never return credit rows, so for Staff this filter yields nothing.
+    ("credits", "Credits"),
 ]
 
 
 class AuditLogFilterSet(django_filters.FilterSet):  # type: ignore[misc]
     # WR-01: ChoiceFilter rejects values outside the whitelist with a 400.
     entity_type = django_filters.ChoiceFilter(
-        field_name="entity_type",
         choices=ENTITY_TYPE_CHOICES,
+        method="filter_entity_type",
     )
     actor = django_filters.CharFilter(method="filter_actor")
     date_from = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
@@ -33,6 +37,13 @@ class AuditLogFilterSet(django_filters.FilterSet):  # type: ignore[misc]
     class Meta:
         model = AuditLog
         fields: ClassVar[list[str]] = []
+
+    def filter_entity_type(self, qs, name, value):  # type: ignore[no-untyped-def]
+        if value == "credits":
+            from apps.common.selectors.audit_logs import CREDIT_AUDIT_FILTER
+
+            return qs.filter(CREDIT_AUDIT_FILTER)
+        return qs.filter(entity_type=value)
 
     def filter_actor(self, qs, name, value):  # type: ignore[no-untyped-def]
         if value == "system":
@@ -70,7 +81,12 @@ class AuditLogFilterSet(django_filters.FilterSet):  # type: ignore[misc]
                 "pk", flat=True
             )
         ]
-        return qs.filter(entity_type="review", entity_id__in=review_ids)
+        # CVIS-06: keep the shop's own credit rows too (Org Admin only; the Staff
+        # selector never returns entity_type="shop" rows).
+        return qs.filter(
+            Q(entity_type="review", entity_id__in=review_ids)
+            | Q(entity_type="shop", entity_id=str(int(value)))
+        )
 
     @property
     def qs(self):  # type: ignore[no-untyped-def]
