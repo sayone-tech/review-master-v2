@@ -462,6 +462,7 @@ REST_FRAMEWORK = {
         "superadmin_ai_pricing_read": "120/minute",
         "superadmin_ai_pricing_write": "30/minute",
         "superadmin_ai_pricing_refresh": "1/minute",
+        "superadmin_ai_pricing_sync_trigger": "1/15m",
         "superadmin_credits_write": "30/minute",
         # Phase 33: Org Admin / Staff shop credits card read (CVIS-01).
         "shop_credits": "120/minute",

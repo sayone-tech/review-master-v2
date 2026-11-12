@@ -11,6 +11,9 @@ from apps.integrations.openai.pricing_views import (
     AiPricingMissingRefreshView,
     AiPricingMissingView,
     AiPricingSuggestionsView,
+    AiPricingSyncStatusView,
+    AiPricingSyncToggleView,
+    AiPricingSyncTriggerView,
 )
 from apps.integrations.openai.views import (
     AiCostOrganisationListView,
@@ -71,5 +74,20 @@ urlpatterns = [
         "superadmin/ai-pricing/missing/refresh/",
         AiPricingMissingRefreshView.as_view(),
         name="superadmin-ai-pricing-missing-refresh",
+    ),
+    path(
+        "superadmin/ai-pricing/sync/status/",
+        AiPricingSyncStatusView.as_view(),
+        name="superadmin-ai-pricing-sync-status",
+    ),
+    path(
+        "superadmin/ai-pricing/sync/toggle/",
+        AiPricingSyncToggleView.as_view(),
+        name="superadmin-ai-pricing-sync-toggle",
+    ),
+    path(
+        "superadmin/ai-pricing/sync/trigger/",
+        AiPricingSyncTriggerView.as_view(),
+        name="superadmin-ai-pricing-sync-trigger",
     ),
 ]

@@ -231,3 +231,60 @@ class MissingModelSerializer(serializers.Serializer[Any]):
 class MissingModelsResponseSerializer(serializers.Serializer[Any]):
     models = MissingModelSerializer(many=True)
     generated_at = serializers.DateTimeField()
+
+
+SYNC_SUMMARY_LIST_KEYS = (
+    "added",
+    "updated",
+    "unchanged",
+    "skipped_manual",
+    "skipped_scheduled",
+    "unpriced",
+    "errored",
+)
+
+
+class SyncPriceTripleSerializer(serializers.Serializer[Any]):
+    input = serializers.CharField()
+    output = serializers.CharField()
+    cached = serializers.CharField()
+
+
+class SyncSkippedManualSerializer(serializers.Serializer[Any]):
+    model = serializers.CharField()
+    ours = SyncPriceTripleSerializer()
+    litellm = SyncPriceTripleSerializer()
+
+
+class SyncSummarySerializer(serializers.Serializer[Any]):
+    added = serializers.ListField(child=serializers.CharField())
+    updated = serializers.ListField(child=serializers.CharField())
+    unchanged = serializers.ListField(child=serializers.CharField())
+    skipped_manual = SyncSkippedManualSerializer(many=True)
+    skipped_scheduled = serializers.ListField(child=serializers.CharField())
+    unpriced = serializers.ListField(child=serializers.CharField())
+    errored = serializers.ListField(child=serializers.CharField())
+
+
+class SyncStatusSerializer(serializers.Serializer[Any]):
+    enabled = serializers.BooleanField()
+    last_run_at = serializers.DateTimeField(allow_null=True)
+    last_success_at = serializers.DateTimeField(allow_null=True)
+    last_status = serializers.CharField(allow_blank=True)
+    last_error = serializers.CharField(allow_blank=True)
+    overdue = serializers.BooleanField()
+    next_run_at = serializers.DateTimeField(allow_null=True)
+    summary = SyncSummarySerializer()
+
+    def to_representation(self, instance: Any) -> Any:
+        stored = instance.get("summary") or {}
+        instance = {**instance, "summary": {k: stored.get(k) or [] for k in SYNC_SUMMARY_LIST_KEYS}}
+        return super().to_representation(instance)
+
+
+class SyncToggleSerializer(serializers.Serializer[Any]):
+    enabled = serializers.BooleanField()
+
+
+class SyncTriggerResponseSerializer(serializers.Serializer[Any]):
+    queued = serializers.BooleanField()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
@@ -17,6 +18,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import User
 from apps.accounts.permissions import IsSuperadmin
 from apps.common.pagination import DefaultPageNumberPagination
+from apps.common.throttling import SyncTriggerThrottle
 from apps.integrations.openai.models import AiPricing
 from apps.integrations.openai.selectors.pricing import (
     list_missing_pricing_models,
@@ -24,6 +26,7 @@ from apps.integrations.openai.selectors.pricing import (
     list_price_history,
     list_price_summary,
 )
+from apps.integrations.openai.selectors.pricing_sync import get_sync_status
 from apps.integrations.openai.serializers import (
     AiPriceCreateSerializer,
     MissingModelsResponseSerializer,
@@ -32,6 +35,9 @@ from apps.integrations.openai.serializers import (
     PriceRowSerializer,
     PriceSummaryListResponseSerializer,
     PriceSummaryRowSerializer,
+    SyncStatusSerializer,
+    SyncToggleSerializer,
+    SyncTriggerResponseSerializer,
 )
 from apps.integrations.openai.services.pricing_cache import invalidate_missing_pricing_cache
 from apps.integrations.openai.services.pricing_management import (
@@ -40,6 +46,8 @@ from apps.integrations.openai.services.pricing_management import (
     add_price,
     delete_scheduled_price,
 )
+from apps.integrations.openai.services.pricing_sync import set_sync_enabled
+from apps.integrations.openai.tasks import sync_ai_pricing_from_litellm_task
 from apps.integrations.openai.views import generated_at_now
 
 PRICING_TAG = "superadmin-ai-pricing"
@@ -221,3 +229,53 @@ class AiPricingMissingRefreshView(_AiPricingBaseView):
     def post(self, request: Request) -> Response:
         invalidate_missing_pricing_cache()
         return Response(_missing_payload())
+
+
+class AiPricingSyncStatusView(_AiPricingBaseView):
+    """GET /api/v1/superadmin/ai-pricing/sync/status/ (Superadmin only)."""
+
+    @extend_schema(
+        responses={200: SyncStatusSerializer, **PRICING_ERRORS},
+        tags=[PRICING_TAG],
+    )
+    def get(self, request: Request) -> Response:
+        return Response(SyncStatusSerializer(get_sync_status()).data)
+
+
+class AiPricingSyncToggleView(_AiPricingBaseView):
+    """POST /api/v1/superadmin/ai-pricing/sync/toggle/ {enabled} (Superadmin only)."""
+
+    throttle_scope = "superadmin_ai_pricing_write"
+
+    @extend_schema(
+        request=SyncToggleSerializer,
+        responses={
+            200: SyncStatusSerializer,
+            400: OpenApiResponse(description="enabled must be a boolean"),
+            **PRICING_ERRORS,
+        },
+        tags=[PRICING_TAG],
+    )
+    def post(self, request: Request) -> Response:
+        serializer = SyncToggleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            set_sync_enabled(
+                enabled=serializer.validated_data["enabled"], actor=cast(User, request.user)
+            )
+        return Response(SyncStatusSerializer(get_sync_status()).data)
+
+
+class AiPricingSyncTriggerView(_AiPricingBaseView):
+    """POST /api/v1/superadmin/ai-pricing/sync/trigger/ — "Sync Now" (1 per 15 min per user)."""
+
+    throttle_classes = [SyncTriggerThrottle]  # noqa: RUF012
+
+    @extend_schema(
+        request=None,
+        responses={202: SyncTriggerResponseSerializer, **PRICING_ERRORS},
+        tags=[PRICING_TAG],
+    )
+    def post(self, request: Request) -> Response:
+        transaction.on_commit(lambda: sync_ai_pricing_from_litellm_task.delay(force=True))
+        return Response({"queued": True}, status=status.HTTP_202_ACCEPTED)
