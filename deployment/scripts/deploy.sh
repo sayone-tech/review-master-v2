@@ -51,6 +51,10 @@ docker compose -f "${COMPOSE_FILE}" pull
 docker compose -f "${COMPOSE_FILE}" run --rm web \
   python manage.py migrate --noinput
 
+# 5b. Guard: configured OpenAI model must have a price (openai.E001)
+docker compose -f "${COMPOSE_FILE}" run --rm web \
+  python manage.py check --database default --fail-level ERROR
+
 # 6. Collect static files to S3 (instance profile provides credentials)
 docker compose -f "${COMPOSE_FILE}" run --rm web \
   python manage.py collectstatic --noinput --clear
