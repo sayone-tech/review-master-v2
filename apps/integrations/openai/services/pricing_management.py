@@ -24,6 +24,8 @@ from apps.integrations.openai.services.pricing_cache import invalidate_missing_p
 logger = logging.getLogger(__name__)
 
 GRACE = timedelta(seconds=5)
+# Upper bound for any per-1M price (API write serializer and the LiteLLM sync share it).
+MAX_PRICE_PER_1M = Decimal(1000)
 
 
 class PricingError(Exception):
@@ -88,6 +90,7 @@ def add_price(
     actor: User | None,
     source: str = AiPricing.Source.MANUAL,
     now: datetime | None = None,
+    audit_action: str = "ai_pricing.added",
 ) -> AiPricing:
     """Add a price starting at ``effective_from``, closing the model's open row at that instant.
 
@@ -135,12 +138,12 @@ def add_price(
         actor=actor,
         entity_type="ai_pricing",
         entity_id=str(new.pk),
-        action="ai_pricing.added",
+        action=audit_action,
         before_data=before,
         after_data=_snapshot(new),
     )
     transaction.on_commit(invalidate_missing_pricing_cache)
-    logger.info("ai_pricing.added model=%s pricing_id=%s source=%s", model, new.pk, source)
+    logger.info("%s model=%s pricing_id=%s source=%s", audit_action, model, new.pk, source)
     return new
 
 

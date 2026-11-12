@@ -60,6 +60,11 @@ def _recent_usage(now: datetime, *, use_cache: bool = True) -> dict[str, datetim
     return dict(usage)
 
 
+def list_recent_usage_models(*, now: datetime | None = None, use_cache: bool = True) -> list[str]:
+    """Models with ``AiUsageLog`` rows inside the lookback window, sorted."""
+    return sorted(_recent_usage(now or timezone.now(), use_cache=use_cache))
+
+
 def _priced_now(now: datetime, models: set[str]) -> set[str]:
     return set(
         AiPricing.objects.active_at(now).filter(model__in=models).values_list("model", flat=True)

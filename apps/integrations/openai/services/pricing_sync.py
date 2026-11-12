@@ -1,16 +1,47 @@
-"""LiteLLM pricing auto-sync (Phase 36). Toggle only for now; the sync run lands in a later task."""
+"""LiteLLM pricing auto-sync (Phase 36): the on/off toggle and the sync run.
+
+The run only prices models this platform used recently (plus ``settings.OPENAI_MODEL``), by
+exact LiteLLM key. Every price write goes through ``pricing_management.add_price`` (append-only,
+actor ``None``); a manually entered price is never overridden and ``AiUsageLog`` is never
+touched. One run at a time, guarded by a non-blocking Redis lock.
+"""
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from decimal import Decimal
+from enum import StrEnum
+from typing import Any
 
+import httpx
+from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.common.locks import distributed_lock
 from apps.common.models import AuditLog
-from apps.integrations.openai.models import AiPricingSyncConfig
+from apps.integrations.openai.litellm import (
+    LiteLLMCatalog,
+    LiteLLMFetchError,
+    LiteLLMPrice,
+    fetch_litellm_catalog,
+)
+from apps.integrations.openai.models import AiPricing, AiPricingSyncConfig
+from apps.integrations.openai.selectors.pricing import list_recent_usage_models
+from apps.integrations.openai.services.pricing_cache import invalidate_missing_pricing_cache
+from apps.integrations.openai.services.pricing_management import (
+    MAX_PRICE_PER_1M,
+    ScheduledPriceExistsError,
+    add_price,
+)
 
 logger = logging.getLogger(__name__)
+
+SYNC_LOCK_KEY = "lock:ai_pricing:sync"
+_QUANT = Decimal("0.00000001")
 
 
 @transaction.atomic
@@ -34,3 +65,215 @@ def set_sync_enabled(*, enabled: bool, actor: User) -> AiPricingSyncConfig:
     )
     logger.info("ai_pricing.sync_toggled enabled=%s", enabled)
     return config
+
+
+class SyncOutcome(StrEnum):
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED_DISABLED = "skipped_disabled"
+    SKIPPED_LOCKED = "skipped_locked"
+
+
+def _fmt(value: Decimal) -> str:
+    return str(Decimal(value).quantize(_QUANT))
+
+
+@dataclass
+class SyncSummary:
+    outcome: SyncOutcome
+    added: list[str] = field(default_factory=list)
+    updated: list[str] = field(default_factory=list)
+    unchanged: list[str] = field(default_factory=list)
+    skipped_manual: list[dict[str, Any]] = field(default_factory=list)
+    skipped_scheduled: list[str] = field(default_factory=list)
+    unpriced: list[str] = field(default_factory=list)
+    errored: list[str] = field(default_factory=list)
+    error: str = ""
+
+    def counts(self) -> dict[str, int]:
+        return {
+            "added": len(self.added),
+            "updated": len(self.updated),
+            "unchanged": len(self.unchanged),
+            "skipped_manual": len(self.skipped_manual),
+            "skipped_scheduled": len(self.skipped_scheduled),
+            "unpriced": len(self.unpriced),
+            "errored": len(self.errored),
+        }
+
+    def as_json(self) -> dict[str, Any]:
+        """JSON-safe, deterministic form: sorted lists, Decimals as 8-dp strings."""
+        manual = [
+            {
+                "model": item["model"],
+                "ours": {k: _fmt(v) for k, v in item["ours"].items()},
+                "litellm": {k: _fmt(v) for k, v in item["litellm"].items()},
+            }
+            for item in sorted(self.skipped_manual, key=lambda i: str(i["model"]))
+        ]
+        return {
+            "outcome": str(self.outcome),
+            "added": sorted(self.added),
+            "updated": sorted(self.updated),
+            "unchanged": sorted(self.unchanged),
+            "skipped_manual": manual,
+            "skipped_scheduled": sorted(self.skipped_scheduled),
+            "unpriced": sorted(self.unpriced),
+            "errored": sorted(self.errored),
+            "error": self.error,
+        }
+
+
+def _triple(row: AiPricing) -> dict[str, Decimal]:
+    return {
+        "input": Decimal(row.input_token_price_per_1m),
+        "output": Decimal(row.output_token_price_per_1m),
+        "cached": Decimal(row.cached_token_price_per_1m),
+    }
+
+
+def _litellm_triple(price: LiteLLMPrice) -> dict[str, Decimal]:
+    return {
+        "input": price.input_per_1m,
+        "output": price.output_per_1m,
+        "cached": price.cached_per_1m,
+    }
+
+
+def _within_tolerance(ours: dict[str, Decimal], theirs: dict[str, Decimal]) -> bool:
+    tolerance = settings.AI_PRICING_SYNC_TOLERANCE_USD_PER_1M
+    return all(abs(ours[k] - theirs[k]) <= tolerance for k in ("input", "output", "cached"))
+
+
+def _sync_model(
+    *, model: str, catalog: LiteLLMCatalog, now: datetime, summary: SyncSummary
+) -> None:
+    price = catalog.prices.get(model)
+    if price is None:
+        reason = "unusable entry" if model in catalog.unusable else "not in catalog"
+        logger.warning("ai_pricing.sync_unpriced model=%s reason=%s", model, reason)
+        summary.unpriced.append(model)
+        return
+    theirs = _litellm_triple(price)
+    if any(v > MAX_PRICE_PER_1M for v in theirs.values()):
+        logger.warning("ai_pricing.sync_unpriced model=%s reason=out of range", model)
+        summary.unpriced.append(model)
+        return
+
+    try:
+        active: AiPricing | None = AiPricing.objects.get_active(model=model, at=now)
+    except AiPricing.DoesNotExist:
+        active = None
+    if active is not None:
+        ours = _triple(active)
+        if _within_tolerance(ours, theirs):
+            summary.unchanged.append(model)
+            return
+        if active.source == AiPricing.Source.MANUAL:
+            summary.skipped_manual.append({"model": model, "ours": ours, "litellm": theirs})
+            return
+    if AiPricing.objects.filter(model=model, effective_from__gt=now).exists():
+        summary.skipped_scheduled.append(model)
+        return
+
+    try:
+        add_price(
+            model=model,
+            input_token_price_per_1m=price.input_per_1m,
+            output_token_price_per_1m=price.output_per_1m,
+            cached_token_price_per_1m=price.cached_per_1m,
+            effective_from=now,
+            actor=None,
+            source=AiPricing.Source.SYNC,
+            now=now,
+            audit_action=(
+                "ai_pricing.added_from_sync" if active is None else "ai_pricing.updated_from_sync"
+            ),
+        )
+    except ScheduledPriceExistsError:
+        summary.skipped_scheduled.append(model)
+        return
+    (summary.added if active is None else summary.updated).append(model)
+
+
+def _sync_audit(action: str, after_data: dict[str, Any]) -> None:
+    AuditLog.objects.create(
+        organisation=None,
+        actor=None,
+        entity_type="ai_pricing",
+        entity_id="sync",
+        action=action,
+        before_data=None,
+        after_data=after_data,
+    )
+
+
+def run_pricing_sync(
+    *,
+    force: bool = False,
+    now: datetime | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> SyncSummary:
+    """Apply LiteLLM prices to ``AiPricing`` for recently used models.
+
+    ``force`` runs even when the switch is off ("Sync Now"); the scheduled run passes False.
+    """
+    now = now or timezone.now()
+    if not force:
+        enabled = AiPricingSyncConfig.objects.filter(pk=1).values_list("enabled", flat=True)
+        if not enabled.first():
+            return SyncSummary(outcome=SyncOutcome.SKIPPED_DISABLED)
+
+    with distributed_lock(SYNC_LOCK_KEY, timeout=300) as acquired:
+        if not acquired:
+            logger.info("ai_pricing.sync_skipped reason=locked")
+            return SyncSummary(outcome=SyncOutcome.SKIPPED_LOCKED)
+
+        AiPricingSyncConfig.load()
+        # update() on pk=1 so a concurrent toggle's ``enabled`` is never overwritten.
+        config = AiPricingSyncConfig.objects.filter(pk=1)
+        config.update(last_run_at=now, updated_at=now)
+
+        try:
+            catalog = fetch_litellm_catalog(transport=transport)
+        except LiteLLMFetchError as exc:
+            error = str(exc)
+            config.update(
+                last_status=AiPricingSyncConfig.Status.FAILED, last_error=error, updated_at=now
+            )
+            _sync_audit("ai_pricing.sync_failed", {"error": error})
+            logger.warning("ai_pricing.sync_failed error=%s", error)
+            return SyncSummary(outcome=SyncOutcome.FAILED, error=error)
+
+        summary = SyncSummary(outcome=SyncOutcome.COMPLETED)
+        models = set(list_recent_usage_models(now=now, use_cache=False))
+        models.add(settings.OPENAI_MODEL)
+        for model in sorted(models):
+            try:
+                # Savepoint: a DB error for one model never poisons the next one's queries.
+                with transaction.atomic():
+                    _sync_model(model=model, catalog=catalog, now=now, summary=summary)
+            except Exception:
+                logger.exception("ai_pricing.sync_model_failed model=%s", model)
+                summary.errored.append(model)
+
+        data = summary.as_json()
+        config.update(
+            last_status=AiPricingSyncConfig.Status.SUCCESS,
+            last_success_at=now,
+            last_error="",
+            last_summary=data,
+            updated_at=now,
+        )
+        _sync_audit(
+            "ai_pricing.sync_completed",
+            {
+                "counts": summary.counts(),
+                "skipped_manual": data["skipped_manual"],
+                "unpriced": data["unpriced"],
+            },
+        )
+        if summary.added or summary.updated:
+            transaction.on_commit(invalidate_missing_pricing_cache)
+        logger.info("ai_pricing.sync_completed %s", summary.counts())
+        return summary

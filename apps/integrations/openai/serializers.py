@@ -13,6 +13,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.integrations.openai.models import AiPricing
+from apps.integrations.openai.services.pricing_management import MAX_PRICE_PER_1M
 
 
 def cost_field() -> serializers.DecimalField:
@@ -128,7 +129,7 @@ def price_field() -> serializers.DecimalField:
 
 def write_price_field() -> serializers.DecimalField:
     return serializers.DecimalField(
-        max_digits=12, decimal_places=8, min_value=Decimal(0), max_value=Decimal(1000)
+        max_digits=12, decimal_places=8, min_value=Decimal(0), max_value=MAX_PRICE_PER_1M
     )
 
 
