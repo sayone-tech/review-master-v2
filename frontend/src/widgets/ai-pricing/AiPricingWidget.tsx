@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchHistory, fetchPriceSummary } from "./api";
+import { AddPriceModal } from "./AddPriceModal";
 import { HistoryRows } from "./HistoryRows";
+import { MissingPricingAlert } from "./MissingPricingAlert";
 import { AddPriceButton, PricesTable } from "./PricesTable";
 import type { Paginated, PriceRow, PriceSummary } from "./types";
 
@@ -11,6 +13,9 @@ export function AiPricingWidget() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [history, setHistory] = useState<PriceRow[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  // `null` = closed; a string (possibly empty) = open with that model pre-filled.
+  const [addModel, setAddModel] = useState<string | null>(null);
+  const [alertKey, setAlertKey] = useState(0);
 
   // Request counters: only the latest request may write state (ignores stale responses).
   const summaryReq = useRef(0);
@@ -57,10 +62,19 @@ export function AiPricingWidget() {
     void loadHistory(model);
   };
 
-  const afterDelete = () => {
+  // After any price change: refetch the table, the open history and the missing-pricing alert.
+  const afterChange = () => {
     void loadSummary();
     if (expanded) void loadHistory(expanded);
+    setAlertKey((k) => k + 1);
   };
+
+  const afterSave = () => {
+    setAddModel(null);
+    afterChange();
+  };
+
+  const openAdd = (model?: string) => setAddModel(model ?? "");
 
   const totalPages = summary ? Math.max(1, Math.ceil(summary.count / 25)) : 1;
 
@@ -75,9 +89,12 @@ export function AiPricingWidget() {
         </div>
         <AddPriceButton
           label="Add New Price"
+          onAddPrice={openAdd}
           className="inline-flex items-center px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </header>
+
+      <MissingPricingAlert variant="pricing" onAddFor={openAdd} refreshKey={alertKey} />
 
       {error && (
         <div role="alert" className="text-[13px] text-red">
@@ -93,6 +110,7 @@ export function AiPricingWidget() {
           rows={summary.results}
           expandedModel={expanded}
           onViewHistory={toggleHistory}
+          onAddPrice={openAdd}
           renderExpanded={() => {
             if (historyError)
               return (
@@ -101,7 +119,7 @@ export function AiPricingWidget() {
                 </div>
               );
             if (!history) return <p className="text-[13px] text-muted">Loading history…</p>;
-            return <HistoryRows rows={history} onDeleted={afterDelete} />;
+            return <HistoryRows rows={history} onDeleted={afterChange} />;
           }}
         />
       )}
@@ -128,6 +146,15 @@ export function AiPricingWidget() {
             Next
           </button>
         </nav>
+      )}
+
+      {addModel !== null && (
+        <AddPriceModal
+          open
+          initialModel={addModel}
+          onClose={() => setAddModel(null)}
+          onSaved={afterSave}
+        />
       )}
     </div>
   );

@@ -27,3 +27,24 @@ export interface Paginated<T> {
   previous: string | null;
   results: T[];
 }
+
+export interface ModelSuggestion {
+  model: string;
+  last_used_at: string | null;
+  has_price: boolean;
+}
+
+export interface SuggestionsResponse {
+  results: ModelSuggestion[];
+}
+
+export interface MissingModel {
+  model: string;
+  last_used_at: string | null;
+  configured: boolean;
+}
+
+export interface MissingResponse {
+  models: MissingModel[];
+  generated_at: string;
+}

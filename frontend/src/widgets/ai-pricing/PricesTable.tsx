@@ -8,7 +8,7 @@ interface Props {
   rows: PriceSummary[];
   expandedModel: string | null;
   onViewHistory: (model: string) => void;
-  /** Task 8 wires the Add New Price modal here; without it the buttons stay disabled. */
+  /** Opens the Add New Price modal; without it the buttons stay disabled. */
   onAddPrice?: (model?: string) => void;
   renderExpanded?: (model: string) => ReactNode;
 }

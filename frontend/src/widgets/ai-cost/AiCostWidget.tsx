@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchOrganisations, fetchSummary, ApiError } from "./api";
 import { formatUpdatedAgo } from "./format";
 import { KpiRow } from "./KpiRow";
+import { MissingPricingAlert } from "../ai-pricing/MissingPricingAlert";
 import { OrgDetail } from "./OrgDetail";
 import { OrgTable } from "./OrgTable";
 import { RangeFilter } from "./RangeFilter";
@@ -96,6 +97,8 @@ function PlatformView({
           </button>
         </div>
       )}
+
+      <MissingPricingAlert variant="cost-explorer" />
 
       {summary && !rangeError && <KpiRow totals={summary.totals} />}
 

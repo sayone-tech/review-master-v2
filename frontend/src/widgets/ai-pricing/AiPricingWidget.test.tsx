@@ -10,6 +10,10 @@ vi.mock("./api", async (orig) => ({
   fetchPriceSummary: vi.fn(),
   fetchHistory: vi.fn(),
   deleteScheduledPrice: vi.fn(),
+  fetchMissing: vi.fn(),
+  refreshMissing: vi.fn(),
+  fetchSuggestions: vi.fn(),
+  createPrice: vi.fn(),
 }));
 
 const scheduled = priceRow({
@@ -30,9 +34,13 @@ describe("AiPricingWidget", () => {
     vi.mocked(api.fetchPriceSummary).mockReset();
     vi.mocked(api.fetchHistory).mockReset();
     vi.mocked(api.deleteScheduledPrice).mockReset();
+    vi.mocked(api.createPrice).mockReset();
+    vi.mocked(api.fetchMissing).mockReset();
+    vi.mocked(api.fetchMissing).mockResolvedValue({ models: [], generated_at: "x" });
+    vi.mocked(api.fetchSuggestions).mockResolvedValue({ results: [] });
   });
 
-  it("renders header, disabled Add New Price, and the table", async () => {
+  it("renders header, an enabled Add New Price, and the table", async () => {
     vi.mocked(api.fetchPriceSummary).mockResolvedValue(page(null));
     render(<AiPricingWidget />);
     expect(screen.getByRole("heading", { name: "AI Pricing" })).toBeInTheDocument();
@@ -40,7 +48,55 @@ describe("AiPricingWidget", () => {
       screen.getByText("Current and historical token rates for OpenAI models"),
     ).toBeInTheDocument();
     expect(await screen.findByText("Active since 2026-01-05")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add New Price" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "Add New Price" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("opens the modal from the header, a row action and the alert, pre-filling the model", async () => {
+    vi.mocked(api.fetchPriceSummary).mockResolvedValue(page(null));
+    vi.mocked(api.fetchMissing).mockResolvedValue({
+      models: [{ model: "gpt-new", last_used_at: null, configured: false }],
+      generated_at: "x",
+    });
+    render(<AiPricingWidget />);
+    await screen.findByText("Active since 2026-01-05");
+
+    await userEvent.click(screen.getByRole("button", { name: "Add New Price" }));
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add pricing for gpt-new →" }));
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("gpt-new");
+  });
+
+  it("after saving, closes the modal and refetches table, open history and alert", async () => {
+    vi.mocked(api.fetchPriceSummary).mockResolvedValue(page(null));
+    vi.mocked(api.fetchHistory).mockResolvedValue({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [priceRow()],
+    });
+    vi.mocked(api.createPrice).mockResolvedValue(priceRow({ id: 9 }));
+    render(<AiPricingWidget />);
+    await screen.findByText("Active since 2026-01-05");
+    await userEvent.click(screen.getByRole("button", { name: "View history for gpt-4o-mini" }));
+    await vi.waitFor(() => expect(api.fetchHistory).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(api.fetchMissing).toHaveBeenCalledTimes(1));
+
+    await userEvent.click(screen.getByRole("button", { name: "Add New Price" }));
+    await userEvent.type(screen.getByRole("combobox", { name: "Model" }), "gpt-new");
+    await userEvent.type(screen.getByLabelText(/Input price/), "1");
+    await userEvent.type(screen.getByLabelText(/^Output price/), "2");
+    await userEvent.type(screen.getByLabelText(/Cached input price/), "0.5");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await vi.waitFor(() => {
+      expect(api.fetchPriceSummary).toHaveBeenCalledTimes(2);
+      expect(api.fetchHistory).toHaveBeenCalledTimes(2);
+      expect(api.fetchMissing).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("lazily loads history on expand and refetches both after a delete", async () => {
