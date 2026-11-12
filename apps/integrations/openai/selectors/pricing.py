@@ -17,6 +17,7 @@ from django.utils import timezone
 from apps.integrations.openai.models import AiPricing, AiUsageLog
 
 MISSING_CACHE_KEY = "ai_pricing:missing_models"
+RECENT_USAGE_CACHE_KEY = "ai_pricing:recent_usage"
 
 
 class MissingModel(TypedDict):
@@ -37,15 +38,26 @@ class ModelSuggestion(TypedDict):
     has_price: bool
 
 
-def _recent_usage(now: datetime) -> dict[str, datetime | None]:
-    """model -> last usage time over the lookback window (one grouped query)."""
+def _recent_usage(now: datetime, *, use_cache: bool = True) -> dict[str, datetime | None]:
+    """model -> last usage time over the lookback window (one grouped query).
+
+    Cached under ``RECENT_USAGE_CACHE_KEY`` (shared by gap detection and suggestions) and
+    dropped together with the missing-models cache by ``services.pricing_cache``.
+    """
+    if use_cache:
+        cached = cache.get(RECENT_USAGE_CACHE_KEY)
+        if cached is not None:
+            return dict(cached)
     since = now - timedelta(days=settings.AI_PRICING_LOOKBACK_DAYS)
     rows = (
         AiUsageLog.objects.filter(created_at__gte=since)
         .values("model")
         .annotate(last_used_at=Max("created_at"))
     )
-    return {r["model"]: r["last_used_at"] for r in rows}
+    usage: dict[str, datetime | None] = {r["model"]: r["last_used_at"] for r in rows}
+    if use_cache:
+        cache.set(RECENT_USAGE_CACHE_KEY, usage, settings.AI_PRICING_MISSING_CACHE_TTL_SECONDS)
+    return dict(usage)
 
 
 def _priced_now(now: datetime, models: set[str]) -> set[str]:
@@ -68,7 +80,7 @@ def list_missing_pricing_models(
         if cached is not None:
             return cached  # type: ignore[no-any-return]
     now = now or timezone.now()
-    usage = _recent_usage(now)
+    usage = _recent_usage(now, use_cache=use_cache)
     configured = settings.OPENAI_MODEL
     usage.setdefault(configured, None)
     for free in settings.AI_PRICING_KNOWN_FREE_MODELS:
@@ -83,10 +95,6 @@ def list_missing_pricing_models(
     if use_cache:
         cache.set(MISSING_CACHE_KEY, missing, settings.AI_PRICING_MISSING_CACHE_TTL_SECONDS)
     return missing
-
-
-def invalidate_missing_pricing_cache() -> None:
-    cache.delete(MISSING_CACHE_KEY)
 
 
 def list_price_summary(*, now: datetime | None = None) -> list[PriceSummaryRow]:

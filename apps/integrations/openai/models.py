@@ -31,9 +31,19 @@ class AiPricingQuerySet(models.QuerySet["AiPricing"]):
         """Return the pricing row for ``model`` that is active at ``at`` (default: now).
 
         Time-window lookup, so a scheduled (future) row never prices current
-        usage. Raises ``AiPricing.DoesNotExist`` when no row covers the time.
+        usage. If windows ever overlap (e.g. a hand edit), the row with the latest
+        ``effective_from`` wins instead of raising ``MultipleObjectsReturned``.
+        Raises ``AiPricing.DoesNotExist`` when no row covers the time.
         """
-        return self.active_at(at or timezone.now()).get(model=model)
+        row = (
+            self.active_at(at or timezone.now())
+            .filter(model=model)
+            .order_by("-effective_from", "-pk")
+            .first()
+        )
+        if row is None:
+            raise self.model.DoesNotExist(f"No AiPricing row active for model {model!r}.")
+        return row
 
 
 class AiPricing(models.Model):
@@ -57,6 +67,7 @@ class AiPricing(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="+",
+        db_index=True,  # FK default, kept: SET_NULL on user delete scans by created_by
     )
 
     objects: ClassVar[AiPricingQuerySet] = AiPricingQuerySet.as_manager()  # type: ignore[assignment]

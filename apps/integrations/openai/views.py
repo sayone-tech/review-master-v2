@@ -106,7 +106,7 @@ def _cached_rows(
     return rows
 
 
-def _generated_at() -> str:
+def generated_at_now() -> str:
     return str(serializers.DateTimeField().to_representation(timezone.now()))
 
 
@@ -140,7 +140,7 @@ class AiCostSummaryView(_AiCostBaseView):
                             "start": window.start,
                             "end": window.end,
                         },
-                        "generated_at": _generated_at(),
+                        "generated_at": generated_at_now(),
                         "has_any_usage": has_any_ai_usage(),
                         "totals": get_cost_summary(window=window),
                     }
@@ -201,7 +201,7 @@ class AiCostOrganisationListView(_AiCostBaseView):
             body = paginator.get_paginated_response(
                 OrgCostRowSerializer(results, many=True).data
             ).data
-            return {**body, "generated_at": _generated_at()}
+            return {**body, "generated_at": generated_at_now()}
 
         return Response(_cached("organisations", request, build))
 
@@ -251,7 +251,7 @@ class AiCostOrgSummaryView(_AiCostBaseView):
                             "start": window.start,
                             "end": window.end,
                         },
-                        "generated_at": _generated_at(),
+                        "generated_at": generated_at_now(),
                         "totals": get_cost_summary(window=window, organisation_id=org.id),
                     }
                 ).data
@@ -316,7 +316,7 @@ class AiCostOrgShopsView(_AiCostBaseView):
                 "unattributed": (
                     dict(UnattributedCostSerializer(unattributed).data) if unattributed else None
                 ),
-                "generated_at": _generated_at(),
+                "generated_at": generated_at_now(),
             }
 
         return Response(_cached("org-shops", request, build))
@@ -342,7 +342,7 @@ class AiCostOrgModelsView(_AiCostBaseView):
                 ModelCostListResponseSerializer(
                     {
                         "results": list_model_costs(window=window, organisation_id=org.id),
-                        "generated_at": _generated_at(),
+                        "generated_at": generated_at_now(),
                     }
                 ).data
             )

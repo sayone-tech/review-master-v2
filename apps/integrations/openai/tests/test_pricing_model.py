@@ -130,3 +130,15 @@ def test_platform_audit_admin_filters_and_is_read_only():
     assert not ma.has_add_permission(request)
     assert not ma.has_change_permission(request)
     assert not ma.has_delete_permission(request)
+
+
+def test_get_active_overlapping_windows_newest_start_wins():
+    """Overlapping windows (hand edit / grace edge) must not raise MultipleObjectsReturned."""
+    now = timezone.now()
+    AiPricingFactory(
+        model="m", effective_from=now - timedelta(days=10), effective_to=now + timedelta(days=1)
+    )
+    newer = AiPricingFactory(model="m", effective_from=now - timedelta(days=2), effective_to=None)
+    assert AiPricing.objects.get_active(model="m") == newer
+    cost = calculate_cost(model="m", prompt_tokens=1_000_000, completion_tokens=0)
+    assert cost == newer.input_token_price_per_1m.quantize(Decimal("0.000001"))

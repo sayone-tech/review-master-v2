@@ -57,3 +57,24 @@ def test_missing_table_yields_warning_not_error(settings, monkeypatch):
     messages = check_configured_model_priced(None, databases=["default"])
     assert [m.id for m in messages] == ["openai.W001"]
     assert isinstance(messages[0], CheckWarning)
+
+
+@pytest.mark.django_db
+def test_check_passes_when_configured_model_has_overlapping_windows(settings):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.integrations.openai.models import AiPricing
+    from apps.integrations.openai.tests.factories import AiPricingFactory
+
+    AiPricing.objects.filter(model="overlap-m").delete()
+    settings.OPENAI_MODEL = "overlap-m"
+    now = timezone.now()
+    AiPricingFactory(
+        model="overlap-m",
+        effective_from=now - timedelta(days=10),
+        effective_to=now + timedelta(days=1),
+    )
+    AiPricingFactory(model="overlap-m", effective_from=now - timedelta(days=2), effective_to=None)
+    assert check_configured_model_priced(None, databases=["default"]) == []

@@ -221,3 +221,24 @@ def test_never_touches_usage_log(actor):
     delete_scheduled_price(pricing_id=sched.pk, actor=actor, now=now)
     assert list(AiUsageLog.objects.values()) == before
     assert log.pk
+
+
+@pytest.mark.parametrize("offset", [timedelta(0), timedelta(seconds=-1)])
+def test_new_price_starting_at_or_before_current_start_rejected(actor, offset):
+    """Within the 5 s grace a new price must still start strictly after the open row."""
+    now = timezone.now()
+    cur = AiPricingFactory(model="m", effective_from=now - timedelta(seconds=2), effective_to=None)
+    with pytest.raises(BackdatedPriceError) as exc:
+        add_price(
+            model="m",
+            effective_from=cur.effective_from + offset,
+            actor=actor,
+            now=now,
+            **PRICES,
+        )
+    assert exc.value.code == "backdated"
+    assert "after the current price" in exc.value.detail
+    cur.refresh_from_db()
+    assert cur.effective_to is None
+    assert AiPricing.objects.filter(model="m").count() == 1
+    assert not AuditLog.objects.exists()

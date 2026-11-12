@@ -19,7 +19,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.common.models import AuditLog
 from apps.integrations.openai.models import AiPricing
-from apps.integrations.openai.selectors.pricing import invalidate_missing_pricing_cache
+from apps.integrations.openai.services.pricing_cache import invalidate_missing_pricing_cache
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,9 @@ class PricingError(Exception):
 class BackdatedPriceError(PricingError):
     code = "backdated"
     detail = "Prices cannot start in the past."
+
+
+STARTS_BEFORE_CURRENT_DETAIL = "A new price must start after the current price's start time."
 
 
 class ScheduledPriceExistsError(PricingError):
@@ -103,6 +106,10 @@ def add_price(
         raise BackdatedPriceError
     if open_row is not None and open_row.effective_from > now:
         raise ScheduledPriceExistsError
+    if open_row is not None and effective_from <= open_row.effective_from:
+        # Inside the 5 s grace a new price could otherwise close the open row at or before
+        # its own start, leaving a zero/negative-length window.
+        raise BackdatedPriceError(STARTS_BEFORE_CURRENT_DETAIL)
 
     before = _snapshot(open_row) if open_row is not None else None
     if open_row is not None:

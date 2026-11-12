@@ -13,12 +13,13 @@ from django.utils import timezone
 from apps.integrations.openai.models import AiPricing
 from apps.integrations.openai.selectors.pricing import (
     MISSING_CACHE_KEY,
-    invalidate_missing_pricing_cache,
+    RECENT_USAGE_CACHE_KEY,
     list_missing_pricing_models,
     list_model_suggestions,
     list_price_history,
     list_price_summary,
 )
+from apps.integrations.openai.services.pricing_cache import invalidate_missing_pricing_cache
 from apps.integrations.openai.tests.factories import AiPricingFactory, AiUsageLogFactory
 
 pytestmark = pytest.mark.django_db
@@ -167,3 +168,33 @@ def test_pricing_selectors_fixed_query_counts(django_assert_max_num_queries):
     list_missing_pricing_models(now=now)
     with django_assert_max_num_queries(0):
         list_missing_pricing_models(now=now)
+
+
+def _usage_aggregate_queries(ctx):
+    return [q for q in ctx.captured_queries if "openai_ai_usage_log" in q["sql"]]
+
+
+def test_suggestions_reuse_cached_recent_usage():
+    _use("u1")
+    first = list_model_suggestions()
+    assert "u1" in cache.get(RECENT_USAGE_CACHE_KEY)
+    with CaptureQueriesContext(connection) as ctx:
+        assert list_model_suggestions() == first
+    assert _usage_aggregate_queries(ctx) == []
+
+
+def test_recent_usage_cache_shared_with_missing_and_invalidated_together():
+    _use("u2")
+    list_model_suggestions()
+    with CaptureQueriesContext(connection) as ctx:
+        assert [m["model"] for m in list_missing_pricing_models()] == ["u2"]
+    assert _usage_aggregate_queries(ctx) == []
+    invalidate_missing_pricing_cache()
+    assert cache.get(RECENT_USAGE_CACHE_KEY) is None
+    assert cache.get(MISSING_CACHE_KEY) is None
+
+
+def test_missing_without_cache_bypasses_usage_cache():
+    list_model_suggestions()  # caches an empty usage map
+    _use("late")
+    assert "late" in [m["model"] for m in list_missing_pricing_models(use_cache=False)]

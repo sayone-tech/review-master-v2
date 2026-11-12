@@ -19,7 +19,6 @@ from apps.accounts.permissions import IsSuperadmin
 from apps.common.pagination import DefaultPageNumberPagination
 from apps.integrations.openai.models import AiPricing
 from apps.integrations.openai.selectors.pricing import (
-    invalidate_missing_pricing_cache,
     list_missing_pricing_models,
     list_model_suggestions,
     list_price_history,
@@ -34,13 +33,14 @@ from apps.integrations.openai.serializers import (
     PriceSummaryListResponseSerializer,
     PriceSummaryRowSerializer,
 )
+from apps.integrations.openai.services.pricing_cache import invalidate_missing_pricing_cache
 from apps.integrations.openai.services.pricing_management import (
     BackdatedPriceError,
     PricingError,
     add_price,
     delete_scheduled_price,
 )
-from apps.integrations.openai.views import _generated_at
+from apps.integrations.openai.views import generated_at_now
 
 PRICING_TAG = "superadmin-ai-pricing"
 PRICING_ERRORS = {
@@ -58,14 +58,18 @@ class _AiPricingBaseView(APIView):
 def _missing_payload() -> dict[str, Any]:
     return dict(
         MissingModelsResponseSerializer(
-            {"models": list_missing_pricing_models(), "generated_at": _generated_at()}
+            {"models": list_missing_pricing_models(), "generated_at": generated_at_now()}
         ).data
     )
 
 
 def _pricing_error_response(exc: PricingError) -> Response:
     """400 for a bad request (backdating), 409 for a state conflict."""
-    code = status.HTTP_400_BAD_REQUEST if isinstance(exc, BackdatedPriceError) else 409
+    code = (
+        status.HTTP_400_BAD_REQUEST
+        if isinstance(exc, BackdatedPriceError)
+        else status.HTTP_409_CONFLICT
+    )
     return Response({"code": exc.code, "detail": exc.detail}, status=code)
 
 
@@ -190,7 +194,11 @@ class AiPricingSuggestionsView(_AiPricingBaseView):
 
 
 class AiPricingMissingView(_AiPricingBaseView):
-    """GET /api/v1/superadmin/ai-pricing/missing/ (Superadmin only)."""
+    """GET /api/v1/superadmin/ai-pricing/missing/ (Superadmin only).
+
+    Unpaginated by design: returns one bounded object (models used in the lookback window that
+    lack a current price), not a growing collection.
+    """
 
     @extend_schema(
         responses={200: MissingModelsResponseSerializer, **PRICING_ERRORS},
