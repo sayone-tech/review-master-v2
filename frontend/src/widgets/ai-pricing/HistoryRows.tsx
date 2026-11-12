@@ -1,17 +1,33 @@
 import { useId, useState } from "react";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import { deleteScheduledPrice } from "./api";
+import { Money } from "../ai-cost/Money";
+import { Badge } from "../ai-cost/PageHeader";
 import { formatDate, formatDateTime, formatPrice, sourceLabel } from "./format";
 import type { PriceRow } from "./types";
 
-const LOCKED_TIP = "This pricing is in effect or has been in effect — can't delete.";
+const LOCKED_TIP = "This price is or has been in effect, so it can't be deleted.";
 
-function Pill({ status }: { status: PriceRow["status"] }) {
+function StatusBadge({ status }: { status: PriceRow["status"] }) {
   if (status === "current")
-    return <span className="rounded-full bg-green-tint text-green px-2 py-0.5 text-[11px] font-medium">Current</span>;
-  if (status === "scheduled")
-    return <span className="rounded-full bg-amber-tint text-amber px-2 py-0.5 text-[11px] font-medium">Scheduled</span>;
+    return (
+      <Badge tone="green" dot>
+        Current
+      </Badge>
+    );
+  if (status === "scheduled") return <Badge tone="yellow">Scheduled</Badge>;
   return null;
+}
+
+const DOT: Record<PriceRow["status"], string> = {
+  current: "bg-green",
+  scheduled: "bg-yellow",
+  historical: "bg-faint",
+};
+
+function period(r: PriceRow): string {
+  if (r.status === "scheduled") return `From ${formatDateTime(r.effective_from)}`;
+  return `${formatDate(r.effective_from)} to ${r.effective_to ? formatDate(r.effective_to) : "now"}`;
 }
 
 function DeleteButton({ row, onDelete }: { row: PriceRow; onDelete: (r: PriceRow) => void }) {
@@ -21,7 +37,7 @@ function DeleteButton({ row, onDelete }: { row: PriceRow; onDelete: (r: PriceRow
     <>
       <button
         type="button"
-        className={`text-[12.5px] font-medium text-red hover:underline${locked ? " opacity-40 no-underline cursor-not-allowed" : ""}`}
+        className={`rounded-sm text-[12.5px] font-medium text-red underline-offset-2 hover:underline${locked ? " opacity-40 no-underline cursor-not-allowed" : ""}`}
         aria-disabled={locked || undefined}
         aria-describedby={locked ? reasonId : undefined}
         title={locked ? LOCKED_TIP : undefined}
@@ -40,8 +56,8 @@ function DeleteButton({ row, onDelete }: { row: PriceRow; onDelete: (r: PriceRow
   );
 }
 
-function setBy(row: PriceRow): string {
-  return row.created_by ? (row.created_by.name ?? row.created_by.email ?? "—") : "—";
+function setBy(row: PriceRow): string | null {
+  return row.created_by ? (row.created_by.name ?? row.created_by.email ?? null) : null;
 }
 
 interface Props {
@@ -74,40 +90,37 @@ export function HistoryRows({ rows, onDeleted }: Props) {
           {error}
         </div>
       )}
-      <table className="w-full text-[12.5px]">
-        <thead>
-          <tr className="text-[12px] text-muted border-b border-line">
-            <th scope="col" className="py-1.5 pr-3 text-left font-medium">Effective from</th>
-            <th scope="col" className="py-1.5 pr-3 text-left font-medium">Effective to</th>
-            <th scope="col" className="py-1.5 pr-3 text-left font-medium">Input</th>
-            <th scope="col" className="py-1.5 pr-3 text-left font-medium">Output</th>
-            <th scope="col" className="py-1.5 pr-3 text-left font-medium">Cached</th>
-            <th scope="col" className="py-1.5 pr-3 text-left font-medium">Status</th>
-            <th scope="col" className="py-1.5 pr-3 text-left font-medium">Source</th>
-            <th scope="col" className="py-1.5 pr-3 text-left font-medium">Set by</th>
-            <th scope="col" className="py-1.5 text-left font-medium"><span className="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-b border-line last:border-0">
-              <td className="py-2 pr-3">
-                {r.status === "scheduled" ? formatDateTime(r.effective_from) : formatDate(r.effective_from)}
-              </td>
-              <td className="py-2 pr-3">{r.effective_to ? formatDate(r.effective_to) : "—"}</td>
-              <td className="py-2 pr-3">{formatPrice(r.input_token_price_per_1m)}</td>
-              <td className="py-2 pr-3">{formatPrice(r.output_token_price_per_1m)}</td>
-              <td className="py-2 pr-3">{formatPrice(r.cached_token_price_per_1m)}</td>
-              <td className="py-2 pr-3"><Pill status={r.status} /></td>
-              <td className="py-2 pr-3">{sourceLabel(r.source)}</td>
-              <td className="py-2 pr-3">{setBy(r)}</td>
-              <td className="py-2">
-                <DeleteButton row={r} onDelete={setPending} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ol className="ml-1 border-l border-line" aria-label="Price history">
+        {rows.map((r) => {
+          const who = setBy(r);
+          return (
+            <li key={r.id} className="relative pb-4 pl-5 last:pb-0">
+              <span
+                aria-hidden="true"
+                className={`absolute -left-[4.5px] top-[6px] h-2 w-2 rounded-full ring-2 ring-[#FBFBFB] ${DOT[r.status]}`}
+              />
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <span className="text-[13px] font-medium text-ink tabular-nums">{period(r)}</span>
+                <StatusBadge status={r.status} />
+                <Badge>{sourceLabel(r.source)}</Badge>
+                {who && <span className="text-[12.5px] text-muted">Set by {who}</span>}
+                {(r.status === "scheduled" || r.can_delete) && (
+                  <span className="ml-auto">
+                    <DeleteButton row={r} onDelete={setPending} />
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-[12.5px] text-muted tabular-nums">
+                Input <Money value={formatPrice(r.input_token_price_per_1m)} className="text-ink" />
+                <span className="mx-2" />
+                Output <Money value={formatPrice(r.output_token_price_per_1m)} className="text-ink" />
+                <span className="mx-2" />
+                Cached <Money value={formatPrice(r.cached_token_price_per_1m)} className="text-ink" />
+              </p>
+            </li>
+          );
+        })}
+      </ol>
       <ConfirmModal
         open={pending !== null}
         onClose={() => setPending(null)}

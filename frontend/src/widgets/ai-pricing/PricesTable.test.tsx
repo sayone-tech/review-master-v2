@@ -22,38 +22,42 @@ const rows = [
 ];
 
 describe("PricesTable", () => {
-  it("renders columns, active-since and the scheduled line", () => {
+  it("renders columns, source and the scheduled badge", () => {
     render(<PricesTable rows={rows} expandedModel={null} onViewHistory={vi.fn()} />);
     for (const h of [
       "Model",
-      "Input (per 1M tokens)",
-      "Output (per 1M tokens)",
-      "Cached Input (per 1M)",
-      "Effective From",
+      "Input per 1M",
+      "Output per 1M",
+      "Cached per 1M",
+      "Effective from",
+      "Source",
       "Actions",
     ]) {
       expect(screen.getByRole("columnheader", { name: h })).toBeInTheDocument();
     }
     const first = screen.getAllByRole("row")[1];
     expect(first).toHaveTextContent("gpt-4o-mini");
-    expect(first).toHaveTextContent("Active since 2026-01-05");
+    expect(first).toHaveTextContent("2026-01-05");
+    expect(first).toHaveTextContent("Manual");
     expect(first).toHaveTextContent("$0.150000");
     expect(first).toHaveTextContent("$0.600000");
     expect(first).toHaveTextContent("$0.075000");
-    expect(first).toHaveTextContent(
-      "Scheduled: $0.100000/$0.500000/$0.050000 from 2026-11-17 10:00 UTC",
+    expect(first).toHaveTextContent("Scheduled from 2026-11-17 10:00 UTC");
+    expect(screen.getByTestId("scheduled-prices")).toHaveTextContent(
+      "$0.100000 / $0.500000 / $0.050000",
     );
-    expect(screen.getAllByText(/Scheduled:/)).toHaveLength(1);
+    expect(screen.getAllByText(/Scheduled from/)).toHaveLength(1);
   });
 
   it("renders the empty state with a disabled CTA until the modal exists", () => {
     render(<PricesTable rows={[]} expandedModel={null} onViewHistory={vi.fn()} />);
     expect(
       screen.getByText(
-        "No pricing configured. Add pricing for at least one model to enable cost tracking.",
+        "Add a price for at least one model to start tracking AI cost.",
       ),
     ).toBeInTheDocument();
-    const cta = screen.getByRole("button", { name: "Add New Price" });
+    expect(screen.getByText("No prices yet")).toBeInTheDocument();
+    const cta = screen.getByRole("button", { name: "Add new price" });
     expect(cta).toHaveAttribute("aria-disabled", "true");
     expect(cta).toHaveAccessibleDescription("Coming in the next step");
     expect(cta).toHaveAttribute("title", "Coming in the next step");
@@ -63,7 +67,8 @@ describe("PricesTable", () => {
     const { rerender } = render(
       <PricesTable rows={rows} expandedModel={null} onViewHistory={vi.fn()} />,
     );
-    const btns = screen.getAllByRole("button", { name: "Add new price for this model" });
+    const btns = screen.getAllByRole("button", { name: /^Add price for / });
+    expect(btns[0]).toHaveAccessibleName("Add price for gpt-4o-mini");
     expect(btns[0]).toHaveAttribute("aria-disabled", "true");
     btns[0].focus();
     expect(btns[0]).toHaveFocus();
@@ -79,7 +84,7 @@ describe("PricesTable", () => {
         onAddPrice={onAddPrice}
       />,
     );
-    await userEvent.click(screen.getAllByRole("button", { name: "Add new price for this model" })[1]);
+    await userEvent.click(screen.getByRole("button", { name: "Add price for gpt-x" }));
     expect(onAddPrice).toHaveBeenCalledWith("gpt-x");
   });
 

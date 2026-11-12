@@ -91,14 +91,14 @@ export function ModelAutocomplete({ id, value, onChange, ...aria }: Props) {
           req.current++;
           setActive(false);
         }}
-        className="w-full px-3 py-2 border border-line rounded-md text-[13.5px] bg-white"
+        className="w-full px-3 py-[9px] text-[13.5px] text-text bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink aria-[invalid=true]:border-red"
         {...aria}
       />
       {open && (
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-10 mt-1 w-full max-h-56 overflow-auto bg-white border border-line rounded-md shadow-lg"
+          className="absolute z-10 mt-1 w-full max-h-56 overflow-auto bg-white border border-line rounded-menu shadow-lg p-1"
         >
           {options.map((o, i) => (
             <li
@@ -111,7 +111,7 @@ export function ModelAutocomplete({ id, value, onChange, ...aria }: Props) {
                 e.preventDefault();
                 select(o.model);
               }}
-              className={`flex items-center justify-between gap-3 px-3 py-2 text-[13.5px] cursor-pointer hover:bg-line-soft${i === highlight ? " bg-line-soft" : ""}`}
+              className={`flex items-center justify-between gap-3 px-2.5 py-2 rounded-sm text-[13.5px] cursor-pointer hover:bg-line-soft${i === highlight ? " bg-line-soft" : ""}`}
             >
               <span>{o.model}</span>
               {!o.has_price && <span className="text-[12px] text-red">⚠ No pricing</span>}

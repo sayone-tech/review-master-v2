@@ -48,14 +48,14 @@ describe("AddPriceModal", () => {
 
   it("shows title, fields and buttons with the exact labels", () => {
     setup();
-    expect(screen.getByRole("dialog", { name: "Add New Price" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Add new price" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Model" })).toBeInTheDocument();
     expect(screen.getByLabelText("Input price (USD per 1M tokens)")).toBeInTheDocument();
     expect(screen.getByLabelText("Output price (USD per 1M tokens)")).toBeInTheDocument();
     expect(screen.getByLabelText("Cached input price (USD per 1M tokens)")).toBeInTheDocument();
     expect(screen.getByLabelText("Effective from")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save price" })).toBeInTheDocument();
   });
 
   it("pre-fills the model", () => {
@@ -81,7 +81,7 @@ describe("AddPriceModal", () => {
 
   it("requires a model and every price", async () => {
     setup();
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
     expect(screen.getByText("Model is required.")).toBeInTheDocument();
     expect(screen.getAllByText("Enter a price.")).toHaveLength(3);
     expect(api.createPrice).not.toHaveBeenCalled();
@@ -95,7 +95,7 @@ describe("AddPriceModal", () => {
   ])("rejects input price %s", async (v, msg) => {
     setup();
     await fill("gpt-x", v, "1", "1");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
     expect(screen.getByText(msg)).toBeInTheDocument();
     expect(api.createPrice).not.toHaveBeenCalled();
   });
@@ -104,7 +104,7 @@ describe("AddPriceModal", () => {
     vi.mocked(api.createPrice).mockResolvedValue(priceRow());
     const { onSaved } = setup();
     await fill("gpt-x", "0", "1000", "0.12345678");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
     expect(onSaved).toHaveBeenCalled();
   });
 
@@ -113,7 +113,7 @@ describe("AddPriceModal", () => {
     vi.mocked(api.createPrice).mockReturnValue(new Promise((r) => (resolve = r)));
     const { onClose } = setup();
     await fill("gpt-x", "1", "1", "1");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
     await userEvent.keyboard("{Escape}");
     expect(onClose).not.toHaveBeenCalled();
     resolve(priceRow());
@@ -125,7 +125,7 @@ describe("AddPriceModal", () => {
     const from = screen.getByLabelText(FROM);
     await userEvent.clear(from);
     await userEvent.type(from, "2020-01-01T00:00");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
     expect(screen.getByText("Effective from can't be in the past.")).toBeInTheDocument();
     expect(api.createPrice).not.toHaveBeenCalled();
   });
@@ -146,7 +146,7 @@ describe("AddPriceModal", () => {
     const from = screen.getByLabelText(FROM);
     await userEvent.clear(from);
     await userEvent.type(from, "2030-03-04T05:06");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
     const body = vi.mocked(api.createPrice).mock.calls[0][0];
     expect(body.effective_from.endsWith("Z")).toBe(true);
     expect(body.effective_from).toBe(new Date("2030-03-04T05:06").toISOString());
@@ -167,7 +167,7 @@ describe("AddPriceModal", () => {
     );
     const { onSaved, onClose } = setup();
     await fill("gpt-x", "1", "1", "1");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("A scheduled price already exists for this model. Delete it first.");
     expect(onSaved).not.toHaveBeenCalled();
@@ -182,7 +182,7 @@ describe("AddPriceModal", () => {
     );
     setup();
     await fill("gpt-x", "1", "1", "1");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
     const field = screen.getByLabelText(OUT);
     expect(await screen.findByText("Ensure this value is less than or equal to 1000.")).toBeInTheDocument();
     expect(field).toHaveAccessibleDescription(/less than or equal to 1000/);

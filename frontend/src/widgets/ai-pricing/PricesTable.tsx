@@ -1,5 +1,7 @@
 import { Fragment, useId, type ReactNode } from "react";
-import { formatDate, formatDateTime, formatPrice } from "./format";
+import { Money } from "../ai-cost/Money";
+import { Badge } from "../ai-cost/PageHeader";
+import { formatDate, formatDateTime, formatPrice, sourceLabel } from "./format";
 import type { PriceSummary } from "./types";
 
 const NOT_YET = "Coming in the next step";
@@ -8,24 +10,31 @@ interface Props {
   rows: PriceSummary[];
   expandedModel: string | null;
   onViewHistory: (model: string) => void;
-  /** Opens the Add New Price modal; without it the buttons stay disabled. */
+  /** Opens the add-price modal; without it the buttons stay disabled. */
   onAddPrice?: (model?: string) => void;
   renderExpanded?: (model: string) => ReactNode;
 }
 
-const TH = "px-4 py-2 text-left font-medium";
+const TH = "px-4 py-2.5 text-[12px] font-medium text-muted whitespace-nowrap";
+const TD_NUM = "px-4 py-3 text-right tabular-nums";
+export const PRIMARY_BTN =
+  "inline-flex items-center px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed";
 const LINK_BTN =
-  "text-[13px] font-medium text-ink underline-offset-2 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed";
+  "rounded-sm text-[13px] font-medium text-ink underline-offset-2 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed";
+
+const price = (v: string) => <Money value={formatPrice(v)} />;
 
 export function AddPriceButton({
   onAddPrice,
   model,
   label,
+  ariaLabel,
   className,
 }: {
   onAddPrice?: (model?: string) => void;
   model?: string;
   label: string;
+  ariaLabel?: string;
   className: string;
 }) {
   const reasonId = useId();
@@ -35,6 +44,7 @@ export function AddPriceButton({
       <button
         type="button"
         className={`${className}${disabled ? " opacity-50 cursor-not-allowed" : ""}`}
+        aria-label={ariaLabel}
         aria-disabled={disabled || undefined}
         aria-describedby={disabled ? reasonId : undefined}
         title={disabled ? NOT_YET : undefined}
@@ -54,30 +64,30 @@ export function AddPriceButton({
 export function PricesTable({ rows, expandedModel, onViewHistory, onAddPrice, renderExpanded }: Props) {
   if (rows.length === 0) {
     return (
-      <div className="bg-white border border-line rounded-card p-8 text-center">
-        <p className="text-muted mb-4">
-          No pricing configured. Add pricing for at least one model to enable cost tracking.
+      <div className="rounded-card border border-line bg-white p-10 text-center">
+        <p className="font-medium text-ink">No prices yet</p>
+        <p className="mt-1 mb-4 text-[13.5px] text-muted">
+          Add a price for at least one model to start tracking AI cost.
         </p>
-        <AddPriceButton
-          onAddPrice={onAddPrice}
-          label="Add New Price"
-          className="inline-flex items-center px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed"
-        />
+        <AddPriceButton onAddPrice={onAddPrice} label="Add new price" className={PRIMARY_BTN} />
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-line rounded-card overflow-x-auto">
-      <table className="w-full text-[13px]">
+    <div className="overflow-x-auto rounded-card border border-line bg-white">
+      <table className="w-full min-w-[820px] text-[13.5px]">
         <thead>
-          <tr className="border-b border-line bg-[#FBFBFB] text-[12px] text-muted">
-            <th scope="col" className={TH}>Model</th>
-            <th scope="col" className={TH}>Input (per 1M tokens)</th>
-            <th scope="col" className={TH}>Output (per 1M tokens)</th>
-            <th scope="col" className={TH}>Cached Input (per 1M)</th>
-            <th scope="col" className={TH}>Effective From</th>
-            <th scope="col" className={TH}>Actions</th>
+          <tr className="border-b border-line bg-[#FBFBFB]">
+            <th scope="col" className={`${TH} text-left`}>Model</th>
+            <th scope="col" className={`${TH} text-right`}>Input per 1M</th>
+            <th scope="col" className={`${TH} text-right`}>Output per 1M</th>
+            <th scope="col" className={`${TH} text-right`}>Cached per 1M</th>
+            <th scope="col" className={`${TH} text-left`}>Effective from</th>
+            <th scope="col" className={`${TH} text-left`}>Source</th>
+            <th scope="col" className={TH}>
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -85,33 +95,34 @@ export function PricesTable({ rows, expandedModel, onViewHistory, onAddPrice, re
             const expanded = expandedModel === model;
             return (
               <Fragment key={model}>
-                <tr className="border-b border-line align-top">
+                <tr className="border-b border-line-soft align-top last:border-0">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-ink">{model}</div>
-                    {current && (
-                      <div className="text-[12px] text-muted">
-                        Active since {formatDate(current.effective_from)}
-                      </div>
-                    )}
                     {scheduled && (
-                      <div className="text-[12px] text-amber mt-1">
-                        Scheduled: {formatPrice(scheduled.input_token_price_per_1m)}/
-                        {formatPrice(scheduled.output_token_price_per_1m)}/
-                        {formatPrice(scheduled.cached_token_price_per_1m)} from{" "}
-                        {formatDateTime(scheduled.effective_from)}
+                      <div className="mt-1.5 flex flex-col items-start gap-1">
+                        <Badge tone="yellow">
+                          Scheduled from {formatDateTime(scheduled.effective_from)}
+                        </Badge>
+                        <span className="text-[12px] text-muted tabular-nums" data-testid="scheduled-prices">
+                          {price(scheduled.input_token_price_per_1m)} /{" "}
+                          {price(scheduled.output_token_price_per_1m)} /{" "}
+                          {price(scheduled.cached_token_price_per_1m)}
+                        </span>
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3">{current ? formatPrice(current.input_token_price_per_1m) : "—"}</td>
-                  <td className="px-4 py-3">{current ? formatPrice(current.output_token_price_per_1m) : "—"}</td>
-                  <td className="px-4 py-3">{current ? formatPrice(current.cached_token_price_per_1m) : "—"}</td>
-                  <td className="px-4 py-3">{current ? formatDate(current.effective_from) : "—"}</td>
+                  <td className={TD_NUM}>{current ? price(current.input_token_price_per_1m) : "—"}</td>
+                  <td className={TD_NUM}>{current ? price(current.output_token_price_per_1m) : "—"}</td>
+                  <td className={TD_NUM}>{current ? price(current.cached_token_price_per_1m) : "—"}</td>
+                  <td className="px-4 py-3 tabular-nums">{current ? formatDate(current.effective_from) : "—"}</td>
+                  <td className="px-4 py-3">{current ? <Badge>{sourceLabel(current.source)}</Badge> : "—"}</td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-col items-start gap-1">
+                    <div className="flex items-center justify-end gap-3 whitespace-nowrap">
                       <AddPriceButton
                         onAddPrice={onAddPrice}
                         model={model}
-                        label="Add new price for this model"
+                        label="Add price"
+                        ariaLabel={`Add price for ${model}`}
                         className={LINK_BTN}
                       />
                       <button
@@ -121,14 +132,14 @@ export function PricesTable({ rows, expandedModel, onViewHistory, onAddPrice, re
                         aria-label={`View history for ${model}`}
                         onClick={() => onViewHistory(model)}
                       >
-                        View history
+                        History
                       </button>
                     </div>
                   </td>
                 </tr>
                 {expanded && renderExpanded && (
-                  <tr className="border-b border-line bg-[#FBFBFB]">
-                    <td colSpan={6} className="px-4 py-3">
+                  <tr className="border-b border-line-soft bg-[#FBFBFB] last:border-0">
+                    <td colSpan={7} className="px-4 py-4 sm:pl-8">
                       {renderExpanded(model)}
                     </td>
                   </tr>

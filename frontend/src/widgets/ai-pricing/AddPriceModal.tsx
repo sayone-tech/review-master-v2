@@ -53,7 +53,9 @@ function utcFrom(local: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-const INPUT = "w-full px-3 py-2 border border-line rounded-md text-[13.5px] bg-white";
+const INPUT =
+  "w-full px-3 py-[9px] text-[13.5px] text-text bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink aria-[invalid=true]:border-red";
+const LABEL = "block text-[13px] font-medium text-ink mb-1.5";
 
 export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSaved }: Props) {
   // Remounted by the parent per open, so state initialises fresh each time.
@@ -135,7 +137,7 @@ export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSa
   const errId = (k: FieldKey) => `${uid}-${k}-err`;
   const fieldErr = (k: FieldKey) =>
     errors[k] ? (
-      <p id={errId(k)} className="mt-1 text-[12.5px] text-red">
+      <p id={errId(k)} className="mt-1.5 text-[12.5px] text-red">
         {errors[k]}
       </p>
     ) : null;
@@ -151,13 +153,13 @@ export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSa
         if (saving) return;
         onClose();
       }}
-      title="Add New Price"
+      title="Add new price"
       footer={
         <>
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-2 bg-white border border-line rounded-md text-[13.5px] hover:bg-line-soft"
+            className="px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft hover:border-[#D4D4D8]"
           >
             Cancel
           </button>
@@ -165,9 +167,9 @@ export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSa
             type="submit"
             form={formId}
             disabled={saving}
-            className="px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-50"
+            className="px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save
+            Save price
           </button>
         </>
       }
@@ -190,12 +192,12 @@ export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSa
         }}
       >
         {topError && (
-          <div role="alert" className="text-[13px] text-red bg-red-50 border border-red-200 rounded-md p-3">
+          <div role="alert" className="text-[13px] text-[#991B1B] bg-red-tint rounded-md px-3 py-2.5">
             {topError}
           </div>
         )}
         <div>
-          <label htmlFor={`${uid}-model`} className="block text-[13px] font-medium mb-1">
+          <label htmlFor={`${uid}-model`} className={LABEL}>
             Model
           </label>
           <ModelAutocomplete id={`${uid}-model`} value={model} onChange={setModel} {...aria("model")} />
@@ -203,7 +205,7 @@ export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSa
         </div>
         {PRICE_FIELDS.map(({ key, label }) => (
           <div key={key}>
-            <label htmlFor={`${uid}-${key}`} className="block text-[13px] font-medium mb-1">
+            <label htmlFor={`${uid}-${key}`} className={LABEL}>
               {label}
             </label>
             <input
@@ -219,7 +221,7 @@ export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSa
           </div>
         ))}
         <div>
-          <label htmlFor={`${uid}-from`} className="block text-[13px] font-medium mb-1">
+          <label htmlFor={`${uid}-from`} className={LABEL}>
             Effective from
           </label>
           <input
@@ -231,7 +233,7 @@ export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSa
             {...aria("effective_from")}
           />
           {fieldErr("effective_from")}
-          {utcLine && <p className="mt-1 text-[12.5px] text-muted">{utcLine}</p>}
+          {utcLine && <p className="mt-1.5 text-[12.5px] text-muted">{utcLine}</p>}
         </div>
       </form>
     </Modal>

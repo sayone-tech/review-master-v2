@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmModal, Modal } from "../modal";
 import { ApiError, fetchSyncStatus, toggleSync, triggerSync } from "./api";
+import { Badge, type BadgeTone } from "../ai-cost/PageHeader";
+import { Money } from "../ai-cost/Money";
 import { formatPrice, formatSyncDate, formatSyncDateTime } from "./format";
 import type { PriceTriple, SyncStatus } from "./types";
 
@@ -9,7 +11,7 @@ interface Props {
   onChanged: () => void;
   /** Called with each freshly loaded status. */
   onStatus?: (status: SyncStatus) => void;
-  /** "Use LiteLLM price": open Add New Price pre-filled. */
+  /** "Use LiteLLM price": open the add-price modal pre-filled. */
   onUseLiteLLM?: (model: string, prices: PriceTriple) => void;
   /** Bump to reload the status (e.g. after a price save changed the skipped-manual list). */
   refreshKey?: number;
@@ -17,15 +19,25 @@ interface Props {
 
 const POLL_INTERVAL_MS = 10_000;
 const POLL_MAX_TICKS = 12; // 2 minutes
-const BTN = "px-3 py-1.5 bg-white border border-line rounded-md text-[13px] hover:bg-line-soft disabled:opacity-50";
+const BTN =
+  "px-2.5 py-[5px] bg-white text-ink border border-line rounded-sm text-[12.5px] font-medium hover:bg-line-soft hover:border-[#D4D4D8] disabled:opacity-50 disabled:cursor-not-allowed";
+const LINK_BTN = "rounded-sm font-medium text-ink underline underline-offset-2 hover:no-underline";
 
-const triple = (p: PriceTriple) => `${formatPrice(p.input)}/${formatPrice(p.output)}/${formatPrice(p.cached)}`;
+function Triple({ p }: { p: PriceTriple }) {
+  return (
+    <>
+      <Money value={formatPrice(p.input)} /> / <Money value={formatPrice(p.output)} /> /{" "}
+      <Money value={formatPrice(p.cached)} />
+    </>
+  );
+}
 
 export function SyncBanner({ onChanged, onStatus, onUseLiteLLM, refreshKey = 0 }: Props) {
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [details, setDetails] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const req = useRef(0);
@@ -135,7 +147,7 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM, refreshKey = 0 }
     } catch (e) {
       setMessage(
         e instanceof ApiError && e.status === 429
-          ? "Sync Now can be used once every 15 minutes."
+          ? "Sync now can be used once every 15 minutes."
           : "Could not start the sync.",
       );
     } finally {
@@ -156,79 +168,127 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM, refreshKey = 0 }
 
   const failed = status.last_status === "failed";
   const running = status.last_status === "running";
-  const attention = failed || (!running && status.enabled && status.overdue);
-  const tone = attention
-    ? "bg-amber-50 border-amber-300"
-    : status.enabled && !running
-      ? "bg-green-50 border-green-300"
-      : "bg-line-soft border-line";
+  const overdue = !failed && !running && status.enabled && status.overdue;
+
+  // One badge for the most important state; the toggle button carries on/off when they differ.
+  let badge: [BadgeTone, string];
+  if (running) badge = ["blue", "Syncing"];
+  else if (failed) badge = ["amber", "Failed"];
+  else if (overdue) badge = ["amber", "Overdue"];
+  else if (status.enabled) badge = ["green", "On"];
+  else badge = ["gray", "Off"];
 
   let text: React.ReactNode;
   if (running) {
-    // Sync Now stays available; a second run while this one holds the lock is skipped.
+    // Sync now stays available; a second run while this one holds the lock is skipped.
     text = "Sync in progress…";
-  } else if (attention) {
-    const label = failed
-      ? `Last sync failed${status.last_run_at ? ` ${formatSyncDate(status.last_run_at)}` : ""}. Click to view details.`
-      : "No successful sync in over 14 days. Click to view details.";
+  } else if (failed || overdue) {
     text = (
-      <button type="button" className="underline underline-offset-2 text-left" onClick={() => setDetails(true)}>
-        {label}
-      </button>
+      <>
+        {failed
+          ? `Last sync failed${status.last_run_at ? ` ${formatSyncDate(status.last_run_at)}` : ""}.`
+          : "No successful sync in over 14 days."}{" "}
+        <button type="button" className={LINK_BTN} onClick={() => setDetails(true)}>
+          View details
+        </button>
+      </>
     );
   } else if (status.enabled) {
+    const next = status.next_run_at ? ` Next sync ${formatSyncDateTime(status.next_run_at)}.` : "";
     text = status.last_success_at
-      ? `Automatic pricing sync is on. Last synced: ${formatSyncDateTime(status.last_success_at)}.`
-      : "Automatic pricing sync is on. Not synced yet.";
+      ? `Last synced ${formatSyncDateTime(status.last_success_at)}.${next}`
+      : `Not synced yet.${next}`;
   } else {
-    text = "Automatic pricing sync is off. Prices update only when you add them manually.";
+    text = "Prices change only when you add them.";
   }
 
   const skipped = status.summary.skipped_manual;
   const concurrent = status.summary.skipped_concurrent ?? [];
+  const toggleLabel = status.enabled ? "Turn off" : "Turn on";
 
   return (
     <section
-      className={`${tone} border rounded-card p-4 text-[13.5px] text-ink space-y-2`}
+      className="rounded-card border border-line bg-white px-4 py-3 text-[13.5px] text-ink"
+      aria-label="Automatic pricing sync"
       data-testid="sync-banner"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p>{text}</p>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+          <span className="font-medium">Automatic pricing sync</span>
+          <Badge tone={badge[0]} dot>
+            {badge[1]}
+          </Badge>
+          <span className="text-muted" data-testid="sync-status-text">
+            {text}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
-          <button type="button" className={BTN} disabled={busy} onClick={() => setConfirming(true)}>
-            {status.enabled ? "Disable sync" : "Enable sync"}
-          </button>
           <button type="button" className={BTN} disabled={busy} onClick={() => void syncNow()}>
-            Sync Now
+            Sync now
+          </button>
+          <button
+            type="button"
+            className={BTN}
+            disabled={busy}
+            aria-label={`${toggleLabel} automatic pricing sync`}
+            onClick={() => setConfirming(true)}
+          >
+            {toggleLabel}
           </button>
         </div>
       </div>
       {message && (
-        <p role="status" className="text-[12.5px] text-muted">
+        <p role="status" className="mt-1.5 text-[12.5px] text-muted">
           {message}
         </p>
       )}
       {skipped.length > 0 && (
-        <div>
-          <p className="font-medium">
-            {skipped.length} hand-set {skipped.length === 1 ? "price differs" : "prices differ"} from LiteLLM
+        <div className="mt-2 border-t border-line-soft pt-2 text-[12.5px]">
+          <p className="text-muted">
+            {skipped.length} hand-set {skipped.length === 1 ? "price differs" : "prices differ"} from
+            LiteLLM.{" "}
+            <button
+              type="button"
+              className={LINK_BTN}
+              aria-expanded={reviewOpen}
+              aria-controls="sync-skipped-manual"
+              onClick={() => setReviewOpen((o) => !o)}
+            >
+              {reviewOpen ? "Hide" : "Review"}
+            </button>
           </p>
-          <ul className="mt-1 space-y-1">
-            {skipped.map((r) => (
-              <li key={r.model} className="flex flex-wrap items-center gap-2 text-[12.5px]">
-                <span>
-                  <code className="font-mono">{r.model}</code>: ours {triple(r.ours)} · LiteLLM {triple(r.litellm)}
-                </span>
-                <button
-                  type="button"
-                  className={BTN}
-                  onClick={() => onUseLiteLLM?.(r.model, r.litellm)}
-                >
-                  Use LiteLLM price
-                </button>
-              </li>
-            ))}
-          </ul>
+          {reviewOpen && (
+            <div id="sync-skipped-manual" className="mt-2 overflow-x-auto">
+              <table className="w-full min-w-[560px]">
+                <thead>
+                  <tr className="text-left text-[12px] text-muted">
+                    <th scope="col" className="py-1 pr-4 font-medium">Model</th>
+                    <th scope="col" className="py-1 pr-4 font-medium">Ours (input / output / cached)</th>
+                    <th scope="col" className="py-1 pr-4 font-medium">LiteLLM</th>
+                    <th scope="col" className="py-1 font-medium"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {skipped.map((r) => (
+                    <tr key={r.model} className="border-t border-line-soft">
+                      <td className="py-1.5 pr-4 font-medium">{r.model}</td>
+                      <td className="py-1.5 pr-4 whitespace-nowrap"><Triple p={r.ours} /></td>
+                      <td className="py-1.5 pr-4 whitespace-nowrap"><Triple p={r.litellm} /></td>
+                      <td className="py-1.5 text-right">
+                        <button
+                          type="button"
+                          className={BTN}
+                          onClick={() => onUseLiteLLM?.(r.model, r.litellm)}
+                        >
+                          Use LiteLLM price
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -243,7 +303,7 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM, refreshKey = 0 }
             ? "Turn off automatic pricing sync?"
             : "Turn on automatic pricing sync? Prices for models you use will update every Monday 09:00 UTC. Hand-set prices are never changed."
         }
-        confirmLabel={status.enabled ? "Disable sync" : "Enable sync"}
+        confirmLabel={toggleLabel}
       />
       <Modal
         open={details}
@@ -267,7 +327,7 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM, refreshKey = 0 }
               {concurrent.map((m, i) => (
                 <span key={m}>
                   {i > 0 && ", "}
-                  <code className="font-mono">{m}</code>
+                  <span className="font-medium">{m}</span>
                 </span>
               ))}
               . The next sync will retry.

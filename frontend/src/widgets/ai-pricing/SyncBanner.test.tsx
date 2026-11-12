@@ -25,23 +25,27 @@ describe("SyncBanner", () => {
     vi.useRealTimers();
   });
 
-  it("off state shows its copy and Enable sync", async () => {
+  it("off state shows its badge, copy and Turn on", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus());
     render(<SyncBanner onChanged={vi.fn()} />);
-    expect(
-      await screen.findByText("Automatic pricing sync is off. Prices update only when you add them manually."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Enable sync" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sync Now" })).toBeInTheDocument();
+    expect(await screen.findByText("Prices change only when you add them.")).toBeInTheDocument();
+    expect(screen.getByText("Off")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Turn on automatic pricing sync" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sync now" })).toBeInTheDocument();
   });
 
-  it("on state shows the UTC last-synced time and Disable sync", async () => {
-    vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus(ON));
+  it("on state shows the badge, UTC last-synced and next-run times, and Turn off", async () => {
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(
+      syncStatus({ ...ON, next_run_at: "2026-11-16T09:00:00Z" }),
+    );
     render(<SyncBanner onChanged={vi.fn()} />);
     expect(
-      await screen.findByText("Automatic pricing sync is on. Last synced: Nov 10, 2026 at 09:00 UTC."),
+      await screen.findByText(
+        "Last synced Nov 10, 2026 at 09:00 UTC. Next sync Nov 16, 2026 at 09:00 UTC.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Disable sync" })).toBeInTheDocument();
+    expect(screen.getByText("On")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Turn off automatic pricing sync" })).toBeInTheDocument();
   });
 
   it("on but never synced says so", async () => {
@@ -50,7 +54,7 @@ describe("SyncBanner", () => {
     expect(await screen.findByText(/Not synced yet\./)).toBeInTheDocument();
   });
 
-  it("failed state is clickable and the modal shows last_error and run time", async () => {
+  it("failed state shows the date and View details opens last_error and run time", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(
       syncStatus({
         enabled: true,
@@ -61,7 +65,9 @@ describe("SyncBanner", () => {
       }),
     );
     render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Last sync failed Nov 12, 2026. Click to view details." }));
+    expect(await screen.findByTestId("sync-status-text")).toHaveTextContent("Last sync failed Nov 12, 2026.");
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "View details" }));
     expect(screen.getByText("fetch failed: timeout")).toBeInTheDocument();
     expect(screen.getByText(/Nov 12, 2026 at 09:00 UTC/)).toBeInTheDocument();
   });
@@ -72,12 +78,11 @@ describe("SyncBanner", () => {
     );
     render(<SyncBanner onChanged={vi.fn()} />);
     expect(await screen.findByText("Sync in progress…")).toBeInTheDocument();
-    const banner = screen.getByTestId("sync-banner");
-    expect(banner.className).toContain("bg-line-soft");
-    expect(banner.className).not.toContain("amber");
-    expect(screen.queryByText(/Click to view details/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Disable sync" })).toBeInTheDocument();
+    expect(screen.getByText("Syncing")).toBeInTheDocument();
+    expect(screen.queryByText("Overdue")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View details" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sync now" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Turn off automatic pricing sync" })).toBeInTheDocument();
   });
 
   it("details modal lists models skipped because of a concurrent price change", async () => {
@@ -91,7 +96,7 @@ describe("SyncBanner", () => {
       }),
     );
     render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(await screen.findByRole("button", { name: /Last sync failed/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "View details" }));
     const line = screen.getByTestId("sync-skipped-concurrent");
     expect(line).toHaveTextContent("Skipped because the price changed at the same time: m-a, m-b. The next sync will retry.");
   });
@@ -101,9 +106,11 @@ describe("SyncBanner", () => {
       syncStatus({ enabled: true, overdue: true, last_status: "success", last_success_at: "2026-10-01T09:00:00Z" }),
     );
     render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "No successful sync in over 14 days. Click to view details." }),
+    expect(await screen.findByTestId("sync-status-text")).toHaveTextContent(
+      "No successful sync in over 14 days.",
     );
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "View details" }));
     expect(screen.getByText("No error recorded.")).toBeInTheDocument();
   });
 
@@ -112,7 +119,7 @@ describe("SyncBanner", () => {
     vi.mocked(api.toggleSync).mockResolvedValue(syncStatus(ON));
     const onChanged = vi.fn();
     render(<SyncBanner onChanged={onChanged} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Enable sync" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Turn on automatic pricing sync" }));
     expect(api.toggleSync).not.toHaveBeenCalled();
     expect(
       screen.getByText(
@@ -121,7 +128,7 @@ describe("SyncBanner", () => {
     ).toBeInTheDocument();
     await userEvent.click(screen.getByTestId("confirm-confirm"));
     await vi.waitFor(() => expect(api.toggleSync).toHaveBeenCalledWith(true));
-    expect(await screen.findByRole("button", { name: "Disable sync" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Turn off automatic pricing sync" })).toBeInTheDocument();
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
@@ -129,11 +136,11 @@ describe("SyncBanner", () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus(ON));
     vi.mocked(api.toggleSync).mockResolvedValue(syncStatus());
     render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Disable sync" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Turn off automatic pricing sync" }));
     expect(screen.getByText("Turn off automatic pricing sync?")).toBeInTheDocument();
     await userEvent.click(screen.getByTestId("confirm-cancel"));
     expect(api.toggleSync).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Disable sync" }));
+    await userEvent.click(screen.getByRole("button", { name: "Turn off automatic pricing sync" }));
     await userEvent.click(screen.getByTestId("confirm-confirm"));
     await vi.waitFor(() => expect(api.toggleSync).toHaveBeenCalledWith(false));
   });
@@ -153,7 +160,7 @@ describe("SyncBanner", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const onChanged = vi.fn();
     render(<SyncBanner onChanged={onChanged} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sync now" }));
     expect(await screen.findByText("Sync started. Refresh in a minute to see results.")).toBeInTheDocument();
     expect(api.fetchSyncStatus).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -180,7 +187,7 @@ describe("SyncBanner", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const onChanged = vi.fn();
     render(<SyncBanner onChanged={onChanged} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sync now" }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300_000);
     });
@@ -195,11 +202,11 @@ describe("SyncBanner", () => {
     vi.mocked(api.triggerSync).mockResolvedValue(undefined);
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sync now" }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5_000);
     });
-    await userEvent.click(screen.getByRole("button", { name: "Sync Now" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
@@ -212,7 +219,7 @@ describe("SyncBanner", () => {
     vi.mocked(api.triggerSync).mockResolvedValue(undefined);
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { unmount } = render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sync now" }));
     await screen.findByText(/Sync started/);
     unmount();
     await vi.advanceTimersByTimeAsync(60_000);
@@ -228,19 +235,19 @@ describe("SyncBanner", () => {
     await vi.waitFor(() => expect(api.fetchSyncStatus).toHaveBeenCalledTimes(2));
   });
 
-  it("an enabled, never-run, not-overdue status shows the green Not synced yet", async () => {
+  it("an enabled, never-run, not-overdue status shows On and Not synced yet", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus({ enabled: true, overdue: false }));
     render(<SyncBanner onChanged={vi.fn()} />);
-    expect(await screen.findByText("Automatic pricing sync is on. Not synced yet.")).toBeInTheDocument();
-    expect(screen.getByTestId("sync-banner").className).toContain("bg-green-50");
+    expect(await screen.findByText("Not synced yet.")).toBeInTheDocument();
+    expect(screen.getByText("On")).toBeInTheDocument();
   });
 
   it("Sync Now 429 shows the rate-limit message", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus());
     vi.mocked(api.triggerSync).mockRejectedValue(new ApiError(429, "Request was throttled."));
     render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
-    expect(await screen.findByText("Sync Now can be used once every 15 minutes.")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Sync now" }));
+    expect(await screen.findByText("Sync now can be used once every 15 minutes.")).toBeInTheDocument();
   });
 
   it("lists skipped hand-set prices and 'Use LiteLLM price' passes the LiteLLM values", async () => {
@@ -256,10 +263,15 @@ describe("SyncBanner", () => {
     });
     const onUse = vi.fn();
     render(<SyncBanner onChanged={vi.fn()} onUseLiteLLM={onUse} />);
-    expect(await screen.findByText("1 hand-set price differs from LiteLLM")).toBeInTheDocument();
-    expect(
-      screen.getByText(/ours \$0\.150000\/\$0\.600000\/\$0\.075000 · LiteLLM \$0\.100000\/\$0\.400000\/\$0\.050000/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/1 hand-set price differs from LiteLLM\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use LiteLLM price" })).not.toBeInTheDocument();
+    const review = screen.getByRole("button", { name: "Review" });
+    await userEvent.click(review);
+    expect(review).toHaveAttribute("aria-expanded", "true");
+    const row = screen.getByRole("row", { name: /m3/ });
+    expect(row).toHaveTextContent(
+      "$0.150000 / $0.600000 / $0.075000$0.100000 / $0.400000 / $0.050000",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Use LiteLLM price" }));
     expect(onUse).toHaveBeenCalledWith("m3", skipped.litellm);
   });
@@ -269,10 +281,10 @@ describe("SyncBanner", () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus());
     render(<SyncBanner onChanged={vi.fn()} />);
     await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
-    expect(await screen.findByText(/Automatic pricing sync is off/)).toBeInTheDocument();
+    expect(await screen.findByText("Prices change only when you add them.")).toBeInTheDocument();
   });
 
-  it("shows a failed run even when sync is off, keeps Enable sync and opens details", async () => {
+  it("shows a failed run even when sync is off, keeps Turn on and opens details", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(
       syncStatus({
         enabled: false,
@@ -282,14 +294,13 @@ describe("SyncBanner", () => {
       }),
     );
     render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Last sync failed Nov 12, 2026. Click to view details." }),
-    );
+    expect(await screen.findByTestId("sync-status-text")).toHaveTextContent("Last sync failed Nov 12, 2026.");
+    await userEvent.click(screen.getByRole("button", { name: "View details" }));
     expect(screen.getByText("fetch failed: timeout")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Enable sync" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Turn on automatic pricing sync" })).toBeInTheDocument();
   });
 
-  it("a disabled Sync Now that fails turns the banner amber after the first poll", async () => {
+  it("a disabled sync's Sync now that fails shows the Failed state after the first poll", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValueOnce(syncStatus());
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(
       syncStatus({ last_status: "failed", last_error: "boom", last_run_at: "2026-11-12T09:00:03Z" }),
@@ -297,13 +308,13 @@ describe("SyncBanner", () => {
     vi.mocked(api.triggerSync).mockResolvedValue(undefined);
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<SyncBanner onChanged={vi.fn()} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sync now" }));
     await screen.findByText(/Sync started/);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
-    expect(
-      await screen.findByRole("button", { name: "Last sync failed Nov 12, 2026. Click to view details." }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Failed")).toBeInTheDocument();
+    expect(screen.getByTestId("sync-status-text")).toHaveTextContent("Last sync failed Nov 12, 2026.");
+    expect(screen.getByRole("button", { name: "View details" })).toBeInTheDocument();
   });
 });

@@ -52,10 +52,10 @@ describe("AiPricingWidget", () => {
     render(<AiPricingWidget />);
     expect(screen.getByRole("heading", { name: "AI Pricing" })).toBeInTheDocument();
     expect(
-      screen.getByText("Current and historical token rates for OpenAI models"),
+      screen.getByText("Token rates used to calculate AI cost"),
     ).toBeInTheDocument();
-    expect(await screen.findByText("Active since 2026-01-05")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add New Price" })).not.toHaveAttribute("aria-disabled");
+    expect(await screen.findByText("gpt-4o-mini")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add new price" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("opens the modal from the header, a row action and the alert, pre-filling the model", async () => {
@@ -65,14 +65,14 @@ describe("AiPricingWidget", () => {
       generated_at: "x",
     });
     render(<AiPricingWidget />);
-    await screen.findByText("Active since 2026-01-05");
+    await screen.findByText("gpt-4o-mini");
 
-    await userEvent.click(screen.getByRole("button", { name: "Add New Price" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add new price" }));
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("");
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Add pricing for gpt-new →" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Add price for gpt-new" }));
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("gpt-new");
   });
 
@@ -86,17 +86,17 @@ describe("AiPricingWidget", () => {
     });
     vi.mocked(api.createPrice).mockResolvedValue(priceRow({ id: 9 }));
     render(<AiPricingWidget />);
-    await screen.findByText("Active since 2026-01-05");
+    await screen.findByText("gpt-4o-mini");
     await userEvent.click(screen.getByRole("button", { name: "View history for gpt-4o-mini" }));
     await vi.waitFor(() => expect(api.fetchHistory).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(api.fetchMissing).toHaveBeenCalledTimes(1));
 
-    await userEvent.click(screen.getByRole("button", { name: "Add New Price" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add new price" }));
     await userEvent.type(screen.getByRole("combobox", { name: "Model" }), "gpt-new");
     await userEvent.type(screen.getByLabelText(/Input price/), "1");
     await userEvent.type(screen.getByLabelText(/^Output price/), "2");
     await userEvent.type(screen.getByLabelText(/Cached input price/), "0.5");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save price" }));
 
     await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await vi.waitFor(() => {
@@ -116,13 +116,12 @@ describe("AiPricingWidget", () => {
       .mockResolvedValueOnce({ count: 1, next: null, previous: null, results: [priceRow()] });
     vi.mocked(api.deleteScheduledPrice).mockResolvedValue();
     render(<AiPricingWidget />);
-    await screen.findByText("Active since 2026-01-05");
+    await screen.findByText("gpt-4o-mini");
     expect(api.fetchHistory).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "View history for gpt-4o-mini" }));
     expect(api.fetchHistory).toHaveBeenCalledWith("gpt-4o-mini");
-    const deletes = await screen.findAllByRole("button", { name: "Delete" });
-    await userEvent.click(deletes[1]);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await userEvent.click(screen.getByTestId("confirm-confirm"));
 
     expect(api.deleteScheduledPrice).toHaveBeenCalledWith(2);
@@ -130,7 +129,7 @@ describe("AiPricingWidget", () => {
       expect(api.fetchPriceSummary).toHaveBeenCalledTimes(2);
       expect(api.fetchHistory).toHaveBeenCalledTimes(2);
     });
-    await vi.waitFor(() => expect(screen.queryByText(/Scheduled:/)).not.toBeInTheDocument());
+    await vi.waitFor(() => expect(screen.queryByText(/Scheduled from/)).not.toBeInTheDocument());
   });
 
   it("ignores a slow history response for a model that is no longer expanded", async () => {
@@ -169,7 +168,7 @@ describe("AiPricingWidget", () => {
     expect(screen.queryByText("Seed")).not.toBeInTheDocument();
   });
 
-  it("'Use LiteLLM price' opens Add New Price pre-filled with model and LiteLLM values", async () => {
+  it("'Use LiteLLM price' opens the add-price modal pre-filled with model and LiteLLM values", async () => {
     vi.mocked(api.fetchPriceSummary).mockResolvedValue(page(null));
     const base = syncStatus({ enabled: true });
     vi.mocked(api.fetchSyncStatus).mockResolvedValue({
@@ -186,7 +185,8 @@ describe("AiPricingWidget", () => {
       },
     });
     render(<AiPricingWidget />);
-    await userEvent.click(await screen.findByRole("button", { name: "Use LiteLLM price" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Review" }));
+    await userEvent.click(screen.getByRole("button", { name: "Use LiteLLM price" }));
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("m3");
     expect(screen.getByLabelText(/Input price/)).toHaveValue("0.10000000");
     expect(screen.getByLabelText(/Cached input price/)).toHaveValue("0.05000000");
@@ -201,11 +201,11 @@ describe("AiPricingWidget", () => {
     vi.mocked(api.toggleSync).mockResolvedValue(syncStatus({ enabled: true }));
     render(<AiPricingWidget />);
     await screen.findByText("1 model is logged without pricing.");
-    expect(screen.queryByText(/Next weekly sync/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/next weekly sync/)).not.toBeInTheDocument();
     const before = vi.mocked(api.fetchMissing).mock.calls.length;
-    await userEvent.click(await screen.findByRole("button", { name: "Enable sync" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Turn on automatic pricing sync" }));
     await userEvent.click(screen.getByTestId("confirm-confirm"));
-    expect(await screen.findByText(/Next weekly sync/)).toBeInTheDocument();
+    expect(await screen.findByText(/next weekly sync/)).toBeInTheDocument();
     expect(vi.mocked(api.fetchMissing).mock.calls.length).toBeGreaterThan(before);
   });
 });

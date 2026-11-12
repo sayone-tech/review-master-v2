@@ -33,36 +33,49 @@ describe("HistoryRows", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("shows pills, source labels and who set each price", () => {
+  it("shows a dated timeline with status and source badges and who set each price", () => {
     render(<HistoryRows rows={rows} onDeleted={vi.fn()} />);
-    const body = screen.getAllByRole("row").slice(1);
+    expect(screen.getByRole("list", { name: "Price history" })).toBeInTheDocument();
+    const body = screen.getAllByRole("listitem");
     expect(body).toHaveLength(3);
+    expect(body[0]).toHaveTextContent("2025-01-01 to 2026-01-05");
     expect(body[0]).toHaveTextContent("Seed");
+    expect(body[0]).not.toHaveTextContent("Set by");
     expect(body[0]).not.toHaveTextContent("Current");
     expect(body[1]).toHaveTextContent("Current");
     expect(body[1]).toHaveTextContent("Manual");
-    expect(body[1]).toHaveTextContent("Ada Admin");
+    expect(body[1]).toHaveTextContent("2026-01-05 to now");
+    expect(body[1]).toHaveTextContent("Set by Ada Admin");
+    expect(body[1]).toHaveTextContent("Input $0.150000");
+    expect(body[2]).toHaveTextContent("From 2026-11-17 10:00 UTC");
     expect(body[2]).toHaveTextContent("Scheduled");
     expect(body[2]).toHaveTextContent("LiteLLM sync");
   });
 
-  it("disables delete with the tooltip unless can_delete", () => {
+  it("offers Delete only on the scheduled price", () => {
     render(<HistoryRows rows={rows} onDeleted={vi.fn()} />);
-    const btns = screen.getAllByRole("button", { name: "Delete" });
-    const reason = "This pricing is in effect or has been in effect — can't delete.";
-    expect(btns[0]).toHaveAttribute("title", reason);
-    for (const b of [btns[0], btns[1]]) {
-      expect(b).toHaveAttribute("aria-disabled", "true");
-      b.focus();
-      expect(b).toHaveFocus();
-      expect(b).toHaveAccessibleDescription(reason);
-    }
-    expect(btns[2]).not.toHaveAttribute("aria-disabled");
+    const body = screen.getAllByRole("listitem");
+    expect(within(body[0]).queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(within(body[1]).queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(within(body[2]).getByRole("button", { name: "Delete" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  const locked = [priceRow({ id: 9, status: "scheduled", can_delete: false })];
+  const reason = "This price is or has been in effect, so it can't be deleted.";
+
+  it("disables delete with the tooltip unless can_delete", () => {
+    render(<HistoryRows rows={locked} onDeleted={vi.fn()} />);
+    const b = screen.getByRole("button", { name: "Delete" });
+    expect(b).toHaveAttribute("title", reason);
+    expect(b).toHaveAttribute("aria-disabled", "true");
+    b.focus();
+    expect(b).toHaveFocus();
+    expect(b).toHaveAccessibleDescription(reason);
   });
 
   it("clicking a locked delete does nothing", async () => {
-    render(<HistoryRows rows={rows} onDeleted={vi.fn()} />);
-    await userEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
+    render(<HistoryRows rows={locked} onDeleted={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.queryByTestId("confirm-confirm")).not.toBeInTheDocument();
   });
 
@@ -70,7 +83,7 @@ describe("HistoryRows", () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
     const onDeleted = vi.fn();
     render(<HistoryRows rows={rows} onDeleted={onDeleted} />);
-    await userEvent.click(screen.getAllByRole("button", { name: "Delete" })[2]);
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(fetchMock).not.toHaveBeenCalled();
     await userEvent.click(screen.getByTestId("confirm-confirm"));
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/superadmin/ai-pricing/3/", {
@@ -83,7 +96,7 @@ describe("HistoryRows", () => {
 
   it("cancelling the confirmation does not delete", async () => {
     render(<HistoryRows rows={rows} onDeleted={vi.fn()} />);
-    await userEvent.click(screen.getAllByRole("button", { name: "Delete" })[2]);
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     await userEvent.click(screen.getByTestId("confirm-cancel"));
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -94,7 +107,7 @@ describe("HistoryRows", () => {
     );
     const onDeleted = vi.fn();
     render(<HistoryRows rows={rows} onDeleted={onDeleted} />);
-    await userEvent.click(screen.getAllByRole("button", { name: "Delete" })[2]);
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     await userEvent.click(screen.getByTestId("confirm-confirm"));
     const alert = await screen.findByRole("alert");
     expect(within(alert).getByText(/Nope\./)).toBeInTheDocument();

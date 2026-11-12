@@ -4,7 +4,8 @@ import { AddPriceModal } from "./AddPriceModal";
 import { HistoryRows } from "./HistoryRows";
 import { MissingPricingAlert } from "./MissingPricingAlert";
 import { SyncBanner } from "./SyncBanner";
-import { AddPriceButton, PricesTable } from "./PricesTable";
+import { AddPriceButton, PRIMARY_BTN, PricesTable } from "./PricesTable";
+import { PageHeader } from "../ai-cost/PageHeader";
 import type { Paginated, PriceRow, PriceSummary, PriceTriple } from "./types";
 
 export function AiPricingWidget() {
@@ -92,20 +93,10 @@ export function AiPricingWidget() {
   const totalPages = summary ? Math.max(1, Math.ceil(summary.count / 25)) : 1;
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[22px] font-semibold text-ink">AI Pricing</h1>
-          <p className="text-[13.5px] text-muted">
-            Current and historical token rates for OpenAI models
-          </p>
-        </div>
-        <AddPriceButton
-          label="Add New Price"
-          onAddPrice={openAdd}
-          className="inline-flex items-center px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeader title="AI Pricing" sub="Token rates used to calculate AI cost">
+        <AddPriceButton label="Add new price" onAddPrice={openAdd} className={PRIMARY_BTN} />
+      </PageHeader>
 
       <SyncBanner
         onChanged={() => setAlertKey((k) => k + 1)}
@@ -150,21 +141,21 @@ export function AiPricingWidget() {
       )}
 
       {summary && summary.count > 25 && (
-        <nav aria-label="Pagination" className="flex items-center gap-2 text-[12px] text-muted">
+        <nav aria-label="Pagination" className="flex items-center justify-end gap-2 text-[13px] text-muted">
           <button
             type="button"
-            className="px-2 py-1 rounded-sm border border-line bg-white disabled:opacity-40"
+            className="px-2.5 py-[5px] rounded-sm border border-line bg-white text-[12.5px] font-medium text-ink enabled:hover:bg-line-soft disabled:opacity-40"
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
             Previous
           </button>
-          <span>
+          <span className="tabular-nums">
             Page {page} of {totalPages}
           </span>
           <button
             type="button"
-            className="px-2 py-1 rounded-sm border border-line bg-white disabled:opacity-40"
+            className="px-2.5 py-[5px] rounded-sm border border-line bg-white text-[12.5px] font-medium text-ink enabled:hover:bg-line-soft disabled:opacity-40"
             disabled={!summary.next}
             onClick={() => setPage((p) => p + 1)}
           >
