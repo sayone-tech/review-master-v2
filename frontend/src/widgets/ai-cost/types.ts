@@ -101,3 +101,5 @@ export type OrgSortKey =
   | "cost";
 
 export const PAGE_SIZES = [10, 25, 50, 100] as const;
+
+export type ShopSortKey = "name" | "calls" | "input_tokens" | "output_tokens" | "cost";

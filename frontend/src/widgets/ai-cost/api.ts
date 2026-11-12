@@ -1,4 +1,10 @@
-import type { CostFilters, OrgListResponse, CostSummaryResponse } from "./types";
+import type {
+  CostFilters,
+  CostSummaryResponse,
+  ModelListResponse,
+  OrgListResponse,
+  ShopListResponse,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -52,4 +58,24 @@ export function fetchOrganisations(
   p.set("page_size", String(opts.pageSize));
   p.set("sort", opts.sort);
   return getJson(`${BASE}/organisations/?${p.toString()}`);
+}
+
+export function fetchOrgSummary(orgId: number, f: CostFilters): Promise<CostSummaryResponse> {
+  return getJson(`${BASE}/organisations/${orgId}/summary/?${rangeParams(f).toString()}`);
+}
+
+export function fetchOrgShops(
+  orgId: number,
+  f: CostFilters,
+  opts: { page: number; pageSize: number; sort: string },
+): Promise<ShopListResponse> {
+  const p = rangeParams(f);
+  p.set("page", String(opts.page));
+  p.set("page_size", String(opts.pageSize));
+  p.set("sort", opts.sort);
+  return getJson(`${BASE}/organisations/${orgId}/shops/?${p.toString()}`);
+}
+
+export function fetchOrgModels(orgId: number, f: CostFilters): Promise<ModelListResponse> {
+  return getJson(`${BASE}/organisations/${orgId}/models/?${rangeParams(f).toString()}`);
 }

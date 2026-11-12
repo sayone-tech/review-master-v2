@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchOrganisations, fetchSummary, ApiError } from "./api";
 import { formatUpdatedAgo } from "./format";
 import { KpiRow } from "./KpiRow";
+import { OrgDetail } from "./OrgDetail";
 import { OrgTable } from "./OrgTable";
 import { RangeFilter } from "./RangeFilter";
 import { readFilters, writeFilters } from "./urlState";
@@ -200,7 +201,15 @@ export function AiCostWidget({ orgId: initialOrgId }: { orgId: number | null }) 
       {orgId === null ? (
         <PlatformView filters={filters} onFilters={changeFilters} onOpen={openOrg} />
       ) : (
-        <div data-testid="org-detail-placeholder" />
+        <OrgDetail
+          orgId={orgId}
+          filters={filters}
+          onFilters={changeFilters}
+          onBack={() => {
+            window.history.pushState(null, "", `/admin/ai-cost/${writeFilters(filters)}`);
+            setOrgId(null);
+          }}
+        />
       )}
     </div>
   );
