@@ -156,8 +156,13 @@ repo-root/
 │   │       ├── selectors/ai_cost.py # Read-only AI cost aggregates: platform, org, shop, model (Phase 34)
 │   │       ├── serializers.py       # AI Cost Explorer response serializers (Phase 34)
 │   │       ├── views.py             # Superadmin AI Cost Explorer API + page shell, cached 600 s (Phase 34)
-│   │       ├── api_urls.py          # /api/v1/superadmin/ai-cost/ endpoints (Phase 34)
-│   │       └── urls.py              # /admin/ai-cost/ page routes (Phase 34)
+│   │       ├── api_urls.py          # /api/v1/superadmin/ai-cost/ endpoints (Phase 34) + /api/v1/superadmin/ai-pricing/ (Phase 35)
+│   │       ├── urls.py              # /admin/ai-cost/ page routes (Phase 34) + /admin/ai-pricing/ (Phase 35)
+│   │       ├── services/pricing_management.py # Append-only add / delete-scheduled price + platform AuditLog (Phase 35)
+│   │       ├── services/pricing_cache.py      # Drops the pricing read caches on every change / refresh (Phase 35)
+│   │       ├── selectors/pricing.py # Price summary, history, model suggestions, missing-price detection (Phase 35)
+│   │       ├── pricing_views.py     # Superadmin AI Pricing API (Phase 35)
+│   │       └── checks.py            # Deploy check openai.E001: configured model must have an active price (Phase 35)
 │   └── common/                      # shared utilities, base models, mixins
 │       ├── models.py                # TimeStampedModel, UUIDModel
 │       ├── pagination.py
@@ -849,6 +854,11 @@ Phase 3 introduces GPT-4o-mini for review enrichment (sentiment, tags, action it
 | `pricing.py` | Cost calculator that reads from `AiPricing` table |
 | `tracing.py` | LangSmith SDK integration |
 | `exceptions.py` | `OpenAITransientError` (retry-able), `OpenAIPermanentError` (do not retry) |
+| `services/pricing_management.py` | Append-only pricing writes: `add_price`, `delete_scheduled_price`; one platform `AuditLog` row per change (Phase 35) |
+| `services/pricing_cache.py` | Invalidates `ai_pricing:missing_models` + `ai_pricing:recent_usage` (Phase 35) |
+| `selectors/pricing.py` | Read-only price summary / history / model suggestions / missing-price (gap) detection, Redis-cached (Phase 35) |
+| `pricing_views.py` | Superadmin AI Pricing API under `/api/v1/superadmin/ai-pricing/` (Phase 35) |
+| `checks.py` | Database system check `openai.E001` — `OPENAI_MODEL` has no active price (Phase 35) |
 
 ### 14.2 Single combined prompt
 
@@ -912,9 +922,13 @@ def calculate_cost(*, model: str, prompt_tokens: int, completion_tokens: int,
 
 ### 14.4 Pricing maintenance
 
-- Pricing rows are managed via Django admin (Phase 3) or a dedicated Superadmin UI (future phase).
-- Adding a new pricing row sets `effective_from = now()` and updates the previous row's `effective_to`.
-- **Never edit a historical pricing row in place.** Add a new row instead.
+- Pricing rows are managed on the Superadmin **AI Pricing** page (`/admin/ai-pricing/`, Phase 35) via `services/pricing_management.py`. The Django admin for `AiPricing` is **read-only**.
+- **Append-only.** Adding a price closes the model's open row at the new row's `effective_from` (setting its `effective_to`); a price may start now or in the future. **Never edit a historical pricing row in place** — add a new row instead.
+- **Scheduled prices:** at most one future (not-yet-started) price per model, enforced by the DB one-open-row-per-model constraint (`ai_pricing_one_open_row_per_model`). Deleting a scheduled row reopens its predecessor (`effective_to` back to `NULL`); a price that has started cannot be deleted.
+- **No backdating:** `effective_from >= now - 5 s` (grace), and it must start strictly after the current price's `effective_from`.
+- Every row records `source` (`manual` / `sync` / `seed`) and nullable `created_by`. Every add/delete writes **one platform `AuditLog` row** (`organisation=NULL`, `entity_type="ai_pricing"`, actions `ai_pricing.added` / `ai_pricing.deleted`).
+- `AiPricing.objects.get_active(model=, at=)` is a time-window lookup (`effective_from <= at < coalesce(effective_to, ∞)`), so a scheduled row never prices current usage; on overlap the newest start wins.
+- **Deploy guard:** `manage.py check --database default` raises `openai.E001` when `OPENAI_MODEL` has no active price — run as step 5b of `deployment/scripts/deploy.sh`.
 - Initial seed data: GPT-4o-mini at the model's published rates as of model release. Stored as `Decimal` to avoid floating-point drift.
 
 ### 14.5 LangSmith tracing
@@ -1552,7 +1566,7 @@ A per-organisation, self-organising canonical tag vocabulary, built and evolved 
 
 ### 29.4 Audit logging — `AuditLog` (`apps/common/models.py`)
 
-The general-purpose audit/event model (Phase 21), surfaced in the Org Activity Log viewer. Reused across the platform (e.g. `review.fetched`, `action_item.*`) and by canonical work. Fields: `organisation`, nullable `actor` (null = system/automated event), `entity_type`, `entity_id`, `action`, `before_data` / `after_data` (JSON). Polarity reclassification writes `entity_type="canonical_tag"`, `action="polarity_reclassified"`, `actor=None`. **Prefer writing to `AuditLog` over a bespoke log model** for user-visible domain events.
+The general-purpose audit/event model (Phase 21), surfaced in the Org Activity Log viewer. Reused across the platform (e.g. `review.fetched`, `action_item.*`) and by canonical work. Fields: `organisation`, nullable `actor` (null = system/automated event), `entity_type`, `entity_id`, `action`, `before_data` / `after_data` (JSON). Polarity reclassification writes `entity_type="canonical_tag"`, `action="polarity_reclassified"`, `actor=None`. **Prefer writing to `AuditLog` over a bespoke log model** for user-visible domain events. `organisation=NULL` marks a platform-level event (e.g. AI pricing changes, §14.4): shown only via the `PlatformAuditLog` Django admin proxy and never in any tenant's activity log.
 
 ### 29.5 Settings (`config/settings/base.py`)
 
