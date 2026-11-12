@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -9,7 +9,6 @@ from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -32,17 +31,26 @@ SUMMARY_URL = reverse("superadmin-ai-cost-summary")
 ORGS_URL = reverse("superadmin-ai-cost-orgs")
 
 
-@pytest.fixture(autouse=True)
-def _window_sees_rows_written_now(monkeypatch):
-    """Resolve windows one end-bucket in the future.
+FROZEN_NOW = datetime(2026, 11, 12, 15, 34, tzinfo=UTC)
+# Window ends are exclusive and bucketed down to 15:30, so rows sit just before that.
+ROW_TIME = datetime(2026, 11, 12, 15, 25, tzinfo=UTC)
 
-    Open-ended ranges end at "now" rounded down to a 10-minute bucket, so rows the
-    test just wrote would otherwise fall after the window end.
+
+@pytest.fixture(autouse=True)
+def _frozen_now(monkeypatch):
+    """Freeze "now" at a fixed mid-month instant, deterministic at any wall-clock time.
+
+    Windows resolve against FROZEN_NOW and every AiUsageLog the factory creates is
+    stamped ROW_TIME unless the test passes its own ``created_at``.
     """
-    shift = timedelta(minutes=cost_window.END_BUCKET_MINUTES)
-    monkeypatch.setattr(
-        cost_window, "timezone", SimpleNamespace(now=lambda: timezone.now() + shift)
-    )
+    monkeypatch.setattr(cost_window, "timezone", SimpleNamespace(now=lambda: FROZEN_NOW))
+    original = AiUsageLogFactory._create.__func__
+
+    def _create(cls, model_class, *args, **kwargs):
+        kwargs.setdefault("created_at", ROW_TIME)
+        return original(cls, model_class, *args, **kwargs)
+
+    monkeypatch.setattr(AiUsageLogFactory, "_create", classmethod(_create))
 
 
 @pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])
@@ -414,7 +422,7 @@ def test_cache_is_keyed_per_range(superadmin_client):
         org,
         ShopFactory(organisation=org),
         estimated_cost_usd=Decimal("4"),
-        created_at=timezone.now() - timedelta(days=20),
+        created_at=ROW_TIME - timedelta(days=20),
     )
     for _ in range(2):  # second round is served from cache
         for url in (SUMMARY_URL, org_summary_url(org.id)):
