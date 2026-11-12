@@ -466,6 +466,18 @@ def test_org_detail_page_passes_org_id(client, db):
     assert b'data-org-id=""' in client.get(reverse("ai_cost_explorer")).content
 
 
+def test_page_passes_breadcrumb_title_and_org_name(client, db):
+    _superadmin_client(client)
+    org = OrganisationFactory(name="Sayone")
+    resp = client.get(reverse("ai_cost_org_detail", args=[org.pk]))
+    assert b'data-org-name="Sayone"' in resp.content
+    assert b'data-page-title="AI Cost"' in resp.content
+    # An unknown organisation still renders the shell; the widget shows "Organisation not found".
+    resp = client.get(reverse("ai_cost_org_detail", args=[999_999]))
+    assert resp.status_code == 200
+    assert b'data-org-name=""' in resp.content
+
+
 @pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])
 def test_page_forbidden_for_tenants(client, db, factory):
     client.force_login(factory())

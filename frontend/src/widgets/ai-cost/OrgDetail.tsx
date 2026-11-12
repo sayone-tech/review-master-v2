@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { ApiError, fetchOrgModels, fetchOrgShops, fetchOrgSummary } from "./api";
 import { SyncCaveat } from "./SyncCaveat";
 import { formatUpdatedAgo, titleCase } from "./format";
-import { KpiRow } from "./KpiRow";
+import { SummaryStrip } from "./SummaryStrip";
 import { ModelTable } from "./ModelTable";
 import { CostFilterCard } from "./CostFilterCard";
+import { NeutralBadge, PageHeader, TableCard } from "./PageHeader";
 import { Pagination } from "./Pagination";
 import { ShopTable } from "./ShopTable";
 import { writeFilters } from "./urlState";
@@ -20,25 +21,16 @@ interface Props {
   filters: CostFilters;
   onFilters: (f: CostFilters) => void;
   onBack: () => void;
+  /** Name known before the summary loads (server-rendered), shown in the header meanwhile. */
+  initialName?: string | null;
+  /** Reports the loaded organisation name, or null when it does not exist (for the breadcrumb). */
+  onOrgName?: (name: string | null) => void;
 }
 
-function BackLink({ filters, onBack }: { filters: CostFilters; onBack: () => void }) {
-  return (
-    <a
-      href={`/admin/ai-cost/${writeFilters(filters)}`}
-      className="text-[13px] text-muted hover:text-ink hover:underline"
-      onClick={(e) => {
-        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        e.preventDefault();
-        onBack();
-      }}
-    >
-      ← Back to AI Cost
-    </a>
-  );
-}
+const isPlainClick = (e: React.MouseEvent) =>
+  e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
 
-export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
+export function OrgDetail({ orgId, filters, onFilters, onBack, initialName = null, onOrgName }: Props) {
   const [summary, setSummary] = useState<CostSummaryResponse | null>(null);
   const [models, setModels] = useState<ModelListResponse | null>(null);
   const [shops, setShops] = useState<ShopListResponse | null>(null);
@@ -51,8 +43,10 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
   const [sort, setSort] = useState("-cost");
 
   const fail = (e: unknown) => {
-    if (e instanceof ApiError && e.status === 404) setNotFound(true);
-    else if (e instanceof ApiError && e.status === 400) setRangeError(e.message);
+    if (e instanceof ApiError && e.status === 404) {
+      setNotFound(true);
+      onOrgName?.(null);
+    } else if (e instanceof ApiError && e.status === 400) setRangeError(e.message);
     else setError(e instanceof Error ? e.message : "Failed to load");
   };
 
@@ -67,6 +61,7 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
         if (cancelled) return;
         setSummary(s);
         setModels(m);
+        if (s.organisation) onOrgName?.(s.organisation.name);
       })
       .catch((e: unknown) => {
         if (!cancelled) fail(e);
@@ -97,37 +92,45 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
 
   if (notFound) {
     return (
-      <div className="space-y-4">
-        <BackLink filters={filters} onBack={onBack} />
-        <div className="bg-white border border-line rounded-card p-8 text-center text-muted">
-          Organisation not found
-        </div>
+      <div className="rounded-card border border-line bg-white p-10 text-center">
+        <p className="text-[16px] font-semibold text-ink">Organisation not found</p>
+        <p className="mt-1 text-[13.5px] text-muted">It may have been deleted, or the link is wrong.</p>
+        <a
+          href={`/admin/ai-cost/${writeFilters(filters)}`}
+          className="mt-4 inline-flex items-center px-3.5 py-2 bg-white text-ink border border-line rounded-md text-[13.5px] font-medium hover:bg-line-soft"
+          onClick={(e) => {
+            if (!isPlainClick(e)) return;
+            e.preventDefault();
+            onBack();
+          }}
+        >
+          Back to AI Cost
+        </a>
       </div>
     );
   }
 
   const org = summary?.organisation;
   const empty = !!summary && !rangeError && summary.totals.calls === 0;
+  const totalCost = summary ? Number(summary.totals.cost) : 0;
+  const shopCount = (n: number) => `${n} ${n === 1 ? "shop" : "shops"}`;
 
   return (
     <div className="space-y-4">
-      <div>
-        <BackLink filters={filters} onBack={onBack} />
-        {org && (
-          <>
-            <h2 className="mt-1 text-[18px] font-semibold text-ink">{org.name}</h2>
-            <p className="text-[13px] text-muted">
-              {titleCase(org.org_type)} · {org.shop_count} {org.shop_count === 1 ? "shop" : "shops"} ·{" "}
-              {summary.totals.active_shops} active in date range
-            </p>
-          </>
-        )}
-      </div>
-
-      <CostFilterCard filters={filters} onApply={changeFilters} serverError={rangeError} />
+      <PageHeader
+        title={org?.name ?? initialName ?? " "}
+        badge={org && <NeutralBadge>{titleCase(org.org_type)}</NeutralBadge>}
+        sub={
+          org && summary
+            ? `${shopCount(org.shop_count)}, ${summary.totals.active_shops} active in this period`
+            : undefined
+        }
+      >
+        <CostFilterCard filters={filters} onApply={changeFilters} serverError={rangeError} />
+      </PageHeader>
 
       {error && (
-        <div role="alert" className="text-[13px] text-red-600">
+        <div role="alert" className="text-[13px] text-red">
           {error}{" "}
           <button type="button" className="underline" onClick={() => setRetryKey((k) => k + 1)}>
             Retry
@@ -135,19 +138,21 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
         </div>
       )}
 
-      {summary && !rangeError && <KpiRow
+      {summary && !rangeError && (
+        <SummaryStrip
           totals={summary.totals}
           costFooter={`Across ${summary.totals.active_shops} active ${summary.totals.active_shops === 1 ? "shop" : "shops"}`}
-        />}
+        />
+      )}
 
       {empty && (
-        <div className="bg-white border border-line rounded-card p-8 text-center">
-          <p className="text-muted">No AI usage for this organisation in the selected period</p>
+        <div className="rounded-card border border-line bg-white p-10 text-center">
+          <p className="font-medium text-ink">No AI usage for this organisation in the selected period</p>
           <a
             href={`/admin/ai-cost/organisations/${orgId}/${writeFilters({ range: "this_month" })}`}
-            className="text-[13px] text-ink underline"
+            className="mt-1 inline-block text-[13.5px] text-muted underline underline-offset-2 hover:text-ink"
             onClick={(e) => {
-              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              if (!isPlainClick(e)) return;
               e.preventDefault();
               changeFilters({ range: "this_month" });
             }}
@@ -157,39 +162,45 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
         </div>
       )}
 
-      {!empty && !rangeError && shops && (
-        <div className="bg-white border border-line rounded-card overflow-hidden">
-          <ShopTable
-            rows={shops.results}
-            unattributed={shops.unattributed}
-            sort={sort}
-            onSort={(s) => {
-              setPage(1);
-              setSort(s);
-            }}
-          />
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            count={shops.count}
-            onPage={setPage}
-            onPageSize={(n) => {
-              setPage(1);
-              setPageSize(n);
-            }}
-          />
+      {!empty && !rangeError && shops && models && (
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
+          {shops && (
+            <TableCard
+              title="Shops"
+              meta={summary && formatUpdatedAgo(summary.generated_at)}
+              className="xl:col-span-2"
+            >
+              <ShopTable
+                rows={shops.results}
+                unattributed={shops.unattributed}
+                sort={sort}
+                totalCost={totalCost}
+                onSort={(s) => {
+                  setPage(1);
+                  setSort(s);
+                }}
+              />
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                count={shops.count}
+                onPage={setPage}
+                onPageSize={(n) => {
+                  setPage(1);
+                  setPageSize(n);
+                }}
+              />
+            </TableCard>
+          )}
+          {models && models.results.length > 0 && (
+            <TableCard title="Cost by model">
+              <ModelTable rows={models.results} />
+            </TableCard>
+          )}
         </div>
       )}
 
-      {!empty && !rangeError && models && models.results.length > 0 && (
-        <section className="bg-white border border-line rounded-card overflow-hidden">
-          <h3 className="px-4 py-3 text-[14px] font-semibold text-ink">Cost by Model</h3>
-          <ModelTable rows={models.results} />
-        </section>
-      )}
-
       <p className="text-[12px] text-muted">
-        {summary && <span>{formatUpdatedAgo(summary.generated_at)} · </span>}
         <SyncCaveat />
       </p>
     </div>

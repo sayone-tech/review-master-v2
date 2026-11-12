@@ -52,10 +52,17 @@ describe("OrgTable", () => {
     fireEvent.click(a);
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
-  it("shows the org type pill in Title Case and spec column labels", () => {
+  it("shows the org type badge in Title Case and sentence-case column labels", () => {
     setup();
-    expect(screen.getByText("retail").className).toContain("capitalize");
-    expect(screen.getByRole("button", { name: /^Cost \(USD\)/ })).toBeTruthy();
-    expect(screen.getByText("By Request Type")).toBeTruthy();
+    expect(screen.getByText("Retail")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Cost/ })).toBeTruthy();
+    expect(screen.getByText("By request type")).toBeTruthy();
+  });
+  it("draws the cost share bar against the period total", () => {
+    render(
+      <OrgTable rows={[row]} sort="-cost" onSort={vi.fn()} onOpen={vi.fn()} totalCost={15} />,
+    );
+    expect(screen.getByTestId("share-bar")).toHaveAttribute("title", "50% of total");
+    expect(screen.getByRole("row", { name: /Big Org/ })).toHaveTextContent("$7.50000000");
   });
 });

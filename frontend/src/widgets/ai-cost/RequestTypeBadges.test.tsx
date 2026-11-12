@@ -12,7 +12,7 @@ describe("RequestTypeBadges", () => {
     expect(screen.getByText(/enrichment/i)).toBeTruthy();
     expect(screen.getByText(/reply/i)).toBeTruthy();
     expect(screen.getByText(/summary/i)).toBeTruthy();
-    expect(screen.getByText(/\$5\.00000000/)).toBeTruthy();
+    expect(screen.getByText("Enrichment").parentElement).toHaveTextContent("$5.00000000");
   });
 
   it("humanises real request-type keys", () => {

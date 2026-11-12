@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchSyncStatus } from "../ai-pricing/api";
 import type { SyncStatus } from "../ai-pricing/types";
 
-const CAVEAT =
-  "Estimated based on configured pricing — actual OpenAI invoice is authoritative.";
+const CAVEAT = "Estimated from configured pricing. The OpenAI invoice is authoritative.";
 
 const DAY_MS = 86_400_000;
 const utcDay = (d: Date) => Math.floor(d.getTime() / DAY_MS);
@@ -19,7 +18,7 @@ export function syncStatusWord(s: SyncStatus, now: Date = new Date()): string {
   return days === 1 ? "synced 1 day ago" : `synced ${days} days ago`;
 }
 
-/** Footer caveat; falls back to the plain Phase 34 text if the sync status is unavailable. */
+/** Footer caveat; falls back to the plain text if the sync status is unavailable. */
 export function SyncCaveat() {
   const [status, setStatus] = useState<SyncStatus | null>(null);
 
@@ -40,7 +39,7 @@ export function SyncCaveat() {
   if (!status) return <>{CAVEAT}</>;
   return (
     <>
-      Based on configured pricing; sync status: {syncStatusWord(status)}. Actual OpenAI invoice is
+      Estimated from configured pricing ({syncStatusWord(status)}). The OpenAI invoice is
       authoritative.
     </>
   );

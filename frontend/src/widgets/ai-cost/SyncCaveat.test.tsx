@@ -38,17 +38,17 @@ describe("SyncCaveat", () => {
     render(<p data-testid="f"><SyncCaveat /></p>);
     expect(
       await screen.findByText(
-        "Based on configured pricing; sync status: sync off. Actual OpenAI invoice is authoritative.",
+        "Estimated from configured pricing (sync off). The OpenAI invoice is authoritative.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("keeps the Phase 34 caveat when the status request fails", async () => {
+  it("keeps the plain caveat when the status request fails", async () => {
     vi.mocked(api.fetchSyncStatus).mockImplementation(() => Promise.reject(new Error("403")));
     render(<p><SyncCaveat /></p>);
     await vi.waitFor(() => expect(api.fetchSyncStatus).toHaveBeenCalled());
     expect(
-      screen.getByText("Estimated based on configured pricing — actual OpenAI invoice is authoritative."),
+      screen.getByText("Estimated from configured pricing. The OpenAI invoice is authoritative."),
     ).toBeInTheDocument();
   });
 });

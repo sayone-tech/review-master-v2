@@ -29,7 +29,7 @@ export function Pagination({ page, pageSize, count, onPage, onPageSize }: Props)
 
   return (
     <nav
-      className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
+      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-line bg-[#FBFBFB] text-[13px] text-muted"
       aria-label="Pagination"
       data-testid="pagination"
     >

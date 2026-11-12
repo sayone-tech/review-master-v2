@@ -46,7 +46,7 @@ describe("MissingPricingAlert", () => {
     expect(screen.getByText("gpt-x")).toBeInTheDocument();
     expect(screen.getByText("gpt-y")).toBeInTheDocument();
     expect(screen.getByText("(configured model)")).toBeInTheDocument();
-    expect(screen.getByText(/Missing:/)).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 
   it("warns that enrichment fails only when the configured model is missing", async () => {
@@ -64,15 +64,15 @@ describe("MissingPricingAlert", () => {
     vi.mocked(api.fetchMissing).mockResolvedValue(resp([m("gpt-x"), m("gpt-y")]));
     const onAddFor = vi.fn();
     render(<MissingPricingAlert variant="pricing" onAddFor={onAddFor} />);
-    await userEvent.click(await screen.findByRole("button", { name: "Add pricing for gpt-y →" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Add price for gpt-y" }));
     expect(onAddFor).toHaveBeenCalledWith("gpt-y");
-    expect(screen.getByRole("button", { name: "Add pricing for gpt-x →" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add price for gpt-x" })).toBeInTheDocument();
   });
 
   it("cost-explorer variant: link to AI Pricing, no add or refresh buttons", async () => {
     vi.mocked(api.fetchMissing).mockResolvedValue(resp([m("gpt-x")]));
     render(<MissingPricingAlert variant="cost-explorer" />);
-    const link = await screen.findByRole("link", { name: "Go to AI Pricing →" });
+    const link = await screen.findByRole("link", { name: "Go to AI Pricing" });
     expect(link).toHaveAttribute("href", "/admin/ai-pricing/");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
@@ -82,7 +82,7 @@ describe("MissingPricingAlert", () => {
     vi.mocked(api.refreshMissing).mockResolvedValue(resp([]));
     const { container } = render(<MissingPricingAlert variant="pricing" onAddFor={vi.fn()} />);
     await userEvent.click(
-      await screen.findByRole("button", { name: "Refresh missing-pricing check" }),
+      await screen.findByRole("button", { name: "Check again" }),
     );
     await vi.waitFor(() => expect(container).toBeEmptyDOMElement());
   });
@@ -92,17 +92,17 @@ describe("MissingPricingAlert", () => {
     vi.mocked(api.refreshMissing).mockRejectedValue(new ApiError(429, "Request was throttled."));
     render(<MissingPricingAlert variant="pricing" onAddFor={vi.fn()} />);
     await userEvent.click(
-      await screen.findByRole("button", { name: "Refresh missing-pricing check" }),
+      await screen.findByRole("button", { name: "Check again" }),
     );
     expect(
-      await screen.findByText("Please wait a minute before refreshing again."),
+      await screen.findByText("Please wait a minute before checking again."),
     ).toBeInTheDocument();
     expect(screen.getByText("1 model is logged without pricing.")).toBeInTheDocument();
   });
 
   it("shows the weekly-sync note only when sync is enabled (pricing variant)", async () => {
     vi.mocked(api.fetchMissing).mockResolvedValue(resp([m("gpt-x")]));
-    const note = /Next weekly sync \(Mon 09:00 UTC\) will fetch pricing from LiteLLM automatically for models it covers\./;
+    const note = /The next weekly sync \(Mon 09:00 UTC\) fetches LiteLLM pricing for the models it covers\./;
     const { unmount } = render(<MissingPricingAlert variant="pricing" onAddFor={vi.fn()} syncEnabled />);
     expect(await screen.findByText(note)).toBeInTheDocument();
     unmount();

@@ -1,33 +1,36 @@
 import { formatCost, formatCount, formatTokens } from "./format";
+import { Money } from "./Money";
+import { TD, TD_NUM, TH } from "./SortHeader";
 import type { ModelCostRow } from "./types";
 
+/** Narrow side table: tokens live in each row's tooltip to keep it to three columns. */
 export function ModelTable({ rows }: { rows: ModelCostRow[] }) {
   return (
-    <table className="w-full text-[13px]">
-      <thead>
-        <tr className="border-b border-line bg-[#FBFBFB] text-[12px] text-muted">
-          <th scope="col" className="px-4 py-2 text-left font-medium">Model</th>
-          <th scope="col" className="px-4 py-2 text-right font-medium">API Calls</th>
-          <th scope="col" className="px-4 py-2 text-right font-medium">Input Tokens</th>
-          <th scope="col" className="px-4 py-2 text-right font-medium">Output Tokens</th>
-          <th scope="col" className="px-4 py-2 text-right font-medium">Cost (USD)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.model} className="border-b border-line last:border-0">
-            <td className="px-4 py-3 font-medium text-ink">{r.model}</td>
-            <td className="px-4 py-3 text-right">{formatCount(r.calls)}</td>
-            <td className="px-4 py-3 text-right" title={formatCount(r.input_tokens)}>
-              {formatTokens(r.input_tokens)}
-            </td>
-            <td className="px-4 py-3 text-right" title={formatCount(r.output_tokens)}>
-              {formatTokens(r.output_tokens)}
-            </td>
-            <td className="px-4 py-3 text-right font-medium text-ink">{formatCost(r.cost)}</td>
+    <div className="overflow-x-auto">
+      <table className="w-full text-[13.5px]">
+        <thead>
+          <tr className="border-y border-line bg-[#FBFBFB]">
+            <th scope="col" className={`${TH} text-left`}>Model</th>
+            <th scope="col" className={`${TH} text-right`}>API calls</th>
+            <th scope="col" className={`${TH} text-right`}>Cost</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr
+              key={r.model}
+              className="border-b border-line-soft last:border-0"
+              title={`${formatTokens(r.input_tokens)} input, ${formatTokens(r.output_tokens)} output tokens`}
+            >
+              <td className={`${TD} break-all font-medium text-ink`}>{r.model}</td>
+              <td className={TD_NUM}>{formatCount(r.calls)}</td>
+              <td className={TD_NUM}>
+                <Money value={formatCost(r.cost)} className="font-medium text-ink" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

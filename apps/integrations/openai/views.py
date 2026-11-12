@@ -356,7 +356,13 @@ def ai_cost_page(request: HttpRequest, org_id: int | None = None) -> HttpRespons
     user = request.user
     if not isinstance(user, User) or user.role != User.Role.SUPERADMIN:
         return HttpResponseForbidden()
-    return render(request, "ai_cost/explorer.html", {"org_id": org_id})
+    # Breadcrumb name only; an unknown id still renders and the API answers 404.
+    org = get_org_header(organisation_id=org_id) if org_id is not None else None
+    return render(
+        request,
+        "ai_cost/explorer.html",
+        {"org_id": org_id, "org_name": org.name if org else "", "page_title": "AI Cost"},
+    )
 
 
 @login_required
@@ -365,4 +371,4 @@ def ai_pricing_page(request: HttpRequest) -> HttpResponse:
     user = request.user
     if not isinstance(user, User) or user.role != User.Role.SUPERADMIN:
         return HttpResponseForbidden()
-    return render(request, "ai_pricing/page.html")
+    return render(request, "ai_pricing/page.html", {"page_title": "AI Pricing"})

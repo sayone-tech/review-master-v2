@@ -1,8 +1,8 @@
-// Cost Explorer filter card (mirrors audit-log/AuditLogFilters): the user edits a draft and
-// nothing is fetched until Apply; Clear resets to the default range and applies immediately.
+// Cost Explorer date filter, shown inline in the page header (Apply/Clear semantics mirror
+// audit-log/AuditLogFilters): the user edits a draft and nothing is fetched until Apply; Clear
+// resets to the default range and applies immediately.
 
 import { useEffect, useState } from "react";
-import { Calendar } from "lucide-react";
 import type { CostFilters, RangeKey } from "./types";
 
 const OPTIONS: { key: RangeKey; label: string }[] = [
@@ -17,58 +17,36 @@ const OPTIONS: { key: RangeKey; label: string }[] = [
 const MAX_CUSTOM_SPAN_DAYS = 365;
 const DEFAULT_FILTERS: CostFilters = { range: "this_month" };
 
-const selectCls =
-  "appearance-none w-full px-3.5 py-[10px] pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
-
-const dateInputCls =
-  "w-full px-3.5 py-[10px] text-[14px] text-ink bg-white border border-line rounded-[10px] outline-none transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] [&::-webkit-calendar-picker-indicator]:opacity-60";
+const fieldCls =
+  "py-2 text-[13.5px] text-ink bg-white border border-line rounded-md outline-none transition-[border-color,box-shadow] hover:border-[#D4D4D8] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
 
 function ChevronIcon() {
   return (
     <svg
-      width={16}
-      height={16}
+      width={14}
+      height={14}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle pointer-events-none"
+      aria-hidden="true"
+      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-subtle pointer-events-none"
     >
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
 
-function FilterLabel({
-  icon,
-  label,
-  htmlFor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  htmlFor: string;
-}) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]"
-    >
-      <span className="text-muted">{icon}</span>
-      <span>{label}</span>
-    </label>
-  );
-}
-
 /** Returns an error message, or null when the draft may be applied. */
 export function validateDraft(draft: CostFilters): string | null {
   if (draft.range !== "custom") return null;
-  if (!draft.from || !draft.to) return "Select both a From and a To date.";
-  if (draft.from > draft.to) return "‘From’ must be on or before ‘To’.";
+  if (!draft.from || !draft.to) return "Choose both a start and an end date.";
+  if (draft.from > draft.to) return "The start date must be on or before the end date.";
   const days = Math.round((Date.parse(draft.to) - Date.parse(draft.from)) / 86_400_000) + 1;
   if (days > MAX_CUSTOM_SPAN_DAYS) {
-    return `Custom range may span at most ${MAX_CUSTOM_SPAN_DAYS} days.`;
+    return `Choose a range of ${MAX_CUSTOM_SPAN_DAYS} days or fewer.`;
   }
   return null;
 }
@@ -103,87 +81,70 @@ export function CostFilterCard({
   };
 
   return (
-    <div className="bg-white border border-line rounded-xl p-4 mb-4" data-testid="ai-cost-filters">
-      <div
-        className="grid gap-4 items-end"
-        style={{
-          gridTemplateColumns: isCustom
-            ? "minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto"
-            : "minmax(0,1fr) auto",
-        }}
-      >
-        <div className="flex flex-col gap-1.5">
-          <FilterLabel icon={<Calendar size={15} />} label="Date Range" htmlFor="ai-cost-range" />
-          <div className="relative">
-            <select
-              id="ai-cost-range"
-              aria-label="Date range"
-              className={selectCls}
-              value={draft.range}
-              onChange={(e) => {
-                const range = e.target.value as RangeKey;
-                setError(null);
-                setDraft(range === "custom" ? { ...draft, range } : { range });
-              }}
-            >
-              {OPTIONS.map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <ChevronIcon />
-          </div>
+    <div className="flex flex-col items-start gap-1.5 sm:items-end" data-testid="ai-cost-filters">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <select
+            id="ai-cost-range"
+            aria-label="Date range"
+            className={`${fieldCls} appearance-none cursor-pointer pl-3 pr-8`}
+            value={draft.range}
+            onChange={(e) => {
+              const range = e.target.value as RangeKey;
+              setError(null);
+              setDraft(range === "custom" ? { ...draft, range } : { range });
+            }}
+          >
+            {OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <ChevronIcon />
         </div>
 
         {isCustom && (
           <>
-            <div className="flex flex-col gap-1.5">
-              <FilterLabel icon={<Calendar size={15} />} label="From" htmlFor="ai-cost-from" />
-              <input
-                id="ai-cost-from"
-                type="date"
-                aria-label="From date"
-                className={dateInputCls}
-                value={draft.from ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value || undefined }))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <FilterLabel icon={<Calendar size={15} />} label="To" htmlFor="ai-cost-to" />
-              <input
-                id="ai-cost-to"
-                type="date"
-                aria-label="To date"
-                className={dateInputCls}
-                value={draft.to ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value || undefined }))}
-              />
-            </div>
+            <input
+              id="ai-cost-from"
+              type="date"
+              aria-label="From date"
+              className={`${fieldCls} px-2.5 [&::-webkit-calendar-picker-indicator]:opacity-60`}
+              value={draft.from ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value || undefined }))}
+            />
+            <span className="text-[13px] text-muted">to</span>
+            <input
+              id="ai-cost-to"
+              type="date"
+              aria-label="To date"
+              className={`${fieldCls} px-2.5 [&::-webkit-calendar-picker-indicator]:opacity-60`}
+              value={draft.to ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value || undefined }))}
+            />
           </>
         )}
 
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover"
+          onClick={apply}
+        >
+          Apply
+        </button>
+        {hasActiveFilters && (
           <button
             type="button"
-            className="bg-yellow text-black border border-yellow-hover text-[14px] font-semibold px-4 py-2 rounded-[10px] hover:bg-yellow-hover"
-            onClick={apply}
+            className="px-3 py-2 rounded-md text-[13.5px] font-medium text-muted hover:bg-line-soft hover:text-ink"
+            onClick={() => onApply(DEFAULT_FILTERS)}
           >
-            Apply
+            Clear
           </button>
-          {hasActiveFilters && (
-            <button
-              type="button"
-              className="text-[14px] text-muted border border-dashed border-line px-4 py-2 rounded-[10px] hover:text-ink hover:border-ink"
-              onClick={() => onApply(DEFAULT_FILTERS)}
-            >
-              Clear
-            </button>
-          )}
-        </div>
+        )}
       </div>
       {message && (
-        <p role="alert" className="mt-3 text-[12px] text-red">
+        <p role="alert" className="text-[12.5px] text-red">
           {message}
         </p>
       )}

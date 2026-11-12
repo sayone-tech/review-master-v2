@@ -9,9 +9,10 @@ function mount() {
   root.dataset.mounted = "1";
   const raw = root.dataset.orgId ?? "";
   const orgId = raw === "" ? null : Number(raw);
+  const orgName = root.dataset.orgName || null;
   createRoot(root).render(
     <StrictMode>
-      <AiCostWidget orgId={orgId} />
+      <AiCostWidget orgId={orgId} orgName={orgName} />
     </StrictMode>,
   );
 }

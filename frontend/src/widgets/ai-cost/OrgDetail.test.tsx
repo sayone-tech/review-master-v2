@@ -12,17 +12,22 @@ describe("OrgDetail", () => {
       "fetch",
       vi.fn(async () => new Response(JSON.stringify({ code: "organisation_not_found", detail: "Organisation not found." }), { status: 404 })),
     );
-    render(<OrgDetail orgId={99} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} />);
+    const onOrgName = vi.fn();
+    render(<OrgDetail orgId={99} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} onOrgName={onOrgName} />);
     expect(await screen.findByText("Organisation not found")).toBeInTheDocument();
+    expect(onOrgName).toHaveBeenCalledWith(null);
   });
 
-  it("back link keeps the query and intercepts plain left clicks", async () => {
+  it("not-found back link keeps the query and intercepts plain left clicks only", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
     const onBack = vi.fn();
     render(<OrgDetail orgId={99} filters={filters} onFilters={vi.fn()} onBack={onBack} />);
     await screen.findByText("Organisation not found");
     const link = screen.getByRole("link", { name: /Back to AI Cost/ });
     expect(link).toHaveAttribute("href", "/admin/ai-cost/?range=7d");
+    link.addEventListener("click", (e) => e.preventDefault()); // avoid jsdom navigation
+    fireEvent.click(link, { ctrlKey: true });
+    expect(onBack).not.toHaveBeenCalled();
     fireEvent.click(link);
     expect(onBack).toHaveBeenCalledTimes(1);
   });
@@ -76,12 +81,14 @@ describe("OrgDetail loaded states", () => {
     mockApi(1);
     render(<OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} />);
     expect(await screen.findByText("Acme")).toBeInTheDocument();
-    expect(screen.getByText("Retail · 1 shop · 1 active in date range")).toBeInTheDocument();
-    for (const l of ["Total Cost", "Total API Calls", "Total Input Tokens", "Total Output Tokens"])
-      expect(screen.getByText(l)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Acme" })).toBeInTheDocument();
+    expect(screen.getByText("Retail")).toBeInTheDocument();
+    expect(screen.getByText("1 shop, 1 active in this period")).toBeInTheDocument();
+    for (const l of ["Total cost", "API calls", "Input tokens", "Output tokens"])
+      expect(screen.getAllByText(l).length).toBeGreaterThan(0);
     expect(await screen.findByText("High St")).toBeInTheDocument();
     expect(screen.getByText("North")).toBeInTheDocument();
-    expect(screen.getByText("Cost by Model")).toBeInTheDocument();
+    expect(screen.getByText("Cost by model")).toBeInTheDocument();
     expect(await screen.findByText("gpt-test")).toBeInTheDocument();
   });
 
@@ -102,13 +109,13 @@ describe("OrgDetail loaded states", () => {
     await screen.findByText("High St");
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() => expect(shopUrls(m).some((u) => u.includes("page=2"))).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: /^API Calls/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^API calls/ }));
     await waitFor(() => {
       const last = shopUrls(m).at(-1)!;
       expect(last).toContain("sort=calls");
       expect(last).toContain("page=1");
     });
-    expect(screen.getAllByRole("columnheader", { name: /API Calls/ })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("columnheader", { name: /API calls/ })[0]).toHaveAttribute(
       "aria-sort",
       "ascending",
     );
@@ -126,14 +133,18 @@ describe("OrgDetail loaded states", () => {
     expect(lastRow()).toHaveTextContent("Unattributed");
   });
 
-  it("ctrl-click on the back link does not call onBack", async () => {
+  it("shows the server-provided name in the header before the summary loads", () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    render(
+      <OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} initialName="Acme" />,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Acme" })).toBeInTheDocument();
+  });
+
+  it("reports the organisation name, or null on 404, for the breadcrumb", async () => {
     mockApi(1);
-    const onBack = vi.fn();
-    render(<OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={onBack} />);
-    await screen.findByText("Acme");
-    const link = screen.getByRole("link", { name: /Back to AI Cost/ });
-    link.addEventListener("click", (e) => e.preventDefault()); // avoid jsdom navigation
-    fireEvent.click(link, { ctrlKey: true });
-    expect(onBack).not.toHaveBeenCalled();
+    const onOrgName = vi.fn();
+    render(<OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} onOrgName={onOrgName} />);
+    await waitFor(() => expect(onOrgName).toHaveBeenCalledWith("Acme"));
   });
 });

@@ -478,6 +478,7 @@ def test_pricing_page_renders_for_superadmin(client, db):
     resp = client.get("/admin/ai-pricing/")
     assert resp.status_code == 200
     assert b'id="ai-pricing-root"' in resp.content
+    assert b'data-page-title="AI Pricing"' in resp.content
     assert reverse("ai_pricing_page") == "/admin/ai-pricing/"
 
 
