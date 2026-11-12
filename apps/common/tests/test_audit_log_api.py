@@ -544,3 +544,25 @@ def test_staff_shop_filter_for_another_orgs_shop_returns_400(staff_setup) -> Non
     client, _staff, _org, _accessible_shop, _inaccessible_shop = staff_setup
     other_shop = ShopFactory(organisation=OrganisationFactory())
     assert client.get(LIST_URL, {"shop": other_shop.pk}).status_code == 400
+
+
+def test_date_to_includes_rows_from_later_in_that_day(org_admin_setup) -> None:
+    """Regression: date_to=today must include today's rows (it compared against midnight)."""
+    client, _user, org = org_admin_setup
+    row = AuditLogFactory(organisation=org, entity_type="review", action="reply_posted")
+    AuditLog.objects.filter(pk=row.pk).update(
+        created_at=dt.datetime(2026, 11, 12, 6, 49, tzinfo=dt.UTC)
+    )
+    resp = client.get(LIST_URL, {"date_from": "2026-11-12", "date_to": "2026-11-12"})
+    assert resp.status_code == 200
+    assert [r["id"] for r in resp.data["results"]] == [row.pk]
+
+
+def test_date_to_excludes_rows_from_the_next_day(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    row = AuditLogFactory(organisation=org, entity_type="review", action="reply_posted")
+    AuditLog.objects.filter(pk=row.pk).update(
+        created_at=dt.datetime(2026, 11, 13, 0, 0, 1, tzinfo=dt.UTC)
+    )
+    resp = client.get(LIST_URL, {"date_to": "2026-11-12"})
+    assert resp.data["results"] == []

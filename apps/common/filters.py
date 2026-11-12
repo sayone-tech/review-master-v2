@@ -30,8 +30,11 @@ class AuditLogFilterSet(django_filters.FilterSet):  # type: ignore[misc]
         method="filter_entity_type",
     )
     actor = django_filters.CharFilter(method="filter_actor")
-    date_from = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
-    date_to = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
+    # Compare calendar dates (UTC, settings.TIME_ZONE), not timestamps: a bare
+    # created_at__lte=<date> means midnight at the START of date_to, which hid
+    # every row from that day.
+    date_from = django_filters.DateFilter(field_name="created_at", lookup_expr="date__gte")
+    date_to = django_filters.DateFilter(field_name="created_at", lookup_expr="date__lte")
     shop = django_filters.NumberFilter(method="filter_shop")
 
     class Meta:
