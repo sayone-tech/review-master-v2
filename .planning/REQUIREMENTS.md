@@ -30,6 +30,7 @@ section, as amended by the design doc.
 | PRICE-05 | History view per model with source + who set it; delete only future-dated rows (reopens previous); at most one scheduled price per model; time-aware active-price lookup | PM AC 16–18; design §5.8–5.9 |
 | PRICE-06 | Platform-level audit events in `AuditLog` (nullable organisation), never visible to tenants | PM §8, AC 39; design §5.4 |
 | GAP-01 | Missing-pricing detection (90-day window + configured `OPENAI_MODEL`, known-free exemption, 10-min cache, rate-limited refresh) | PM AC 30–31, 35–36, 41; design §5.10 |
+| GAP-03 | Configured `OPENAI_MODEL` must have an active price: system check (Error) in `check --deploy --database default`; sync model set includes it | design §5.10 |
 | GAP-02 | Missing-pricing alert bar on AI Pricing and AI Cost Explorer pages | PM AC 32–34 |
 
 ## Phase 36 — LiteLLM Auto-Sync

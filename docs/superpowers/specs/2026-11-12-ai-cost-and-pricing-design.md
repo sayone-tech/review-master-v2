@@ -221,6 +221,18 @@ that only scans the log. **Decision:** the missing-pricing selector also reports
 `settings.OPENAI_MODEL` when it has no row active now. Enrichment's own behaviour is
 unchanged.
 
+**The configured model must always have a price (owner requirement).** Today
+`OPENAI_MODEL=gpt-4o-mini-2024-07-18` is seeded (migration `0002`), so nothing is broken
+now; the risk is switching `OPENAI_MODEL` without adding a price. Three guards:
+1. **Deploy-time check (Phase 35):** a Django system check, tagged `database`, that
+   reports an **Error** when `settings.OPENAI_MODEL` has no `AiPricing` row active now.
+   It runs in `python manage.py check --deploy --database default` (CI step and
+   pre-deploy), so a model switch without a price fails the deploy instead of failing
+   enrichment in production.
+2. **Alert (Phase 35):** the missing-pricing bar includes the configured model (above).
+3. **Auto-add (Phase 36):** the sync's model set is "models logged in the last 90 days
+   **plus** `settings.OPENAI_MODEL`", so Case A adds its price from LiteLLM when sync is on.
+
 ### 5.11 A hand-set price beats the sync — *decided by builder at the owner's request*
 The spec's risk table says "manual edit takes precedence", but its Case C would
 overwrite a manual price every Monday. **Decision:** if the price active now for a
