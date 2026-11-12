@@ -56,6 +56,14 @@
 - [ ] **CQA-01**: A Postgres CI job runs `pg_concurrency`-marked tests covering the first-use race, N threads vs K credits, and reaper vs late commit
 - [x] **CQA-02**: Existing Phase 19/20 generate-reply tests and factories are updated for credits, and a deploy note documents that organisations start at 0 credits until Superadmin sets an allocation (production org enabled via CRED-06)
 
+## Off-Milestone Requirements
+
+Small changes outside the v0.9 credits scope, captured here so nothing ships untraced (CLAUDE.md §24).
+
+### Shop Connection (SHOP)
+
+- [ ] **SHOP-22**: The Google connect button (Create Shop → Connect step, and the Reconnect Google modal) shows a permission note directly above it, before Google's consent screen. The note explains that Google only offers the one broad "manage your Business Profile" permission, and lists the app's actual use: read reviews and the location list; post, edit or delete replies only when the user chooses to. It states that the app never changes business details, hours, photos or ownership. It must not claim the app never deletes anything, because users can delete their own replies (`apps/reviews/services/replies.py`). No "Learn more" link until a help page exists.
+
 ## Future Requirements
 
 Deferred — tracked but not in the v0.9 roadmap.
@@ -110,12 +118,14 @@ Deferred — tracked but not in the v0.9 roadmap.
 | SCOPE-01 | Phase 33 | Complete |
 | CQA-01 | Phase 29 | Gaps Found |
 | CQA-02 | Phase 30 | Complete |
+| SHOP-22 | Off-milestone (quick change) | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
 - Mapped to phases: 27 ✓
 - Unmapped: 0
 - Per phase: Phase 29 → 5 · Phase 30 → 9 · Phase 31 → 3 · Phase 32 → 4 · Phase 33 → 6
+- Off-milestone: 1 (SHOP-22, not counted in the v1 total)
 - Note: CQA-01 is delivered in Phase 29 (Postgres CI job + `pg_concurrency` marker + first-use race test); the N-threads-vs-K-credits test (CCON-02, Phase 30) and the reaper-vs-late-commit test (CREN-03, Phase 31) are added to the same job.
 
 ---
