@@ -12,7 +12,8 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
+from apps.accounts.models import User
+from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory, UserFactory
 from apps.integrations.openai import cost_window
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.tests.factories import AiUsageLogFactory
@@ -134,14 +135,30 @@ def test_org_list_includes_request_type_badges_and_paginates(superadmin_client):
     assert len(superadmin_client.get(ORGS_URL, {"page_size": 10}).json()["results"]) == 10
 
 
-def test_org_list_query_ceiling(superadmin_client, assert_query_ceiling):
-    for _ in range(40):
-        org = OrganisationFactory()
-        for _ in range(3):
-            AiUsageLogFactory(organisation=org)
+def _count_queries(client, url):
+    cache.clear()
     with CaptureQueriesContext(connection) as ctx:
-        assert superadmin_client.get(ORGS_URL).status_code == 200
-    assert_query_ceiling(ctx, max_queries=6)
+        assert client.get(url).status_code == 200
+    return ctx
+
+
+def _add_review_linked_orgs(n):
+    for _ in range(n):
+        org = OrganisationFactory()
+        shop = ShopFactory(organisation=org)
+        for _ in range(2):
+            AiUsageLogFactory(organisation=org, review=ReviewFactory(organisation=org, shop=shop))
+        AiUsageLogFactory(organisation=org, status=AiUsageLog.Status.FAILED)
+
+
+def test_org_list_query_count_is_constant(superadmin_client, assert_query_ceiling):
+    counts = []
+    for n in (5, 35):  # second pass: 40 orgs, spills onto page 2
+        _add_review_linked_orgs(n)
+        ctx = _count_queries(superadmin_client, ORGS_URL)
+        assert_query_ceiling(ctx, max_queries=3)  # rows + badges (2) + 1
+        counts.append(len(ctx.captured_queries))
+    assert counts[0] == counts[1]
 
 
 def test_second_call_is_served_from_cache(superadmin_client, django_assert_max_num_queries):
@@ -157,14 +174,14 @@ def test_views_are_throttled():
     assert AiCostOrganisationListView.throttle_scope == "superadmin_ai_cost_read"
 
 
-def test_summary_query_ceiling(superadmin_client, assert_query_ceiling):
-    for _ in range(40):
-        org = OrganisationFactory()
-        for _ in range(3):
-            AiUsageLogFactory(organisation=org)
-    with CaptureQueriesContext(connection) as ctx:
-        assert superadmin_client.get(SUMMARY_URL).status_code == 200
-    assert_query_ceiling(ctx, max_queries=2)  # aggregate + exists
+def test_summary_query_count_is_constant(superadmin_client, assert_query_ceiling):
+    counts = []
+    for n in (5, 35):
+        _add_review_linked_orgs(n)
+        ctx = _count_queries(superadmin_client, SUMMARY_URL)
+        assert_query_ceiling(ctx, max_queries=3)  # aggregate + exists (2) + 1
+        counts.append(len(ctx.captured_queries))
+    assert counts[0] == counts[1]
 
 
 # --- Organisation drill-down (Task 5) ---------------------------------------------------------
@@ -304,27 +321,121 @@ def test_drilldown_views_are_throttled():
         assert view.throttle_scope == "superadmin_ai_cost_read"
 
 
-def test_drilldown_query_ceilings(superadmin_client, assert_query_ceiling):
+@pytest.mark.parametrize(
+    ("url_for", "ceiling"),
+    [
+        (org_summary_url, 3),  # header + aggregate (2) + 1
+        (org_shops_url, 6),  # header, rows, badges, unattributed + its by-type (5) + 1
+        (org_models_url, 3),  # header + aggregate (2) + 1
+    ],
+)
+def test_drilldown_query_count_is_constant(
+    superadmin_client, assert_query_ceiling, url_for, ceiling
+):
     org = OrganisationFactory()
-    for _ in range(20):
-        shop = ShopFactory(organisation=org)
-        for _ in range(3):
-            _shop_log(org, shop)
     AiUsageLogFactory(organisation=org, review=None)
-    for url_for, ceiling in ((org_summary_url, 5), (org_shops_url, 8), (org_models_url, 4)):
-        cache.clear()
-        with CaptureQueriesContext(connection) as ctx:
-            assert superadmin_client.get(url_for(org.id)).status_code == 200
+    counts = []
+    for n in (3, 30):  # second pass: 33 shops, spills onto page 2
+        for _ in range(n):
+            shop = ShopFactory(organisation=org)
+            for _ in range(2):
+                _shop_log(org, shop)
+        ctx = _count_queries(superadmin_client, url_for(org.id))
         assert_query_ceiling(ctx, max_queries=ceiling)
+        counts.append(len(ctx.captured_queries))
+    assert counts[0] == counts[1]
+
+
+# --- Tenant isolation & cache keying (Task 9 audit) ---------------------------------------
+
+PAYLOAD_KEYS = {"totals", "results", "organisation", "count", "generated_at", "unattributed"}
+
+
+@pytest.mark.parametrize("url_for", DRILLDOWN_URLS)
+def test_anonymous_gets_401_or_403_on_drilldown(db, url_for):
+    org = OrganisationFactory()
+    assert APIClient().get(url_for(org.id)).status_code in (401, 403)
+
+
+@pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])
+def test_warm_cache_is_never_served_to_tenants(superadmin_client, factory):
+    org = OrganisationFactory()
+    _shop_log(org, ShopFactory(organisation=org), estimated_cost_usd=Decimal("2"))
+    urls = [ORGS_URL, SUMMARY_URL, *(u(org.id) for u in DRILLDOWN_URLS)]
+    for url in urls:  # warm every cache entry as the superadmin
+        assert superadmin_client.get(url).status_code == 200
+
+    tenant = APIClient()
+    tenant.force_authenticate(factory(organisation=org))
+    for url in urls:
+        r = tenant.get(url)
+        assert r.status_code == 403
+        assert not PAYLOAD_KEYS & set(r.json())
+
+
+def test_drilldown_cache_is_keyed_per_org(superadmin_client):
+    org_a, org_b = OrganisationFactory(), OrganisationFactory()
+    _shop_log(org_a, ShopFactory(organisation=org_a), estimated_cost_usd=Decimal("1"))
+    _shop_log(org_b, ShopFactory(organisation=org_b), estimated_cost_usd=Decimal("7"))
+    AiUsageLogFactory(organisation=org_b, model="other", estimated_cost_usd=Decimal("3"))
+    for _ in range(2):  # second round is served from cache
+        a = superadmin_client.get(org_summary_url(org_a.id)).json()
+        b = superadmin_client.get(org_summary_url(org_b.id)).json()
+        assert (a["organisation"]["id"], a["totals"]["cost"]) == (org_a.id, "1.000000")
+        assert (b["organisation"]["id"], b["totals"]["cost"]) == (org_b.id, "10.000000")
+        shops_a = superadmin_client.get(org_shops_url(org_a.id)).json()["results"]
+        shops_b = superadmin_client.get(org_shops_url(org_b.id)).json()["results"]
+        assert [r["cost"] for r in shops_a] == ["1.000000"]
+        assert [r["cost"] for r in shops_b] == ["7.000000"]
+        models_a = superadmin_client.get(org_models_url(org_a.id)).json()["results"]
+        models_b = superadmin_client.get(org_models_url(org_b.id)).json()["results"]
+        assert [m["cost"] for m in models_a] == ["1.000000"]
+        assert [m["cost"] for m in models_b] == ["7.000000", "3.000000"]
+
+
+def test_list_cache_is_keyed_per_page(superadmin_client):
+    for i in (1, 2):
+        AiUsageLogFactory(organisation=OrganisationFactory(), estimated_cost_usd=Decimal(i))
+    org = OrganisationFactory()
+    for i in (1, 2):
+        _shop_log(org, ShopFactory(organisation=org), estimated_cost_usd=Decimal(i))
+    for url in (ORGS_URL, org_shops_url(org.id)):
+        for _ in range(2):  # second round is served from cache
+            p1 = superadmin_client.get(url, {"page_size": 1, "page": 1}).json()["results"]
+            p2 = superadmin_client.get(url, {"page_size": 1, "page": 2}).json()["results"]
+            assert len(p1) == len(p2) == 1
+            assert p1 != p2
+
+
+def test_cache_is_keyed_per_range(superadmin_client):
+    org = OrganisationFactory()
+    _shop_log(org, ShopFactory(organisation=org), estimated_cost_usd=Decimal("1"))
+    _shop_log(
+        org,
+        ShopFactory(organisation=org),
+        estimated_cost_usd=Decimal("4"),
+        created_at=timezone.now() - timedelta(days=20),
+    )
+    for _ in range(2):  # second round is served from cache
+        for url in (SUMMARY_URL, org_summary_url(org.id)):
+            week = superadmin_client.get(url, {"range": "7d"}).json()["totals"]["cost"]
+            month = superadmin_client.get(url, {"range": "30d"}).json()["totals"]["cost"]
+            assert (week, month) == ("1.000000", "5.000000")
+        orgs_7 = superadmin_client.get(ORGS_URL, {"range": "7d"}).json()["results"]
+        orgs_30 = superadmin_client.get(ORGS_URL, {"range": "30d"}).json()["results"]
+        assert [r["cost"] for r in orgs_7] == ["1.000000"]
+        assert [r["cost"] for r in orgs_30] == ["5.000000"]
+        shops_7 = superadmin_client.get(org_shops_url(org.id), {"range": "7d"}).json()
+        shops_30 = superadmin_client.get(org_shops_url(org.id), {"range": "30d"}).json()
+        assert shops_7["count"] == 1
+        assert shops_30["count"] == 2
 
 
 # --- Page shell (Task 6) ---
 
 
 def _superadmin_client(client):
-    from apps.accounts.tests.factories import UserFactory
-
-    client.force_login(UserFactory())
+    client.force_login(UserFactory(role=User.Role.SUPERADMIN))
     return client
 
 
@@ -366,5 +477,10 @@ def test_sidebar_shows_ai_cost_only_for_superadmin(client, db):
     org_admin = OrgAdminFactory(organisation=OrganisationFactory())
     client.force_login(org_admin)
     resp = client.get("/admin/org/shops/")
+    assert resp.status_code == 200
+    assert b"/admin/ai-cost/" not in resp.content
+    client.logout()
+    client.force_login(StaffAdminFactory(organisation=OrganisationFactory()))
+    resp = client.get("/admin/org/reviews/")
     assert resp.status_code == 200
     assert b"/admin/ai-cost/" not in resp.content
