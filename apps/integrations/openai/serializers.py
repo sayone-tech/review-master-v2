@@ -60,3 +60,58 @@ class OrgCostListResponseSerializer(serializers.Serializer[Any]):
     previous = serializers.URLField(allow_null=True)
     generated_at = serializers.DateTimeField()
     results = OrgCostRowSerializer(many=True)
+
+
+class OrgHeaderSerializer(serializers.Serializer[Any]):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    org_type = serializers.CharField()
+    shop_count = serializers.IntegerField()
+
+
+class OrgSummaryResponseSerializer(serializers.Serializer[Any]):
+    organisation = OrgHeaderSerializer()
+    range = CostWindowSerializer()
+    generated_at = serializers.DateTimeField()
+    totals = CostSummaryTotalsSerializer()
+
+
+class ShopCostRowSerializer(serializers.Serializer[Any]):
+    shop_id = serializers.IntegerField()
+    name = serializers.CharField()
+    region_name = serializers.CharField(allow_null=True)
+    calls = serializers.IntegerField()
+    input_tokens = serializers.IntegerField()
+    output_tokens = serializers.IntegerField()
+    cost = cost_field()
+    by_request_type = serializers.DictField(child=cost_field())
+
+
+class UnattributedCostSerializer(serializers.Serializer[Any]):
+    calls = serializers.IntegerField()
+    input_tokens = serializers.IntegerField()
+    output_tokens = serializers.IntegerField()
+    cost = cost_field()
+    by_request_type = serializers.DictField(child=cost_field())
+
+
+class ShopCostListResponseSerializer(serializers.Serializer[Any]):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    generated_at = serializers.DateTimeField()
+    unattributed = UnattributedCostSerializer(allow_null=True)
+    results = ShopCostRowSerializer(many=True)
+
+
+class ModelCostRowSerializer(serializers.Serializer[Any]):
+    model = serializers.CharField()
+    calls = serializers.IntegerField()
+    input_tokens = serializers.IntegerField()
+    output_tokens = serializers.IntegerField()
+    cost = cost_field()
+
+
+class ModelCostListResponseSerializer(serializers.Serializer[Any]):
+    results = ModelCostRowSerializer(many=True)
+    generated_at = serializers.DateTimeField()
