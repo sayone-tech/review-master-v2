@@ -4,17 +4,19 @@ from __future__ import annotations
 
 from django.urls import path
 
+from apps.integrations.openai.pricing_views import (
+    AiPricingHistoryView,
+    AiPricingListView,
+    AiPricingMissingRefreshView,
+    AiPricingMissingView,
+    AiPricingSuggestionsView,
+)
 from apps.integrations.openai.views import (
     AiCostOrganisationListView,
     AiCostOrgModelsView,
     AiCostOrgShopsView,
     AiCostOrgSummaryView,
     AiCostSummaryView,
-    AiPricingHistoryView,
-    AiPricingListView,
-    AiPricingMissingRefreshView,
-    AiPricingMissingView,
-    AiPricingSuggestionsView,
 )
 
 urlpatterns = [
