@@ -147,6 +147,37 @@ class AiUsageLog(models.Model):
         return f"AiUsageLog(model={self.model}, status={self.status})"
 
 
+class AiPricingSyncConfig(models.Model):
+    """Singleton (pk=1) holding the LiteLLM pricing auto-sync switch and last-run state."""
+
+    class Status(models.TextChoices):
+        NEVER = "never", "Never run"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+
+    enabled = models.BooleanField(default=False)
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_status = models.CharField(max_length=10, choices=Status.choices, default=Status.NEVER)
+    last_error = models.TextField(blank=True)
+    last_summary = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "openai_ai_pricing_sync_config"
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(condition=Q(pk=1), name="ai_pricing_sync_config_singleton"),
+        ]
+
+    def __str__(self) -> str:
+        return f"AiPricingSyncConfig(enabled={self.enabled})"
+
+    @classmethod
+    def load(cls) -> AiPricingSyncConfig:
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class PlatformAuditLog(AuditLog):
     """Proxy exposing platform-level (organisation NULL) pricing audit rows in admin."""
 
