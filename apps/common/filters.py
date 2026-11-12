@@ -49,10 +49,16 @@ class AuditLogFilterSet(django_filters.FilterSet):  # type: ignore[misc]
         return qs.filter(entity_type=value)
 
     def filter_actor(self, qs, name, value):  # type: ignore[no-untyped-def]
+        from apps.accounts.models import User
+        from apps.common.selectors.audit_logs import PLATFORM_ACTOR_ID
+
         if value == "system":
             return qs.filter(actor__isnull=True)
+        # CVIS-07: Superadmins are one generic actor; their ids cannot be probed.
+        if value == PLATFORM_ACTOR_ID:
+            return qs.filter(actor__role=User.Role.SUPERADMIN)
         try:
-            return qs.filter(actor_id=int(value))
+            return qs.filter(actor_id=int(value)).exclude(actor__role=User.Role.SUPERADMIN)
         except (TypeError, ValueError):
             return qs
 

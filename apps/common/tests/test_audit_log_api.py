@@ -199,7 +199,7 @@ def test_filter_actor_system(org_admin_setup) -> None:
 def test_serializer_fields(org_admin_setup) -> None:
     """Response result has actor_name; before_data is NOT serialized (D-11)."""
     client, _user, org = org_admin_setup
-    actor = UserFactory(organisation=org, full_name="Jane Doe")
+    actor = OrgAdminFactory(organisation=org, full_name="Jane Doe")
     AuditLogFactory(
         organisation=org,
         actor=actor,
@@ -365,20 +365,18 @@ def test_type_filter_whitelist_is_not_extended_for_credit_types(org_admin_setup)
     assert len(client.get(LIST_URL).data["results"]) == 1
 
 
-def _activity_log_actor_ids(user) -> set[int]:
+def _activity_log_actors(user) -> list[dict]:
     client = APIClient()
     client.force_login(user)
     resp = client.get("/admin/org/activity-log/")
     assert resp.status_code == 200
-    return {a["id"] for a in resp.context["actors_json"]}
+    return resp.context["actors_json"]
 
 
-def test_actor_dropdown_includes_superadmin_for_org_admin_not_for_staff(staff_setup) -> None:
-    """RESEARCH open question 2 (accepted): an Org Admin may see the Superadmin
-    who changed their credits; Staff never do. Disposition recorded in 33-07."""
-    _client, staff, org, accessible_shop, _inaccessible = staff_setup
-    org_admin = OrgAdminFactory(organisation=org)
-    superadmin = UserFactory(role=User.Role.SUPERADMIN, organisation=None)
+def _superadmin_credit_row(org):
+    superadmin = UserFactory(
+        role=User.Role.SUPERADMIN, organisation=None, full_name="Internal Person"
+    )
     AuditLogFactory(
         organisation=org,
         actor=superadmin,
@@ -386,6 +384,17 @@ def test_actor_dropdown_includes_superadmin_for_org_admin_not_for_staff(staff_se
         entity_id=str(org.pk),
         action="organisation.credits.set",
     )
+    return superadmin
+
+
+def test_actor_dropdown_shows_platform_label_not_superadmin_name_for_org_admin(
+    staff_setup,
+) -> None:
+    """CVIS-07: Superadmins appear as one generic 'ReviewBee Admin' option, never by
+    name or id. Staff never see it (they get no credit rows)."""
+    _client, staff, org, accessible_shop, _inaccessible = staff_setup
+    org_admin = OrgAdminFactory(organisation=org)
+    superadmin = _superadmin_credit_row(org)
     # A staff-visible row so the Staff dropdown query is non-trivial.
     review = ReviewFactory(organisation=org, shop=accessible_shop)
     AuditLogFactory(
@@ -396,8 +405,38 @@ def test_actor_dropdown_includes_superadmin_for_org_admin_not_for_staff(staff_se
         action="reply_posted",
     )
 
-    assert superadmin.pk in _activity_log_actor_ids(org_admin)
-    assert superadmin.pk not in _activity_log_actor_ids(staff)
+    org_admin_actors = _activity_log_actors(org_admin)
+    assert {"id": "platform", "full_name": "ReviewBee Admin"} in org_admin_actors
+    assert superadmin.pk not in {a["id"] for a in org_admin_actors}
+    assert "Internal Person" not in {a["full_name"] for a in org_admin_actors}
+
+    staff_actors = _activity_log_actors(staff)
+    assert "platform" not in {a["id"] for a in staff_actors}
+    assert superadmin.pk not in {a["id"] for a in staff_actors}
+
+
+def test_superadmin_rows_show_platform_label_and_hide_actor_id(org_admin_setup) -> None:
+    client, _user, org = org_admin_setup
+    superadmin = _superadmin_credit_row(org)
+    row = client.get(LIST_URL).data["results"][0]
+    assert row["actor_name"] == "ReviewBee Admin"
+    assert row["actor_id"] is None
+    assert superadmin.full_name not in str(client.get(LIST_URL).data)
+
+
+def test_actor_platform_filter_returns_only_superadmin_rows(org_admin_setup) -> None:
+    client, user, org = org_admin_setup
+    _superadmin_credit_row(org)
+    AuditLogFactory(organisation=org, actor=user, entity_type="review", action="reply_posted")
+    resp = client.get(LIST_URL, {"actor": "platform"})
+    assert [r["action"] for r in resp.data["results"]] == ["organisation.credits.set"]
+
+
+def test_actor_filter_by_superadmin_id_returns_nothing(org_admin_setup) -> None:
+    """A Superadmin's numeric id cannot be probed through the actor filter."""
+    client, _user, org = org_admin_setup
+    superadmin = _superadmin_credit_row(org)
+    assert client.get(LIST_URL, {"actor": superadmin.pk}).data["results"] == []
 
 
 # ---------------------------------------------------------------------------

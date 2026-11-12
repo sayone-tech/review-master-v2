@@ -22,6 +22,32 @@ describe("AuditLogFilters Credits type option", () => {
     expect(screen.getByRole("option", { name: "Credits" })).toBeInTheDocument();
   });
 
+  it("should list the platform actor as one ReviewBee Admin option when the server sends it", () => {
+    render(
+      <AuditLogFilters
+        filters={{}}
+        actors={[
+          { id: 7, full_name: "Sayone Admin" },
+          { id: 8, full_name: "Anna Admin" },
+          { id: "platform", full_name: "ReviewBee Admin" },
+        ]}
+        onApply={() => {}}
+        onReset={() => {}}
+        hasActiveFilters={false}
+      />,
+    );
+    expect(screen.getByRole("option", { name: "ReviewBee Admin" })).toHaveValue("platform");
+    expect(screen.getByRole("option", { name: "Sayone Admin" })).toHaveValue("7");
+    const names = screen.getAllByRole("option").map((o) => o.textContent);
+    // System, then the platform actor, then people by name.
+    expect(names.slice(names.indexOf("System"))).toEqual([
+      "System",
+      "ReviewBee Admin",
+      "Anna Admin",
+      "Sayone Admin",
+    ]);
+  });
+
   it("should not offer Credits when the viewer is Staff", () => {
     renderFilters(false);
     expect(screen.queryByRole("option", { name: "Credits" })).not.toBeInTheDocument();

@@ -28,7 +28,8 @@ export interface FilterParams {
 }
 
 export interface ActorOption {
-  id: number;
+  /** A user id, or "platform" for the single generic "ReviewBee Admin" option (CVIS-07). */
+  id: number | "platform";
   full_name: string;
 }
 

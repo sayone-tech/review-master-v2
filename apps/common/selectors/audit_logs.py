@@ -25,6 +25,19 @@ if TYPE_CHECKING:
     from apps.accounts.models import User
 
 
+# CVIS-07: tenants never see a Superadmin's name or id. Their actions show as one
+# generic platform actor, and the actor filter accepts this id for them.
+PLATFORM_ACTOR_ID = "platform"
+PLATFORM_ACTOR_LABEL = "ReviewBee Admin"
+
+
+def is_platform_actor(actor: object) -> bool:
+    """True when the audit actor is a Superadmin (platform staff)."""
+    from apps.accounts.models import User
+
+    return getattr(actor, "role", None) == User.Role.SUPERADMIN
+
+
 # D-01: Audit log surface is review-reply events + all action_item events.
 # Other entity_types (e.g. shop_sync, enrichment.*) are excluded from the
 # user-facing viewer in Phase 21.

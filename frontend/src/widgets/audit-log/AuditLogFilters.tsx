@@ -87,8 +87,14 @@ export function AuditLogFilters({
     setPreset(detectPreset(filters));
   }, [filters]);
 
+  // CVIS-07: the generic "ReviewBee Admin" option stays first; people sort by name.
   const sortedActors = useMemo(
-    () => [...actors].sort((a, b) => a.full_name.localeCompare(b.full_name)),
+    () =>
+      [...actors].sort((a, b) => {
+        if (a.id === "platform") return -1;
+        if (b.id === "platform") return 1;
+        return a.full_name.localeCompare(b.full_name);
+      }),
     [actors],
   );
 
