@@ -4,11 +4,11 @@ import { SyncCaveat } from "./SyncCaveat";
 import { formatUpdatedAgo, titleCase } from "./format";
 import { KpiRow } from "./KpiRow";
 import { ModelTable } from "./ModelTable";
-import { RangeFilter } from "./RangeFilter";
+import { CostFilterCard } from "./CostFilterCard";
+import { Pagination } from "./Pagination";
 import { ShopTable } from "./ShopTable";
 import { writeFilters } from "./urlState";
 import {
-  PAGE_SIZES,
   type CostFilters,
   type CostSummaryResponse,
   type ModelListResponse,
@@ -108,7 +108,6 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
 
   const org = summary?.organisation;
   const empty = !!summary && !rangeError && summary.totals.calls === 0;
-  const totalPages = shops ? Math.max(1, Math.ceil(shops.count / pageSize)) : 1;
 
   return (
     <div className="space-y-4">
@@ -125,7 +124,7 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
         )}
       </div>
 
-      <RangeFilter filters={filters} onChange={changeFilters} error={rangeError} />
+      <CostFilterCard filters={filters} onApply={changeFilters} serverError={rangeError} />
 
       {error && (
         <div role="alert" className="text-[13px] text-red-600">
@@ -169,49 +168,16 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
               setSort(s);
             }}
           />
-          <nav
-            aria-label="Pagination"
-            className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[12px] text-muted"
-          >
-            <label className="flex items-center gap-2">
-              Rows per page
-              <select
-                className="h-8 rounded-sm border border-line bg-white px-1"
-                value={pageSize}
-                onChange={(e) => {
-                  setPage(1);
-                  setPageSize(Number(e.target.value));
-                }}
-              >
-                {PAGE_SIZES.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="px-2 py-1 rounded-sm border border-line bg-white disabled:opacity-40"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous
-              </button>
-              <span>
-                Page {page} of {totalPages}
-              </span>
-              <button
-                type="button"
-                className="px-2 py-1 rounded-sm border border-line bg-white disabled:opacity-40"
-                disabled={!shops.next}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          </nav>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            count={shops.count}
+            onPage={setPage}
+            onPageSize={(n) => {
+              setPage(1);
+              setPageSize(n);
+            }}
+          />
         </div>
       )}
 

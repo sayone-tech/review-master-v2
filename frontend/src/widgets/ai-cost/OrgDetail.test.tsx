@@ -100,7 +100,7 @@ describe("OrgDetail loaded states", () => {
     const m = mockApi(1);
     render(<OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} />);
     await screen.findByText("High St");
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() => expect(shopUrls(m).some((u) => u.includes("page=2"))).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: /^API Calls/ }));
     await waitFor(() => {
@@ -120,9 +120,9 @@ describe("OrgDetail loaded states", () => {
     await screen.findByText("High St");
     const lastRow = () => within(screen.getAllByRole("table")[0]).getAllByRole("row").at(-1)!;
     expect(lastRow()).toHaveTextContent("Unattributed");
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await waitFor(() => expect(shopUrls(m).some((u) => u.includes("page=2"))).toBe(true));
-    await screen.findByText("Page 2 of 2");
+    await waitFor(() => expect(screen.getByRole("button", { name: "2" })).toHaveAttribute("aria-current", "page"));
     expect(lastRow()).toHaveTextContent("Unattributed");
   });
 

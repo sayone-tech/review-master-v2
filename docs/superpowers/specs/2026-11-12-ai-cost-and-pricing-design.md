@@ -127,6 +127,15 @@ Date-range options and UTC anchoring, 365-day cap, KPI cards, sorting, paginatio
 cache, display formatting, query-count tests, index work verified with
 `EXPLAIN ANALYZE`, and the footer caveat.
 
+### 4.10 Display precision and filter UX (owner change, post-build)
+Costs are shown with **8 decimal places** and thousands separators (e.g. `$0.00019500`)
+because a single enrichment costs a fraction of a cent; the API serialises and
+quantises Cost Explorer costs at 8 dp (per-call logging precision is unchanged). The
+date-range filter uses the app's standard filter card: edits are a draft, nothing is
+fetched until **Apply** (custom ranges validated client-side), and **Clear** (shown only
+when the applied range is not "This month") resets and applies immediately. Tables use
+the app's standard pagination footer (Showing X–Y of N, rows per page, numbered pages).
+
 ---
 
 ## 5. Pricing Management — corrections to the spec (v1.1)

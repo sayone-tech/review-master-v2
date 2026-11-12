@@ -6,7 +6,8 @@ import { MissingPricingAlert } from "../ai-pricing/MissingPricingAlert";
 import { OrgDetail } from "./OrgDetail";
 import { SyncCaveat } from "./SyncCaveat";
 import { OrgTable } from "./OrgTable";
-import { RangeFilter } from "./RangeFilter";
+import { CostFilterCard } from "./CostFilterCard";
+import { Pagination } from "./Pagination";
 import {
   readFilters,
   readListState,
@@ -15,7 +16,6 @@ import {
   type ListState,
 } from "./urlState";
 import {
-  PAGE_SIZES,
   type CostFilters,
   type CostSummaryResponse,
   type OrgListResponse,
@@ -48,7 +48,6 @@ function PlatformView({
   const [error, setError] = useState<string | null>(null);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const setPage = (fn: (p: number) => number) => onList({ ...list, page: fn(page) });
 
   const load = useCallback(() => {
     let cancelled = false;
@@ -82,11 +81,10 @@ function PlatformView({
 
   const hasAnyUsage = summary?.has_any_usage !== false;
   const empty = !loading && !error && !rangeError && summary && orgs && orgs.count === 0;
-  const totalPages = orgs ? Math.max(1, Math.ceil(orgs.count / pageSize)) : 1;
 
   return (
     <>
-      <RangeFilter filters={filters} onChange={changeFilters} error={rangeError} />
+      <CostFilterCard filters={filters} onApply={changeFilters} serverError={rangeError} />
 
       {error && (
         <div role="alert" className="text-[13px] text-red-600">
@@ -124,48 +122,13 @@ function PlatformView({
             onOpen={onOpen}
             query={writeFilters(filters)}
           />
-          <nav
-            aria-label="Pagination"
-            className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#FBFBFB] text-[12px] text-muted"
-          >
-            <label className="flex items-center gap-2">
-              Rows per page
-              <select
-                className="h-8 rounded-sm border border-line bg-white px-1"
-                value={pageSize}
-                onChange={(e) => {
-                  onList({ ...list, page: 1, pageSize: Number(e.target.value) });
-                }}
-              >
-                {PAGE_SIZES.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="px-2 py-1 rounded-sm border border-line bg-white disabled:opacity-40"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous
-              </button>
-              <span>
-                Page {page} of {totalPages}
-              </span>
-              <button
-                type="button"
-                className="px-2 py-1 rounded-sm border border-line bg-white disabled:opacity-40"
-                disabled={!orgs.next}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          </nav>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            count={orgs.count}
+            onPage={(p) => onList({ ...list, page: p })}
+            onPageSize={(n) => onList({ ...list, page: 1, pageSize: n })}
+          />
         </div>
       )}
 
