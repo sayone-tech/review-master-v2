@@ -81,23 +81,26 @@ def _shop_name_annotation() -> Expression:
     )
 
 
-def list_audit_logs_for_org(*, organisation_id: int) -> QuerySet[AuditLog]:
+def list_audit_logs_for_org(*, organisation_id: int | None) -> QuerySet[AuditLog]:
     """Return all audit log rows for an organisation (D-01, D-02, CVIS-05).
 
     Used by ORG_ADMIN. No further scoping beyond org + entity filter; credit
     events are included (CVIS-05) and each row carries a ``shop_name``
     annotation (None unless it is a same-org shop row).
     select_related('actor') prevents N+1 on actor_name serialization.
+    Platform-level rows (organisation NULL, e.g. AI pricing) are never returned.
     """
+    if organisation_id is None:
+        return AuditLog.objects.none()
     return (
-        AuditLog.objects.filter(organisation_id=organisation_id)
+        AuditLog.objects.filter(organisation_id=organisation_id, organisation__isnull=False)
         .filter(AUDIT_ENTITY_FILTER | CREDIT_AUDIT_FILTER)
         .annotate(shop_name=_shop_name_annotation())
         .select_related("actor")
     )
 
 
-def list_audit_logs_for_staff(*, organisation_id: int, user: User) -> QuerySet[AuditLog]:
+def list_audit_logs_for_staff(*, organisation_id: int | None, user: User) -> QuerySet[AuditLog]:
     """Return audit log rows visible to a Staff user (D-03).
 
     Two-step scope:
@@ -105,7 +108,11 @@ def list_audit_logs_for_staff(*, organisation_id: int, user: User) -> QuerySet[A
          shops (and not soft-deleted) + ActionItem PKs with scope=SHOP in
          accessible shops.
       2. Filter AuditLog to entity_id__in=[...] on top of org + entity filter.
+
+    Platform-level rows (organisation NULL) are never returned.
     """
+    if organisation_id is None:
+        return AuditLog.objects.none()
     # Lazy imports to avoid circular dependency at module import time.
     from apps.action_items.models import ActionItem
     from apps.reviews.models import Review
@@ -137,7 +144,7 @@ def list_audit_logs_for_staff(*, organisation_id: int, user: User) -> QuerySet[A
     # action item's PK). The Q(...) | Q(...) split makes the type+id pairing
     # authoritative — layer-1 defence per CLAUDE.md §9.
     return (
-        AuditLog.objects.filter(organisation_id=organisation_id)
+        AuditLog.objects.filter(organisation_id=organisation_id, organisation__isnull=False)
         .filter(AUDIT_ENTITY_FILTER)
         .filter(
             Q(entity_type="review", entity_id__in=review_ids)
