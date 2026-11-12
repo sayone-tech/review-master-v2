@@ -357,3 +357,12 @@ def ai_cost_page(request: HttpRequest, org_id: int | None = None) -> HttpRespons
     if not isinstance(user, User) or user.role != User.Role.SUPERADMIN:
         return HttpResponseForbidden()
     return render(request, "ai_cost/explorer.html", {"org_id": org_id})
+
+
+@login_required
+def ai_pricing_page(request: HttpRequest) -> HttpResponse:
+    """Superadmin AI Pricing page shell; the React entrypoint renders the content."""
+    user = request.user
+    if not isinstance(user, User) or user.role != User.Role.SUPERADMIN:
+        return HttpResponseForbidden()
+    return render(request, "ai_pricing/page.html")

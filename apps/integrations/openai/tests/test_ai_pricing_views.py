@@ -468,3 +468,36 @@ def test_write_query_ceilings(superadmin_client):
     with CaptureQueriesContext(connection) as ctx:
         assert superadmin_client.delete(_detail_url(r.json()["id"])).status_code == 204
     assert len(ctx.captured_queries) <= 8
+
+
+# --- Page shell (Task 7) ---
+
+
+def test_pricing_page_renders_for_superadmin(client, db):
+    client.force_login(UserFactory(role=User.Role.SUPERADMIN))
+    resp = client.get("/admin/ai-pricing/")
+    assert resp.status_code == 200
+    assert b'id="ai-pricing-root"' in resp.content
+    assert reverse("ai_pricing_page") == "/admin/ai-pricing/"
+
+
+@pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])
+def test_pricing_page_forbidden_for_tenants(client, db, factory):
+    client.force_login(factory())
+    assert client.get("/admin/ai-pricing/").status_code == 403
+
+
+def test_pricing_page_redirects_anonymous(client, db):
+    assert client.get("/admin/ai-pricing/").status_code == 302
+
+
+def test_sidebar_shows_ai_pricing_only_for_superadmin(client, db):
+    from apps.organisations.tests.factories import OrganisationFactory
+
+    client.force_login(UserFactory(role=User.Role.SUPERADMIN))
+    assert b'href="/admin/ai-pricing/"' in client.get("/admin/ai-pricing/").content
+    client.logout()
+    client.force_login(OrgAdminFactory(organisation=OrganisationFactory()))
+    resp = client.get("/admin/org/shops/")
+    assert resp.status_code == 200
+    assert b"/admin/ai-pricing/" not in resp.content
