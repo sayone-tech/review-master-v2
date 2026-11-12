@@ -1,7 +1,8 @@
 """Deploy-time system check: the configured OpenAI model must have an active price.
 
-Runs only for ``manage.py check --database <alias>`` (Django passes ``databases``
-then), so plain ``check`` / ``check --deploy`` in CI never touches the database.
+Runs only for ``manage.py check --deploy --database <alias>``: ``deploy=True`` keeps it
+out of ``migrate`` / ``runserver`` / plain ``check``, and the database tag means
+``check --deploy`` without ``--database`` (CI) never touches the database.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from django.db.utils import OperationalError, ProgrammingError
 from apps.integrations.openai.models import AiPricing
 
 
-@register(Tags.database)
+@register(Tags.database, deploy=True)
 def check_configured_model_priced(
     app_configs: Any, databases: Any = None, **kwargs: Any
 ) -> list[CheckMessage]:
@@ -29,7 +30,7 @@ def check_configured_model_priced(
         return [
             Error(
                 f"OPENAI_MODEL '{model}' has no active AiPricing row.",
-                hint="Add a price on /admin/ai-pricing/ or via Django admin before deploying.",
+                hint="Add a price on /admin/ai-pricing/ before deploying.",
                 id="openai.E001",
             )
         ]

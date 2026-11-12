@@ -63,6 +63,7 @@ export function MissingPricingAlert({ variant, onAddFor, refreshKey = 0 }: Props
           {n} {n === 1 ? "model is" : "models are"} logged without pricing.
         </strong>{" "}
         These calls show $0 in cost totals until pricing is added.
+        {models.some((x) => x.configured) && " Enrichment fails until the configured model has a price."}
       </p>
       <p>
         Missing:{" "}

@@ -49,6 +49,17 @@ describe("MissingPricingAlert", () => {
     expect(screen.getByText(/Missing:/)).toBeInTheDocument();
   });
 
+  it("warns that enrichment fails only when the configured model is missing", async () => {
+    vi.mocked(api.fetchMissing).mockResolvedValue(resp([m("gpt-x", true)]));
+    const { unmount } = render(<MissingPricingAlert variant="pricing" onAddFor={vi.fn()} />);
+    expect(await screen.findByText(/Enrichment fails until the configured model has a price\./)).toBeInTheDocument();
+    unmount();
+    vi.mocked(api.fetchMissing).mockResolvedValue(resp([m("gpt-y")]));
+    render(<MissingPricingAlert variant="pricing" onAddFor={vi.fn()} />);
+    await screen.findByText("1 model is logged without pricing.");
+    expect(screen.queryByText(/Enrichment fails/)).not.toBeInTheDocument();
+  });
+
   it("pricing variant: per-model buttons call onAddFor", async () => {
     vi.mocked(api.fetchMissing).mockResolvedValue(resp([m("gpt-x"), m("gpt-y")]));
     const onAddFor = vi.fn();

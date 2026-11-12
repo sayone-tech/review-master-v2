@@ -928,7 +928,7 @@ def calculate_cost(*, model: str, prompt_tokens: int, completion_tokens: int,
 - **No backdating:** `effective_from >= now - 5 s` (grace), and it must start strictly after the current price's `effective_from`.
 - Every row records `source` (`manual` / `sync` / `seed`) and nullable `created_by`. Every add/delete writes **one platform `AuditLog` row** (`organisation=NULL`, `entity_type="ai_pricing"`, actions `ai_pricing.added` / `ai_pricing.deleted`).
 - `AiPricing.objects.get_active(model=, at=)` is a time-window lookup (`effective_from <= at < coalesce(effective_to, ∞)`), so a scheduled row never prices current usage; on overlap the newest start wins.
-- **Deploy guard:** `manage.py check --database default` raises `openai.E001` when `OPENAI_MODEL` has no active price — run as step 5b of `deployment/scripts/deploy.sh`.
+- **Deploy guard:** `manage.py check --deploy --database default` raises `openai.E001` when `OPENAI_MODEL` has no active price — run as step 5b of `deployment/scripts/deploy.sh`.
 - Initial seed data: GPT-4o-mini at the model's published rates as of model release. Stored as `Decimal` to avoid floating-point drift.
 
 ### 14.5 LangSmith tracing

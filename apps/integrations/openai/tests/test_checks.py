@@ -18,9 +18,7 @@ def test_check_errors_when_configured_model_unpriced(settings):
     errors = check_configured_model_priced(None, databases=["default"])
     assert [e.id for e in errors] == ["openai.E001"]
     assert "gpt-unpriced" in errors[0].msg
-    assert (
-        errors[0].hint == "Add a price on /admin/ai-pricing/ or via Django admin before deploying."
-    )
+    assert errors[0].hint == "Add a price on /admin/ai-pricing/ before deploying."
 
 
 @pytest.mark.django_db
@@ -38,7 +36,7 @@ def test_check_skipped_without_databases(settings):
 def test_check_runs_via_call_command(settings):
     settings.OPENAI_MODEL = "gpt-unpriced"
     with pytest.raises(SystemCheckError, match=r"openai\.E001"):
-        call_command("check", "--database", "default", "--fail-level", "ERROR")
+        call_command("check", "--deploy", "--database", "default", "--fail-level", "ERROR")
 
 
 @pytest.mark.django_db
@@ -78,3 +76,29 @@ def test_check_passes_when_configured_model_has_overlapping_windows(settings):
     )
     AiPricingFactory(model="overlap-m", effective_from=now - timedelta(days=2), effective_to=None)
     assert check_configured_model_priced(None, databases=["default"]) == []
+
+
+@pytest.mark.django_db
+def test_check_not_run_without_deploy_flag(settings):
+    """migrate/runserver run database checks without deployment checks: must not block them."""
+    from django.core.checks import run_checks
+
+    settings.OPENAI_MODEL = "gpt-unpriced"
+    ids = [m.id for m in run_checks(databases=["default"])]
+    assert "openai.E001" not in ids
+    call_command("check", "--database", "default", "--fail-level", "ERROR")
+
+
+@pytest.mark.django_db
+def test_migrate_plan_not_blocked_when_unpriced(settings):
+    settings.OPENAI_MODEL = "gpt-unpriced"
+    call_command("migrate", "--plan", skip_checks=False)
+
+
+@pytest.mark.django_db
+def test_deploy_check_with_database_reports_error(settings):
+    from django.core.checks import run_checks
+
+    settings.OPENAI_MODEL = "gpt-unpriced"
+    ids = [m.id for m in run_checks(databases=["default"], include_deployment_checks=True)]
+    assert "openai.E001" in ids

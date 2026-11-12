@@ -53,7 +53,7 @@ docker compose -f "${COMPOSE_FILE}" run --rm web \
 
 # 5b. Guard: configured OpenAI model must have a price (openai.E001)
 docker compose -f "${COMPOSE_FILE}" run --rm web \
-  python manage.py check --database default --fail-level ERROR
+  python manage.py check --deploy --database default --fail-level ERROR
 
 # 6. Collect static files to S3 (instance profile provides credentials)
 docker compose -f "${COMPOSE_FILE}" run --rm web \

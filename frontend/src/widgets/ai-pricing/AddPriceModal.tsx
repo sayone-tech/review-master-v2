@@ -137,7 +137,10 @@ export function AddPriceModal({ open, initialModel, onClose, onSaved }: Props) {
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        if (saving) return;
+        onClose();
+      }}
       title="Add New Price"
       footer={
         <>

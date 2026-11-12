@@ -98,6 +98,17 @@ describe("AddPriceModal", () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
+  it("ignores Escape while a save is in flight", async () => {
+    let resolve!: (v: ReturnType<typeof priceRow>) => void;
+    vi.mocked(api.createPrice).mockReturnValue(new Promise((r) => (resolve = r)));
+    const { onClose } = setup();
+    await fill("gpt-x", "1", "1", "1");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).not.toHaveBeenCalled();
+    resolve(priceRow());
+  });
+
   it("rejects an effective time more than 5s in the past, allows within grace", async () => {
     setup();
     await fill("gpt-x", "1", "1", "1");
