@@ -3,6 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env = environ.Env()
@@ -192,8 +193,19 @@ AI_PRICING_SYNC_SOURCE_URL = env(
         "model_prices_and_context_window.json"
     ),
 )
-AI_PRICING_SYNC_TOLERANCE_USD_PER_1M = Decimal(
-    env("AI_PRICING_SYNC_TOLERANCE_USD_PER_1M", default="0.000001")
+
+
+def parse_non_negative_decimal(name: str, raw: str) -> Decimal:
+    """Parse a Decimal setting; a negative value would silently mark every price as drifted."""
+    value = Decimal(raw)
+    if value < 0:
+        raise ImproperlyConfigured(f"{name} must be >= 0 (got {raw}).")
+    return value
+
+
+AI_PRICING_SYNC_TOLERANCE_USD_PER_1M = parse_non_negative_decimal(
+    "AI_PRICING_SYNC_TOLERANCE_USD_PER_1M",
+    env("AI_PRICING_SYNC_TOLERANCE_USD_PER_1M", default="0.000001"),
 )
 
 LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)

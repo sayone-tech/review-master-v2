@@ -7,7 +7,6 @@ Never logs or surfaces response content.
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -15,8 +14,6 @@ from urllib.parse import urlsplit
 
 import httpx
 from django.conf import settings
-
-logger = logging.getLogger(__name__)
 
 _PER_1M = Decimal(1_000_000)
 _QUANT = Decimal("0.00000001")

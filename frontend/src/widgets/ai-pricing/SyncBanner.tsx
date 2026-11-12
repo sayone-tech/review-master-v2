@@ -11,14 +11,17 @@ interface Props {
   onStatus?: (status: SyncStatus) => void;
   /** "Use LiteLLM price": open Add New Price pre-filled. */
   onUseLiteLLM?: (model: string, prices: PriceTriple) => void;
+  /** Bump to reload the status (e.g. after a price save changed the skipped-manual list). */
+  refreshKey?: number;
 }
 
-const REFETCH_AFTER_SYNC_MS = 30_000;
+const POLL_INTERVAL_MS = 10_000;
+const POLL_MAX_TICKS = 12; // 2 minutes
 const BTN = "px-3 py-1.5 bg-white border border-line rounded-md text-[13px] hover:bg-line-soft disabled:opacity-50";
 
 const triple = (p: PriceTriple) => `${formatPrice(p.input)}/${formatPrice(p.output)}/${formatPrice(p.cached)}`;
 
-export function SyncBanner({ onChanged, onStatus, onUseLiteLLM }: Props) {
+export function SyncBanner({ onChanged, onStatus, onUseLiteLLM, refreshKey = 0 }: Props) {
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -29,28 +32,79 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM }: Props) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onStatusRef = useRef(onStatus);
   onStatusRef.current = onStatus;
+  const onChangedRef = useRef(onChanged);
+  onChangedRef.current = onChanged;
+  const statusRef = useRef<SyncStatus | null>(null);
+  statusRef.current = status;
 
   const load = useCallback(() => {
     const mine = ++req.current;
     return fetchSyncStatus()
-      .then((s) => {
-        if (mine !== req.current) return;
+      .then((s): SyncStatus | null => {
+        if (mine !== req.current) return null;
         setStatus(s);
         setLoadError(false);
         onStatusRef.current?.(s);
+        return s;
       })
-      .catch(() => {
+      .catch((): null => {
         if (mine === req.current) setLoadError(true);
+        return null;
       });
   }, []);
+
+  const pollGen = useRef(0);
+  const stopPolling = useCallback(() => {
+    pollGen.current++;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  }, []);
+
+  // One poller at a time: every Sync Now click restarts it. It stops once the run has settled
+  // (seen running, or last_run_at moved, and is no longer running) or after two minutes.
+  const startPolling = useCallback(() => {
+    stopPolling();
+    const gen = pollGen.current;
+    const baseline = statusRef.current?.last_run_at ?? null;
+    let seenRunning = false;
+    let ticks = 0;
+    const tick = async () => {
+      ticks += 1;
+      const s = await load();
+      if (gen !== pollGen.current) return; // stopped, restarted or unmounted mid-request
+      if (s) {
+        if (s.last_status === "running") seenRunning = true;
+        else if (seenRunning || s.last_run_at !== baseline) {
+          stopPolling();
+          onChangedRef.current();
+          return;
+        }
+      }
+      if (ticks >= POLL_MAX_TICKS) {
+        stopPolling();
+        return;
+      }
+      timer.current = setTimeout(() => void tick(), POLL_INTERVAL_MS);
+    };
+    timer.current = setTimeout(() => void tick(), POLL_INTERVAL_MS);
+  }, [load, stopPolling]);
 
   useEffect(() => {
     void load();
     return () => {
       req.current++;
-      if (timer.current) clearTimeout(timer.current);
+      stopPolling();
     };
-  }, [load]);
+  }, [load, stopPolling]);
+
+  const firstRefresh = useRef(true);
+  useEffect(() => {
+    if (firstRefresh.current) {
+      firstRefresh.current = false;
+      return;
+    }
+    void load();
+  }, [refreshKey, load]);
 
   const confirmToggle = async () => {
     if (!status || busy) return;
@@ -77,8 +131,7 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM }: Props) {
     try {
       await triggerSync();
       setMessage("Sync started. Refresh in a minute to see results.");
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void load(), REFETCH_AFTER_SYNC_MS);
+      startPolling();
     } catch (e) {
       setMessage(
         e instanceof ApiError && e.status === 429

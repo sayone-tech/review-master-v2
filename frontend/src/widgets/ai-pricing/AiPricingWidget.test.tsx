@@ -103,6 +103,7 @@ describe("AiPricingWidget", () => {
       expect(api.fetchPriceSummary).toHaveBeenCalledTimes(2);
       expect(api.fetchHistory).toHaveBeenCalledTimes(2);
       expect(api.fetchMissing).toHaveBeenCalledTimes(2);
+      expect(api.fetchSyncStatus).toHaveBeenCalledTimes(2); // banner list refreshed after a save
     });
   });
 

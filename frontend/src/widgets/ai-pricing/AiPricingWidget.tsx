@@ -18,6 +18,7 @@ export function AiPricingWidget() {
   const [addModel, setAddModel] = useState<string | null>(null);
   const [addPrices, setAddPrices] = useState<PriceTriple | undefined>(undefined);
   const [alertKey, setAlertKey] = useState(0);
+  const [syncKey, setSyncKey] = useState(0);
   const [syncEnabled, setSyncEnabled] = useState(false);
 
   // Request counters: only the latest request may write state (ignores stale responses).
@@ -76,6 +77,7 @@ export function AiPricingWidget() {
     setAddModel(null);
     setAddPrices(undefined);
     afterChange();
+    setSyncKey((k) => k + 1); // the skipped-manual list may no longer apply
   };
 
   const openAdd = (model?: string) => {
@@ -109,6 +111,7 @@ export function AiPricingWidget() {
         onChanged={() => setAlertKey((k) => k + 1)}
         onStatus={(st) => setSyncEnabled(st.enabled)}
         onUseLiteLLM={openAddWithPrices}
+        refreshKey={syncKey}
       />
 
       <MissingPricingAlert

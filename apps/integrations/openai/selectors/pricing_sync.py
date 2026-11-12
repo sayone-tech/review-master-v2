@@ -45,9 +45,10 @@ def get_sync_status(*, now: datetime | None = None) -> SyncStatus:
     """Read-only: never creates the singleton (an unsaved default stands in when missing)."""
     now = now or timezone.now()
     config = AiPricingSyncConfig.objects.filter(pk=1).first() or AiPricingSyncConfig()
-    overdue = config.enabled and (
-        config.last_success_at is None or now - config.last_success_at > OVERDUE_AFTER
-    )
+    # Never succeeded yet: measure from the last run, else the toggle time (``updated_at``), so
+    # a fresh enable is "not synced yet" rather than overdue until the first scheduled run.
+    baseline = config.last_success_at or config.last_run_at or config.updated_at
+    overdue = bool(config.enabled and baseline is not None and now - baseline > OVERDUE_AFTER)
     last_status, last_error = config.last_status, config.last_error
     if last_status == AiPricingSyncConfig.Status.RUNNING and (
         config.last_run_at is None or now - config.last_run_at > STALE_RUNNING_AFTER

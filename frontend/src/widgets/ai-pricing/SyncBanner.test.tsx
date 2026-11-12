@@ -138,21 +138,76 @@ describe("SyncBanner", () => {
     await vi.waitFor(() => expect(api.toggleSync).toHaveBeenCalledWith(false));
   });
 
-  it("Sync Now: 202 shows the message and refetches once after 30 s", async () => {
-    vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus());
+  it("Sync Now: 202 shows the message and polls every 10 s until the run settles, then calls onChanged", async () => {
+    const running = syncStatus({ last_status: "running", last_run_at: "2026-11-12T09:00:00Z" });
+    const done = syncStatus({
+      last_status: "success",
+      last_run_at: "2026-11-12T09:00:00Z",
+      last_success_at: "2026-11-12T09:00:05Z",
+    });
+    vi.mocked(api.fetchSyncStatus).mockResolvedValueOnce(syncStatus());
+    vi.mocked(api.fetchSyncStatus).mockResolvedValueOnce(running);
+    vi.mocked(api.fetchSyncStatus).mockResolvedValueOnce(running);
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(done);
     vi.mocked(api.triggerSync).mockResolvedValue(undefined);
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<SyncBanner onChanged={vi.fn()} />);
+    const onChanged = vi.fn();
+    render(<SyncBanner onChanged={onChanged} />);
     await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
     expect(await screen.findByText("Sync started. Refresh in a minute to see results.")).toBeInTheDocument();
     expect(api.fetchSyncStatus).toHaveBeenCalledTimes(1);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(10_000);
     });
+    expect(api.fetchSyncStatus).toHaveBeenCalledTimes(2);
+    expect(onChanged).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(api.fetchSyncStatus).toHaveBeenCalledTimes(4);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(api.fetchSyncStatus).toHaveBeenCalledTimes(4); // polling stopped
+  });
+
+  it("polling gives up after 2 minutes if the run never settles", async () => {
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(
+      syncStatus({ last_status: "running", last_run_at: "2026-11-12T09:00:00Z" }),
+    );
+    vi.mocked(api.triggerSync).mockResolvedValue(undefined);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onChanged = vi.fn();
+    render(<SyncBanner onChanged={onChanged} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300_000);
+    });
+    expect(api.fetchSyncStatus).toHaveBeenCalledTimes(13); // initial + 12 polls
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("a second Sync Now click restarts the poller instead of running two", async () => {
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(
+      syncStatus({ last_status: "running", last_run_at: "2026-11-12T09:00:00Z" }),
+    );
+    vi.mocked(api.triggerSync).mockResolvedValue(undefined);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<SyncBanner onChanged={vi.fn()} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Sync Now" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    // initial load + exactly one poll in the 10 s after the restart (not two pollers).
     expect(api.fetchSyncStatus).toHaveBeenCalledTimes(2);
   });
 
-  it("clears the pending refetch on unmount", async () => {
+  it("clears the poller on unmount", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus());
     vi.mocked(api.triggerSync).mockResolvedValue(undefined);
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -162,6 +217,22 @@ describe("SyncBanner", () => {
     unmount();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(api.fetchSyncStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it("reloads the status when refreshKey changes", async () => {
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus());
+    const { rerender } = render(<SyncBanner onChanged={vi.fn()} refreshKey={0} />);
+    await screen.findByTestId("sync-banner");
+    expect(api.fetchSyncStatus).toHaveBeenCalledTimes(1);
+    rerender(<SyncBanner onChanged={vi.fn()} refreshKey={1} />);
+    await vi.waitFor(() => expect(api.fetchSyncStatus).toHaveBeenCalledTimes(2));
+  });
+
+  it("an enabled, never-run, not-overdue status shows the green Not synced yet", async () => {
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus({ enabled: true, overdue: false }));
+    render(<SyncBanner onChanged={vi.fn()} />);
+    expect(await screen.findByText("Automatic pricing sync is on. Not synced yet.")).toBeInTheDocument();
+    expect(screen.getByTestId("sync-banner").className).toContain("bg-green-50");
   });
 
   it("Sync Now 429 shows the rate-limit message", async () => {
@@ -218,7 +289,7 @@ describe("SyncBanner", () => {
     expect(screen.getByRole("button", { name: "Enable sync" })).toBeInTheDocument();
   });
 
-  it("a disabled Sync Now that fails turns the banner amber after the 30 s refetch", async () => {
+  it("a disabled Sync Now that fails turns the banner amber after the first poll", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValueOnce(syncStatus());
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(
       syncStatus({ last_status: "failed", last_error: "boom", last_run_at: "2026-11-12T09:00:03Z" }),
@@ -229,7 +300,7 @@ describe("SyncBanner", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
     await screen.findByText(/Sync started/);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(10_000);
     });
     expect(
       await screen.findByRole("button", { name: "Last sync failed Nov 12, 2026. Click to view details." }),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -116,7 +117,7 @@ def test_status_after_failure_is_overdue(superadmin_client):
     config = AiPricingSyncConfig.load()
     AiPricingSyncConfig.objects.filter(pk=config.pk).update(
         enabled=True,
-        last_run_at=timezone.now(),
+        last_run_at=timezone.now() - timedelta(days=15),
         last_status="failed",
         last_error="fetch failed: timeout",
     )

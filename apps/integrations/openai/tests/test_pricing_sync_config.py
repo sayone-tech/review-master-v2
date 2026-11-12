@@ -69,9 +69,29 @@ def test_overdue_disabled_is_false():
     assert get_sync_status(now=NOW)["overdue"] is False
 
 
-def test_overdue_enabled_never_succeeded():
+def _set_updated_at(when):
+    AiPricingSyncConfig.objects.filter(pk=1).update(updated_at=when)
+
+
+def test_fresh_enable_never_run_is_not_overdue():
     _configure(enabled=True)
+    _set_updated_at(NOW - timedelta(days=1))
+    assert get_sync_status(now=NOW)["overdue"] is False
+
+
+def test_enabled_never_succeeded_overdue_after_14_days_from_toggle():
+    _configure(enabled=True)
+    _set_updated_at(NOW - timedelta(days=15))
     assert get_sync_status(now=NOW)["overdue"] is True
+
+
+def test_enabled_never_succeeded_measures_from_last_run():
+    _configure(enabled=True, last_run_at=NOW - timedelta(days=2))
+    _set_updated_at(NOW - timedelta(days=30))
+    # last_run_at wins over an older toggle time.
+    cfg = AiPricingSyncConfig.objects.get(pk=1)
+    assert cfg.last_run_at is not None
+    assert get_sync_status(now=NOW)["overdue"] is False
 
 
 @pytest.mark.parametrize(("days", "expected"), [(13, False), (15, True)])
@@ -129,3 +149,13 @@ def test_stale_running_status_reported_as_failed(last_run_at):
         "Sync did not finish (worker stopped).",
     )
     assert AiPricingSyncConfig.load().last_status == "running"  # display only, no write
+
+
+def test_tolerance_setting_rejects_negative():
+    from django.core.exceptions import ImproperlyConfigured
+
+    from config.settings.base import parse_non_negative_decimal
+
+    assert parse_non_negative_decimal("X", "0") == 0
+    with pytest.raises(ImproperlyConfigured):
+        parse_non_negative_decimal("X", "-0.5")
