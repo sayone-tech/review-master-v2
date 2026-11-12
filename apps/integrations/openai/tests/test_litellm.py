@@ -79,6 +79,32 @@ def test_non_object_entries_ignored():
     assert catalog.unusable == frozenset()
 
 
+@pytest.mark.parametrize("bad_cache", ["abc", -1, True])
+def test_malformed_cache_price_makes_entry_unusable(bad_cache):
+    catalog = fetch_litellm_catalog(
+        transport=_transport(
+            {
+                "m": {
+                    "input_cost_per_token": 1e-7,
+                    "output_cost_per_token": 1e-7,
+                    "cache_read_input_token_cost": bad_cache,
+                }
+            }
+        )
+    )
+    assert catalog.unusable == frozenset({"m"})
+    assert catalog.prices == {}
+
+
+def test_redirect_is_not_followed():
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(302, headers={"location": "https://evil.test/x"})
+    )
+    with pytest.raises(LiteLLMFetchError) as info:
+        fetch_litellm_catalog(transport=transport)
+    assert str(info.value) == "LiteLLM returned HTTP 302"
+
+
 def _raise(exc):
     def handler(request):
         raise exc

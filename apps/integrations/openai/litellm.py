@@ -64,7 +64,7 @@ def _parse_entry(entry: dict[str, Any]) -> LiteLLMPrice | None:
     try:
         cached_1m = to_per_1m(cached_raw) if cached_raw is not None else Decimal(0).quantize(_QUANT)
     except ValueError:
-        cached_1m = Decimal(0).quantize(_QUANT)
+        return None
     return LiteLLMPrice(input_per_1m=input_1m, output_per_1m=output_1m, cached_per_1m=cached_1m)
 
 
@@ -76,7 +76,7 @@ def fetch_litellm_catalog(
 ) -> LiteLLMCatalog:
     target = url or settings.AI_PRICING_SYNC_SOURCE_URL
     try:
-        with httpx.Client(transport=transport, timeout=timeout, follow_redirects=True) as client:
+        with httpx.Client(transport=transport, timeout=timeout) as client:
             response = client.get(target)
     except httpx.TimeoutException as exc:
         raise LiteLLMFetchError(f"LiteLLM request timed out after {timeout:g}s") from exc
