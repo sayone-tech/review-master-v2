@@ -17,6 +17,9 @@ from rest_framework.exceptions import ValidationError
 ROLLING_RANGES: dict[str, int] = {"7d": 7, "30d": 30, "90d": 90}
 MAX_CUSTOM_SPAN_DAYS = 365
 DEFAULT_RANGE = "this_month"
+# Open-ended ranges end at "now" rounded down to this bucket, so the query and the
+# cache key share one end and a cached payload stays valid for the whole bucket.
+END_BUCKET_MINUTES = 10
 
 
 @dataclass(frozen=True)
@@ -26,11 +29,7 @@ class CostWindow:
     end: datetime
 
     def cache_hash(self) -> str:
-        end = self.end
-        if self.range_key != "custom":
-            # Round down to the minute so rolling windows share a cache entry.
-            end = end.replace(second=0, microsecond=0)
-        raw = f"{self.range_key}|{self.start.isoformat()}|{end.isoformat()}"
+        raw = f"{self.range_key}|{self.start.isoformat()}|{self.end.isoformat()}"
         return hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()
 
 
@@ -51,13 +50,19 @@ def _midnight(day: date) -> datetime:
     return datetime(day.year, day.month, day.day, tzinfo=UTC)
 
 
+def _bucket_end(moment: datetime) -> datetime:
+    """``moment`` rounded down to the start of its ``END_BUCKET_MINUTES`` bucket."""
+    minute = moment.minute - moment.minute % END_BUCKET_MINUTES
+    return moment.replace(minute=minute, second=0, microsecond=0)
+
+
 def resolve_cost_window(*, params: Mapping[str, str], now: datetime | None = None) -> CostWindow:
     current = (now or timezone.now()).astimezone(UTC)
     range_key = params.get("range") or DEFAULT_RANGE
     today = _midnight(current.date())
 
     if range_key == "this_month":
-        return CostWindow(range_key, _midnight(current.date().replace(day=1)), current)
+        return CostWindow(range_key, _midnight(current.date().replace(day=1)), _bucket_end(current))
 
     if range_key == "last_month":
         first_this = current.date().replace(day=1)
@@ -67,7 +72,7 @@ def resolve_cost_window(*, params: Mapping[str, str], now: datetime | None = Non
 
     if range_key in ROLLING_RANGES:
         start = today - timedelta(days=ROLLING_RANGES[range_key] - 1)
-        return CostWindow(range_key, start, current)
+        return CostWindow(range_key, start, _bucket_end(current))
 
     if range_key == "custom":
         from_day = _parse_day(params.get("from"), "from")

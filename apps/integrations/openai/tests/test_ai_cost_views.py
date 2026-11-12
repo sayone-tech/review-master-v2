@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory
+from apps.integrations.openai import cost_window
 from apps.integrations.openai.models import AiUsageLog
 from apps.integrations.openai.tests.factories import AiUsageLogFactory
 from apps.integrations.openai.views import (
@@ -25,6 +29,19 @@ from apps.shops.tests.factories import ShopFactory
 
 SUMMARY_URL = reverse("superadmin-ai-cost-summary")
 ORGS_URL = reverse("superadmin-ai-cost-orgs")
+
+
+@pytest.fixture(autouse=True)
+def _window_sees_rows_written_now(monkeypatch):
+    """Resolve windows one end-bucket in the future.
+
+    Open-ended ranges end at "now" rounded down to a 10-minute bucket, so rows the
+    test just wrote would otherwise fall after the window end.
+    """
+    shift = timedelta(minutes=cost_window.END_BUCKET_MINUTES)
+    monkeypatch.setattr(
+        cost_window, "timezone", SimpleNamespace(now=lambda: timezone.now() + shift)
+    )
 
 
 @pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])

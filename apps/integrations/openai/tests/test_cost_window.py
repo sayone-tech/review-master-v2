@@ -76,8 +76,40 @@ def test_365_day_custom_range_is_allowed():
     )
 
 
-def test_cache_hash_is_stable_within_the_same_minute_for_rolling_ranges():
+@pytest.mark.parametrize("key", ["this_month", "7d", "30d", "90d"])
+def test_open_ended_ranges_round_end_down_to_ten_minute_bucket(key):
+    w = resolve_cost_window(params={"range": key}, now=datetime(2026, 11, 12, 15, 37, 12, 5, UTC))
+    assert w.end == datetime(2026, 11, 12, 15, 30, tzinfo=UTC)
+
+
+def test_end_already_on_bucket_boundary_is_unchanged():
+    assert resolve_cost_window(params={"range": "7d"}, now=NOW).end == NOW
+
+
+def test_cache_hash_is_stable_within_the_same_bucket():
     a = resolve_cost_window(params={"range": "7d"}, now=NOW)
-    b = resolve_cost_window(params={"range": "7d"}, now=NOW + timedelta(seconds=40))
+    b = resolve_cost_window(params={"range": "7d"}, now=NOW + timedelta(minutes=9, seconds=59))
     assert a.cache_hash() == b.cache_hash()
     assert isinstance(a, CostWindow)
+
+
+def test_cache_hash_changes_in_the_next_bucket():
+    a = resolve_cost_window(params={"range": "7d"}, now=NOW)
+    b = resolve_cost_window(params={"range": "7d"}, now=NOW + timedelta(minutes=10))
+    assert a.cache_hash() != b.cache_hash()
+
+
+def test_custom_range_end_is_not_truncated():
+    params = {"range": "custom", "from": "2026-10-01", "to": "2026-10-31"}
+    a = resolve_cost_window(params=params, now=NOW)
+    b = resolve_cost_window(params=params, now=NOW + timedelta(minutes=37))
+    assert a.end == datetime(2026, 11, 1, tzinfo=UTC)
+    assert a.cache_hash() == b.cache_hash()
+
+
+def test_different_ranges_have_different_hashes():
+    hashes = {
+        resolve_cost_window(params={"range": key}, now=NOW).cache_hash()
+        for key in ["this_month", "last_month", "7d", "30d", "90d"]
+    }
+    assert len(hashes) == 5
