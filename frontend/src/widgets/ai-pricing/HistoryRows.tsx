@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ConfirmModal } from "../modal/ConfirmModal";
 import { deleteScheduledPrice } from "./api";
 import { formatDate, formatDateTime, formatPrice, sourceLabel } from "./format";
@@ -12,6 +12,32 @@ function Pill({ status }: { status: PriceRow["status"] }) {
   if (status === "scheduled")
     return <span className="rounded-full bg-amber-tint text-amber px-2 py-0.5 text-[11px] font-medium">Scheduled</span>;
   return null;
+}
+
+function DeleteButton({ row, onDelete }: { row: PriceRow; onDelete: (r: PriceRow) => void }) {
+  const reasonId = useId();
+  const locked = !row.can_delete;
+  return (
+    <>
+      <button
+        type="button"
+        className={`text-[12.5px] font-medium text-red hover:underline${locked ? " opacity-40 no-underline cursor-not-allowed" : ""}`}
+        aria-disabled={locked || undefined}
+        aria-describedby={locked ? reasonId : undefined}
+        title={locked ? LOCKED_TIP : undefined}
+        onClick={() => {
+          if (!locked) onDelete(row);
+        }}
+      >
+        Delete
+      </button>
+      {locked && (
+        <span id={reasonId} className="sr-only">
+          {LOCKED_TIP}
+        </span>
+      )}
+    </>
+  );
 }
 
 function setBy(row: PriceRow): string {
@@ -76,15 +102,7 @@ export function HistoryRows({ rows, onDeleted }: Props) {
               <td className="py-2 pr-3">{sourceLabel(r.source)}</td>
               <td className="py-2 pr-3">{setBy(r)}</td>
               <td className="py-2">
-                <button
-                  type="button"
-                  className="text-[12.5px] font-medium text-red hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
-                  disabled={!r.can_delete}
-                  title={r.can_delete ? undefined : LOCKED_TIP}
-                  onClick={() => setPending(r)}
-                >
-                  Delete
-                </button>
+                <DeleteButton row={r} onDelete={setPending} />
               </td>
             </tr>
           ))}

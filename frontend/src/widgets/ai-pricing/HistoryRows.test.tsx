@@ -49,13 +49,21 @@ describe("HistoryRows", () => {
   it("disables delete with the tooltip unless can_delete", () => {
     render(<HistoryRows rows={rows} onDeleted={vi.fn()} />);
     const btns = screen.getAllByRole("button", { name: "Delete" });
-    expect(btns[0]).toBeDisabled();
-    expect(btns[0]).toHaveAttribute(
-      "title",
-      "This pricing is in effect or has been in effect — can't delete.",
-    );
-    expect(btns[1]).toBeDisabled();
-    expect(btns[2]).toBeEnabled();
+    const reason = "This pricing is in effect or has been in effect — can't delete.";
+    expect(btns[0]).toHaveAttribute("title", reason);
+    for (const b of [btns[0], btns[1]]) {
+      expect(b).toHaveAttribute("aria-disabled", "true");
+      b.focus();
+      expect(b).toHaveFocus();
+      expect(b).toHaveAccessibleDescription(reason);
+    }
+    expect(btns[2]).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("clicking a locked delete does nothing", async () => {
+    render(<HistoryRows rows={rows} onDeleted={vi.fn()} />);
+    await userEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]);
+    expect(screen.queryByTestId("confirm-confirm")).not.toBeInTheDocument();
   });
 
   it("confirms, deletes the scheduled price and notifies the parent", async () => {

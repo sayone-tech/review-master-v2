@@ -39,8 +39,18 @@ export function fetchPriceSummary(page: number): Promise<Paginated<PriceSummary>
   return getJson(`${BASE}/?page=${page}`);
 }
 
-export function fetchHistory(model: string): Promise<Paginated<PriceRow>> {
-  return getJson(`${BASE}/history/?model=${encodeURIComponent(model)}`);
+/** Every price row for a model, following pagination (bounded by price changes per model). */
+export async function fetchHistory(model: string): Promise<Paginated<PriceRow>> {
+  const rows: PriceRow[] = [];
+  let page = 1;
+  for (;;) {
+    const r = await getJson<Paginated<PriceRow>>(
+      `${BASE}/history/?model=${encodeURIComponent(model)}&page_size=100&page=${page}`,
+    );
+    rows.push(...r.results);
+    if (!r.next) return { count: rows.length, next: null, previous: null, results: rows };
+    page += 1;
+  }
 }
 
 export async function deleteScheduledPrice(id: number): Promise<void> {

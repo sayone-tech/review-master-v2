@@ -54,7 +54,8 @@ describe("PricesTable", () => {
       ),
     ).toBeInTheDocument();
     const cta = screen.getByRole("button", { name: "Add New Price" });
-    expect(cta).toBeDisabled();
+    expect(cta).toHaveAttribute("aria-disabled", "true");
+    expect(cta).toHaveAccessibleDescription("Coming in the next step");
     expect(cta).toHaveAttribute("title", "Coming in the next step");
   });
 
@@ -63,7 +64,10 @@ describe("PricesTable", () => {
       <PricesTable rows={rows} expandedModel={null} onViewHistory={vi.fn()} />,
     );
     const btns = screen.getAllByRole("button", { name: "Add new price for this model" });
-    expect(btns[0]).toBeDisabled();
+    expect(btns[0]).toHaveAttribute("aria-disabled", "true");
+    btns[0].focus();
+    expect(btns[0]).toHaveFocus();
+    expect(btns[0]).toHaveAccessibleDescription("Coming in the next step");
     expect(btns[0]).toHaveAttribute("title", "Coming in the next step");
 
     const onAddPrice = vi.fn();

@@ -40,7 +40,7 @@ describe("AiPricingWidget", () => {
       screen.getByText("Current and historical token rates for OpenAI models"),
     ).toBeInTheDocument();
     expect(await screen.findByText("Active since 2026-01-05")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add New Price" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add New Price" })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("lazily loads history on expand and refetches both after a delete", async () => {
@@ -67,5 +67,41 @@ describe("AiPricingWidget", () => {
       expect(api.fetchHistory).toHaveBeenCalledTimes(2);
     });
     await vi.waitFor(() => expect(screen.queryByText(/Scheduled:/)).not.toBeInTheDocument());
+  });
+
+  it("ignores a slow history response for a model that is no longer expanded", async () => {
+    vi.mocked(api.fetchPriceSummary).mockResolvedValue({
+      count: 2,
+      next: null,
+      previous: null,
+      results: [
+        { model: "model-a", current: priceRow({ id: 1, model: "model-a" }), scheduled: null },
+        { model: "model-b", current: priceRow({ id: 2, model: "model-b" }), scheduled: null },
+      ],
+    });
+    let resolveA!: (v: Awaited<ReturnType<typeof api.fetchHistory>>) => void;
+    const pageOf = (rows: ReturnType<typeof priceRow>[]) => ({
+      count: rows.length,
+      next: null,
+      previous: null,
+      results: rows,
+    });
+    vi.mocked(api.fetchHistory).mockImplementation((m) =>
+      m === "model-a"
+        ? new Promise((res) => {
+            resolveA = res;
+          })
+        : Promise.resolve(pageOf([priceRow({ id: 20, model: "model-b", source: "sync" })])),
+    );
+    render(<AiPricingWidget />);
+    await screen.findByText("model-a");
+    await userEvent.click(screen.getByRole("button", { name: "View history for model-a" }));
+    await userEvent.click(screen.getByRole("button", { name: "View history for model-b" }));
+    await screen.findByText("LiteLLM sync");
+
+    resolveA(pageOf([priceRow({ id: 10, model: "model-a", source: "seed" })]));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByText("LiteLLM sync")).toBeInTheDocument();
+    expect(screen.queryByText("Seed")).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchHistory, fetchPriceSummary } from "./api";
 import { HistoryRows } from "./HistoryRows";
 import { AddPriceButton, PricesTable } from "./PricesTable";
@@ -12,20 +12,34 @@ export function AiPricingWidget() {
   const [history, setHistory] = useState<PriceRow[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
+  // Request counters: only the latest request may write state (ignores stale responses).
+  const summaryReq = useRef(0);
+  const historyReq = useRef(0);
+
   const loadSummary = useCallback(() => {
+    const req = ++summaryReq.current;
     setError(null);
     return fetchPriceSummary(page)
-      .then(setSummary)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load"));
+      .then((r) => {
+        if (req === summaryReq.current) setSummary(r);
+      })
+      .catch((e: unknown) => {
+        if (req === summaryReq.current)
+          setError(e instanceof Error ? e.message : "Failed to load");
+      });
   }, [page]);
 
   const loadHistory = useCallback((model: string) => {
+    const req = ++historyReq.current;
     setHistoryError(null);
     return fetchHistory(model)
-      .then((r) => setHistory(r.results))
-      .catch((e: unknown) =>
-        setHistoryError(e instanceof Error ? e.message : "Failed to load history"),
-      );
+      .then((r) => {
+        if (req === historyReq.current) setHistory(r.results);
+      })
+      .catch((e: unknown) => {
+        if (req === historyReq.current)
+          setHistoryError(e instanceof Error ? e.message : "Failed to load history");
+      });
   }, []);
 
   useEffect(() => {
@@ -34,6 +48,7 @@ export function AiPricingWidget() {
 
   const toggleHistory = (model: string) => {
     if (expanded === model) {
+      historyReq.current++;
       setExpanded(null);
       return;
     }

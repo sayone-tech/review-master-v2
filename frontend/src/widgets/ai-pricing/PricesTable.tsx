@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useId, type ReactNode } from "react";
 import { formatDate, formatDateTime, formatPrice } from "./format";
 import type { PriceSummary } from "./types";
 
@@ -28,16 +28,26 @@ export function AddPriceButton({
   label: string;
   className: string;
 }) {
+  const reasonId = useId();
+  const disabled = !onAddPrice;
   return (
-    <button
-      type="button"
-      className={className}
-      disabled={!onAddPrice}
-      title={onAddPrice ? undefined : NOT_YET}
-      onClick={() => onAddPrice?.(model)}
-    >
-      {label}
-    </button>
+    <>
+      <button
+        type="button"
+        className={`${className}${disabled ? " opacity-50 cursor-not-allowed" : ""}`}
+        aria-disabled={disabled || undefined}
+        aria-describedby={disabled ? reasonId : undefined}
+        title={disabled ? NOT_YET : undefined}
+        onClick={() => onAddPrice?.(model)}
+      >
+        {label}
+      </button>
+      {disabled && (
+        <span id={reasonId} className="sr-only">
+          {NOT_YET}
+        </span>
+      )}
+    </>
   );
 }
 
