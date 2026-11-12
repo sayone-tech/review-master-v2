@@ -8,6 +8,10 @@ human_verification:
   - test: "Generate with AI button + tone pills end-to-end in browser"
     expected: "Per 19-03-PLAN Task 3 checkpoint: empty-textarea pill flow, non-empty overwrite confirmation, loading spinner, success fill + focus, error inline copy + focus, toggle close, Cancel restores focus on Generate button."
     why_human: "Visual layout, focus ordering, copy rendering and live OpenAI 502 path cannot be programmatically verified — checkpoint:human-verify task in Plan 19-03 was explicitly deferred to end-of-phase."
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 19: AI Reply Generation — Verification Report

@@ -158,7 +158,7 @@ Standard patterns (skip research-phase): Phase 31 (copy Beat seed), Phase 29 mod
 ## Sources
 
 ### Primary (HIGH)
-- `docs/in-progress/Requirements_Credits_System.md` (binding spec v1.0), `.planning/PROJECT.md` (locked v0.9 decisions)
+- `docs/completed/Requirements_Credits_System.md` (binding spec v1.0), `.planning/PROJECT.md` (locked v0.9 decisions)
 - Live code: `reply_generation.py`, `reviews/views.py`, `integrations/openai/{client,guardrails,exceptions,models}.py`, `shops/{views,selectors,serializers}.py`, `common/{viewsets,models}.py`, `common/selectors/audit_logs.py`, `organisations/services/organisations.py`, `reviews/migrations/{0013,0016}`, `config/settings/{base,test}.py`, `.github/workflows/ci.yml`, `ReplyComposer.tsx`
 - Installed: Django 6.0.2, Celery 5.6.3, django-celery-beat 2.9.0, `openai==2.33.0` (`DEFAULT_TIMEOUT = 600s`)
 - Django 6.0 docs (querysets, constraints); PyPI check 2026-11-11; CLAUDE.md §5, §6, §7.2, §9, §12, §13.2, §14, §22, §24, §27, §29

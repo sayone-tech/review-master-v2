@@ -17,6 +17,10 @@ human_verification:
   - test: "In Django admin (or via psql), check the PeriodicTask named 'enqueue_incremental_syncs' after running the migration"
     expected: "crontab is '0 */6 * * *' with timezone UTC; enabled=True"
     why_human: "Beat schedule state is in a django_celery_beat DB table; cannot be read without running migrations against a live DB — static file inspection alone is insufficient for the runtime state"
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 26: v0.8 Post-UAT Polish & Sync Fixes Verification Report

@@ -3,6 +3,10 @@ status: diagnosed
 trigger: "All action item categories are showing as 'other' regardless of review content. Code bug or data/runtime issue?"
 created: 2026-05-24T00:00:00Z
 updated: 2026-05-24T00:00:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: diagnosed
 ---
 
 ## Current Focus

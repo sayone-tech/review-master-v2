@@ -96,7 +96,7 @@ Requirements: CREN-01, CREN-02, CREN-03 (plus the reaper-vs-late-commit `pg_conc
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Spec & requirements
-- `docs/in-progress/Requirements_Credits_System.md`: §6.2 (reaper), §7.2 (lapse), the §11 task table (~L389), the §12 module layout (~L421), §14.3 acceptance criteria, and the risks table (~L515).
+- `docs/completed/Requirements_Credits_System.md`: §6.2 (reaper), §7.2 (lapse), the §11 task table (~L389), the §12 module layout (~L421), §14.3 acceptance criteria, and the risks table (~L515).
 - `.planning/REQUIREMENTS.md`: CREN-01..03, CQA-01.
 - `.planning/ROADMAP.md`: Phase 31 success criteria and notes.
 

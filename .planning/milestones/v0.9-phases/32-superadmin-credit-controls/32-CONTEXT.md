@@ -81,7 +81,7 @@ Requirements: CRED-01, CRED-06, CSUP-01, CSUP-02. Org Admin / Staff credit **vis
 - `.planning/ROADMAP.md` § Phase 32 — goal, success criteria 1–4, implementation notes (period echo / 409, `F()` after `ensure_balance`, `_UPDATABLE_FIELDS`, CRED-06 materialisation, auditors)
 
 ### Product spec
-- `docs/in-progress/Requirements_Credits_System.md` §8.1 (org create/edit field, label, helper, validation, position below `number_of_stores`), §8.2 (bonus modal content — re-homed to the org row per the reconciliation), §8.3 (Superadmin reporting out of scope), §7.3 (mid-month change — refined by CRED-06), §4 audit event names
+- `docs/completed/Requirements_Credits_System.md` §8.1 (org create/edit field, label, helper, validation, position below `number_of_stores`), §8.2 (bonus modal content — re-homed to the org row per the reconciliation), §8.3 (Superadmin reporting out of scope), §7.3 (mid-month change — refined by CRED-06), §4 audit event names
 
 ### Prior phase context
 - `.planning/phases/29-credits-ledger-foundation/29-CONTEXT.md` — ledger/balance model, D-02 PROTECT FKs, D-05 append-only, BONUS_ALLOCATION row shape

@@ -329,7 +329,7 @@ Throttle (10/min/user) bounds consumption rate far below any contention ceiling.
 
 ## Sources
 
-- `/Users/renjith/Documents/Accounts/review-master/docs/in-progress/Requirements_Credits_System.md` (spec v1.0): HIGH
+- `/Users/renjith/Documents/Accounts/review-master/docs/completed/Requirements_Credits_System.md` (spec v1.0): HIGH
 - `/Users/renjith/Documents/Accounts/review-master/.planning/PROJECT.md` (v0.9 locked decisions): HIGH
 - `/Users/renjith/Documents/Accounts/review-master/CLAUDE.md` §5, §6, §7.6, §9, §12, §13, §14, §22, §29: HIGH
 - `apps/reviews/services/reply_generation.py`, `apps/reviews/views.py` (`generate_reply`, `get_throttles`, `get_queryset`): HIGH, read directly

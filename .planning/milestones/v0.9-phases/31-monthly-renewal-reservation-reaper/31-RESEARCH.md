@@ -446,7 +446,7 @@ PG test thread pattern: copy `_run_threads` + `threading.Barrier` + `@pytest.mar
 - `apps/reviews/migrations/0013_periodic_task_seed_polarity_reclassify.py`, `0016_beat_recover_stuck_syncs.py`, `apps/common/migrations/0003_...`; `apps/reviews/tasks.py` (`reclassify_polarity_task`, `recover_stuck_syncs_task`); `apps/reviews/tests/test_tasks.py` (seed test pattern)
 - `config/settings/base.py:118-142, 232-240`; `config/settings/test.py`, `test_pg.py`; root `conftest.py`; `Makefile test-pg`; `.github/workflows/ci.yml backend-pg`; `config/celery.py`
 - Django 6.0.2 source in `.venv`: `db/models/sql/compiler.py:840`, `db/backends/base/features.py:50-53,236`
-- `docs/in-progress/Requirements_Credits_System.md` §6.2, §7.2, §11, §14.3; `.planning/{REQUIREMENTS,ROADMAP}.md`; CLAUDE.md §5, §12, §22, §24, §27; `.claude/rules/{migrations,testing-python}.md`
+- `docs/completed/Requirements_Credits_System.md` §6.2, §7.2, §11, §14.3; `.planning/{REQUIREMENTS,ROADMAP}.md`; CLAUDE.md §5, §12, §22, §24, §27; `.claude/rules/{migrations,testing-python}.md`
 
 ### Secondary / Tertiary
 - None (no web research needed; this phase uses only in-repo patterns and the installed Django/Celery source).

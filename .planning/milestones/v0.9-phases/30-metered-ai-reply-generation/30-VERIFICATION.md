@@ -55,6 +55,10 @@ human_verification:
   - test: "Go-live check: reverse-proxy / platform request timeout vs worst-case generate duration (research A1, review IN-02)"
     expected: "Proxy timeout is not below the 190 s worst case documented for a generate request"
     why_human: "Infrastructure outside the repo."
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 30: Metered AI Reply Generation Verification Report

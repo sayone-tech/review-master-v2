@@ -10,7 +10,7 @@
 - ✅ **v0.6 — Tag Rework & Action Item Quality** — Phases 17–19, 11 plans, shipped 2026-05-22 → [archive](milestones/v0.6-ROADMAP.md)
 - ✅ **v0.7 — AI Safety & Governance** — Phases 20–21, 12 plans, shipped 2026-05-24 → [archive](milestones/v0.7-ROADMAP.md)
 - ✅ **v0.8 — Canonical Tag System** — Phases 22–27, 20 plans, 29/29 delivered requirements (RESET deferred), shipped 2026-06-30 → [archive](milestones/v0.8-ROADMAP.md)
-- 🚧 **v0.9 — AI Reply Credits** — Phases 29–33, 27/27 requirements mapped, in progress (Phase 28 / RESET stays deferred)
+- ✅ **v0.9 — AI Reply Credits** — Phases 29–33, 23 plans, 29/29 requirements, shipped 2026-11-12 (PR #54) → [archive](milestones/v0.9-ROADMAP.md)
 
 > 🚀 **Web Beta 1 (`web-beta-1`)** — v0.7 marked the close of the first
 > web beta. v0.8 reopens web feature work for the canonical tag system
@@ -21,8 +21,8 @@
 
 ## Next Up
 
-- 📱 **Mobile app** — follows v0.9; scope, requirements, and roadmap to be
-  defined in a new milestone (`/gsd-new-milestone` once direction is clear).
+- 📱 **Mobile app** — next milestone after v0.9; scope, requirements and
+  roadmap to be defined with `/gsd-new-milestone`.
 
 ## Phases
 
@@ -138,212 +138,34 @@ Full archive: `.planning/milestones/v0.8-ROADMAP.md`
 
 </details>
 
-### 🚧 v0.9 — AI Reply Credits (Phases 29–33) — IN PROGRESS
+<details>
+<summary>✅ v0.9 — AI Reply Credits (Phases 29–33) — SHIPPED 2026-11-12</summary>
 
-**Milestone Goal:** Cap AI reply-generation spend with a per-shop monthly credit budget that Superadmin controls and every user can see.
-**Source spec:** `docs/in-progress/Requirements_Credits_System.md` (v1.0, Nov 2026), reconciled against the live codebase in `.planning/research/SUMMARY.md`. Binding reconciliations are listed at the top of `.planning/REQUIREMENTS.md` (27 v1 REQ-IDs).
-**Model split (user decision):** planning and discuss agents run on **Opus**; execution agents (`gsd-executor`, `gsd-debugger`, `gsd-doc-writer`) run on the **latest Sonnet**. This is configured in `.planning/config.json` → `models` (`planning: opus`, `discuss: opus`, `execution: sonnet`).
-**Dependency waves (parallelization on):** Wave A: Phase 29 → Wave B: Phase 30 ∥ Phase 32 (32 needs only 29) → Wave C: Phase 31 (needs 30) ∥ Phase 33 (needs 30 + 32). Numeric order 29 → 30 → 31 → 32 → 33 is always a valid sequential fallback.
-**UI design contracts:** run `/gsd-ui-phase` before planning **Phase 32** (Superadmin credits modal with shop picker + org-form allocation field) and **Phase 33** (Shop Details credits card, Shops-list badge, reply-composer credit states, Buy More modal). Phases 29–31 are backend-only.
-**Not in this milestone:** Phase 28 (Superadmin Data Reset, RESET-01..03) stays deferred pre-launch and keeps its number. CFUT-01..04 are tracked as future requirements.
+- [x] Phase 29: Credits Ledger Foundation (4/4 plans) — completed 2026-11-11
+- [x] Phase 30: Metered AI Reply Generation (4/4 plans) — completed 2026-11-11
+- [x] Phase 31: Monthly Renewal & Reservation Reaper (3/3 plans) — completed 2026-11-11
+- [x] Phase 32: Superadmin Credit Controls (5/5 plans) — completed 2026-11-11
+- [x] Phase 33: Credit Visibility & Staff Scoping (7/7 plans) — completed 2026-11-12
 
-- [ ] **Phase 29: Credits Ledger Foundation** — `apps/credits` app with `ShopCreditBalance` (one row per shop per UTC month, lazily created, DB-enforced uniqueness and limits) and the append-only `CreditTransaction` ledger; `Organisation.monthly_credit_allocation` field; tiered cost function; virtual-balance read selectors that never write; Postgres CI job + `pg_concurrency` marker.
-- [ ] **Phase 30: Metered AI Reply Generation** — Two-phase reserve → OpenAI (outside any transaction) → commit/refund wired into the Phase 19 `generate_reply` endpoint; 402/400 gates; moderation-stage refund split; usage-log linkage; cost endpoint; reply-path OpenAI timeout; existing generate-reply tests updated; rollout deploy note. Backend only.
-- [ ] **Phase 31: Monthly Renewal & Reservation Reaper** — Celery Beat monthly lapse (00:05 UTC on the 1st, idempotent, self-healing catch-up) and a 10-minute reaper that refunds stale RESERVED transactions without ever double-refunding.
-- [ ] **Phase 32: Superadmin Credit Controls** — Monthly credit allocation on Create/Edit Organisation with the 0 → N immediate / N → M next-month rule; org-row credits modal to allocate current-month bonus credits to a chosen shop with a before/after preview; Superadmin-only endpoints.
-- [ ] **Phase 33: Credit Visibility & Staff Scoping** — Shop Details credits card, Shops-list credit badge, composer cost label / remaining / disabled / 402 states, accessible Buy More Credits modal, Activity Log credit events for Org Admin only, and StaffAccessScope enforcement on the Shops list and every credit endpoint.
+Full archive: `.planning/milestones/v0.9-ROADMAP.md` · spec `docs/completed/Requirements_Credits_System.md`
+
+</details>
 
 ---
 
 🚀 **Web Beta 1 closed 2026-05-24.** v0.8 reopened web feature work;
-v0.9 (AI reply credits) is in progress; the mobile app follows v0.9.
+v0.9 (AI reply credits) shipped 2026-11-12; the mobile app is next.
 
 ## Phase Details
 
 > **Phase 14** (v0.4) details are collapsed under the v0.4 entry in
-> Phases above. **Phases 15–27** are shipped and archived. Full details in
+> Phases above. **Phases 15–33** are shipped and archived. Full details in
 > [`milestones/v0.5-ROADMAP.md`](milestones/v0.5-ROADMAP.md),
 > [`milestones/v0.6-ROADMAP.md`](milestones/v0.6-ROADMAP.md),
-> [`milestones/v0.7-ROADMAP.md`](milestones/v0.7-ROADMAP.md), and
+> [`milestones/v0.7-ROADMAP.md`](milestones/v0.7-ROADMAP.md),
 > [`milestones/v0.8-ROADMAP.md`](milestones/v0.8-ROADMAP.md) (Phases 22–27;
-> Phase 28 / RESET deferred pre-launch).
-
----
-
-### Phase 29: Credits Ledger Foundation
-
-**Goal**: Every shop has a trustworthy monthly AI-reply credit balance and an append-only ledger whose rules the database enforces. One authoritative function prices each review, and real-Postgres concurrency tests run in CI. This is the contract every later credit feature builds on.
-**Depends on**: Phase 27 (v0.8 complete). Builds on the Phase 19 AI reply generation path and the Phase 21 `AuditLog` model.
-**Requirements**: CRED-02, CRED-03, CRED-04, CRED-05, CQA-01
-**Success Criteria** (what must be TRUE):
-
-  1. The first credit operation on a shop in a UTC month creates exactly one balance row for that `(shop, year, month)`. It is seeded from the organisation's monthly allocation with one INITIAL_ALLOCATION ledger row and one `shop.credits.allocated` AuditLog row (no zero-amount entry when the allocation is 0). N concurrent first uses on Postgres still produce one row and one INITIAL entry.
-  2. The database rejects a second balance for the same `(shop, year, month)` and any balance whose consumed credits are negative or exceed allocated + bonus. Ledger rows have no update or delete path except named status-transition service functions, and Django admin shows balances and transactions read-only.
-  3. Reading a balance, for one shop or a whole list of shops, never creates a row. A shop with no current-month row reports its full organisation allocation as remaining, not 0.
-  4. A review's credit cost is 1 / 2 / 3 for trimmed comment length 1–100 / 101–500 / 501+, computed by one pure function with thresholds in settings and an open-ended top tier. Boundary tests pass for 0, 1, 100, 101, 500, 501, 10000, 10001, emoji, and whitespace-only comments.
-  5. Every pull request runs a Postgres CI job that executes all `pg_concurrency`-marked tests (marker registered under `--strict-markers`) alongside the existing SQLite suite.
-
-**Plans**: 4/4 plans executed (waves 1 → 2 → 3, sequential)
-
-Plans:
-- [x] 29-04-PLAN.md
-
-**Wave 1**
-- [x] 29-01-PLAN.md — Tracer: `Organisation.monthly_credit_allocation` + full balance/ledger schema + `ensure_balance` first-use slice, then Postgres CI (`backend-pg`, `pg_concurrency`, first-use race)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-- [x] 29-02-PLAN.md — Ledger integrity: append-only guards + `transition_status` CAS (Postgres race), DB-invariant proofs, read-only admin
-
-**Wave 3** *(blocked on Wave 2 completion)*
-- [x] 29-03-PLAN.md — `credit_cost` pricing + never-writing balance selectors, then phase gate (CLAUDE.md §3, orm-performance-auditor, full suite/coverage/mypy/PG)
-**Notes**:
-
-- Enablers shipped here for later phases:
-  - `Organisation.monthly_credit_allocation` (own migration, NOT NULL default 0, CHECK 0–10,000). The Superadmin set/audit/UI is CRED-01 in Phase 32.
-  - `apps.credits` in `INSTALLED_APPS` in `base.py` **and** `test.py`.
-  - `periods.current_period()` time seam.
-  - `allocation.ensure_balance()` (`get_or_create` in its own atomic).
-  - The `annotate_credit_state` list annotation and the single-shop virtual-balance selector, both reused by Phases 32 and 33.
-  - Settings `REVIEWBEE_CREDIT_TIERS`, `REVIEWBEE_CREDIT_RESERVATION_TTL_MINUTES`, `REVIEWBEE_SUPPORT_EMAIL`.
-- Decisions already closed: BigAutoField PKs; cost from `Review.comment` (trimmed); consumption `credits_delta` is negative and "used" reads from `balance.consumed_credits`, never `SUM(history)`; rollout uses a deploy note with no backfill (CQA-02, Phase 30), and Superadmin enables orgs via CRED-06.
-- CQA-01 lands here as the CI job, the marker, and the first-use race test. CCON-02 (Phase 30) and CREN-03 (Phase 31) add their concurrency tests to the same job.
-- Run `orm-performance-auditor` on models, constraints, indexes, and migrations (CLAUDE.md §27). Standard patterns, so a research phase is optional. Update the CLAUDE.md §3 app list.
-
-### Phase 30: Metered AI Reply Generation
-
-**Goal**: Generating an AI reply draft spends the shop's credits safely. Credits are charged once when OpenAI bills and refunded when it does not. The shop is never overspent under concurrency, and a request that can't be paid for gets a clear 402 or 400 before any OpenAI spend.
-**Depends on**: Phase 29 (balance, ledger, `ensure_balance`, cost function, Postgres CI)
-**Requirements**: CCON-01, CCON-02, CCON-03, CCON-04, CCON-05, CCON-06, CCON-07, CCON-08, CQA-02
-**Success Criteria** (what must be TRUE):
-
-  1. When an Org Admin, or a Staff user on an in-scope shop, generates a reply draft, the review's credit cost is deducted and the response carries `credits_charged` and `credits_remaining`. The cost endpoint returns the same cost for that review that generate charges.
-  2. If remaining credits are below the cost, generate returns 402 with `reason` (`not_enabled` or `exhausted`), `required`, and `remaining`, and creates no reservation. A review whose comment is empty or whitespace-only returns 400 before any reservation.
-  3. On Postgres, N concurrent generate requests against a shop with K remaining credits never spend more than K credits, and the balance never breaks its consumed ≤ allocated + bonus limit.
-  4. Successful drafts and output-moderation blocks consume the credits (OpenAI billed). OpenAI failures and input-moderation blocks refund them. Each settled request writes one `shop.credits.consumed` or `shop.credits.refunded` AuditLog row and exactly one AiUsageLog row, which its consumption ledger row links to.
-  5. The reply-path OpenAI call has an explicit timeout well below the reservation TTL (a settings test enforces the margin), and the generate-reply throttle is still 10/min. The existing Phase 19/20 generate-reply tests and factories pass with credits in place, and a deploy note states that organisations start at 0 credits until Superadmin sets an allocation.
-
-**Plans**: 4/4 plans executed
-- [x] 30-01-PLAN.md
-- [x] 30-02-PLAN.md
-- [x] 30-03-PLAN.md
-- [x] 30-04-PLAN.md
-**Notes**:
-
-- **Consumption core: never merge with a UI phase.**
-- The orchestrator is `generate_reply_with_credits` in `apps/reviews/services/reply_generation.py`; credits never imports reviews.
-- View order: auth/scope → tone validation → throttle (10/min) → empty-comment 400 → reserve. 402/400 are mapped before the `except Exception → 502` catch-all.
-- The OpenAI call runs outside any transaction (guarded by `assert not connection.in_atomic_block`). Settlement is a CAS on `status=RESERVED`, addressed by `tx.shop_credit_balance_id`.
-- `ContentModeratedException` gains optional `stage` + `usage_log_id` (enrichment unaffected). The timeout is reply-path-only via `with_options(...)`; the shared client defaults used by enrichment stay untouched.
-- Mandatory `ai-enrichment-specialist` review, since this touches `apps/integrations/openai/` (CLAUDE.md §27).
-- Research flags: client-disconnect settlement under Daphne for sync DRF views; `with_options` vs the LangSmith tracing wrapper; late-commit policy.
-- Manual UAT sets an org allocation via shell or Django admin until Phase 32 ships the Superadmin control.
-
-### Phase 31: Monthly Renewal & Reservation Reaper
-
-**Goal**: Credits renew cleanly every month, and no credit is stranded by an abandoned request. Unused credits lapse on schedule (self-healing after a missed run) and stale reservations are returned automatically.
-**Depends on**: Phase 30 (settle semantics and `refund_reservation`)
-**Requirements**: CREN-01, CREN-02, CREN-03
-**Success Criteria** (what must be TRUE):
-
-  1. At 00:05 UTC on the 1st, every past-month balance not yet lapsed gets one LAPSED ledger row and one `shop.credits.lapsed` AuditLog row. Re-running the job adds nothing, and a run after a missed month lapses every outstanding past period.
-  2. In a new month every shop starts from the organisation's current allocation with zero bonus. The previous month's unused and bonus credits never carry over.
-  3. Every 10 minutes, RESERVED transactions older than the reservation TTL are refunded and their credits returned. No reservation is refunded twice and no committed transaction is ever refunded, as proven by a Postgres reaper-versus-late-commit test.
-  4. A reservation that straddles midnight at month end settles against its original month's balance, and that balance lapses only after the reservation is settled.
-
-**Plans**: 3/3 plans executed (waves 1 → 2 → 3, sequential)
-
-Plans:
-- [x] 31-01-PLAN.md — Tracer: daily 00:05 UTC Beat lapse end to end (`lapsed_at` + partial index, lapse service/selector/task, Beat seed 0003), sweep edge proofs, late commit honours `lapsed_at`, CREN-02 renewal tests
-- [x] 31-02-PLAN.md — Tracer: 10-minute Beat reaper end to end (CAS-only via `refund_reservation`, Beat seed 0004), D-08 re-lapse, D-09 failure path, CLAUDE.md §3/§12.5 and runbook
-- [x] 31-03-PLAN.md — Postgres races (reaper vs late commit, overlapping reapers/sweeps, past-period three-way race) and phase gate (orm-performance-auditor, code-reviewer, tenant-security-auditor)
-
-**Notes**:
-
-- Lapse is a catch-up sweep over every past period without a LAPSED row; a partial unique index makes LAPSED once-per-balance. Each balance lapses in its own atomic, the sweep is chunked, and it skips balances still holding RESERVED rows.
-- The reaper refunds a bounded batch (oldest first) through `refund_reservation`, whose status CAS plus per-row atomic makes overlap and late commits safe (CAS-only, no `skip_locked` pre-select; Phase 31 D-10). It logs at WARNING without review text and re-lapses past-period balances after refunding.
-- Seed both Beat schedules by migration (copy `reviews/0013` / `0016`), with explicit `timezone="UTC"`, on the `default` queue. Add them to `CELERY_TASK_ROUTES` and the CLAUDE.md §12.5 Beat table.
-- Standard patterns, so skip the research phase. The "lapse not complete by 00:30 UTC" alert is infra outside this repo; flag it to the deployment owner.
-- Parallel-eligible with Phases 32 and 33.
-
-### Phase 32: Superadmin Credit Controls
-
-**Goal**: Superadmin can set each organisation's monthly credit budget and top up any shop's current month with bonus credits. No other role can change a credit budget.
-**Depends on**: Phase 29 (allocation service and balance selectors). Independent of Phases 30–31, so it can run in parallel with them.
-**Requirements**: CRED-01, CRED-06, CSUP-01, CSUP-02
-**Success Criteria** (what must be TRUE):
-
-  1. Superadmin can set "monthly credits per shop" (0–10,000, default 0) when creating or editing an organisation. The value persists, out-of-range values are rejected, and each actual change writes one `organisation.credits.set` AuditLog row.
-  2. Raising an organisation from 0 to N credits makes N credits available to its shops immediately this month. Changing N to M mid-month leaves current-month balances at N and applies M from the 1st of next month.
-  3. From any organisation row, Superadmin can open a credits action that lists that org's shops with current-month balances, then pick a shop, enter 1–10,000 bonus credits with an optional reason, review a before/after preview, and confirm. The shop's balance rises at once, for the current UTC month only, with one BONUS_ALLOCATION ledger row and one `shop.credits.bonus_allocated` AuditLog row.
-  4. Every Superadmin credit endpoint returns 403 to Org Admins and Staff, and no Org Admin or Staff path can change an allocation or add bonus credits.
-
-**Plans**: 5/5 plans executed (waves 1 → 2 → 3)
-
-Plans:
-
-**Wave 1**
-- [x] 32-01-PLAN.md — Tracer: mid-month N → M PATCH materialises current-month balances at the old value (set-based helpers, atomic `update_organisation` with actor + org-row lock + `organisation.credits.set` audit), list exposes `current_month_credit_allocation`; CRED-06 proof matrix; create field, validation, PATCH 403s, read-only admin (CRED-01, CRED-06, CSUP-02)
-- [x] 32-02-PLAN.md — Tracer: Edit Organisation "Monthly credits per shop" field + live D-18/D-21 hint + changed-only PATCH; `creditHint.ts` table; Create field default 0; OrgRow types + fixtures (CRED-01, CRED-06)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-- [x] 32-03-PLAN.md — Tracer: Superadmin bonus POST end to end (period echo 409, org-row lock, `ensure_balance`, F() increment, BONUS_ALLOCATION + `shop.credits.bonus_allocated`); edge/403/throttle matrix; paginated never-writing shop credit list (CSUP-01, CSUP-02) — depends on 32-01
-- [x] 32-04-PLAN.md — Tracer: "Manage Credits" row action → shop list → Add bonus → preview → Allocate → refreshed list; all list/form states incl. 409/404/400; "Credits/shop" column and View Organisation pending note (CSUP-01, CRED-06) — depends on 32-02, codes against 32-03's frozen contract
-
-**Wave 3** *(blocked on Wave 2 completion)*
-- [x] 32-05-PLAN.md — Tracer: concurrent bonuses on PostgreSQL; org edit vs first use, bonus vs reserve, bonus vs 0 → N races; CLAUDE.md §3 + rollout runbook; contract cross-check; tenant-security-auditor + orm-performance-auditor + code-reviewer; full gates
-
-**UI hint**: yes
-**Notes**:
-
-- **Run `/gsd-ui-phase 32` first.** The Superadmin shop-credits surface has no precedent: Superadmin has no Shop Details screen, so bonus lives on the org row with a shop picker. This is the milestone's largest scope risk.
-- Endpoints are non-tenant (`IsAuthenticated & IsSuperadmin`, not `TenantScopedViewSet`), paginated, and throttled.
-- Bonus allocation: the org is derived server-side; the request echoes the displayed period (409 on mismatch); the update is an `F()` increment after `ensure_balance()`.
-- Persisting CRED-01 means adding the field to `update_organisation`'s `_UPDATABLE_FIELDS` whitelist, and audit rows are written only on an actual change.
-- CRED-06: on an N → M change, materialise current-month balance rows at the old value inside the org-edit atomic. A first-time 0 → N change is effective immediately.
-- Run `tenant-security-auditor` + `orm-performance-auditor`.
-
-### Phase 33: Credit Visibility & Staff Scoping
-
-**Goal**: Before they generate, Org Admins and Staff can see how many AI reply credits a shop has and what a reply will cost, on Shop Details, the Shops list, and in the reply composer. Staff only ever see credits for shops in their scope.
-**Depends on**: Phase 30 (cost endpoint, generate response fields, 402 contract) and Phase 32 (Superadmin endpoints included in the scoping sweep)
-**Requirements**: CVIS-01, CVIS-02, CVIS-03, CVIS-04, CVIS-05, SCOPE-01
-**Success Criteria** (what must be TRUE):
-
-  1. Shop Details shows an "AI Reply Credits" card with remaining / total, a colour-coded progress bar, used and available counts, the org allocation and bonus, "Renews {date} (UTC)", a "Not enabled" state when the total is 0, and a Buy More Credits link. A shop with no activity this month shows its full allocation.
-  2. Every Shops list row shows a colour-coded credits badge that also uses text, not colour alone. The list's query count is the same for 1 shop or 20.
-  3. In the reply composer, the AI button is hidden for star-only reviews, and its label and aria-label read "Generate with AI (requires N credits)" with remaining credits shown under the button. The button is disabled with different messages for "not enabled" and "not enough credits", tone pills are disabled while generating, and a 402 response updates the composer rather than showing a generic error.
-  4. A "Buy More Credits" modal opens from the credits card, the Shops-list badge, and the composer. It offers a Contact Admin mailto to `REVIEWBEE_SUPPORT_EMAIL`, traps focus, carries ARIA labels, closes on ESC or a backdrop click, and has no payment flow.
-  5. Org Admins see `shop.credits.*` and `organisation.credits.set` events in the Activity Log; Staff do not. The Shops list and every credit endpoint return only shops in a Staff user's StaffAccessScope. Negative tests prove that cross-org access, out-of-scope Staff, and Staff calls to Superadmin endpoints are refused.
-
-**Plans**: 7/7 plans executed (waves 1 → 2 → 3)
-
-Plans:
-
-**Wave 1**
-- [x] 33-01-PLAN.md — Tracer: Staff GET /api/v1/shops/ returns only in-scope shops with virtual credit fields; scope matrix, Staff-scoped retrieve (D-17), shared `get_accessible_shop_for_credits`, fixed query count; Shops-page `credit-contact` bootstrap (SCOPE-01, CVIS-02, CVIS-04)
-- [x] 33-02-PLAN.md — Tracer: Org Admin sees "Credits used — {shop}" in the Activity Log; Org-only credit filter, org-bounded `shop_name`, Staff exclusion incl. PK collisions, query ceiling, Credits pill and seven labels (CVIS-05)
-- [x] 33-03-PLAN.md — Tracer: Buy More Credits modal opens an encoded Contact Admin mailto from the bootstrap; modal/mailto matrix (D-13..D-16); shared band helper, formatters and shop-keyed store (CVIS-04)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-- [x] 33-04-PLAN.md — Tracer: Staff reads an in-scope shop's credits (virtual balance, period label, renews_on, no-store), 404 out of scope; edge matrix; SCOPE-01 negative sweep over every credit route (CVIS-01, SCOPE-01) — depends on 33-01
-- [x] 33-05-PLAN.md — Tracer: composer shows "Generate with AI · N credits" and the remaining line, updated after generate; not enabled / insufficient + Buy More / load-error states; 402 keeps the draft, 409 banner; Reviews-page bootstrap (CVIS-03, CVIS-04) — depends on 33-03
-- [x] 33-06-PLAN.md — Tracer: credits badge → Shop Details with the AI Reply Credits card; card states, stacked Buy More with Escape ordering, badge states and store seeding, defensive Staff empty state (CVIS-01, CVIS-02, CVIS-04) — depends on 33-03, codes against 33-01/33-04 frozen contracts
-
-**Wave 3** *(blocked on Wave 2 completion)*
-- [x] 33-07-PLAN.md — Tracer: whole-phase walk-through test + contract cross-check; tenant-security-auditor + orm-performance-auditor + code-reviewer + frontend-react-builder with dispositions; PostgreSQL proof of the audit text compare; runbook + CLAUDE.md; full gates; validation sign-off
-**UI hint**: yes
-**Notes**:
-
-- **Run `/gsd-ui-phase 33` first.**
-- Backend:
-  - a shop credits GET that returns the virtual balance, never writes, sends `Cache-Control: no-store`, and supplies `period_label` / `renews_on` from the server
-  - `list_shops(with_credits=True)` as one annotation, with serializer fields defaulting to `None`
-  - one shared `get_accessible_shop_for_credits` selector
-  - the Activity Log selector change
-- SCOPE-01 resolves research option (b): `list_shops` gains real Staff scoping. This changes behaviour, since Staff stop seeing out-of-scope shops.
-- Frontend: dates render with `timeZone: "UTC"`; cost always comes from the server; the balance store is keyed by `shop_id` and refreshes after generate; `api.ts` gets a 402 branch; the progress bar has no divide-by-zero at total 0.
-- Mandatory `tenant-security-auditor` + `orm-performance-auditor` (CLAUDE.md §27). Research flag: the Activity Log Staff-scoping change.
-- At milestone close, confirm the CQA-02 deploy note still matches shipped behaviour, and move the spec `docs/in-progress/` → `docs/completed/` (CLAUDE.md §28).
+> Phase 28 / RESET deferred pre-launch) and
+> [`milestones/v0.9-ROADMAP.md`](milestones/v0.9-ROADMAP.md) (Phases 29–33).
 
 ---
 
@@ -375,8 +197,8 @@ Plans:
 | 26. v0.8 Post-UAT Polish & Sync Fixes | v0.8 | 2/2 | ✅ Complete | 2026-06-24 |
 | 27. Sync Progress Reliability | v0.8 | 2/2 | ✅ Complete | 2026-06-24 |
 | 28. Superadmin Data Reset & Re-Sync | v0.8 | — | ⏸ Deferred (pre-launch) | — |
-| 29. Credits Ledger Foundation | v0.9 | 4/4 | ⬜ Not started | - |
-| 30. Metered AI Reply Generation | v0.9 | 4/4 | ⬜ Not started | - |
-| 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ⬜ Not started | - |
-| 32. Superadmin Credit Controls | v0.9 | 5/5 | ⬜ Not started | - |
-| 33. Credit Visibility & Staff Scoping | v0.9 | 7/7 | ⬜ Not started | - |
+| 29. Credits Ledger Foundation | v0.9 | 4/4 | ✅ Complete | 2026-11-11 |
+| 30. Metered AI Reply Generation | v0.9 | 4/4 | ✅ Complete | 2026-11-11 |
+| 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ✅ Complete | 2026-11-11 |
+| 32. Superadmin Credit Controls | v0.9 | 5/5 | ✅ Complete | 2026-11-11 |
+| 33. Credit Visibility & Staff Scoping | v0.9 | 7/7 | ✅ Complete | 2026-11-12 |

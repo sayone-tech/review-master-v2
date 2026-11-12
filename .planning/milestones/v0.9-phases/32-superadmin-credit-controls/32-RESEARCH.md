@@ -575,7 +575,7 @@ Not applicable (internal conventions, no ecosystem churn). Django 6.0 `select_fo
 - `apps/accounts/permissions.py`, `apps/common/models.py` (`AuditLog`), `apps/common/selectors/audit_logs.py`, `apps/shops/models.py`, `apps/shops/selectors/shops.py`
 - `config/settings/base.py` (throttle rates, credit settings), `config/settings/test.py` (SQLite), `config/settings/test_pg.py`, `config/urls.py`, `pyproject.toml`, `Makefile`
 - `frontend/src/widgets/org-management/*`, `frontend/src/widgets/modal/Modal.tsx`, `frontend/src/lib/toast.ts`, `frontend/src/entrypoints/org-management.tsx`, `frontend/node_modules/focus-trap/index.js`, `frontend/package.json`, `vitest.config.ts`, `tsconfig.json`
-- `.planning/phases/32-*/32-CONTEXT.md`, `32-UI-SPEC.md`, `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md` (Phases 29–33), `docs/in-progress/Requirements_Credits_System.md` §3.4, §7.3, §8, §10; `.claude/rules/*.md`; CLAUDE.md §5–§9, §12, §16, §22, §24, §27
+- `.planning/phases/32-*/32-CONTEXT.md`, `32-UI-SPEC.md`, `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md` (Phases 29–33), `docs/completed/Requirements_Credits_System.md` §3.4, §7.3, §8, §10; `.claude/rules/*.md`; CLAUDE.md §5–§9, §12, §16, §22, §24, §27
 - Test runs: `pytest apps/credits apps/organisations` baseline, `vitest org-management` baseline
 
 ### Secondary / Tertiary

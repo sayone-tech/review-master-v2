@@ -33,6 +33,10 @@ human_verification:
   - test: "Lighthouse accessibility audit on /__ui__/"
     expected: "Accessibility score 100 or documented violations, no images-missing-alt, no buttons-missing-text violations"
     why_human: "Automated Lighthouse audit requires a running dev server"
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 1: Foundation Verification Report

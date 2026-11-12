@@ -4,6 +4,10 @@ phase: 29-credits-ledger-foundation
 source: [29-VERIFICATION.md]
 started: 2026-11-11T13:14:07Z
 updated: 2026-11-11T13:14:07Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  gap_snapshot: "testing::scenarios=1"
 ---
 
 ## Current Test

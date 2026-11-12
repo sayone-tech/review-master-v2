@@ -53,6 +53,10 @@ human_verification:
   - test: "Deployment owner configures the 'lapse not complete by 00:30 UTC' alert"
     expected: "Alert exists and fires when past-period unlapsed balances remain after 00:30 UTC on the 1st"
     why_human: "Infra outside this repo; handed off in docs/sre/v0.9-credits-rollout.md (T-31-20, transferred)"
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 31: Monthly Renewal & Reservation Reaper Verification Report

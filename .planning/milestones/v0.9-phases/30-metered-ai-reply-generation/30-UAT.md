@@ -4,6 +4,10 @@ phase: 30-metered-ai-reply-generation
 source: [30-VERIFICATION.md]
 started: 2026-11-11T13:50:36Z
 updated: 2026-11-11T13:50:36Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  gap_snapshot: "testing::scenarios=3"
 ---
 
 ## Current Test

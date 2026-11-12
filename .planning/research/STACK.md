@@ -248,7 +248,7 @@ python manage.py makemigrations --check --dry-run       # CI gate (CLAUDE.md §1
 - https://docs.djangoproject.com/en/6.0/ref/models/querysets/ (`select_for_update` options and backend support) — HIGH (official)
 - https://docs.djangoproject.com/en/6.0/ref/models/constraints/ (`CheckConstraint(condition=)`, partial `UniqueConstraint(condition=)`) — HIGH (official)
 - https://django-celery-beat.readthedocs.io/en/latest/ (TIME_ZONE warning, `last_run_at` reset) — MEDIUM (docs thin on missed-run semantics; mitigated by the self-healing lapse design)
-- Repo reads: `docs/in-progress/Requirements_Credits_System.md`, `.planning/PROJECT.md`, `CLAUDE.md`, `pyproject.toml`, `apps/reviews/services/reply_generation.py`, `apps/reviews/migrations/0013_*.py`, `apps/common/locks.py`, `apps/common/models.py`, `apps/shops/selectors/shops.py`, `apps/integrations/openai/client.py`, `config/settings/{base,test}.py`, `frontend/package.json`, `frontend/src/widgets/modal/Modal.tsx` — HIGH
+- Repo reads: `docs/completed/Requirements_Credits_System.md`, `.planning/PROJECT.md`, `CLAUDE.md`, `pyproject.toml`, `apps/reviews/services/reply_generation.py`, `apps/reviews/migrations/0013_*.py`, `apps/common/locks.py`, `apps/common/models.py`, `apps/shops/selectors/shops.py`, `apps/integrations/openai/client.py`, `config/settings/{base,test}.py`, `frontend/package.json`, `frontend/src/widgets/modal/Modal.tsx` — HIGH
 - Note: Context7 MCP was not authorised in this session; library behaviour was verified from official docs plus executing against the installed versions instead.
 
 ## Confidence Assessment

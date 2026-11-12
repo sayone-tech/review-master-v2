@@ -203,7 +203,7 @@ Generic AI-credit products (not review-tool competitors) are the relevant analog
 
 ## Sources
 
-- Spec: `/Users/renjith/Documents/Accounts/review-master/docs/in-progress/Requirements_Credits_System.md` (HIGH, binding)
+- Spec: `/Users/renjith/Documents/Accounts/review-master/docs/completed/Requirements_Credits_System.md` (HIGH, binding)
 - Project decisions: `/Users/renjith/Documents/Accounts/review-master/.planning/PROJECT.md` (HIGH)
 - Live code verified: `frontend/src/widgets/review-management/ReplyComposer.tsx` (two-step toggle then tone-pill flow, 422/429 handling only), `apps/reviews/services/reply_generation.py` (returns str, writes logs internally), `apps/reviews/views.py` (identical 422 for both moderation stages), `apps/integrations/openai/guardrails.py` (two raise sites) (HIGH)
 - [Schematic: AI credit system](https://schematichq.com/blog/ai-credit-system) and [credit ledger docs](https://docs.schematichq.com/use-cases/credit-ledger) (MEDIUM, vendor)

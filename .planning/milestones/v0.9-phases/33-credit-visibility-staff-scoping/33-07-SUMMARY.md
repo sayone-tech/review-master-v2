@@ -106,7 +106,7 @@ None - plan executed exactly as written, apart from running the PostgreSQL proof
 
 ## Milestone close hand-off
 
-`/gsd-complete-milestone` must move `docs/in-progress/Requirements_Credits_System.md` to `docs/completed/` and update every `.planning` reference (CLAUDE.md section 28). Phase 29's CRED-02, CRED-04, CRED-05 and CQA-01 still show "Gaps Found" in REQUIREMENTS.md. The spec was not moved in this plan.
+`/gsd-complete-milestone` must move `docs/completed/Requirements_Credits_System.md` to `docs/completed/` and update every `.planning` reference (CLAUDE.md section 28). Phase 29's CRED-02, CRED-04, CRED-05 and CQA-01 still show "Gaps Found" in REQUIREMENTS.md. The spec was not moved in this plan.
 
 ## Self-Check: PASSED
 

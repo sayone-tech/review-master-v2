@@ -4,6 +4,10 @@ phase: 31-monthly-renewal-reservation-reaper
 source: [31-VERIFICATION.md]
 started: 2026-11-11T14:46:19Z
 updated: 2026-11-11T14:46:19Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  gap_snapshot: "testing::scenarios=3"
 ---
 
 ## Current Test

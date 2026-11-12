@@ -75,7 +75,7 @@ Requirements: CVIS-01, CVIS-02, CVIS-03, CVIS-04, CVIS-05, SCOPE-01. Superadmin 
 - `.planning/ROADMAP.md` § Phase 33 — goal, success criteria 1–5, implementation notes (backend endpoints, `list_shops` scoping behaviour change, frontend UTC/402/store rules, auditors, milestone-close tasks)
 
 ### Product spec
-- `docs/in-progress/Requirements_Credits_System.md` §9.1 (Shop Details card), §9.2 (Shops-list badge + thresholds), §9.4 (reply screen), §9.5 (Buy More popup — SLA wording softened by D-16), §5.2 (button cost label); §9.3 struck by reconciliation
+- `docs/completed/Requirements_Credits_System.md` §9.1 (Shop Details card), §9.2 (Shops-list badge + thresholds), §9.4 (reply screen), §9.5 (Buy More popup — SLA wording softened by D-16), §5.2 (button cost label); §9.3 struck by reconciliation
 
 ### Prior phase context
 - `.planning/phases/30-metered-ai-reply-generation/30-CONTEXT.md` — D-08 (402 reason), D-09 (response bodies), D-10 (credit-cost endpoint), D-11 (every generate charges), D-12 (409 in-flight)

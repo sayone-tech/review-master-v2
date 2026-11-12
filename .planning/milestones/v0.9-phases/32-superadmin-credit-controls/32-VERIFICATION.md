@@ -56,6 +56,10 @@ human_verification:
   - test: "360px layout backstop 2: long org/shop names wrap in the modal subtitle without overlapping the close button"
     expected: "Wrapped text, close button unobstructed"
     why_human: "UI-SPEC backstop truth (insufficient_spec)"
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 32: Superadmin Credit Controls Verification Report

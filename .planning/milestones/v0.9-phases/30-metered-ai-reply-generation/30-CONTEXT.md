@@ -134,7 +134,7 @@ Requirements: CCON-01..08, CQA-02.
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Spec & requirements
-- `docs/in-progress/Requirements_Credits_System.md`: the binding spec (consumption flow, 402 semantics, moderation split).
+- `docs/completed/Requirements_Credits_System.md`: the binding spec (consumption flow, 402 semantics, moderation split).
 - `.planning/REQUIREMENTS.md`: CCON-01..08 and CQA-02, plus the binding reconciliations on line 7.
 - `.planning/ROADMAP.md` § "Phase 30: Metered AI Reply Generation": success criteria, notes, research flags.
 - `.planning/PROJECT.md` § "Key v0.9 decisions"

@@ -4,6 +4,10 @@ phase: 25-org-admin-tag-management-dashboard-polarity
 source: [25-VERIFICATION.md]
 started: 2026-06-16T00:00:00Z
 updated: 2026-06-16T00:00:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  gap_snapshot: "partial::scenarios=6"
 ---
 
 ## Current Test

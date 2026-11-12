@@ -4,6 +4,10 @@ phase: 33-credit-visibility-staff-scoping
 source: [33-VERIFICATION.md]
 started: 2026-11-12T02:04:00Z
 updated: 2026-11-12T02:04:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  gap_snapshot: "testing::scenarios=5"
 ---
 
 ## Current Test

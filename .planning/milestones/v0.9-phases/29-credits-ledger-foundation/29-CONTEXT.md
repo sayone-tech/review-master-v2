@@ -110,7 +110,7 @@ Requirements: CRED-02, CRED-03, CRED-04, CRED-05, CQA-01.
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Spec & requirements
-- `docs/in-progress/Requirements_Credits_System.md`: binding spec v1.0. Read it together with the reconciliations in REQUIREMENTS.md line 7.
+- `docs/completed/Requirements_Credits_System.md`: binding spec v1.0. Read it together with the reconciliations in REQUIREMENTS.md line 7.
 - `.planning/REQUIREMENTS.md`: CRED-02..05 and CQA-01 (Phase 29), and CRED-06/CQA-02 (the context behind the rollout decisions).
 - `.planning/ROADMAP.md` § "Phase 29: Credits Ledger Foundation": success criteria and the enablers list.
 - `.planning/PROJECT.md` § "Key v0.9 decisions"

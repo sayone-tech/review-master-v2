@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v0.9
 milestone_name: AI Reply Credits
-current_phase: 33
-current_phase_name: Credit Visibility & Staff Scoping
-status: verifying
+status: Awaiting next milestone
 stopped_at: Completed 33-07-PLAN.md
-last_updated: "2026-11-11T19:52:29.170Z"
+last_updated: "2026-11-12T08:53:26.108Z"
 last_activity: 2026-11-12
-last_activity_desc: Phase 33 execution started
-state_head: b23e0c9e396c0035f81b1581f01b02e3192fac25
+last_activity_desc: Milestone v0.9 completed and archived
+state_head: 49de712a942afca458875ff19da82aa6b0c9d538
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 23
   completed_plans: 23
   percent: 0
+current_phase: 33
+current_phase_name: Credit Visibility & Staff Scoping
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-11-11)
 
 ## Current Position
 
-Phase: 33 (Credit Visibility & Staff Scoping) — EXECUTING
-Plan: 7 of 7
-Status: Phase complete — ready for verification
-Last activity: 2026-11-12 — Phase 33 execution started
+Phase: Milestone v0.9 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-11-12 — Milestone v0.9 completed and archived
 
 ### v0.9 phase map (Phases 29–33)
 
@@ -171,8 +171,55 @@ None.
 - [v0.9 Phase 33]: Activity Log Staff-scoping change not verified in depth; `list_shops` Staff scoping is a behaviour change. Mandatory `tenant-security-auditor` + `orm-performance-auditor`.
 - [v0.9 Phase 31]: Beat "lapse not complete by 00:30 UTC" alert is infra outside this repo — flag to deployment owner.
 
+## Deferred Items
+
+Items acknowledged and deferred at milestone close, most recent first:
+
+| Category | Item | Status | Deferred At | Milestone |
+|----------|------|--------|-------------|-----------|
+| debug_sessions | action-item-category-all-other | diagnosed | 2026-11-12 | v0.9 |
+| debug_sessions | docker-compose-startup | awaiting_human_verify | 2026-11-12 | v0.9 |
+| debug_sessions | duplicate-notifications-fruitbae | fixing | 2026-11-12 | v0.9 |
+| debug_sessions | enrichment-progress-stuck | awaiting_human_verify | 2026-11-12 | v0.9 |
+| debug_sessions | fixes-not-taking-effect | awaiting_human_verify | 2026-11-12 | v0.9 |
+| debug_sessions | mobile-sidebar-hamburger-no-open | investigating | 2026-11-12 | v0.9 |
+| debug_sessions | notification-sync-bugs | awaiting_human_verify | 2026-11-12 | v0.9 |
+| debug_sessions | oauth-popup-no-listing-picker | awaiting_human_verify | 2026-11-12 | v0.9 |
+| debug_sessions | org-admin-ui-three-bugs | awaiting_human_verify | 2026-11-12 | v0.9 |
+| debug_sessions | regions-ui-404-bundle | awaiting_human_verify | 2026-11-12 | v0.9 |
+| debug_sessions | regions-ui-design-mismatch | awaiting_human_verify | 2026-11-12 | v0.9 |
+| debug_sessions | regions-ui-empty-state-missing | verifying | 2026-11-12 | v0.9 |
+| quick_tasks | 260424-n33-rebrand-frontend-to-review-bee-with-new- | unknown | 2026-11-12 | v0.9 |
+| uat_gaps | 01/01-UAT.md | diagnosed, 0 pending | 2026-11-12 | v0.9 |
+| uat_gaps | 14/14-UAT.md | testing, 10 pending | 2026-11-12 | v0.9 |
+| uat_gaps | 23/23-HUMAN-UAT.md | partial, 0 pending | 2026-11-12 | v0.9 |
+| uat_gaps | 25/25-HUMAN-UAT.md | partial, 6 pending | 2026-11-12 | v0.9 |
+| uat_gaps | 29/29-UAT.md | testing, 1 pending | 2026-11-12 | v0.9 |
+| uat_gaps | 30/30-UAT.md | testing, 3 pending | 2026-11-12 | v0.9 |
+| uat_gaps | 31/31-UAT.md | testing, 3 pending | 2026-11-12 | v0.9 |
+| uat_gaps | 32/32-UAT.md | testing, 4 pending | 2026-11-12 | v0.9 |
+| uat_gaps | 33/33-UAT.md | testing, 5 pending | 2026-11-12 | v0.9 |
+| verification_gaps | 01/01-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 11/11-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 13/13-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 19/19-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 21/21-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 23/23-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 25/25-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 26/26-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 29/29-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 30/30-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 31/31-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 32/32-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| verification_gaps | 33/33-VERIFICATION.md | human_needed | 2026-11-12 | v0.9 |
+| deferred_items | 13/deferred-items.md: Out-of-Scope Discovery (during 13-01 execution) - apps/notifications/m | acknowledged | 2026-11-12 | v0.9 |
+
 ## Session Continuity
 
 Last session: 2026-11-11T19:52:28.852Z
 Stopped at: Completed 33-07-PLAN.md
 Resume file: None
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

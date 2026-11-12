@@ -48,6 +48,10 @@ human_verification:
   - test: "Push feat/v0.9-ai-reply-credits and confirm the GitHub Actions backend-pg job (postgres:16-alpine) goes green with all 3 pg_concurrency tests passing and 0 skipped"
     expected: "Job runs `pytest --ds=config.settings.test_pg -m pg_concurrency --no-cov -rs` with REQUIRE_PG=1; 3 passed; the existing backend-test (SQLite, 85% gate) job is also still green"
     why_human: "The workflow has never executed (branch unpushed). Workflow YAML syntax, service-container health check, `uv sync --frozen` and PG16 behaviour cannot be proven from the local tree. The 3 pg_concurrency tests have only run on a throwaway local PostgreSQL 14 cluster (earlier verification); they skip off-Postgres, so this re-verification did not re-run them."
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 29: Credits Ledger Foundation Verification Report

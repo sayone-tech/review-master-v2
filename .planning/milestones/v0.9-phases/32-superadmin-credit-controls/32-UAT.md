@@ -4,6 +4,10 @@ phase: 32-superadmin-credit-controls
 source: [32-VERIFICATION.md]
 started: 2026-11-11T16:11:43Z
 updated: 2026-11-11T16:11:43Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  gap_snapshot: "testing::scenarios=4"
 ---
 
 ## Current Test

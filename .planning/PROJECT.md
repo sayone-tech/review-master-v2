@@ -4,30 +4,27 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current Milestone: v0.9 AI Reply Credits
+## Current Milestone: none (v0.9 shipped 2026-11-12)
 
-**Goal:** Cap AI reply-generation spend with a per-shop monthly credit budget that Superadmin controls and every user can see.
-
-**Source spec:** `docs/in-progress/Requirements_Credits_System.md` (v1.0, Nov 2026), reconciled against the live codebase (see Key decisions below).
-
-**Target features:**
-
-- `Organisation.monthly_credit_allocation` set by Superadmin on Create/Edit Org (0–10,000; changes take effect next month)
-- New `apps/credits` app — `ShopCreditBalance` (one row per shop per UTC month, lazily created) + `CreditTransaction` (INITIAL / BONUS / CONSUMPTION / LAPSED; status RESERVED / COMMITTED / REFUNDED)
-- Tiered credit cost (1 / 2 / 3 credits for 1–100 / 101–500 / 501+ chars; thresholds in settings) + cost endpoint so displayed cost = charged cost
-- Two-phase reserve → OpenAI (outside txn) → commit/refund consumption wired into the existing Phase 19 `generate_reply` endpoint; 402 on insufficient credits, 400 on empty-comment reviews
-- UI: AI button hidden for star-only reviews; cost on the button label; "X credits remaining" in composer; Shop Details credits card; Shops-list credit badge; accessible "Buy More Credits" placeholder modal (mailto `REVIEWBEE_SUPPORT_EMAIL`)
-- Superadmin "Allocate Bonus Credits" modal on Shop Details (current month only)
-- Celery Beat: monthly lapse (00:05 UTC on the 1st, idempotent) + 10-min reaper refunding stale RESERVED transactions
-- AuditLog rows for every credit event (`organisation.credits.set`, `shop.credits.allocated/bonus_allocated/consumed/lapsed`)
-
-**Key v0.9 decisions:** spec's "Manager" role = Org Admin (no separate role exists); cost function lives in `apps/credits/services/credit_cost.py` (spec §4.3 vs §13.1 conflict); **no click-confirmation step** (§5.4) — cost shown on the button label instead; existing `generate_reply` throttle stays **10/min** (not the spec's 30/min); credits **refunded on OpenAI failure and on input-moderation block**, **consumed on output-moderation block** (OpenAI was billed); §9.3 shop-switcher badge deferred — app has no global shop switcher. **Model split:** planning/discuss agents run on **Opus**, execution agents (`gsd-executor`, `gsd-debugger`, `gsd-doc-writer`) run on **latest Sonnet** — set via `.planning/config.json` `models` map. Phase 28 (Superadmin Data Reset) remains deferred pre-launch. The mobile app moves to the milestone after v0.9.
+The next milestone is the **mobile app**, which was planned to follow v0.9. Start it with `/gsd-new-milestone`.
 
 ## Status / Next
 
-🚀 **Web Beta 1 (`web-beta-1`)** closed 2026-05-24; v0.8 Canonical Tag System shipped 2026-06-30. **v0.9 AI Reply Credits** is in progress (Phases 29+). The **mobile app** follows v0.9.
+🚀 **Web Beta 1 (`web-beta-1`)** closed 2026-05-24; v0.8 Canonical Tag System shipped 2026-06-30; **v0.9 AI Reply Credits** shipped 2026-11-12 (Phases 29–33, PR #54). The **mobile app** is next.
 
 ## Recently Shipped (Web)
+
+**v0.9 shipped 2026-11-12** — AI Reply Credits. Each shop gets a monthly
+AI-reply credit budget (1/2/3 credits by review length) that Superadmin sets
+per organisation, plus current-month bonus credits. Generation reserves
+credits, calls OpenAI outside any transaction, then commits or refunds. A daily
+lapse and a 10-minute reaper keep the append-only ledger honest. Credits are
+visible on Shop Details, the Shops list and in the reply composer, with an
+accessible Buy More (mailto) modal. The Activity Log shows AI reply and credit
+events to Org Admins, with Superadmins shown as "ReviewBee Admin". Staff
+scoping is enforced on the Shops list, shop retrieve and every credit endpoint.
+Spec: `docs/completed/Requirements_Credits_System.md`. Full archive:
+`.planning/milestones/v0.9-ROADMAP.md`.
 
 **v0.8 shipped 2026-06-30** — Canonical Tag System. Per-org self-organising
 canonical tag vocabulary built inside the existing single GPT call; visible
@@ -142,30 +139,37 @@ creation time, threaded through to the Celery backfill task.
 - ✓ KPI card row: Total Reviews, Average Rating, Negative Reviews (AI sentiment-based) — v0.4
 - ✓ Sentiment Distribution donut + summary (enriched reviews only, coverage footer) — v0.4
 - ✓ Branded 404/500 error pages wired to Django handler config — v0.4
+- ✓ Superadmin per-org monthly credit allocation (0 → N immediate, N → M next month) and current-month shop bonus credits — v0.9
+- ✓ Per-shop monthly credit balance (lazy, never-writing reads) with an append-only CreditTransaction ledger — v0.9
+- ✓ Tiered credit cost and race-safe reserve → OpenAI → commit/refund consumption, proven on real PostgreSQL in CI — v0.9
+- ✓ Credit visibility on Shop Details, Shops list and reply composer, plus the Buy More Credits modal — v0.9
+- ✓ Daily credit lapse and stale-reservation reaper (Celery Beat) — v0.9
+- ✓ Activity Log credit and AI-reply events for Org Admins; Superadmins shown as "ReviewBee Admin" — v0.9
+- ✓ StaffAccessScope enforced on the Shops list, shop retrieve and every credit endpoint — v0.9
 
 ### Active
 
-<!-- v0.9 AI Reply Credits — Phases 29+ (full REQ-IDs in .planning/REQUIREMENTS.md) -->
+<!-- No milestone in progress. Carried follow-ups below; the mobile app milestone defines its own requirements. -->
 
-- [ ] Superadmin sets per-org monthly credit allocation; adds bonus credits to a shop for the current month
-- [ ] Per-shop monthly credit balance, lazily created, with immutable transaction ledger
-- [ ] Tiered credit cost on AI reply generation; race-safe two-phase reserve/commit/refund consumption
-- [ ] Credit visibility on Shop Details, Shops list, and reply composer; "Buy More Credits" placeholder modal
-- [ ] Monthly lapse of unused credits + stale-reservation reaper (Celery Beat)
-- [ ] Superadmin one-time data reset + re-sync (carried from v0.8 Phase 28 — deferred pre-launch)
+- [ ] Superadmin one-time data reset + re-sync (carried from v0.8 Phase 28; deferred pre-launch)
+- [ ] Staff scoping on `ReviewTargetViewSet` list, and `allocation_status` / `has_regions` in the Staff Shops-list envelope (v0.9 audit follow-ups)
+- [ ] Activity Log: Org Admin shop filter should return 400 for another organisation's shop id (no leak today; makes the defence explicit)
+- [ ] Activity Log date filter compares UTC dates; send the viewer's timezone so early-morning IST events land on the right day
+- [ ] Credit follow-ups from the spec: transaction history UI (CFUT-01), Superadmin usage report (CFUT-02), shop-switcher badge (CFUT-03), real payment flow (CFUT-04)
 
 ### Out of Scope
 
 | Feature | Reason |
 | ------- | ------ |
-| Staff Admin dashboard | Phase 3 — no review data exists yet |
-| Google review fetching and response | Phase 4 |
 | Shop hard-delete / freeing allocation slot | Deactivate + future scheduled purge |
 | Email address change flow | Requires verification loop; deferred |
 | Bulk region / shop actions | Not needed until tenant count grows |
 | Region hierarchy beyond one level | Anti-feature for current scope |
 | Two-factor authentication | Future security hardening |
-| Billing and subscriptions | Phase 5+ |
+| Billing and subscriptions | Phase 5+. Buy More Credits stays a mailto placeholder (CFUT-04) |
+| Credit rollover, per-user credits, credit transfer between shops | v0.9 spec §1.2: unused credits lapse monthly and credits are per-shop |
+| Email / push credit alerts | In-app visibility only |
+| WebSocket balance updates | CLAUDE.md §13.2: the Channels surface stays narrow; balances refresh by HTTP |
 
 ## Constraints
 
@@ -201,15 +205,24 @@ creation time, threaded through to the Celery backfill task.
 | NotifBell ↔ TopbarBell bridge via CustomEvent (notifications:refresh) | Two separate React roots; no shared store | ✓ Confirmed — TopbarBell dispatches on sync.complete; useNotifications listens and fetches immediately |
 | CursorPagination for Reviews list | Reviews table grows large with incremental sync; cursor provides O(1) performance | ✓ Confirmed — PageNumberPagination would degrade on large datasets |
 | Partial unique constraint on (source_review, title, scope) WHERE source=AI | Enables idempotent AI promotion via bulk_create(ignore_conflicts=True) | ✓ Confirmed — safe for concurrent enrichment retries |
+| v0.9: Two-phase credit consumption (row-locked reserve → OpenAI outside any transaction → status CAS commit/refund) | Never hold a row lock across a slow HTTP call; a late commit and the reaper can never double-settle | ✓ Good — proven by real-PostgreSQL race tests in the `backend-pg` CI job |
+| v0.9: Virtual balances; reads never create rows | A shop with no activity reads its full allocation without write-on-read | ✓ Good — one-annotation Shops-list balances at a fixed query count |
+| v0.9: Append-only ledger enforced in the app layer; status is the only mutation | Auditable credit history without DB triggers | ✓ Good — ORM bypasses (save re-insert, bulk_create) closed in Phase 29 gap fixes |
+| v0.9: Cost shown on the button label, no click-confirmation step | Lower friction than a confirm dialog; the cost always comes from the server | ✓ Good — label became "Generate with AI (requires N credits)" after user review |
+| v0.9: Credits refunded on OpenAI failure / input moderation, consumed on output moderation | OpenAI bills once the model has produced output | ✓ Good |
+| v0.9: Staff scoping keyed on role, 404 for out-of-scope shops | Avoids the None-vs-[] trap and doesn't reveal that a shop exists | ✓ Good — also applied to shop retrieve (D-17) |
+| v0.9: Tenants never see Superadmin identities in the Activity Log | Platform staff are shown as "ReviewBee Admin"; ids can't be probed | ✓ Good — supersedes the earlier acceptance of Superadmin names (CVIS-07) |
 
 ## Context
 
-- Requirements archives: `.planning/milestones/v1.0-REQUIREMENTS.md`, `.planning/milestones/v0.2-org-admin-REQUIREMENTS.md`
+- Requirements archives: `.planning/milestones/v1.0-REQUIREMENTS.md`, `.planning/milestones/v0.2-org-admin-REQUIREMENTS.md`, … `.planning/milestones/v0.9-REQUIREMENTS.md`
 - Three-role RBAC: SUPERADMIN, ORG_ADMIN, STAFF_ADMIN
 - Brand: Primary Yellow #FACC15, Primary Black #0A0A0A — clean SaaS aesthetic
 - All email via Amazon SES (`django-ses`); local dev uses MailHog
 - GBP API production approval from Google is a non-code prerequisite for Shops to go live in production
 - Tech debt carried forward: CSP nonce migration deferred; premailer CSS inlining deferred; InvitationToken rename (step 3 of expand-contract) deferred
+- v0.9 rollout: every organisation starts at 0 credits, so AI replies are off until a Superadmin enables them (runbook `docs/sre/v0.9-credits-rollout.md`). `REVIEWBEE_SUPPORT_EMAIL` must be set to the real mailbox.
+- v0.9 closed as an override closeout: Phases 29–33 were verified manually by the user rather than through recorded UAT, and 36 older open planning artifacts were acknowledged (see STATE.md Deferred Items)
 
 ---
 
@@ -257,4 +270,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-11-11 — v0.9 AI Reply Credits milestone started
+*Last updated: 2026-11-12 after v0.9 milestone*

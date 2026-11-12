@@ -73,6 +73,10 @@ human_verification:
   - test: "Screen-reader announcement of composer credit state changes (loading, ready, not enabled, insufficient, after a 402)"
     expected: "The role=status line announces the new state without a duplicate or missing announcement, and focus lands on the textarea after a 402"
     why_human: "aria-live behaviour needs assistive technology"
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 33: Credit Visibility & Staff Scoping Verification Report

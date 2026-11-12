@@ -3,6 +3,10 @@ status: awaiting_human_verify
 trigger: "The Regions page now mounts the React widget and shows an empty state, but the design is wrong. Compared to the working org-management page, the Regions page is missing: 1. The DataTable shell/chrome (table border, header row with column names) 2. The search/filter bar at the top of the table area 3. The overall layout doesn't match the org-management empty view design"
 created: 2026-04-29T00:00:00Z
 updated: 2026-04-29T00:00:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: awaiting_human_verify
 ---
 
 ## Current Focus

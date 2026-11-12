@@ -465,7 +465,7 @@ No blocking dependencies.
 - Mandatory `tenant-security-auditor` + `orm-performance-auditor` before PR (§27); `code-reviewer`; `pre-commit run --all-files` and `pytest` before done.
 - No review text in logs/emails/mailto; Channels surface unchanged (no new consumer; credits use HTTP, §13.2).
 - Surgical changes: do not refactor adjacent code (e.g. `ShopDetailsModal.formatDate`); remove only what you orphan.
-- Doc hygiene (§28): at milestone close move `docs/in-progress/Requirements_Credits_System.md` -> `docs/completed/`.
+- Doc hygiene (§28): at milestone close move `docs/completed/Requirements_Credits_System.md` -> `docs/completed/`.
 - Commit messages: Conventional Commits (`feat(33-xx): ...`).
 
 ## Sources
