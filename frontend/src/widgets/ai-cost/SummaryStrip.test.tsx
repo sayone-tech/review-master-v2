@@ -28,7 +28,7 @@ describe("SummaryStrip", () => {
   it("shows the total cost with 8 decimals, padding zeros faded", () => {
     render(<SummaryStrip totals={base} />);
     expect(screen.getByTestId("cost-summary")).toHaveTextContent("$3.00000000");
-    expect(screen.getByText("000000")).toHaveClass("text-faint");
+    expect(screen.getByText("000000")).toHaveClass("text-subtle");
   });
   it("uses singular organisation", () => {
     render(<SummaryStrip totals={{ ...base, org_count: 1 }} />);

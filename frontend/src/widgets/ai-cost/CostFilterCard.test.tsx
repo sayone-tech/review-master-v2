@@ -63,4 +63,26 @@ describe("CostFilterCard", () => {
     render(<CostFilterCard filters={{ range: "7d" }} onApply={vi.fn()} serverError="Bad range" />);
     expect(screen.getByRole("alert")).toHaveTextContent("Bad range");
   });
+
+  it("marks custom date inputs invalid and linked to the error", () => {
+    render(<CostFilterCard filters={{ range: "this_month" }} onApply={vi.fn()} />);
+    setCustom("2026-02-01", "2026-01-01");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    const err = screen.getByRole("alert");
+    for (const label of ["From date", "To date"]) {
+      const el = screen.getByLabelText(label);
+      expect(el).toHaveAttribute("aria-invalid", "true");
+      expect(el).toHaveAttribute("aria-describedby", err.id);
+    }
+  });
+
+  it("shows Clear for an unapplied draft and resets draft and applied to this_month", () => {
+    const onApply = vi.fn();
+    render(<CostFilterCard filters={{ range: "this_month" }} onApply={onApply} />);
+    expect(screen.queryByRole("button", { name: "Clear" })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Date range"), { target: { value: "7d" } });
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(onApply).toHaveBeenCalledWith({ range: "this_month" });
+    expect(screen.getByLabelText("Date range")).toHaveValue("this_month");
+  });
 });

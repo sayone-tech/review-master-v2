@@ -36,6 +36,7 @@ export function OrgDetail({ orgId, filters, onFilters, onBack, initialName = nul
   const [shops, setShops] = useState<ShopListResponse | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [page, setPage] = useState(1);
@@ -56,15 +57,24 @@ export function OrgDetail({ orgId, filters, onFilters, onBack, initialName = nul
     setNotFound(false);
     setError(null);
     setRangeError(null);
-    Promise.all([fetchOrgSummary(orgId, filters), fetchOrgModels(orgId, filters)])
-      .then(([s, m]) => {
+    setModelsError(null);
+    fetchOrgSummary(orgId, filters)
+      .then((s) => {
         if (cancelled) return;
         setSummary(s);
-        setModels(m);
         if (s.organisation) onOrgName?.(s.organisation.name);
       })
       .catch((e: unknown) => {
         if (!cancelled) fail(e);
+      });
+    fetchOrgModels(orgId, filters)
+      .then((m) => {
+        if (!cancelled) setModels(m);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        if (e instanceof ApiError && (e.status === 404 || e.status === 400)) fail(e);
+        else setModelsError(e instanceof Error ? e.message : "Failed to load models");
       });
     return () => {
       cancelled = true;
@@ -162,10 +172,9 @@ export function OrgDetail({ orgId, filters, onFilters, onBack, initialName = nul
         </div>
       )}
 
-      {!empty && !rangeError && shops && models && (
+      {!empty && !rangeError && shops && (
         <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
-          {shops && (
-            <TableCard
+          <TableCard
               title="Shops"
               meta={summary && formatUpdatedAgo(summary.generated_at)}
               className="xl:col-span-2"
@@ -190,12 +199,23 @@ export function OrgDetail({ orgId, filters, onFilters, onBack, initialName = nul
                   setPageSize(n);
                 }}
               />
-            </TableCard>
-          )}
-          {models && models.results.length > 0 && (
+          </TableCard>
+          {modelsError ? (
             <TableCard title="Cost by model">
-              <ModelTable rows={models.results} />
+              <p role="alert" className="px-4 py-3 text-[13px] text-red">
+                Could not load model costs: {modelsError}{" "}
+                <button type="button" className="underline" onClick={() => setRetryKey((k) => k + 1)}>
+                  Retry
+                </button>
+              </p>
             </TableCard>
+          ) : (
+            models &&
+            models.results.length > 0 && (
+              <TableCard title="Cost by model">
+                <ModelTable rows={models.results} />
+              </TableCard>
+            )
           )}
         </div>
       )}

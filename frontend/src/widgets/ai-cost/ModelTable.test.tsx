@@ -18,4 +18,14 @@ describe("ModelTable", () => {
     expect(rows[1]).toHaveTextContent("small-model");
     expect(rows[1]).toHaveTextContent("$0.25000000");
   });
+
+  it("shows input and output tokens as visible text, not a tooltip", () => {
+    render(
+      <ModelTable
+        rows={[{ model: "m", calls: 3, input_tokens: 12400, output_tokens: 3100, cost: "1.000000" }]}
+      />,
+    );
+    expect(screen.getByText("12.4K in · 3.1K out")).toBeVisible();
+    expect(screen.getAllByRole("row")[1]).not.toHaveAttribute("title");
+  });
 });

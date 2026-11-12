@@ -14,6 +14,10 @@ describe("format", () => {
     expect(formatCost("0.00019500")).toBe("$0.00019500");
     expect(formatCost("0.00000000")).toBe("$0.00000000");
   });
+  it("formats large costs exactly without float conversion", () => {
+    expect(formatCost("123456789012.12345678")).toBe("$123,456,789,012.12345678");
+    expect(formatCost("4.5")).toBe("$4.50000000");
+  });
   it("abbreviates tokens", () => {
     expect(formatTokens(12_400_000)).toBe("12.4M");
     expect(formatTokens(342_000)).toBe("342K");

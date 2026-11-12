@@ -147,4 +147,18 @@ describe("OrgDetail loaded states", () => {
     render(<OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} onOrgName={onOrgName} />);
     await waitFor(() => expect(onOrgName).toHaveBeenCalledWith("Acme"));
   });
+
+  it("keeps the shops table when the models request fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/models/")) return new Response("{}", { status: 500 });
+        const body = url.includes("/summary/") ? summary(1) : shopsBody();
+        return new Response(JSON.stringify(body), { status: 200 });
+      }),
+    );
+    render(<OrgDetail orgId={7} filters={{ range: "7d" }} onFilters={() => {}} onBack={() => {}} />);
+    expect(await screen.findByText("High St")).toBeInTheDocument();
+    expect(await screen.findByText(/Could not load model costs/)).toBeInTheDocument();
+  });
 });

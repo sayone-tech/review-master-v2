@@ -1,13 +1,11 @@
-const costFmt = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 8,
-  maximumFractionDigits: 8,
-});
 const countFmt = new Intl.NumberFormat("en-US");
 
 export function formatCost(v: string): string {
-  return costFmt.format(Number(v));
+  const m = /^(-?)(\d*)(?:\.(\d*))?$/.exec(v.trim());
+  if (!m) return v;
+  const [, sign, int, frac = ""] = m;
+  const grouped = (int || "0").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${sign}$${grouped}.${frac.slice(0, 8).padEnd(8, "0")}`;
 }
 
 export function formatCount(n: number): string {

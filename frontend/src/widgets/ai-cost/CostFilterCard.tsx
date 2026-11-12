@@ -69,9 +69,13 @@ export function CostFilterCard({
     setError(null);
   }, [filters.range, filters.from, filters.to]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasActiveFilters = filters.range !== DEFAULT_FILTERS.range;
+  const draftDiffers =
+    draft.range !== filters.range ||
+    (draft.range === "custom" && (draft.from !== filters.from || draft.to !== filters.to));
+  const hasActiveFilters = filters.range !== DEFAULT_FILTERS.range || draftDiffers;
   const isCustom = draft.range === "custom";
   const message = error ?? serverError ?? null;
+  const customInvalid = isCustom && message !== null;
 
   const apply = () => {
     const err = validateDraft(draft);
@@ -108,6 +112,8 @@ export function CostFilterCard({
           <>
             <input
               id="ai-cost-from"
+              aria-invalid={customInvalid || undefined}
+              aria-describedby={customInvalid ? "ai-cost-filter-error" : undefined}
               type="date"
               aria-label="From date"
               className={`${fieldCls} px-2.5 [&::-webkit-calendar-picker-indicator]:opacity-60`}
@@ -117,6 +123,8 @@ export function CostFilterCard({
             <span className="text-[13px] text-muted">to</span>
             <input
               id="ai-cost-to"
+              aria-invalid={customInvalid || undefined}
+              aria-describedby={customInvalid ? "ai-cost-filter-error" : undefined}
               type="date"
               aria-label="To date"
               className={`${fieldCls} px-2.5 [&::-webkit-calendar-picker-indicator]:opacity-60`}
@@ -137,14 +145,18 @@ export function CostFilterCard({
           <button
             type="button"
             className="px-3 py-2 rounded-md text-[13.5px] font-medium text-muted hover:bg-line-soft hover:text-ink"
-            onClick={() => onApply(DEFAULT_FILTERS)}
+            onClick={() => {
+              setDraft(DEFAULT_FILTERS);
+              setError(null);
+              onApply(DEFAULT_FILTERS);
+            }}
           >
             Clear
           </button>
         )}
       </div>
       {message && (
-        <p role="alert" className="text-[12.5px] text-red">
+        <p id="ai-cost-filter-error" role="alert" className="text-[12.5px] text-red">
           {message}
         </p>
       )}
