@@ -5,9 +5,9 @@ Windows are start-inclusive / end-exclusive (``CostWindow``).
 
 Cost sums are quantized to six decimal places in Python (SQLite, used in tests,
 stores decimals as REAL). ``get_cost_summary`` and ``get_request_type_costs``
-quantize before returning; ``list_org_costs`` returns a lazy ``values()``
-QuerySet (so views can sort/paginate it) whose ``cost`` is the raw database
-Decimal -- callers must pass it through ``quantize_cost`` when serializing.
+quantize before returning; ``list_org_costs`` / ``list_shop_costs`` return a
+sorted ``values()`` QuerySet whose ``cost`` is the raw database Decimal --
+callers materialise it and pass ``cost`` through ``quantize_cost``.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.integrations.openai.cost_window import CostWindow
 from apps.integrations.openai.models import AiUsageLog
+from apps.organisations.models import Organisation
 
 COST_QUANT = Decimal("0.000001")
 SUCCESS = Q(status=AiUsageLog.Status.SUCCESS)
@@ -65,6 +66,18 @@ def quantize_cost(value: Decimal | float | int) -> Decimal:
     return Decimal(value).quantize(COST_QUANT)
 
 
+def has_any_ai_usage() -> bool:
+    """True once any AI call has ever been logged (drives the platform empty state)."""
+    return AiUsageLog.objects.exists()
+
+
+def get_org_header(*, organisation_id: int) -> Organisation | None:
+    """The organisation annotated with its total ``shop_count``; None when unknown."""
+    return (
+        Organisation.objects.annotate(shop_count=Count("shops")).filter(pk=organisation_id).first()
+    )
+
+
 def _in_window(window: CostWindow) -> Q:
     return Q(created_at__gte=window.start, created_at__lt=window.end)
 
@@ -99,7 +112,7 @@ def get_cost_summary(*, window: CostWindow, organisation_id: int | None = None) 
 
 def list_org_costs(*, window: CostWindow, sort: str = "-cost") -> QuerySet[Any]:
     """One row per organisation with at least one call in the window (any status)."""
-    field = ORG_SORT_FIELDS.get(sort.lstrip("-"))
+    field = ORG_SORT_FIELDS.get(sort.removeprefix("-"))
     if field is None:
         raise ValidationError({"detail": f"Unsupported sort '{sort}'."})
     ordering = f"-{field}" if sort.startswith("-") else field

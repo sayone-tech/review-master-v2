@@ -12,7 +12,6 @@ from typing import Any
 
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
-from django.db.models import Count
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import render
 from django.utils import timezone
@@ -28,13 +27,14 @@ from rest_framework.views import APIView
 from apps.accounts.models import User
 from apps.accounts.permissions import IsSuperadmin
 from apps.common.pagination import DefaultPageNumberPagination
-from apps.integrations.openai.cost_window import resolve_cost_window
-from apps.integrations.openai.models import AiUsageLog
+from apps.integrations.openai.cost_window import CostWindow, resolve_cost_window
 from apps.integrations.openai.selectors.ai_cost import (
     get_cost_summary,
+    get_org_header,
     get_request_type_costs,
     get_shop_request_type_costs,
     get_unattributed_costs,
+    has_any_ai_usage,
     list_model_costs,
     list_org_costs,
     list_shop_costs,
@@ -84,6 +84,32 @@ def _cached(endpoint: str, request: Request, build: Callable[[], dict[str, Any]]
     return payload
 
 
+def _cached_rows(
+    endpoint: str,
+    window: CostWindow,
+    sort: str,
+    build: Callable[[], list[dict[str, Any]]],
+    organisation_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """The full, sorted, cost-quantized row list for a window (+org) and sort.
+
+    Cached independently of ``page``/``page_size`` so paging through a list runs the
+    GROUP BY aggregate once; the caller paginates the returned Python list.
+    """
+    raw = f"{window.cache_hash()}|{organisation_id}|{sort}"
+    digest = hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()
+    key = f"admin:ai_cost:{endpoint}-rows:{digest}"
+    rows: list[dict[str, Any]] | None = cache.get(key)
+    if rows is None:
+        rows = build()
+        cache.set(key, rows, CACHE_TTL)
+    return rows
+
+
+def _generated_at() -> str:
+    return str(serializers.DateTimeField().to_representation(timezone.now()))
+
+
 class _AiCostBaseView(APIView):
     permission_classes = [IsAuthenticated, IsSuperadmin]  # noqa: RUF012
     throttle_classes = [ScopedRateThrottle]  # noqa: RUF012
@@ -114,8 +140,8 @@ class AiCostSummaryView(_AiCostBaseView):
                             "start": window.start,
                             "end": window.end,
                         },
-                        "generated_at": timezone.now(),
-                        "has_any_usage": AiUsageLog.objects.exists(),
+                        "generated_at": _generated_at(),
+                        "has_any_usage": has_any_ai_usage(),
                         "totals": get_cost_summary(window=window),
                     }
                 ).data
@@ -150,38 +176,39 @@ class AiCostOrganisationListView(_AiCostBaseView):
     def get(self, request: Request) -> Response:
         def build() -> dict[str, Any]:
             window = resolve_cost_window(params=request.query_params)
-            # Validates ``sort`` eagerly, before any pagination query runs.
-            rows = list_org_costs(window=window, sort=request.query_params.get("sort") or "-cost")
+            sort = request.query_params.get("sort") or "-cost"
+            rows = _cached_rows(
+                "organisations",
+                window,
+                sort,
+                lambda: [
+                    {**r, "cost": quantize_cost(r["cost"])}
+                    for r in list_org_costs(window=window, sort=sort)
+                ],
+            )
             paginator = DefaultPageNumberPagination()
-            page = paginator.paginate_queryset(rows, request, view=self) or []
+            # DRF paginates any sliceable sequence; the stubs only type QuerySet.
+            page: list[dict[str, Any]] = (
+                paginator.paginate_queryset(rows, request, view=self)  # type: ignore[arg-type]
+                or []
+            )
             by_type = get_request_type_costs(
                 window=window, organisation_ids=[r["organisation_id"] for r in page]
             )
             results = [
-                {
-                    **r,
-                    "cost": quantize_cost(r["cost"]),
-                    "by_request_type": by_type.get(r["organisation_id"], {}),
-                }
-                for r in page
+                {**r, "by_request_type": by_type.get(r["organisation_id"], {})} for r in page
             ]
             body = paginator.get_paginated_response(
                 OrgCostRowSerializer(results, many=True).data
             ).data
-            return {**body, "generated_at": timezone.now().isoformat()}
+            return {**body, "generated_at": _generated_at()}
 
         return Response(_cached("organisations", request, build))
 
 
-def _generated_at() -> str:
-    return str(serializers.DateTimeField().to_representation(timezone.now()))
-
-
 def _get_org(org_id: int) -> Organisation:
     """The org with its total shop count; 404 (never cached, as it raises) when unknown."""
-    org: Organisation | None = (
-        Organisation.objects.annotate(shop_count=Count("shops")).filter(pk=org_id).first()
-    )
+    org = get_org_header(organisation_id=org_id)
     if org is None:
         raise NotFound({"code": "organisation_not_found", "detail": "Organisation not found."})
     return org
@@ -224,7 +251,7 @@ class AiCostOrgSummaryView(_AiCostBaseView):
                             "start": window.start,
                             "end": window.end,
                         },
-                        "generated_at": timezone.now(),
+                        "generated_at": _generated_at(),
                         "totals": get_cost_summary(window=window, organisation_id=org.id),
                     }
                 ).data
@@ -242,7 +269,7 @@ class AiCostOrgShopsView(_AiCostBaseView):
             OpenApiParameter(
                 "sort",
                 str,
-                description="name|region_name|calls|input_tokens|output_tokens|cost, "
+                description="name|calls|input_tokens|output_tokens|cost, "
                 "prefix '-' for descending (default -cost)",
             ),
             OpenApiParameter("page", int, description="Page number"),
@@ -259,25 +286,27 @@ class AiCostOrgShopsView(_AiCostBaseView):
         def build() -> dict[str, Any]:
             window = resolve_cost_window(params=request.query_params)
             org = _get_org(org_id)
-            # Validates ``sort`` eagerly, before any pagination query runs.
-            rows = list_shop_costs(
-                window=window,
+            sort = request.query_params.get("sort") or "-cost"
+            rows = _cached_rows(
+                "org-shops",
+                window,
+                sort,
+                lambda: [
+                    {**r, "cost": quantize_cost(r["cost"])}
+                    for r in list_shop_costs(window=window, organisation_id=org.id, sort=sort)
+                ],
                 organisation_id=org.id,
-                sort=request.query_params.get("sort") or "-cost",
             )
             paginator = DefaultPageNumberPagination()
-            page = paginator.paginate_queryset(rows, request, view=self) or []
+            # DRF paginates any sliceable sequence; the stubs only type QuerySet.
+            page: list[dict[str, Any]] = (
+                paginator.paginate_queryset(rows, request, view=self)  # type: ignore[arg-type]
+                or []
+            )
             by_type = get_shop_request_type_costs(
                 window=window, organisation_id=org.id, shop_ids=[r["shop_id"] for r in page]
             )
-            results = [
-                {
-                    **r,
-                    "cost": quantize_cost(r["cost"]),
-                    "by_request_type": by_type.get(r["shop_id"], {}),
-                }
-                for r in page
-            ]
+            results = [{**r, "by_request_type": by_type.get(r["shop_id"], {})} for r in page]
             body = paginator.get_paginated_response(
                 ShopCostRowSerializer(results, many=True).data
             ).data
@@ -313,7 +342,7 @@ class AiCostOrgModelsView(_AiCostBaseView):
                 ModelCostListResponseSerializer(
                     {
                         "results": list_model_costs(window=window, organisation_id=org.id),
-                        "generated_at": timezone.now(),
+                        "generated_at": _generated_at(),
                     }
                 ).data
             )
