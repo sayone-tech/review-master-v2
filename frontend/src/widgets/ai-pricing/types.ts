@@ -48,3 +48,36 @@ export interface MissingResponse {
   models: MissingModel[];
   generated_at: string;
 }
+
+export type SyncRunStatus = "never" | "success" | "failed";
+
+export interface PriceTriple {
+  input: string;
+  output: string;
+  cached: string;
+}
+
+export interface SkippedManual {
+  model: string;
+  ours: PriceTriple;
+  litellm: PriceTriple;
+}
+
+export interface SyncStatus {
+  enabled: boolean;
+  last_run_at: string | null;
+  last_success_at: string | null;
+  last_status: SyncRunStatus;
+  last_error: string;
+  overdue: boolean;
+  next_run_at: string | null;
+  summary: {
+    added: string[];
+    updated: string[];
+    unchanged: string[];
+    skipped_manual: SkippedManual[];
+    skipped_scheduled: string[];
+    unpriced: string[];
+    errored: string[];
+  };
+}

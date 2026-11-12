@@ -3,8 +3,9 @@ import { fetchHistory, fetchPriceSummary } from "./api";
 import { AddPriceModal } from "./AddPriceModal";
 import { HistoryRows } from "./HistoryRows";
 import { MissingPricingAlert } from "./MissingPricingAlert";
+import { SyncBanner } from "./SyncBanner";
 import { AddPriceButton, PricesTable } from "./PricesTable";
-import type { Paginated, PriceRow, PriceSummary } from "./types";
+import type { Paginated, PriceRow, PriceSummary, PriceTriple } from "./types";
 
 export function AiPricingWidget() {
   const [page, setPage] = useState(1);
@@ -15,7 +16,9 @@ export function AiPricingWidget() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   // `null` = closed; a string (possibly empty) = open with that model pre-filled.
   const [addModel, setAddModel] = useState<string | null>(null);
+  const [addPrices, setAddPrices] = useState<PriceTriple | undefined>(undefined);
   const [alertKey, setAlertKey] = useState(0);
+  const [syncEnabled, setSyncEnabled] = useState(false);
 
   // Request counters: only the latest request may write state (ignores stale responses).
   const summaryReq = useRef(0);
@@ -71,10 +74,18 @@ export function AiPricingWidget() {
 
   const afterSave = () => {
     setAddModel(null);
+    setAddPrices(undefined);
     afterChange();
   };
 
-  const openAdd = (model?: string) => setAddModel(model ?? "");
+  const openAdd = (model?: string) => {
+    setAddPrices(undefined);
+    setAddModel(model ?? "");
+  };
+  const openAddWithPrices = (model: string, prices: PriceTriple) => {
+    setAddPrices(prices);
+    setAddModel(model);
+  };
 
   const totalPages = summary ? Math.max(1, Math.ceil(summary.count / 25)) : 1;
 
@@ -94,7 +105,18 @@ export function AiPricingWidget() {
         />
       </header>
 
-      <MissingPricingAlert variant="pricing" onAddFor={openAdd} refreshKey={alertKey} />
+      <SyncBanner
+        onChanged={() => setAlertKey((k) => k + 1)}
+        onStatus={(st) => setSyncEnabled(st.enabled)}
+        onUseLiteLLM={openAddWithPrices}
+      />
+
+      <MissingPricingAlert
+        variant="pricing"
+        onAddFor={openAdd}
+        refreshKey={alertKey}
+        syncEnabled={syncEnabled}
+      />
 
       {error && (
         <div role="alert" className="text-[13px] text-red">
@@ -152,6 +174,7 @@ export function AiPricingWidget() {
         <AddPriceModal
           open
           initialModel={addModel}
+          initialPrices={addPrices}
           onClose={() => setAddModel(null)}
           onSaved={afterSave}
         />

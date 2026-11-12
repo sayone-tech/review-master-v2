@@ -63,6 +63,16 @@ describe("AddPriceModal", () => {
     expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("gpt-z");
   });
 
+  it("pre-fills the three prices when given initialPrices", () => {
+    setup({
+      initialModel: "m3",
+      initialPrices: { input: "0.10000000", output: "0.40000000", cached: "0.05000000" },
+    });
+    expect(screen.getByLabelText(IN)).toHaveValue("0.10000000");
+    expect(screen.getByLabelText(OUT)).toHaveValue("0.40000000");
+    expect(screen.getByLabelText(CACHED)).toHaveValue("0.05000000");
+  });
+
   it("defaults effective-from to the next whole minute (never in the past)", () => {
     vi.useFakeTimers({ now: new Date(2026, 10, 12, 10, 30, 20) });
     setup();

@@ -99,4 +99,15 @@ describe("MissingPricingAlert", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("1 model is logged without pricing.")).toBeInTheDocument();
   });
+
+  it("shows the weekly-sync note only when sync is enabled (pricing variant)", async () => {
+    vi.mocked(api.fetchMissing).mockResolvedValue(resp([m("gpt-x")]));
+    const note = /Next weekly sync \(Mon 09:00 UTC\) will fetch pricing from LiteLLM automatically for models it covers\./;
+    const { unmount } = render(<MissingPricingAlert variant="pricing" onAddFor={vi.fn()} syncEnabled />);
+    expect(await screen.findByText(note)).toBeInTheDocument();
+    unmount();
+    render(<MissingPricingAlert variant="pricing" onAddFor={vi.fn()} />);
+    await screen.findByText("1 model is logged without pricing.");
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+  });
 });

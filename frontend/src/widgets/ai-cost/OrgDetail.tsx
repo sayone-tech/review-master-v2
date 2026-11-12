@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, fetchOrgModels, fetchOrgShops, fetchOrgSummary } from "./api";
-import { CAVEAT } from "./AiCostWidget";
+import { SyncCaveat } from "./SyncCaveat";
 import { formatUpdatedAgo, titleCase } from "./format";
 import { KpiRow } from "./KpiRow";
 import { ModelTable } from "./ModelTable";
@@ -224,7 +224,7 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
 
       <p className="text-[12px] text-muted">
         {summary && <span>{formatUpdatedAgo(summary.generated_at)} · </span>}
-        {CAVEAT}
+        <SyncCaveat />
       </p>
     </div>
   );

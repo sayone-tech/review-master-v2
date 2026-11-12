@@ -6,6 +6,8 @@ import { ModelAutocomplete } from "./ModelAutocomplete";
 interface Props {
   open: boolean;
   initialModel: string;
+  /** Optional pre-filled price strings (e.g. from LiteLLM). */
+  initialPrices?: { input: string; output: string; cached: string };
   onClose: () => void;
   onSaved: () => void;
 }
@@ -53,10 +55,18 @@ function utcFrom(local: string): Date | null {
 
 const INPUT = "w-full px-3 py-2 border border-line rounded-md text-[13.5px] bg-white";
 
-export function AddPriceModal({ open, initialModel, onClose, onSaved }: Props) {
+export function AddPriceModal({ open, initialModel, initialPrices, onClose, onSaved }: Props) {
   // Remounted by the parent per open, so state initialises fresh each time.
   const [model, setModel] = useState(initialModel);
-  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [prices, setPrices] = useState<Record<string, string>>(
+    initialPrices
+      ? {
+          input_token_price_per_1m: initialPrices.input,
+          output_token_price_per_1m: initialPrices.output,
+          cached_token_price_per_1m: initialPrices.cached,
+        }
+      : {},
+  );
   const [from, setFrom] = useState(defaultFrom);
   const [errors, setErrors] = useState<Errors>({});
   const [topError, setTopError] = useState<string | null>(null);

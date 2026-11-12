@@ -4,6 +4,7 @@ import type {
   PriceRow,
   PriceSummary,
   SuggestionsResponse,
+  SyncStatus,
 } from "./types";
 
 export type FieldErrors = Record<string, string[]>;
@@ -121,4 +122,30 @@ export async function refreshMissing(): Promise<MissingResponse> {
   });
   if (!resp.ok) throw await toError(resp);
   return resp.json() as Promise<MissingResponse>;
+}
+
+const SYNC = `${BASE}/sync`;
+
+export function fetchSyncStatus(): Promise<SyncStatus> {
+  return getJson(`${SYNC}/status/`);
+}
+
+export async function toggleSync(enabled: boolean): Promise<SyncStatus> {
+  const resp = await fetch(`${SYNC}/toggle/`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!resp.ok) throw await toError(resp);
+  return resp.json() as Promise<SyncStatus>;
+}
+
+export async function triggerSync(): Promise<void> {
+  const resp = await fetch(`${SYNC}/trigger/`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": getCsrfToken() },
+  });
+  if (!resp.ok) throw await toError(resp);
 }

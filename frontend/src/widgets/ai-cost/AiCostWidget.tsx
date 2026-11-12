@@ -4,6 +4,7 @@ import { formatUpdatedAgo } from "./format";
 import { KpiRow } from "./KpiRow";
 import { MissingPricingAlert } from "../ai-pricing/MissingPricingAlert";
 import { OrgDetail } from "./OrgDetail";
+import { SyncCaveat } from "./SyncCaveat";
 import { OrgTable } from "./OrgTable";
 import { RangeFilter } from "./RangeFilter";
 import {
@@ -20,8 +21,6 @@ import {
   type OrgListResponse,
 } from "./types";
 
-export const CAVEAT =
-  "Estimated based on configured pricing — actual OpenAI invoice is authoritative.";
 
 const ORG_PATH = /^\/admin\/ai-cost\/organisations\/(\d+)\/?$/;
 
@@ -172,7 +171,7 @@ function PlatformView({
 
       <p className="text-[12px] text-muted">
         {summary && <span>{formatUpdatedAgo(summary.generated_at)} · </span>}
-        {CAVEAT}
+        <SyncCaveat />
       </p>
     </>
   );

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AiPricingWidget } from "./AiPricingWidget";
 import { priceRow } from "./fixtures";
 import * as api from "./api";
+import { syncStatus } from "./syncFixtures";
 
 vi.mock("./api", async (orig) => ({
   ...(await orig<typeof import("./api")>()),
@@ -14,6 +15,9 @@ vi.mock("./api", async (orig) => ({
   refreshMissing: vi.fn(),
   fetchSuggestions: vi.fn(),
   createPrice: vi.fn(),
+  fetchSyncStatus: vi.fn(),
+  toggleSync: vi.fn(),
+  triggerSync: vi.fn(),
 }));
 
 const scheduled = priceRow({
@@ -38,6 +42,9 @@ describe("AiPricingWidget", () => {
     vi.mocked(api.fetchMissing).mockReset();
     vi.mocked(api.fetchMissing).mockResolvedValue({ models: [], generated_at: "x" });
     vi.mocked(api.fetchSuggestions).mockResolvedValue({ results: [] });
+    vi.mocked(api.fetchSyncStatus).mockReset();
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(syncStatus());
+    vi.mocked(api.toggleSync).mockReset();
   });
 
   it("renders header, an enabled Add New Price, and the table", async () => {
@@ -159,5 +166,45 @@ describe("AiPricingWidget", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.getByText("LiteLLM sync")).toBeInTheDocument();
     expect(screen.queryByText("Seed")).not.toBeInTheDocument();
+  });
+
+  it("'Use LiteLLM price' opens Add New Price pre-filled with model and LiteLLM values", async () => {
+    vi.mocked(api.fetchPriceSummary).mockResolvedValue(page(null));
+    const base = syncStatus({ enabled: true });
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue({
+      ...base,
+      summary: {
+        ...base.summary,
+        skipped_manual: [
+          {
+            model: "m3",
+            ours: { input: "0.15000000", output: "0.60000000", cached: "0.07500000" },
+            litellm: { input: "0.10000000", output: "0.40000000", cached: "0.05000000" },
+          },
+        ],
+      },
+    });
+    render(<AiPricingWidget />);
+    await userEvent.click(await screen.findByRole("button", { name: "Use LiteLLM price" }));
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("m3");
+    expect(screen.getByLabelText(/Input price/)).toHaveValue("0.10000000");
+    expect(screen.getByLabelText(/Cached input price/)).toHaveValue("0.05000000");
+  });
+
+  it("toggling sync refetches the missing alert, whose sync note follows the enabled state", async () => {
+    vi.mocked(api.fetchPriceSummary).mockResolvedValue(page(null));
+    vi.mocked(api.fetchMissing).mockResolvedValue({
+      models: [{ model: "gpt-new", last_used_at: null, configured: false }],
+      generated_at: "x",
+    });
+    vi.mocked(api.toggleSync).mockResolvedValue(syncStatus({ enabled: true }));
+    render(<AiPricingWidget />);
+    await screen.findByText("1 model is logged without pricing.");
+    expect(screen.queryByText(/Next weekly sync/)).not.toBeInTheDocument();
+    const before = vi.mocked(api.fetchMissing).mock.calls.length;
+    await userEvent.click(await screen.findByRole("button", { name: "Enable sync" }));
+    await userEvent.click(screen.getByTestId("confirm-confirm"));
+    expect(await screen.findByText(/Next weekly sync/)).toBeInTheDocument();
+    expect(vi.mocked(api.fetchMissing).mock.calls.length).toBeGreaterThan(before);
   });
 });

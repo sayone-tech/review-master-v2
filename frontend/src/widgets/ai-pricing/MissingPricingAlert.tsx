@@ -7,10 +7,12 @@ interface Props {
   onAddFor?: (model: string) => void;
   /** Change this value to refetch (e.g. after a price is added or deleted). */
   refreshKey?: number;
+  /** When true (pricing variant), note that the weekly LiteLLM sync may fill the gap. */
+  syncEnabled?: boolean;
 }
 
 /** Amber alert listing models logged without pricing. Renders nothing when none. */
-export function MissingPricingAlert({ variant, onAddFor, refreshKey = 0 }: Props) {
+export function MissingPricingAlert({ variant, onAddFor, refreshKey = 0, syncEnabled = false }: Props) {
   const [models, setModels] = useState<MissingModel[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -75,6 +77,12 @@ export function MissingPricingAlert({ variant, onAddFor, refreshKey = 0 }: Props
           </span>
         ))}
       </p>
+      {variant === "pricing" && syncEnabled && (
+        <p>
+          Next weekly sync (Mon 09:00 UTC) will fetch pricing from LiteLLM automatically for models it
+          covers.
+        </p>
+      )}
       {variant === "cost-explorer" ? (
         <a href="/admin/ai-pricing/" className="inline-block font-medium underline underline-offset-2">
           Go to AI Pricing →
