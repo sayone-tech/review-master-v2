@@ -10,10 +10,15 @@ from apps.integrations.openai.cost_window import resolve_cost_window
 from apps.integrations.openai.selectors.ai_cost import (
     get_cost_summary,
     get_request_type_costs,
+    get_shop_request_type_costs,
+    get_unattributed_costs,
+    list_model_costs,
     list_org_costs,
+    list_shop_costs,
 )
 from apps.integrations.openai.tests.factories import AiUsageLogFactory
 from apps.organisations.tests.factories import OrganisationFactory
+from apps.regions.tests.factories import RegionFactory
 from apps.reviews.tests.factories import ReviewFactory
 from apps.shops.tests.factories import ShopFactory
 
@@ -179,3 +184,120 @@ def test_selectors_use_fixed_query_counts(db, django_assert_max_num_queries):
         list(list_org_costs(window=W))
     with django_assert_max_num_queries(1):
         get_request_type_costs(window=W, organisation_ids=ids)
+
+
+def _log(org, shop=None, cost="1.00", **kw):
+    review = ReviewFactory(organisation=org, shop=shop) if shop else None
+    kw.setdefault("created_at", IN)
+    return AiUsageLogFactory(
+        organisation=org, review=review, estimated_cost_usd=Decimal(cost), **kw
+    )
+
+
+def test_shop_list_groups_by_shop_and_sorts_by_cost(db):
+    org = OrganisationFactory()
+    region = RegionFactory(name="North")
+    a = ShopFactory(organisation=org, name="A", region=region)
+    b = ShopFactory(organisation=org, name="B")
+    _log(org, a, "1.00")
+    _log(org, a, "0.50")
+    _log(org, b, "3.00")
+    rows = list(list_shop_costs(window=W, organisation_id=org.id))
+    assert [r["name"] for r in rows] == ["B", "A"]
+    by = {r["shop_id"]: r for r in rows}
+    assert by[a.id]["calls"] == 2
+    assert quantize(by[a.id]["cost"]) == Decimal("1.50")
+    assert (by[a.id]["input_tokens"], by[a.id]["output_tokens"]) == (1000, 400)
+    assert by[a.id]["region_name"] == "North"
+    assert by[b.id]["region_name"] == b.region.name
+
+
+def quantize(v):
+    return Decimal(v).quantize(Decimal("0.000001"))
+
+
+def test_shop_list_scoped_to_org(db):
+    org, other = OrganisationFactory(), OrganisationFactory()
+    _log(org, ShopFactory(organisation=org))
+    other_shop = ShopFactory(organisation=other)
+    _log(other, other_shop)
+    ids = [r["shop_id"] for r in list_shop_costs(window=W, organisation_id=org.id)]
+    assert other_shop.id not in ids
+    assert len(ids) == 1
+
+
+def test_shop_list_sort_and_unknown_sort(db):
+    org = OrganisationFactory()
+    for n in ("Beta", "Alpha"):
+        _log(org, ShopFactory(organisation=org, name=n))
+    rows = list_shop_costs(window=W, organisation_id=org.id, sort="name")
+    assert [r["name"] for r in rows] == ["Alpha", "Beta"]
+    with pytest.raises(ValidationError):
+        list_shop_costs(window=W, organisation_id=org.id, sort="-latency")
+
+
+def test_shop_request_type_costs(db):
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    _log(org, shop, "1.20")
+    _log(org, shop, "0.30", request_type="reply_generation")
+    _log(org, shop, "0", request_type="reply_generation", status="FAILED")
+    _log(org, None, "9.00")
+    got = get_shop_request_type_costs(window=W, organisation_id=org.id, shop_ids=[shop.id])
+    assert got == {shop.id: {"enrichment": Decimal("1.20"), "reply_generation": Decimal("0.30")}}
+
+
+def test_unattributed_row_holds_rows_without_review(db):
+    org = OrganisationFactory()
+    _log(org, ShopFactory(organisation=org), "1.00")
+    _log(org, None, "0.40", request_type="reply_generation")
+    _log(org, None, "0", status="FAILED")
+    shops = list(list_shop_costs(window=W, organisation_id=org.id))
+    un = get_unattributed_costs(window=W, organisation_id=org.id)
+    total = sum(quantize(r["cost"]) for r in shops) + un["cost"]
+    assert total == get_cost_summary(window=W, organisation_id=org.id)["cost"]
+    assert un["cost"] == Decimal("0.40")
+    assert (un["calls"], un["success_calls"], un["failed_calls"]) == (2, 1, 1)
+    assert un["by_request_type"] == {"reply_generation": Decimal("0.40")}
+
+
+def test_unattributed_is_none_when_all_rows_have_reviews(db):
+    org = OrganisationFactory()
+    _log(org, ShopFactory(organisation=org))
+    _log(OrganisationFactory(), None)  # other org's unattributed row is ignored
+    assert get_unattributed_costs(window=W, organisation_id=org.id) is None
+
+
+def test_model_costs_sum_to_org_cost(db):
+    org = OrganisationFactory()
+    _log(org, None, "1.00", model="m-a")
+    _log(org, None, "0.50", model="m-a")
+    _log(org, None, "2.00", model="m-b")
+    _log(org, None, "0", model="m-c", status="FAILED")
+    _log(OrganisationFactory(), None, "7.00", model="m-a")
+    rows = list_model_costs(window=W, organisation_id=org.id)
+    assert [r["model"] for r in rows] == ["m-b", "m-a", "m-c"]
+    assert rows[1]["calls"] == 2
+    assert rows[2]["cost"] == Decimal("0")
+    assert (
+        sum(r["cost"] for r in rows) == get_cost_summary(window=W, organisation_id=org.id)["cost"]
+    )
+
+
+def test_drilldown_selectors_fixed_query_counts(db, django_assert_max_num_queries):
+    org = OrganisationFactory()
+    shops = [ShopFactory(organisation=org) for _ in range(15)]
+    for shop in shops:
+        _log(org, shop)
+        _log(org, shop, request_type="reply_generation")
+    _log(org, None)
+    with django_assert_max_num_queries(1):
+        list(list_shop_costs(window=W, organisation_id=org.id))
+    with django_assert_max_num_queries(1):
+        get_shop_request_type_costs(
+            window=W, organisation_id=org.id, shop_ids=[s.id for s in shops]
+        )
+    with django_assert_max_num_queries(2):
+        get_unattributed_costs(window=W, organisation_id=org.id)
+    with django_assert_max_num_queries(1):
+        list_model_costs(window=W, organisation_id=org.id)
