@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Modal } from "../modal";
 import { ApiError, createPrice } from "./api";
 import { ModelAutocomplete } from "./ModelAutocomplete";
@@ -62,6 +62,8 @@ export function AddPriceModal({ open, initialModel, onClose, onSaved }: Props) {
   const [topError, setTopError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const uid = useId();
+  const formId = `${uid}-form`;
+  const inFlight = useRef(false);
 
   const fromDate = utcFrom(from);
   const utcLine = fromDate
@@ -84,11 +86,12 @@ export function AddPriceModal({ open, initialModel, onClose, onSaved }: Props) {
   };
 
   const submit = async () => {
-    if (saving) return;
+    if (inFlight.current) return;
     const e = validate();
     setErrors(e);
     setTopError(null);
     if (Object.keys(e).length > 0 || !fromDate) return;
+    inFlight.current = true;
     setSaving(true);
     try {
       await createPrice({
@@ -114,6 +117,7 @@ export function AddPriceModal({ open, initialModel, onClose, onSaved }: Props) {
         setTopError(err instanceof Error ? err.message : "Could not save the price.");
       }
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   };
@@ -145,8 +149,8 @@ export function AddPriceModal({ open, initialModel, onClose, onSaved }: Props) {
             Cancel
           </button>
           <button
-            type="button"
-            onClick={() => void submit()}
+            type="submit"
+            form={formId}
             disabled={saving}
             className="px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-medium hover:bg-yellow-hover disabled:opacity-50"
           >
@@ -156,8 +160,17 @@ export function AddPriceModal({ open, initialModel, onClose, onSaved }: Props) {
       }
     >
       <form
+        id={formId}
         className="space-y-4"
         noValidate
+        // The Save button lives in the modal footer (outside the form's subtree); handle Enter
+        // explicitly so it submits regardless of the browser's implicit-submission rules.
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && e.target instanceof HTMLInputElement && !e.defaultPrevented) {
+            e.preventDefault();
+            void submit();
+          }
+        }}
         onSubmit={(e) => {
           e.preventDefault();
           void submit();

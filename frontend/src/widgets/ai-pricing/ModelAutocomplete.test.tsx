@@ -76,3 +76,65 @@ describe("ModelAutocomplete", () => {
     expect(screen.queryByRole("option", { name: /stale/ })).not.toBeInTheDocument();
   });
 });
+
+describe("ModelAutocomplete keyboard", () => {
+  beforeEach(() => {
+    vi.mocked(api.fetchSuggestions).mockReset();
+    vi.mocked(api.fetchSuggestions).mockResolvedValue({
+      results: [sug("one", false), sug("two", false), sug("three", true)],
+    });
+  });
+
+  it("ArrowDown + Enter selects the second suggestion", async () => {
+    render(<Harness />);
+    await userEvent.click(screen.getByRole("combobox"));
+    await screen.findAllByRole("option");
+    await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    expect(screen.getByTestId("value")).toHaveTextContent("two");
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+  });
+
+  it("aria-activedescendant tracks the highlight; ArrowUp moves back", async () => {
+    render(<Harness />);
+    const box = screen.getByRole("combobox");
+    await userEvent.click(box);
+    const opts = await screen.findAllByRole("option");
+    expect(box).not.toHaveAttribute("aria-activedescendant");
+    await userEvent.keyboard("{ArrowDown}");
+    expect(box).toHaveAttribute("aria-activedescendant", opts[0].id);
+    expect(opts[0]).toHaveAttribute("aria-selected", "true");
+    await userEvent.keyboard("{ArrowDown}{ArrowUp}");
+    expect(box).toHaveAttribute("aria-activedescendant", opts[0].id);
+    expect(box).toHaveAttribute("aria-controls");
+  });
+
+  it("Escape closes the list and drops aria-controls", async () => {
+    render(<Harness />);
+    const box = screen.getByRole("combobox");
+    await userEvent.click(box);
+    await screen.findAllByRole("option");
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    expect(box).toHaveAttribute("aria-expanded", "false");
+    expect(box).not.toHaveAttribute("aria-controls");
+  });
+
+  it("Enter with nothing highlighted keeps typed text and does not submit", async () => {
+    const onSubmit = vi.fn((e: React.FormEvent) => e.preventDefault());
+    function F() {
+      const [v, setV] = useState("");
+      return (
+        <form onSubmit={onSubmit}>
+          <ModelAutocomplete id="m" value={v} onChange={setV} />
+        </form>
+      );
+    }
+    render(<F />);
+    const box = screen.getByRole("combobox");
+    await userEvent.type(box, "typed");
+    await screen.findAllByRole("option");
+    await userEvent.keyboard("{Enter}");
+    expect(box).toHaveValue("typed");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});

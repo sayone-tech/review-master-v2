@@ -175,3 +175,19 @@ describe("AddPriceModal", () => {
     expect(api.createPrice).not.toHaveBeenCalled();
   });
 });
+
+describe("AddPriceModal keyboard", () => {
+  beforeEach(() => {
+    vi.mocked(api.createPrice).mockReset();
+    vi.mocked(api.fetchSuggestions).mockResolvedValue({ results: [] });
+  });
+
+  it("Enter in a price field submits a valid form exactly once", async () => {
+    vi.mocked(api.createPrice).mockResolvedValue(priceRow());
+    const { onSaved } = setup();
+    await fill("gpt-x", "1", "2", "3");
+    await userEvent.type(screen.getByLabelText(CACHED), "{Enter}");
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(api.createPrice).toHaveBeenCalledTimes(1);
+  });
+});
