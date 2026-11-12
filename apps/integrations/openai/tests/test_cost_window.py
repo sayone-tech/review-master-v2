@@ -113,3 +113,18 @@ def test_different_ranges_have_different_hashes():
         for key in ["this_month", "last_month", "7d", "30d", "90d"]
     }
     assert len(hashes) == 5
+
+
+def test_custom_range_including_today_ends_at_the_bucket():
+    params = {"range": "custom", "from": "2026-11-01", "to": "2026-11-12"}
+    a = resolve_cost_window(params=params, now=NOW)
+    b = resolve_cost_window(params=params, now=NOW + timedelta(minutes=3))
+    c = resolve_cost_window(params=params, now=NOW + timedelta(minutes=10))
+    assert a.end == datetime(2026, 11, 12, 15, 30, tzinfo=UTC)
+    assert a.cache_hash() == b.cache_hash() != c.cache_hash()
+
+
+def test_custom_range_entirely_in_the_future_is_empty_not_an_error():
+    params = {"range": "custom", "from": "2026-12-01", "to": "2026-12-05"}
+    w = resolve_cost_window(params=params, now=NOW)
+    assert w.start == w.end == datetime(2026, 12, 1, tzinfo=UTC)

@@ -82,6 +82,12 @@ def resolve_cost_window(*, params: Mapping[str, str], now: datetime | None = Non
         span_days = (to_day - from_day).days + 1
         if span_days > MAX_CUSTOM_SPAN_DAYS:
             raise _invalid(f"Custom range may span at most {MAX_CUSTOM_SPAN_DAYS} days.")
-        return CostWindow(range_key, _midnight(from_day), _midnight(to_day + timedelta(days=1)))
+        start = _midnight(from_day)
+        # A range that includes today ends at the current bucket (like the open-ended
+        # ranges) so the cache key stays stable; a past range keeps its exclusive end.
+        end = min(_midnight(to_day + timedelta(days=1)), _bucket_end(current))
+        if start >= end:  # entirely in the future: empty window, not an error
+            end = start
+        return CostWindow(range_key, start, end)
 
     raise _invalid(f"Unknown range '{range_key}'.")

@@ -66,11 +66,17 @@ const shopUrls = (m: ReturnType<typeof mockApi>) =>
   m.mock.calls.map((c) => c[0] as string).filter((u) => u.includes("/shops/"));
 
 describe("OrgDetail loaded states", () => {
+  it("shows the active-shop count in the Total Cost footer", async () => {
+    mockApi(5);
+    render(<OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} />);
+    expect(await screen.findByText("Across 1 active shop")).toBeInTheDocument();
+  });
+
   it("renders header, KPIs, shop and model rows", async () => {
     mockApi(1);
     render(<OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} />);
     expect(await screen.findByText("Acme")).toBeInTheDocument();
-    expect(screen.getByText("Retail · 1 shop · active in date range")).toBeInTheDocument();
+    expect(screen.getByText("Retail · 1 shop · 1 active in date range")).toBeInTheDocument();
     for (const l of ["Total Cost", "Total API Calls", "Total Input Tokens", "Total Output Tokens"])
       expect(screen.getByText(l)).toBeInTheDocument();
     expect(await screen.findByText("High St")).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { formatCost } from "./format";
+import { formatCost, requestTypeLabel } from "./format";
 import type { RequestTypeCosts } from "./types";
 
 export function RequestTypeBadges({ costs }: { costs: RequestTypeCosts }) {
@@ -9,7 +9,7 @@ export function RequestTypeBadges({ costs }: { costs: RequestTypeCosts }) {
           key={type}
           className="inline-flex items-center gap-1 rounded-sm bg-line-soft px-2 py-0.5 text-[11px] text-ink"
         >
-          <span className="capitalize">{type}</span>
+          <span>{requestTypeLabel(type)}</span>
           <span className="text-muted">{formatCost(cost)}</span>
         </span>
       ))}

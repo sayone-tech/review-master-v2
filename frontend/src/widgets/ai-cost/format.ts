@@ -33,3 +33,19 @@ export function formatUpdatedAgo(generatedAt: string, now: number = Date.now()):
   if (!(mins >= 1)) return "Updated just now";
   return `Updated ${mins} min ago`;
 }
+
+export function titleCase(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/(^|\s|-)\w/g, (m) => m.toUpperCase());
+}
+
+const REQUEST_TYPE_LABELS: Record<string, string> = {
+  enrichment: "Enrichment",
+  reply_generation: "Reply",
+};
+
+export function requestTypeLabel(key: string): string {
+  return REQUEST_TYPE_LABELS[key] ?? titleCase(key);
+}

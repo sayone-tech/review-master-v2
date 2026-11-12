@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, fetchOrgModels, fetchOrgShops, fetchOrgSummary } from "./api";
 import { CAVEAT } from "./AiCostWidget";
-import { formatUpdatedAgo } from "./format";
+import { formatUpdatedAgo, titleCase } from "./format";
 import { KpiRow } from "./KpiRow";
 import { ModelTable } from "./ModelTable";
 import { RangeFilter } from "./RangeFilter";
@@ -20,10 +20,6 @@ interface Props {
   filters: CostFilters;
   onFilters: (f: CostFilters) => void;
   onBack: () => void;
-}
-
-function titleCase(s: string): string {
-  return s.toLowerCase().replace(/(^|[\s_-])\w/g, (m) => m.toUpperCase()).replace(/_/g, " ");
 }
 
 function BackLink({ filters, onBack }: { filters: CostFilters; onBack: () => void }) {
@@ -122,8 +118,8 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
           <>
             <h2 className="mt-1 text-[18px] font-semibold text-ink">{org.name}</h2>
             <p className="text-[13px] text-muted">
-              {titleCase(org.org_type)} · {org.shop_count} {org.shop_count === 1 ? "shop" : "shops"} ·
-              active in date range
+              {titleCase(org.org_type)} · {org.shop_count} {org.shop_count === 1 ? "shop" : "shops"} ·{" "}
+              {summary.totals.active_shops} active in date range
             </p>
           </>
         )}
@@ -140,7 +136,10 @@ export function OrgDetail({ orgId, filters, onFilters, onBack }: Props) {
         </div>
       )}
 
-      {summary && !rangeError && <KpiRow totals={summary.totals} />}
+      {summary && !rangeError && <KpiRow
+          totals={summary.totals}
+          costFooter={`Across ${summary.totals.active_shops} active ${summary.totals.active_shops === 1 ? "shop" : "shops"}`}
+        />}
 
       {empty && (
         <div className="bg-white border border-line rounded-card p-8 text-center">

@@ -31,7 +31,7 @@ describe("ShopTable", () => {
     const rows = screen.getAllByRole("row");
     const last = rows[rows.length - 1];
     expect(within(last).getByText("Unattributed")).toBeInTheDocument();
-    expect(last).toHaveAttribute("title", UNATTRIBUTED_HINT);
+    expect(within(last).getByText(UNATTRIBUTED_HINT)).toHaveClass("sr-only");
     expect(within(last).queryByRole("link")).toBeNull();
     expect(within(last).queryByText("North")).toBeNull();
     expect(within(last).getAllByText("$0.50").length).toBeGreaterThan(0);

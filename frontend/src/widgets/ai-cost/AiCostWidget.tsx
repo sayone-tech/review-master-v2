@@ -5,7 +5,13 @@ import { KpiRow } from "./KpiRow";
 import { OrgDetail } from "./OrgDetail";
 import { OrgTable } from "./OrgTable";
 import { RangeFilter } from "./RangeFilter";
-import { readFilters, writeFilters } from "./urlState";
+import {
+  readFilters,
+  readListState,
+  writeFilters,
+  writeUrlState,
+  type ListState,
+} from "./urlState";
 import {
   PAGE_SIZES,
   type CostFilters,
@@ -25,21 +31,24 @@ function orgIdFromPath(): number | null {
 
 function PlatformView({
   filters,
+  list,
   onFilters,
+  onList,
   onOpen,
 }: {
   filters: CostFilters;
+  list: ListState;
   onFilters: (f: CostFilters) => void;
+  onList: (l: ListState) => void;
   onOpen: (orgId: number) => void;
 }) {
+  const { page, pageSize, sort } = list;
   const [summary, setSummary] = useState<CostSummaryResponse | null>(null);
   const [orgs, setOrgs] = useState<OrgListResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(25);
-  const [sort, setSort] = useState("-cost");
+  const setPage = (fn: (p: number) => number) => onList({ ...list, page: fn(page) });
 
   const load = useCallback(() => {
     let cancelled = false;
@@ -68,7 +77,6 @@ function PlatformView({
   useEffect(() => load(), [load]);
 
   const changeFilters = (f: CostFilters) => {
-    setPage(1);
     onFilters(f);
   };
 
@@ -109,8 +117,7 @@ function PlatformView({
             rows={orgs.results}
             sort={sort}
             onSort={(s) => {
-              setPage(1);
-              setSort(s);
+              onList({ ...list, page: 1, sort: s });
             }}
             onOpen={onOpen}
             query={writeFilters(filters)}
@@ -125,8 +132,7 @@ function PlatformView({
                 className="h-8 rounded-sm border border-line bg-white px-1"
                 value={pageSize}
                 onChange={(e) => {
-                  setPage(1);
-                  setPageSize(Number(e.target.value));
+                  onList({ ...list, page: 1, pageSize: Number(e.target.value) });
                 }}
               >
                 {PAGE_SIZES.map((n) => (
@@ -172,19 +178,34 @@ function PlatformView({
 export function AiCostWidget({ orgId: initialOrgId }: { orgId: number | null }) {
   const [orgId, setOrgId] = useState<number | null>(initialOrgId);
   const [filters, setFilters] = useState<CostFilters>(() => readFilters(window.location.search));
+  const [list, setList] = useState<ListState>(() => readListState(window.location.search));
 
   useEffect(() => {
     const onPop = () => {
       setOrgId(orgIdFromPath());
       setFilters(readFilters(window.location.search));
+      setList(readListState(window.location.search));
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // The list state is only part of the URL on the platform view.
+  const sync = (f: CostFilters, l: ListState, id: number | null) => {
+    const query = id === null ? writeUrlState(f, l) : writeFilters(f);
+    window.history.replaceState(null, "", `${window.location.pathname}${query}`);
+  };
+
   const changeFilters = (f: CostFilters) => {
-    window.history.replaceState(null, "", `${window.location.pathname}${writeFilters(f)}`);
+    const l = { ...list, page: 1 };
+    sync(f, l, orgId);
     setFilters(f);
+    setList(l);
+  };
+
+  const changeList = (l: ListState) => {
+    sync(filters, l, orgId);
+    setList(l);
   };
 
   const openOrg = (id: number) => {
@@ -199,14 +220,20 @@ export function AiCostWidget({ orgId: initialOrgId }: { orgId: number | null }) 
         <p className="text-[13px] text-muted">Platform-wide OpenAI spend</p>
       </div>
       {orgId === null ? (
-        <PlatformView filters={filters} onFilters={changeFilters} onOpen={openOrg} />
+        <PlatformView
+          filters={filters}
+          list={list}
+          onFilters={changeFilters}
+          onList={changeList}
+          onOpen={openOrg}
+        />
       ) : (
         <OrgDetail
           orgId={orgId}
           filters={filters}
           onFilters={changeFilters}
           onBack={() => {
-            window.history.pushState(null, "", `/admin/ai-cost/${writeFilters(filters)}`);
+            window.history.pushState(null, "", `/admin/ai-cost/${writeUrlState(filters, list)}`);
             setOrgId(null);
           }}
         />

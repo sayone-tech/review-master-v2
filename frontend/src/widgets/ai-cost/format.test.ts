@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { avgPerCall, formatCost, formatCount, formatTokens } from "./format";
+import {
+  avgPerCall,
+  formatCost,
+  formatCount,
+  formatTokens,
+  requestTypeLabel,
+  titleCase,
+} from "./format";
 
 describe("format", () => {
   it("formats cost with separators and 2dp", () => {
@@ -17,5 +24,16 @@ describe("format", () => {
   it("avgPerCall is 0 when no calls", () => {
     expect(avgPerCall(500, 0)).toBe(0);
     expect(avgPerCall(500, 2)).toBe(250);
+  });
+});
+
+describe("labels", () => {
+  it("maps known request types and humanises unknown ones", () => {
+    expect(requestTypeLabel("reply_generation")).toBe("Reply");
+    expect(requestTypeLabel("enrichment")).toBe("Enrichment");
+    expect(requestTypeLabel("tag_merge")).toBe("Tag Merge");
+  });
+  it("title-cases", () => {
+    expect(titleCase("RETAIL")).toBe("Retail");
   });
 });

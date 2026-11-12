@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { CostFilters, RangeKey } from "./types";
 
 const OPTIONS: { key: RangeKey; label: string }[] = [
@@ -20,16 +21,41 @@ export function RangeFilter({
   onChange: (f: CostFilters) => void;
   error?: string | null;
 }) {
+  // Custom dates live locally until both are set and ordered, so half-filled
+  // input never reaches the API (which would 400 and blank the page).
+  const [customPending, setCustomPending] = useState(false);
+  const [from, setFrom] = useState(filters.from ?? "");
+  const [to, setTo] = useState(filters.to ?? "");
+
+  useEffect(() => {
+    setCustomPending(false);
+    setFrom(filters.from ?? "");
+    setTo(filters.to ?? "");
+  }, [filters.range, filters.from, filters.to]);
+
+  const showCustom = customPending || filters.range === "custom";
+  const ordered = from !== "" && to !== "" && from <= to;
+  const invalidOrder = from !== "" && to !== "" && from > to;
+
+  const commit = (f: string, t: string) => {
+    if (f && t && f <= t) onChange({ range: "custom", from: f, to: t });
+  };
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
         <select
           aria-label="Date range"
           className={inputCls}
-          value={filters.range}
+          value={showCustom ? "custom" : filters.range}
           onChange={(e) => {
             const range = e.target.value as RangeKey;
-            onChange(range === "custom" ? { ...filters, range } : { range });
+            if (range === "custom") {
+              setCustomPending(true);
+              commit(from, to);
+            } else {
+              setCustomPending(false);
+              onChange({ range });
+            }
           }}
         >
           {OPTIONS.map((o) => (
@@ -38,25 +64,36 @@ export function RangeFilter({
             </option>
           ))}
         </select>
-        {filters.range === "custom" && (
+        {showCustom && (
           <>
             <input
               type="date"
               aria-label="From date"
               className={inputCls}
-              value={filters.from ?? ""}
-              onChange={(e) => onChange({ ...filters, from: e.target.value || undefined })}
+              value={from}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                commit(e.target.value, to);
+              }}
             />
             <input
               type="date"
               aria-label="To date"
               className={inputCls}
-              value={filters.to ?? ""}
-              onChange={(e) => onChange({ ...filters, to: e.target.value || undefined })}
+              value={to}
+              onChange={(e) => {
+                setTo(e.target.value);
+                commit(from, e.target.value);
+              }}
             />
           </>
         )}
       </div>
+      {invalidOrder && !ordered && (
+        <p role="alert" className="mt-1 text-[12px] text-red-600">
+          &lsquo;From&rsquo; must be on or before &lsquo;To&rsquo;.
+        </p>
+      )}
       {error && (
         <p role="alert" className="mt-1 text-[12px] text-red-600">
           {error}

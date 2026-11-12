@@ -30,7 +30,13 @@ function Card({
   );
 }
 
-export function KpiRow({ totals }: { totals: CostSummaryTotals }) {
+export function KpiRow({
+  totals,
+  costFooter,
+}: {
+  totals: CostSummaryTotals;
+  costFooter?: string;
+}) {
   const avg = (tokens: number) => formatCount(Math.round(avgPerCall(tokens, totals.success_calls)));
   const orgs = `${formatCount(totals.org_count)} ${totals.org_count === 1 ? "organisation" : "organisations"}`;
   return (
@@ -39,7 +45,7 @@ export function KpiRow({ totals }: { totals: CostSummaryTotals }) {
         icon={<CircleDollarSign size={14} />}
         label="Total Cost"
         value={formatCost(totals.cost)}
-        footer={`Across ${orgs}`}
+        footer={costFooter ?? `Across ${orgs}`}
       />
       <Card
         icon={<Phone size={14} />}

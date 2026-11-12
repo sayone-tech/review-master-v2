@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, Info } from "lucide-react";
 import { formatCost, formatCount, formatTokens } from "./format";
 import { RequestTypeBadges } from "./RequestTypeBadges";
 import type { ShopCostRow, ShopSortKey, UnattributedCost } from "./types";
@@ -78,8 +78,14 @@ export function ShopTable({ rows, unattributed, sort, onSort }: Props) {
           </tr>
         ))}
         {unattributed && (
-          <tr data-testid="unattributed-row" className="text-muted" title={UNATTRIBUTED_HINT}>
-            <td className="px-4 py-3 italic">Unattributed</td>
+          <tr data-testid="unattributed-row" className="text-muted">
+            <td className="px-4 py-3 italic">
+              Unattributed
+              <span title={UNATTRIBUTED_HINT} className="ml-1 inline-flex align-middle not-italic">
+                <Info size={12} aria-hidden="true" />
+                <span className="sr-only">{UNATTRIBUTED_HINT}</span>
+              </span>
+            </td>
             <td className="px-4 py-3 text-right">{formatCount(unattributed.calls)}</td>
             <td className="px-4 py-3 text-right" title={formatCount(unattributed.input_tokens)}>
               {formatTokens(unattributed.input_tokens)}

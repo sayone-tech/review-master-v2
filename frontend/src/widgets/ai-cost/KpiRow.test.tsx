@@ -29,6 +29,11 @@ describe("KpiRow", () => {
     render(<KpiRow totals={{ ...base, org_count: 1 }} />);
     expect(screen.getByText("Across 1 organisation")).toBeTruthy();
   });
+  it("accepts a footer override for the cost card", () => {
+    render(<KpiRow totals={base} costFooter="Across 2 active shops" />);
+    expect(screen.getByText("Across 2 active shops")).toBeTruthy();
+    expect(screen.queryByText(/organisation/)).toBeNull();
+  });
   it("averages are 0 with no successful calls", () => {
     render(<KpiRow totals={{ ...base, success_calls: 0 }} />);
     expect(screen.getAllByText("Avg 0 per call")).toHaveLength(2);
