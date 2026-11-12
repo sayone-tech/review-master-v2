@@ -129,3 +129,13 @@ def test_second_call_is_served_from_cache(superadmin_client, django_assert_max_n
 def test_views_are_throttled():
     assert AiCostSummaryView.throttle_scope == "superadmin_ai_cost_read"
     assert AiCostOrganisationListView.throttle_scope == "superadmin_ai_cost_read"
+
+
+def test_summary_query_ceiling(superadmin_client, assert_query_ceiling):
+    for _ in range(40):
+        org = OrganisationFactory()
+        for _ in range(3):
+            AiUsageLogFactory(organisation=org)
+    with CaptureQueriesContext(connection) as ctx:
+        assert superadmin_client.get(SUMMARY_URL).status_code == 200
+    assert_query_ceiling(ctx, max_queries=2)  # aggregate + exists
