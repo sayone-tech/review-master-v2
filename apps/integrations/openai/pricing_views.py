@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework.exceptions import ValidationError
+from rest_framework import status
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
 from apps.accounts.permissions import IsSuperadmin
 from apps.common.pagination import DefaultPageNumberPagination
+from apps.integrations.openai.models import AiPricing
 from apps.integrations.openai.selectors.pricing import (
     invalidate_missing_pricing_cache,
     list_missing_pricing_models,
@@ -23,12 +26,19 @@ from apps.integrations.openai.selectors.pricing import (
     list_price_summary,
 )
 from apps.integrations.openai.serializers import (
+    AiPriceCreateSerializer,
     MissingModelsResponseSerializer,
     ModelSuggestionsResponseSerializer,
     PriceHistoryListResponseSerializer,
     PriceRowSerializer,
     PriceSummaryListResponseSerializer,
     PriceSummaryRowSerializer,
+)
+from apps.integrations.openai.services.pricing_management import (
+    BackdatedPriceError,
+    PricingError,
+    add_price,
+    delete_scheduled_price,
 )
 from apps.integrations.openai.views import _generated_at
 
@@ -53,8 +63,22 @@ def _missing_payload() -> dict[str, Any]:
     )
 
 
+def _pricing_error_response(exc: PricingError) -> Response:
+    """400 for a bad request (backdating), 409 for a state conflict."""
+    code = status.HTTP_400_BAD_REQUEST if isinstance(exc, BackdatedPriceError) else 409
+    return Response({"code": exc.code, "detail": exc.detail}, status=code)
+
+
 class AiPricingListView(_AiPricingBaseView):
-    """GET /api/v1/superadmin/ai-pricing/ (Superadmin only)."""
+    """GET (read scope) and POST (write scope) /api/v1/superadmin/ai-pricing/ (Superadmin only)."""
+
+    def get_throttles(self) -> list[Any]:
+        self.throttle_scope = (
+            "superadmin_ai_pricing_write"
+            if self.request.method == "POST"
+            else "superadmin_ai_pricing_read"
+        )
+        return super().get_throttles()
 
     @extend_schema(
         parameters=[
@@ -78,6 +102,52 @@ class AiPricingListView(_AiPricingBaseView):
         )
         data = PriceSummaryRowSerializer(page, many=True, context={"now": now}).data
         return paginator.get_paginated_response(data)
+
+    @extend_schema(
+        request=AiPriceCreateSerializer,
+        responses={
+            201: PriceRowSerializer,
+            400: OpenApiResponse(description="Validation error or code=backdated"),
+            409: OpenApiResponse(description="code=scheduled_price_exists or concurrent_change"),
+            **PRICING_ERRORS,
+        },
+        tags=[PRICING_TAG],
+    )
+    def post(self, request: Request) -> Response:
+        serializer = AiPriceCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            row = add_price(**serializer.validated_data, actor=cast(User, request.user))
+        except PricingError as exc:
+            return _pricing_error_response(exc)
+        except ValueError as exc:  # service rejects a blank model; the serializer normally does
+            raise ValidationError({"model": ["This field may not be blank."]}) from exc
+        data = PriceRowSerializer(row, context={"now": timezone.now()}).data
+        return Response(data, status=status.HTTP_201_CREATED)
+
+
+class AiPricingDetailView(_AiPricingBaseView):
+    """DELETE /api/v1/superadmin/ai-pricing/<id>/ — remove a scheduled price (Superadmin only)."""
+
+    throttle_scope = "superadmin_ai_pricing_write"
+
+    @extend_schema(
+        responses={
+            204: OpenApiResponse(description="Deleted"),
+            404: OpenApiResponse(description="Unknown price"),
+            409: OpenApiResponse(description="code=price_not_scheduled"),
+            **PRICING_ERRORS,
+        },
+        tags=[PRICING_TAG],
+    )
+    def delete(self, request: Request, pk: int) -> Response:
+        try:
+            delete_scheduled_price(pricing_id=pk, actor=cast(User, request.user))
+        except AiPricing.DoesNotExist as exc:
+            raise NotFound from exc
+        except PricingError as exc:
+            return _pricing_error_response(exc)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AiPricingHistoryView(_AiPricingBaseView):

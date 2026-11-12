@@ -6,6 +6,7 @@ Shape-only: decimals render as strings with exactly six decimal places.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from django.utils import timezone
@@ -125,6 +126,12 @@ def price_field() -> serializers.DecimalField:
     return serializers.DecimalField(max_digits=12, decimal_places=8)
 
 
+def write_price_field() -> serializers.DecimalField:
+    return serializers.DecimalField(
+        max_digits=12, decimal_places=8, min_value=Decimal(0), max_value=Decimal(1000)
+    )
+
+
 class PriceRowSerializer(serializers.ModelSerializer[AiPricing]):
     """One ``AiPricing`` row. Pass ``context={"now": ...}`` to pin the status clock."""
 
@@ -172,6 +179,16 @@ class PriceRowSerializer(serializers.ModelSerializer[AiPricing]):
 
     def get_can_delete(self, obj: AiPricing) -> bool:
         return self.get_status(obj) == "scheduled"
+
+
+class AiPriceCreateSerializer(serializers.Serializer[Any]):
+    """Input for adding/scheduling a price; validation only (the service does the work)."""
+
+    model = serializers.CharField(min_length=1, max_length=100)
+    input_token_price_per_1m = write_price_field()
+    output_token_price_per_1m = write_price_field()
+    cached_token_price_per_1m = write_price_field()
+    effective_from = serializers.DateTimeField()
 
 
 class PriceSummaryRowSerializer(serializers.Serializer[Any]):

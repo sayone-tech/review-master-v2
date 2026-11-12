@@ -5,6 +5,7 @@ from __future__ import annotations
 from django.urls import path
 
 from apps.integrations.openai.pricing_views import (
+    AiPricingDetailView,
     AiPricingHistoryView,
     AiPricingListView,
     AiPricingMissingRefreshView,
@@ -46,6 +47,11 @@ urlpatterns = [
         name="superadmin-ai-cost-org-models",
     ),
     path("superadmin/ai-pricing/", AiPricingListView.as_view(), name="superadmin-ai-pricing-list"),
+    path(
+        "superadmin/ai-pricing/<int:pk>/",
+        AiPricingDetailView.as_view(),
+        name="superadmin-ai-pricing-detail",
+    ),
     path(
         "superadmin/ai-pricing/history/",
         AiPricingHistoryView.as_view(),

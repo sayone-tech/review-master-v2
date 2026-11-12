@@ -255,3 +255,216 @@ def test_query_count_is_independent_of_row_count(superadmin_client, url, params,
     large = _count(superadmin_client, url, params)
     assert large == small
     assert large <= ceiling
+
+
+# ---------------------------------------------------------------- write APIs
+
+
+def _detail_url(pk):
+    return reverse("superadmin-ai-pricing-detail", args=[pk])
+
+
+def _payload(**over):
+    body = {
+        "model": "gpt-new",
+        "input_token_price_per_1m": "1.50000000",
+        "output_token_price_per_1m": "6.00000000",
+        "cached_token_price_per_1m": "0.75000000",
+        "effective_from": (timezone.now() + timedelta(days=2)).isoformat(),
+    }
+    body.update(over)
+    return body
+
+
+@pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])
+def test_non_superadmin_cannot_write(db, factory):
+    row = AiPricingFactory(effective_from=timezone.now() + timedelta(days=3), effective_to=None)
+    c = APIClient()
+    c.force_authenticate(factory())
+    assert c.post(LIST_URL, _payload(), format="json").status_code == 403
+    assert c.delete(_detail_url(row.pk)).status_code == 403
+    assert AiPricing.objects.filter(pk=row.pk).exists()
+
+
+def test_anonymous_cannot_write(db):
+    assert APIClient().post(LIST_URL, _payload(), format="json").status_code in (401, 403)
+    assert APIClient().delete(_detail_url(1)).status_code in (401, 403)
+
+
+def test_post_creates_scheduled_row_with_audit(superadmin_client):
+    r = superadmin_client.post(LIST_URL, _payload(model="  gpt-new  "), format="json")
+    assert r.status_code == 201
+    body = r.json()
+    assert set(body) == ROW_KEYS
+    assert body["model"] == "gpt-new"
+    assert body["input_token_price_per_1m"] == "1.50000000"
+    assert body["status"] == "scheduled"
+    assert body["can_delete"] is True
+    assert body["source"] == "manual"
+    row = AiPricing.objects.get(pk=body["id"])
+    assert row.created_by is not None
+    assert body["created_by"]["id"] == row.created_by_id
+    from apps.common.models import AuditLog
+
+    log = AuditLog.objects.get(entity_type="ai_pricing", entity_id=str(row.pk))
+    assert log.organisation_id is None
+    assert log.actor_id == row.created_by_id
+    assert log.action == "ai_pricing.added"
+
+
+def test_post_immediate_price_closes_open_row(superadmin_client):
+    old = AiPricingFactory(model="gpt-new", effective_from=PAST, effective_to=None)
+    r = superadmin_client.post(
+        LIST_URL, _payload(effective_from=timezone.now().isoformat()), format="json"
+    )
+    assert r.status_code == 201
+    assert r.json()["status"] == "current"
+    old.refresh_from_db()
+    assert old.effective_to is not None
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("input_token_price_per_1m", "-0.00000001"),
+        ("output_token_price_per_1m", "1000.00000001"),
+        ("cached_token_price_per_1m", "0.123456789"),
+        ("input_token_price_per_1m", "abc"),
+        ("effective_from", "not-a-date"),
+        ("model", ""),
+        ("model", "   "),
+        ("model", "x" * 101),
+    ],
+)
+def test_post_validation_errors(superadmin_client, field, value):
+    r = superadmin_client.post(LIST_URL, _payload(**{field: value}), format="json")
+    assert r.status_code == 400
+    assert field in r.json()
+    assert not AiPricing.objects.exists()
+
+
+def test_post_missing_fields_400(superadmin_client):
+    r = superadmin_client.post(LIST_URL, {}, format="json")
+    assert r.status_code == 400
+    assert set(r.json()) == {
+        "model",
+        "input_token_price_per_1m",
+        "output_token_price_per_1m",
+        "cached_token_price_per_1m",
+        "effective_from",
+    }
+
+
+def test_post_accepts_boundary_prices(superadmin_client):
+    r = superadmin_client.post(
+        LIST_URL,
+        _payload(input_token_price_per_1m="0", output_token_price_per_1m="1000.00000000"),
+        format="json",
+    )
+    assert r.status_code == 201
+
+
+def test_post_backdated_400(superadmin_client):
+    r = superadmin_client.post(
+        LIST_URL,
+        _payload(effective_from=(timezone.now() - timedelta(hours=1)).isoformat()),
+        format="json",
+    )
+    assert r.status_code == 400
+    assert r.json()["code"] == "backdated"
+    assert isinstance(r.json()["detail"], str)
+    assert not AiPricing.objects.exists()
+
+
+def test_post_second_scheduled_409(superadmin_client):
+    AiPricingFactory(model="gpt-new", effective_from=PAST, effective_to=None)
+    assert superadmin_client.post(LIST_URL, _payload(), format="json").status_code == 201
+    r = superadmin_client.post(
+        LIST_URL,
+        _payload(effective_from=(timezone.now() + timedelta(days=9)).isoformat()),
+        format="json",
+    )
+    assert r.status_code == 409
+    assert r.json()["code"] == "scheduled_price_exists"
+    assert AiPricing.objects.filter(model="gpt-new").count() == 2
+
+
+def test_post_concurrent_change_maps_to_409(superadmin_client):
+    from apps.integrations.openai.services.pricing_management import ConcurrentPriceChangeError
+
+    with patch(
+        "apps.integrations.openai.pricing_views.add_price", side_effect=ConcurrentPriceChangeError
+    ):
+        r = superadmin_client.post(LIST_URL, _payload(), format="json")
+    assert r.status_code == 409
+    assert r.json()["code"] == "concurrent_change"
+
+
+def test_post_service_value_error_maps_to_400(superadmin_client):
+    with patch("apps.integrations.openai.pricing_views.add_price", side_effect=ValueError("x")):
+        r = superadmin_client.post(LIST_URL, _payload(), format="json")
+    assert r.status_code == 400
+    assert r.json() == {"model": ["This field may not be blank."]}
+
+
+def test_delete_scheduled_reopens_previous(superadmin_client):
+    from apps.common.models import AuditLog
+
+    _, current, scheduled = _scheduled_pair("gpt-x")
+    r = superadmin_client.delete(_detail_url(scheduled.pk))
+    assert r.status_code == 204
+    assert r.content == b""
+    assert not AiPricing.objects.filter(pk=scheduled.pk).exists()
+    current.refresh_from_db()
+    assert current.effective_to is None
+    log = AuditLog.objects.get(entity_type="ai_pricing", action="ai_pricing.deleted")
+    assert log.organisation_id is None
+    assert log.entity_id == str(scheduled.pk)
+
+
+def test_delete_current_409(superadmin_client):
+    _, current, _ = _scheduled_pair("gpt-x")
+    r = superadmin_client.delete(_detail_url(current.pk))
+    assert r.status_code == 409
+    assert r.json()["code"] == "price_not_scheduled"
+    assert AiPricing.objects.filter(pk=current.pk).exists()
+
+
+def test_delete_unknown_404(superadmin_client):
+    assert superadmin_client.delete(_detail_url(999999)).status_code == 404
+
+
+def test_write_invalidates_missing_cache(
+    superadmin_client, settings, django_capture_on_commit_callbacks
+):
+    settings.OPENAI_MODEL = "gpt-new"
+    assert len(superadmin_client.get(MISSING_URL).json()["models"]) == 1
+    with django_capture_on_commit_callbacks(execute=True):
+        superadmin_client.post(
+            LIST_URL, _payload(effective_from=timezone.now().isoformat()), format="json"
+        )
+    assert superadmin_client.get(MISSING_URL).json()["models"] == []
+
+
+def test_throttle_scopes_are_per_method(db, settings):
+    rates = dict(settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"])
+    rates["superadmin_ai_pricing_write"] = "1/minute"
+    client = APIClient()
+    client.force_authenticate(UserFactory(role=User.Role.SUPERADMIN))
+    with patch.object(ScopedRateThrottle, "THROTTLE_RATES", rates):
+        assert client.get(LIST_URL).status_code == 200  # read scope unaffected by write limit
+        assert client.get(LIST_URL).status_code == 200
+        assert client.post(LIST_URL, _payload(), format="json").status_code == 201
+        assert client.post(LIST_URL, _payload(model="other"), format="json").status_code == 429
+        assert client.delete(_detail_url(1)).status_code == 429
+
+
+def test_write_query_ceilings(superadmin_client):
+    _seed(10)
+    with CaptureQueriesContext(connection) as ctx:
+        r = superadmin_client.post(LIST_URL, _payload(), format="json")
+    assert r.status_code == 201
+    assert len(ctx.captured_queries) <= 8
+    with CaptureQueriesContext(connection) as ctx:
+        assert superadmin_client.delete(_detail_url(r.json()["id"])).status_code == 204
+    assert len(ctx.captured_queries) <= 8
