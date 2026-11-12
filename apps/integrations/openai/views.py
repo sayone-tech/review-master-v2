@@ -10,8 +10,11 @@ import hashlib
 from collections.abc import Callable
 from typing import Any
 
+from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db.models import Count
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.shortcuts import render
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import serializers
@@ -22,6 +25,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
 from apps.accounts.permissions import IsSuperadmin
 from apps.common.pagination import DefaultPageNumberPagination
 from apps.integrations.openai.cost_window import resolve_cost_window
@@ -315,3 +319,12 @@ class AiCostOrgModelsView(_AiCostBaseView):
             )
 
         return Response(_cached("org-models", request, build))
+
+
+@login_required
+def ai_cost_page(request: HttpRequest, org_id: int | None = None) -> HttpResponse:
+    """Superadmin AI Cost Explorer page shell; the React entrypoint renders the content."""
+    user = request.user
+    if not isinstance(user, User) or user.role != User.Role.SUPERADMIN:
+        return HttpResponseForbidden()
+    return render(request, "ai_cost/explorer.html", {"org_id": org_id})

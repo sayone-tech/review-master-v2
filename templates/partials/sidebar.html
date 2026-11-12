@@ -27,6 +27,7 @@
         {% if user.role == 'SUPERADMIN' %}
           {% include "partials/_nav_item.html" with href="/" icon="layout-dashboard" label="Dashboard" %}
           {% include "partials/_nav_item.html" with href="/admin/organisations/" icon="building-2" label="Organisations" %}
+          {% include "partials/_nav_item.html" with href="/admin/ai-cost/" icon="zap" label="AI Cost" %}
           {% include "partials/_nav_item.html" with href="/django-admin/" icon="shield" label="Django Admin" %}
           {% include "partials/_nav_item.html" with href="/api/v1/schema/scalar/" icon="file-code" label="API Docs" %}
         {% elif user.role == 'ORG_ADMIN' %}

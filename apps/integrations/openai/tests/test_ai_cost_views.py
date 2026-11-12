@@ -299,3 +299,55 @@ def test_drilldown_query_ceilings(superadmin_client, assert_query_ceiling):
         with CaptureQueriesContext(connection) as ctx:
             assert superadmin_client.get(url_for(org.id)).status_code == 200
         assert_query_ceiling(ctx, max_queries=ceiling)
+
+
+# --- Page shell (Task 6) ---
+
+
+def _superadmin_client(client):
+    from apps.accounts.tests.factories import UserFactory
+
+    client.force_login(UserFactory())
+    return client
+
+
+def test_page_renders_for_superadmin(client, db):
+    _superadmin_client(client)
+    resp = client.get("/admin/ai-cost/")
+    assert resp.status_code == 200
+    assert b'id="ai-cost-root"' in resp.content
+    org = OrganisationFactory()
+    resp = client.get(f"/admin/ai-cost/organisations/{org.pk}/")
+    assert resp.status_code == 200
+    assert b'id="ai-cost-root"' in resp.content
+
+
+def test_org_detail_page_passes_org_id(client, db):
+    _superadmin_client(client)
+    org = OrganisationFactory()
+    resp = client.get(reverse("ai_cost_org_detail", args=[org.pk]))
+    assert f'data-org-id="{org.pk}"'.encode() in resp.content
+    assert b'data-org-id=""' in client.get(reverse("ai_cost_explorer")).content
+
+
+@pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])
+def test_page_forbidden_for_tenants(client, db, factory):
+    client.force_login(factory())
+    assert client.get("/admin/ai-cost/").status_code == 403
+    assert client.get("/admin/ai-cost/organisations/1/").status_code == 403
+
+
+def test_page_redirects_anonymous(client, db):
+    resp = client.get("/admin/ai-cost/")
+    assert resp.status_code == 302
+
+
+def test_sidebar_shows_ai_cost_only_for_superadmin(client, db):
+    _superadmin_client(client)
+    assert b'href="/admin/ai-cost/"' in client.get("/admin/ai-cost/").content
+    client.logout()
+    org_admin = OrgAdminFactory(organisation=OrganisationFactory())
+    client.force_login(org_admin)
+    resp = client.get("/admin/org/shops/")
+    assert resp.status_code == 200
+    assert b"/admin/ai-cost/" not in resp.content

@@ -78,6 +78,7 @@ urlpatterns = [
         name="schema-redoc",
     ),
     path("", include("apps.organisations.urls")),
+    path("", include("apps.integrations.openai.urls")),
     path("", include("apps.accounts.urls")),
     path("", include("apps.common.urls")),
     path("", include("apps.shops.urls")),
