@@ -170,4 +170,39 @@ describe("SyncBanner", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
     expect(await screen.findByText(/Automatic pricing sync is off/)).toBeInTheDocument();
   });
+
+  it("shows a failed run even when sync is off, keeps Enable sync and opens details", async () => {
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(
+      syncStatus({
+        enabled: false,
+        last_status: "failed",
+        last_error: "fetch failed: timeout",
+        last_run_at: "2026-11-12T09:00:03Z",
+      }),
+    );
+    render(<SyncBanner onChanged={vi.fn()} />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Last sync failed Nov 12, 2026. Click to view details." }),
+    );
+    expect(screen.getByText("fetch failed: timeout")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enable sync" })).toBeInTheDocument();
+  });
+
+  it("a disabled Sync Now that fails turns the banner amber after the 30 s refetch", async () => {
+    vi.mocked(api.fetchSyncStatus).mockResolvedValueOnce(syncStatus());
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(
+      syncStatus({ last_status: "failed", last_error: "boom", last_run_at: "2026-11-12T09:00:03Z" }),
+    );
+    vi.mocked(api.triggerSync).mockResolvedValue(undefined);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<SyncBanner onChanged={vi.fn()} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Sync Now" }));
+    await screen.findByText(/Sync started/);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(
+      await screen.findByRole("button", { name: "Last sync failed Nov 12, 2026. Click to view details." }),
+    ).toBeInTheDocument();
+  });
 });

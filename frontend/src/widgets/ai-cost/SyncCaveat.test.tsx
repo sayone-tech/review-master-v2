@@ -22,6 +22,7 @@ describe("syncStatusWord", () => {
       syncStatusWord(syncStatus({ enabled: true, last_status: "failed", last_success_at: "2026-11-12T01:00:00Z" }), NOW),
     ).toBe("sync failed");
     expect(syncStatusWord(syncStatus({ enabled: true }), NOW)).toBe("not synced yet");
+    expect(syncStatusWord(syncStatus({ enabled: false, last_status: "failed" }), NOW)).toBe("sync failed");
   });
 });
 

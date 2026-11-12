@@ -8,10 +8,10 @@ const CAVEAT =
 const DAY_MS = 86_400_000;
 const utcDay = (d: Date) => Math.floor(d.getTime() / DAY_MS);
 
-/** Status word for the footer, or null when it cannot be stated. */
+/** Status word for the footer. A failed last run takes precedence, even when sync is off. */
 export function syncStatusWord(s: SyncStatus, now: Date = new Date()): string {
-  if (!s.enabled) return "sync off";
   if (s.last_status === "failed") return "sync failed";
+  if (!s.enabled) return "sync off";
   if (!s.last_success_at) return "not synced yet";
   const days = utcDay(now) - utcDay(new Date(s.last_success_at));
   if (days <= 0) return "synced today";

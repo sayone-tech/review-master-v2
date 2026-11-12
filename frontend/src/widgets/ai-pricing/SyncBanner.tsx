@@ -101,7 +101,7 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM }: Props) {
     ) : null;
   }
 
-  const failed = status.enabled && status.last_status === "failed";
+  const failed = status.last_status === "failed";
   const attention = failed || (status.enabled && status.overdue);
   const tone = attention
     ? "bg-amber-50 border-amber-300"
