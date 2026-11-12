@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import environ
@@ -181,6 +182,17 @@ AI_PRICING_KNOWN_FREE_MODELS = env.list(
     default=["omni-moderation-latest", "text-moderation-latest", "text-moderation-stable"],
 )
 AI_PRICING_MISSING_CACHE_TTL_SECONDS = env.int("AI_PRICING_MISSING_CACHE_TTL_SECONDS", default=600)
+# Phase 36: LiteLLM price auto-sync. The on/off switch lives in the DB, not here.
+AI_PRICING_SYNC_SOURCE_URL = env(
+    "AI_PRICING_SYNC_SOURCE_URL",
+    default=(
+        "https://raw.githubusercontent.com/BerriAI/litellm/main/"
+        "model_prices_and_context_window.json"
+    ),
+)
+AI_PRICING_SYNC_TOLERANCE_USD_PER_1M = Decimal(
+    env("AI_PRICING_SYNC_TOLERANCE_USD_PER_1M", default="0.000001")
+)
 
 LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
 LANGSMITH_ENDPOINT = env("LANGSMITH_ENDPOINT", default="https://api.smith.langchain.com")
