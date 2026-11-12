@@ -74,15 +74,27 @@ def test_source_and_created_by_defaults():
     assert row2.created_by_id is not None
 
 
-def test_existing_rows_backfilled_as_seed():
+def test_backfill_marks_only_the_0002_seed_row_as_seed():
     migration = importlib.import_module(
         "apps.integrations.openai.migrations.0005_ai_pricing_source_created_by"
     )
-    # The seeded gpt-4o-mini row is created by 0002 in migrated DBs; here create one explicitly.
-    row = AiPricingFactory(model="legacy", source="manual")
-    migration.backfill_seed_source(django_apps, None)
-    row.refresh_from_db()
-    assert row.source == AiPricing.Source.SEED
+    seed = AiPricing.objects.get(
+        model=migration.SEED_MODEL, effective_from=migration.SEED_EFFECTIVE_FROM
+    )
+    AiPricing.objects.filter(pk=seed.pk).update(source="sync")  # pre-backfill noise
+    admin_row = AiPricingFactory(model="legacy", source="seed")
+    same_model_later = AiPricingFactory(
+        model=migration.SEED_MODEL,
+        effective_from=migration.SEED_EFFECTIVE_FROM + timedelta(days=1),
+        effective_to=migration.SEED_EFFECTIVE_FROM + timedelta(days=2),  # one open row/model
+        source="seed",
+    )
+    migration.backfill_source(django_apps, None)
+    for row in (seed, admin_row, same_model_later):
+        row.refresh_from_db()
+    assert seed.source == AiPricing.Source.SEED
+    assert admin_row.source == AiPricing.Source.MANUAL
+    assert same_model_later.source == AiPricing.Source.MANUAL
 
 
 def test_calculate_cost_unchanged_with_scheduled_row():

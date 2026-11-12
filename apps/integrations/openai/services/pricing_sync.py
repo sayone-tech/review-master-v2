@@ -208,6 +208,61 @@ def _sync_audit(action: str, after_data: dict[str, Any]) -> None:
     )
 
 
+def _record_failure(*, now: datetime, error: str) -> SyncSummary:
+    # update() on pk=1 so a concurrent toggle's ``enabled`` is never overwritten.
+    AiPricingSyncConfig.objects.filter(pk=1).update(
+        last_status=AiPricingSyncConfig.Status.FAILED, last_error=error, updated_at=now
+    )
+    _sync_audit("ai_pricing.sync_failed", {"error": error})
+    return SyncSummary(outcome=SyncOutcome.FAILED, error=error)
+
+
+def _run_locked(*, now: datetime, transport: httpx.BaseTransport | None) -> SyncSummary:
+    AiPricingSyncConfig.load()
+    config = AiPricingSyncConfig.objects.filter(pk=1)
+    config.update(last_run_at=now, updated_at=now)
+
+    try:
+        catalog = fetch_litellm_catalog(transport=transport)
+    except LiteLLMFetchError as exc:
+        logger.warning("ai_pricing.sync_failed error=%s", exc)
+        return _record_failure(now=now, error=str(exc))
+
+    summary = SyncSummary(outcome=SyncOutcome.COMPLETED)
+    models = set(list_recent_usage_models(now=now, use_cache=False))
+    models.add(settings.OPENAI_MODEL)
+    for model in sorted(models):
+        try:
+            # Savepoint: a DB error for one model never poisons the next one's queries.
+            with transaction.atomic():
+                _sync_model(model=model, catalog=catalog, now=now, summary=summary)
+        except Exception:
+            logger.exception("ai_pricing.sync_model_failed model=%s", model)
+            summary.errored.append(model)
+
+    data = summary.as_json()
+    _sync_audit(
+        "ai_pricing.sync_completed",
+        {
+            "counts": summary.counts(),
+            "skipped_manual": data["skipped_manual"],
+            "unpriced": data["unpriced"],
+        },
+    )
+    # Success is the run's last write, so a crash anywhere before it is recorded as failed.
+    config.update(
+        last_status=AiPricingSyncConfig.Status.SUCCESS,
+        last_success_at=now,
+        last_error="",
+        last_summary=data,
+        updated_at=now,
+    )
+    if summary.added or summary.updated:
+        transaction.on_commit(invalidate_missing_pricing_cache)
+    logger.info("ai_pricing.sync_completed %s", summary.counts())
+    return summary
+
+
 def run_pricing_sync(
     *,
     force: bool = False,
@@ -217,6 +272,8 @@ def run_pricing_sync(
     """Apply LiteLLM prices to ``AiPricing`` for recently used models.
 
     ``force`` runs even when the switch is off ("Sync Now"); the scheduled run passes False.
+    Never raises once the lock is held: an unexpected error is recorded as a failed run (the
+    status banner is the owner's signal; the task does not retry).
     """
     now = now or timezone.now()
     if not force:
@@ -228,52 +285,11 @@ def run_pricing_sync(
         if not acquired:
             logger.info("ai_pricing.sync_skipped reason=locked")
             return SyncSummary(outcome=SyncOutcome.SKIPPED_LOCKED)
-
-        AiPricingSyncConfig.load()
-        # update() on pk=1 so a concurrent toggle's ``enabled`` is never overwritten.
-        config = AiPricingSyncConfig.objects.filter(pk=1)
-        config.update(last_run_at=now, updated_at=now)
-
         try:
-            catalog = fetch_litellm_catalog(transport=transport)
-        except LiteLLMFetchError as exc:
-            error = str(exc)
-            config.update(
-                last_status=AiPricingSyncConfig.Status.FAILED, last_error=error, updated_at=now
+            return _run_locked(now=now, transport=transport)
+        except Exception as exc:
+            # Class name only: exception text may carry response or DB content.
+            logger.exception("ai_pricing.sync_crashed")
+            return _record_failure(
+                now=now, error=f"Sync failed unexpectedly ({type(exc).__name__})"
             )
-            _sync_audit("ai_pricing.sync_failed", {"error": error})
-            logger.warning("ai_pricing.sync_failed error=%s", error)
-            return SyncSummary(outcome=SyncOutcome.FAILED, error=error)
-
-        summary = SyncSummary(outcome=SyncOutcome.COMPLETED)
-        models = set(list_recent_usage_models(now=now, use_cache=False))
-        models.add(settings.OPENAI_MODEL)
-        for model in sorted(models):
-            try:
-                # Savepoint: a DB error for one model never poisons the next one's queries.
-                with transaction.atomic():
-                    _sync_model(model=model, catalog=catalog, now=now, summary=summary)
-            except Exception:
-                logger.exception("ai_pricing.sync_model_failed model=%s", model)
-                summary.errored.append(model)
-
-        data = summary.as_json()
-        config.update(
-            last_status=AiPricingSyncConfig.Status.SUCCESS,
-            last_success_at=now,
-            last_error="",
-            last_summary=data,
-            updated_at=now,
-        )
-        _sync_audit(
-            "ai_pricing.sync_completed",
-            {
-                "counts": summary.counts(),
-                "skipped_manual": data["skipped_manual"],
-                "unpriced": data["unpriced"],
-            },
-        )
-        if summary.added or summary.updated:
-            transaction.on_commit(invalidate_missing_pricing_cache)
-        logger.info("ai_pricing.sync_completed %s", summary.counts())
-        return summary

@@ -479,3 +479,52 @@ def test_add_price_default_audit_action_unchanged(now):
         now=now,
     )
     assert AuditLog.objects.filter(action="ai_pricing.added").count() == 1
+
+
+def _assert_crash_recorded(summary, error):
+    assert summary.outcome is SyncOutcome.FAILED
+    assert summary.error == error
+    cfg = AiPricingSyncConfig.load()
+    assert (cfg.last_status, cfg.last_error, cfg.enabled) == ("failed", error, True)
+    audit = AuditLog.objects.get(action="ai_pricing.sync_failed")
+    assert (audit.entity_id, audit.actor, audit.organisation) == ("sync", None, None)
+    assert audit.after_data == {"error": error}
+
+
+def test_crash_outside_model_loop_recorded_as_failed_and_lock_released(now, lock_acquired):
+    _enable()
+    released: list[bool] = []
+
+    @contextlib.contextmanager
+    def tracking_lock(key, timeout=300, blocking=False):
+        try:
+            yield True
+        finally:
+            released.append(True)
+
+    lock_acquired.side_effect = tracking_lock
+    with mock.patch.object(
+        pricing_sync, "list_recent_usage_models", side_effect=RuntimeError("secret detail")
+    ):
+        summary = run_pricing_sync(now=now, transport=_transport({CFG_MODEL: SAME}))
+    _assert_crash_recorded(summary, "Sync failed unexpectedly (RuntimeError)")
+    assert "secret detail" not in AiPricingSyncConfig.load().last_error
+    assert released == [True]
+    assert AiPricingSyncConfig.load().last_success_at is None
+
+
+def test_crash_in_success_audit_recorded_as_failed(now):
+    _enable()
+    original = pricing_sync._sync_audit
+
+    def failing(action, after_data):
+        if action == "ai_pricing.sync_completed":
+            raise ValueError("audit write failed")
+        original(action, after_data)
+
+    with mock.patch.object(pricing_sync, "_sync_audit", side_effect=failing):
+        summary = run_pricing_sync(now=now, transport=_transport({CFG_MODEL: SAME}))
+    _assert_crash_recorded(summary, "Sync failed unexpectedly (ValueError)")
+    cfg = AiPricingSyncConfig.load()
+    assert cfg.last_success_at is None
+    assert cfg.last_summary == {}
