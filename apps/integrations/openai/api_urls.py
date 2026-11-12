@@ -10,6 +10,11 @@ from apps.integrations.openai.views import (
     AiCostOrgShopsView,
     AiCostOrgSummaryView,
     AiCostSummaryView,
+    AiPricingHistoryView,
+    AiPricingListView,
+    AiPricingMissingRefreshView,
+    AiPricingMissingView,
+    AiPricingSuggestionsView,
 )
 
 urlpatterns = [
@@ -37,5 +42,26 @@ urlpatterns = [
         "superadmin/ai-cost/organisations/<int:org_id>/models/",
         AiCostOrgModelsView.as_view(),
         name="superadmin-ai-cost-org-models",
+    ),
+    path("superadmin/ai-pricing/", AiPricingListView.as_view(), name="superadmin-ai-pricing-list"),
+    path(
+        "superadmin/ai-pricing/history/",
+        AiPricingHistoryView.as_view(),
+        name="superadmin-ai-pricing-history",
+    ),
+    path(
+        "superadmin/ai-pricing/model-suggestions/",
+        AiPricingSuggestionsView.as_view(),
+        name="superadmin-ai-pricing-suggestions",
+    ),
+    path(
+        "superadmin/ai-pricing/missing/",
+        AiPricingMissingView.as_view(),
+        name="superadmin-ai-pricing-missing",
+    ),
+    path(
+        "superadmin/ai-pricing/missing/refresh/",
+        AiPricingMissingRefreshView.as_view(),
+        name="superadmin-ai-pricing-missing-refresh",
     ),
 ]

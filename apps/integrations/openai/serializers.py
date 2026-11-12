@@ -5,9 +5,13 @@ Shape-only: decimals render as strings with exactly six decimal places.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
+from django.utils import timezone
 from rest_framework import serializers
+
+from apps.integrations.openai.models import AiPricing
 
 
 def cost_field() -> serializers.DecimalField:
@@ -114,4 +118,98 @@ class ModelCostRowSerializer(serializers.Serializer[Any]):
 
 class ModelCostListResponseSerializer(serializers.Serializer[Any]):
     results = ModelCostRowSerializer(many=True)
+    generated_at = serializers.DateTimeField()
+
+
+def price_field() -> serializers.DecimalField:
+    return serializers.DecimalField(max_digits=12, decimal_places=8)
+
+
+class PriceRowSerializer(serializers.ModelSerializer[AiPricing]):
+    """One ``AiPricing`` row. Pass ``context={"now": ...}`` to pin the status clock."""
+
+    input_token_price_per_1m = price_field()
+    output_token_price_per_1m = price_field()
+    cached_token_price_per_1m = price_field()
+    created_by = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AiPricing
+        fields = (
+            "id",
+            "model",
+            "input_token_price_per_1m",
+            "output_token_price_per_1m",
+            "cached_token_price_per_1m",
+            "effective_from",
+            "effective_to",
+            "source",
+            "created_by",
+            "status",
+            "can_delete",
+        )
+        read_only_fields = fields
+
+    def _now(self) -> datetime:
+        now: datetime = self.context.get("now") or timezone.now()
+        return now
+
+    def get_created_by(self, obj: AiPricing) -> dict[str, Any] | None:
+        user = obj.created_by
+        if user is None:
+            return None
+        return {"id": user.pk, "name": user.full_name or user.email}
+
+    def get_status(self, obj: AiPricing) -> str:
+        now = self._now()
+        if obj.effective_from > now:
+            return "scheduled"
+        if obj.effective_to is None or obj.effective_to > now:
+            return "current"
+        return "past"
+
+    def get_can_delete(self, obj: AiPricing) -> bool:
+        return self.get_status(obj) == "scheduled"
+
+
+class PriceSummaryRowSerializer(serializers.Serializer[Any]):
+    model = serializers.CharField()
+    current = PriceRowSerializer(allow_null=True)
+    scheduled = PriceRowSerializer(allow_null=True)
+
+
+class PriceSummaryListResponseSerializer(serializers.Serializer[Any]):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = PriceSummaryRowSerializer(many=True)
+
+
+class PriceHistoryListResponseSerializer(serializers.Serializer[Any]):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = PriceRowSerializer(many=True)
+
+
+class ModelSuggestionSerializer(serializers.Serializer[Any]):
+    model = serializers.CharField()
+    last_used_at = serializers.DateTimeField(allow_null=True)
+    has_price = serializers.BooleanField()
+
+
+class ModelSuggestionsResponseSerializer(serializers.Serializer[Any]):
+    results = ModelSuggestionSerializer(many=True)
+
+
+class MissingModelSerializer(serializers.Serializer[Any]):
+    model = serializers.CharField()
+    last_used_at = serializers.DateTimeField(allow_null=True)
+    configured = serializers.BooleanField()
+
+
+class MissingModelsResponseSerializer(serializers.Serializer[Any]):
+    models = MissingModelSerializer(many=True)
     generated_at = serializers.DateTimeField()
