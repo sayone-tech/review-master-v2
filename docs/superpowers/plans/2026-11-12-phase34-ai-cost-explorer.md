@@ -8,7 +8,7 @@
 
 **Tech Stack:** Django 6 + DRF, PostgreSQL, django-redis, drf-spectacular, pytest + factory-boy; React + TypeScript + Tailwind via Vite, vitest.
 
-**Spec:** `docs/superpowers/specs/2026-11-12-ai-cost-and-pricing-design.md` (authoritative) + `docs/in-progress/Requirements_AI_Cost_Explorer.md` (CE §n). Requirements COST-01..07 in `.planning/REQUIREMENTS.md`.
+**Spec:** `docs/superpowers/specs/2026-11-12-ai-cost-and-pricing-design.md` (authoritative) + `docs/completed/Requirements_AI_Cost_Explorer.md` (CE §n). Requirements COST-01..07 in `.planning/REQUIREMENTS.md`.
 
 **Branch:** `feat/v0.10-ai-cost-explorer`, cut from `docs/v0.10-ai-cost-pricing`.
 

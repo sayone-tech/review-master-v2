@@ -2,8 +2,8 @@
 
 **Date:** 2026-11-12 · **Milestone:** v0.10 — AI Cost & Pricing (Superadmin)
 **Source specs (binding except where this doc overrides them):**
-- `docs/in-progress/Requirements_AI_Cost_Explorer.md` (v1.0) — the dashboard
-- `docs/in-progress/Requirements_AI_Pricing_Management.md` (v1.1) — the pricing page, gap detection, LiteLLM sync
+- `docs/completed/Requirements_AI_Cost_Explorer.md` (v1.0) — the dashboard
+- `docs/completed/Requirements_AI_Pricing_Management.md` (v1.1) — the pricing page, gap detection, LiteLLM sync
 
 This document records the *why*, the decisions made in conversation, and every
 correction needed to make the two specs fit the current codebase. Where this

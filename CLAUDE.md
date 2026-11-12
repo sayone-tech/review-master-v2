@@ -161,7 +161,11 @@ repo-root/
 │   │       ├── services/pricing_management.py # Append-only add / delete-scheduled price + platform AuditLog (Phase 35)
 │   │       ├── services/pricing_cache.py      # Drops the pricing read caches on every change / refresh (Phase 35)
 │   │       ├── selectors/pricing.py # Price summary, history, model suggestions, missing-price detection (Phase 35)
-│   │       ├── pricing_views.py     # Superadmin AI Pricing API (Phase 35)
+│   │       ├── pricing_views.py     # Superadmin AI Pricing API (Phase 35) + LiteLLM sync status/toggle/trigger (Phase 36)
+│   │       ├── litellm.py           # LiteLLM price catalog client: https-only, 15 s timeout, 20 MB cap (Phase 36)
+│   │       ├── services/pricing_sync.py  # Sync on/off switch + LiteLLM sync run via add_price (Phase 36)
+│   │       ├── selectors/pricing_sync.py # Read-only sync status: overdue, stale-running, next run (Phase 36)
+│   │       ├── tasks.py             # sync_ai_pricing_from_litellm_task, weekly Beat (Phase 36)
 │   │       └── checks.py            # Deploy check openai.E001: configured model must have an active price (Phase 35)
 │   └── common/                      # shared utilities, base models, mixins
 │       ├── models.py                # TimeStampedModel, UUIDModel
@@ -483,6 +487,7 @@ REST_FRAMEWORK = {
         "google_sync": "60/minute",
         "openai_call": "120/minute",   # Phase 3+
         "review_reply": "30/minute",   # Phase 3+
+        "superadmin_ai_pricing_sync_trigger": "1/15m",  # v0.10 "Sync Now"; needs MultiplierRateThrottle (apps/common/throttling.py)
     },
 }
 ```
@@ -508,6 +513,7 @@ def sync_shop_reviews(shop_id: str) -> None:
 | `lock:google_sync:shop:{shop_id}` | Per-shop Google review sync | 5 min |
 | `lock:enrich:review:{review_id}` | Per-review OpenAI enrichment | 5 min |
 | `lock:reply:review:{review_id}` | Per-review reply submission | 30 sec |
+| `lock:ai_pricing:sync` | One LiteLLM pricing sync at a time (v0.10/Phase 36) | 5 min |
 
 Lock acquisition is **non-blocking** by default — if another worker holds the lock, the task exits cleanly without retrying. The next scheduled run will pick it up.
 
@@ -642,6 +648,7 @@ CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.retry_failed_enrichments_task": {"queue": "ai-enrichment-low"},
     "apps.reviews.tasks.finalize_canonical_tags_task":  {"queue": "tag-merge"},
     "apps.reviews.tasks.reclassify_polarity_task":      {"queue": "default"},
+    "apps.integrations.openai.tasks.sync_ai_pricing_from_litellm_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600         # 10-minute hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 300    # 5-minute soft limit (raises SoftTimeLimitExceeded)
@@ -658,6 +665,7 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # prevent slow tasks blocking fast ones
 - Use `@shared_task(bind=True)` so the task can access `self` for retries and logging.
 - Always declare `autoretry_for`, `retry_backoff`, `retry_backoff_max`, `retry_jitter`, `max_retries`.
 - Tasks receive **IDs**, never model instances (model instances don't serialize to the broker reliably).
+- **Agreed exception:** `sync_ai_pricing_from_litellm_task` (v0.10/Phase 36) has **no autoretry** — its service records every failure (status + audit row) and the next weekly run retries — and its own limits (`soft_time_limit=120`, `time_limit=180`, below the 5-min `lock:ai_pricing:sync` TTL).
 
 ```python
 # apps/reviews/tasks.py
@@ -715,6 +723,7 @@ Beat tasks are stored in the database via `django-celery-beat`. Seed initial sch
 | `reclassify_polarity_task` | `default` | Weekly, Sunday 03:00 UTC — DB-only polarity reclassification (v0.8/Phase 24, §29) |
 | `lapse_expired_credit_balances_task` | `default` | Daily 00:05 UTC — idempotent catch-up lapse of past-month credit balances (v0.9/Phase 31) |
 | `reap_stale_reservations_task` | `default` | Every 10 minutes — refunds RESERVED credit reservations older than the TTL (v0.9/Phase 31) |
+| `sync_ai_pricing_from_litellm_task` | `default` | Weekly, Monday 09:00 UTC — opt-in LiteLLM price sync; does nothing unless enabled (v0.10/Phase 36) |
 
 ### 12.6 Deployment
 
@@ -858,6 +867,10 @@ Phase 3 introduces GPT-4o-mini for review enrichment (sentiment, tags, action it
 | `services/pricing_cache.py` | Invalidates `ai_pricing:missing_models` + `ai_pricing:recent_usage` (Phase 35) |
 | `selectors/pricing.py` | Read-only price summary / history / model suggestions / missing-price (gap) detection, Redis-cached (Phase 35) |
 | `pricing_views.py` | Superadmin AI Pricing API under `/api/v1/superadmin/ai-pricing/` (Phase 35) |
+| `litellm.py` | LiteLLM public price catalog client: https-only, 15 s timeout, 20 MB response cap; per-token → per-1M `Decimal` (8 dp) (Phase 36) |
+| `services/pricing_sync.py` | Sync on/off switch + the LiteLLM sync run (writes only via `add_price`) (Phase 36) |
+| `selectors/pricing_sync.py` | Read-only sync status (overdue, stale `running` → failed, next run) (Phase 36) |
+| `tasks.py` | `sync_ai_pricing_from_litellm_task` — thin weekly Beat wrapper (Phase 36) |
 | `checks.py` | Database system check `openai.E001` — `OPENAI_MODEL` has no active price (Phase 35) |
 
 ### 14.2 Single combined prompt
@@ -928,6 +941,7 @@ def calculate_cost(*, model: str, prompt_tokens: int, completion_tokens: int,
 - **No backdating:** `effective_from >= now - 5 s` (grace), and it must start strictly after the current price's `effective_from`.
 - Every row records `source` (`manual` / `sync` / `seed`) and nullable `created_by`. Every add/delete writes **one platform `AuditLog` row** (`organisation=NULL`, `entity_type="ai_pricing"`, actions `ai_pricing.added` / `ai_pricing.deleted`).
 - `AiPricing.objects.get_active(model=, at=)` is a time-window lookup (`effective_from <= at < coalesce(effective_to, ∞)`), so a scheduled row never prices current usage; on overlap the newest start wins.
+- **LiteLLM auto-sync (v0.10/Phase 36):** `source` is `manual` (hand-entered), `sync` (LiteLLM) or `seed` (the 0002 row). The sync only prices models used in the last `AI_PRICING_LOOKBACK_DAYS` plus `OPENAI_MODEL` (exact key match) and **appends via `add_price`** (actor `None`; audit `ai_pricing.added_from_sync` / `updated_from_sync`). It **never overrides a `manual` price** — enforced under the row lock (`add_price(protect_manual=True)`), reported as `skipped_manual`. LiteLLM prices above `MAX_PRICE_PER_1M` (1000 USD per 1M) are refused as unpriced. The on/off switch lives in the DB singleton `AiPricingSyncConfig` (off by default; never an env setting); "Sync Now" runs even when off.
 - **Deploy guard:** `manage.py check --deploy --database default` raises `openai.E001` when `OPENAI_MODEL` has no active price — run as step 5b of `deployment/scripts/deploy.sh`.
 - Initial seed data: GPT-4o-mini at the model's published rates as of model release. Stored as `Decimal` to avoid floating-point drift.
 

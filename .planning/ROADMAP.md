@@ -21,12 +21,16 @@
 
 ## In Progress
 
-- 🚧 **v0.10 — AI Cost & Pricing (Superadmin)** — Phases 34–36, planned
-  with superpowers (not GSD). Requirements: `.planning/REQUIREMENTS.md`.
+- ✅ **v0.10 — AI Cost & Pricing (Superadmin)** — Phases 34–36, all
+  requirements delivered 2026-11-12; **complete, pending merge** of branch
+  `feat/v0.10-ai-cost-pricing`. Planned with superpowers (not GSD).
+  Requirements: `.planning/REQUIREMENTS.md`.
   Design: `docs/superpowers/specs/2026-11-12-ai-cost-and-pricing-design.md`.
+  Specs: `docs/completed/Requirements_AI_Cost_Explorer.md`,
+  `docs/completed/Requirements_AI_Pricing_Management.md`.
   - [x] Phase 34: AI Cost Explorer (COST-01..07)
   - [x] Phase 35: AI Pricing Page + Gap Detection (PRICE-01..06, GAP-01..03)
-  - [ ] Phase 36: LiteLLM Auto-Sync (SYNC-01..04)
+  - [x] Phase 36: LiteLLM Auto-Sync (SYNC-01..04)
 
 ## Next Up
 

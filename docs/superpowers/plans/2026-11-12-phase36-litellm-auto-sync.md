@@ -8,7 +8,7 @@
 
 **Tech Stack:** Django 6 + DRF, Celery + django-celery-beat, httpx (already a dependency; tests use `httpx.MockTransport` — no new dependency), django-redis, React + TypeScript + Tailwind, vitest.
 
-**Spec:** `docs/superpowers/specs/2026-11-12-ai-cost-and-pricing-design.md` §5.2, §5.3, §5.10 (guard 3), §5.11 (authoritative) + `docs/in-progress/Requirements_AI_Pricing_Management.md` v1.1 §6, §8, §9, §11, §12.5. Requirements SYNC-01..04 (+ GAP-03 sync clause) in `.planning/REQUIREMENTS.md`.
+**Spec:** `docs/superpowers/specs/2026-11-12-ai-cost-and-pricing-design.md` §5.2, §5.3, §5.10 (guard 3), §5.11 (authoritative) + `docs/completed/Requirements_AI_Pricing_Management.md` v1.1 §6, §8, §9, §11, §12.5. Requirements SYNC-01..04 (+ GAP-03 sync clause) in `.planning/REQUIREMENTS.md`.
 
 **Branch:** `feat/v0.10-ai-cost-pricing` (same PR as Phases 34–35).
 
@@ -240,7 +240,7 @@ Copy (exact, PM §6.2, §6.4, §6.5, §7.3, §11; design §5.11):
 
 **Files:**
 - Modify: `CLAUDE.md` §3 tree (`litellm.py`, `services/pricing_sync.py`, `selectors/pricing_sync.py`, `tasks.py`), §12.2 route line, §12.5 Beat table row (`sync_ai_pricing_from_litellm_task` | `default` | Weekly, Monday 09:00 UTC — opt-in LiteLLM price sync, does nothing unless enabled (v0.10/Phase 36)), §14.4 one line on the sync rule (never overrides `source=manual`), §28 references if any; `.planning/ROADMAP.md` (tick Phase 36; mark v0.10 shipped-pending-merge in the milestone list); `.planning/REQUIREMENTS.md` (mark all v0.10 requirements delivered).
-- Move: `docs/in-progress/Requirements_AI_Cost_Explorer.md` and `docs/in-progress/Requirements_AI_Pricing_Management.md` → `docs/completed/`; update every reference (`grep -rn 'docs/in-progress/Requirements_AI' .planning docs CLAUDE.md` must return nothing afterwards).
+- Move: `Requirements_AI_Cost_Explorer.md` and `Requirements_AI_Pricing_Management.md` from `docs/in-progress/` → `docs/completed/` (done); update every reference (a grep for the old in-progress path over `.planning`, `docs` and `CLAUDE.md` must return nothing afterwards).
 
 - [ ] **Step 1:** Controller runs `code-reviewer`, `orm-performance-auditor`, `tenant-security-auditor` on the Phase 36 diff; apply accepted findings.
 - [ ] **Step 2:** `uv run pre-commit run --all-files`, full `uv run pytest`, `uv run python manage.py makemigrations --check --dry-run`, `cd frontend && npx vitest run && npm run build` — all pass.
