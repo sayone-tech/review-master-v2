@@ -501,3 +501,24 @@ def test_sidebar_shows_ai_pricing_only_for_superadmin(client, db):
     resp = client.get("/admin/org/shops/")
     assert resp.status_code == 200
     assert b"/admin/ai-pricing/" not in resp.content
+
+
+def test_session_writes_require_csrf_token(db):
+    """Session-authenticated mutations without a CSRF token are refused (403)."""
+    client = APIClient(enforce_csrf_checks=True)
+    client.force_login(UserFactory(role=User.Role.SUPERADMIN))
+    scheduled = AiPricingFactory(model="csrf-m", effective_from=timezone.now() + timedelta(days=2))
+    body = {
+        "model": "csrf-m2",
+        "input_token_price_per_1m": "0.1",
+        "output_token_price_per_1m": "0.2",
+        "cached_token_price_per_1m": "0.05",
+        "effective_from": timezone.now().isoformat(),
+    }
+    assert client.post(LIST_URL, body, format="json").status_code == 403
+    assert (
+        client.delete(reverse("superadmin-ai-pricing-detail", args=[scheduled.pk])).status_code
+        == 403
+    )
+    assert client.post(REFRESH_URL).status_code == 403
+    assert AiPricing.objects.filter(model__startswith="csrf-m").count() == 1
