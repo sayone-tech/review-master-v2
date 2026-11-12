@@ -138,6 +138,8 @@ CELERY_TASK_ROUTES = {
     "apps.credits.tasks.lapse_expired_credit_balances_task": {"queue": "default"},
     # Phase 31 CREN-03 — reservation reaper (every 10 minutes).
     "apps.credits.tasks.reap_stale_reservations_task": {"queue": "default"},
+    # Phase 36 — weekly LiteLLM AI pricing sync (Monday 09:00 UTC).
+    "apps.integrations.openai.tasks.sync_ai_pricing_from_litellm_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 300  # 5-minute soft limit
