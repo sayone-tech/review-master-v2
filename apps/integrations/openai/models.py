@@ -96,6 +96,10 @@ class AiUsageLog(models.Model):
             models.Index(fields=["organisation", "created_at"], name="ai_usage_org_created_idx"),
             models.Index(fields=["review"], name="ai_usage_review_idx"),
             models.Index(fields=["status"], name="ai_usage_status_idx"),
+            models.Index(
+                fields=["organisation", "status", "created_at"],
+                name="ai_usage_org_stat_cr_idx",
+            ),
         ]
 
     def __str__(self) -> str:
