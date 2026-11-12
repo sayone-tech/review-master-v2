@@ -53,3 +53,4 @@ section, as amended by the design doc.
 
 - Changing enrichment's behaviour when a model has no price (it currently fails the enrichment) — design §5.1
 - Benchmarking shops (low/average/high), client fee tracking, CSV export, charts
+- Daily AI-cost rollup table if the Cost Explorer's cold queries exceed budget at scale

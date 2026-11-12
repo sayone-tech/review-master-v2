@@ -151,7 +151,13 @@ repo-root/
 │   │       ├── prompts.py           # Versioned prompt templates
 │   │       ├── parser.py            # Structured-JSON response parser
 │   │       ├── pricing.py           # Cost calculator
-│   │       └── tracing.py           # LangSmith integration
+│   │       ├── tracing.py           # LangSmith integration
+│   │       ├── cost_window.py       # UTC date windows for the Superadmin AI Cost Explorer (Phase 34)
+│   │       ├── selectors/ai_cost.py # Read-only AI cost aggregates: platform, org, shop, model (Phase 34)
+│   │       ├── serializers.py       # AI Cost Explorer response serializers (Phase 34)
+│   │       ├── views.py             # Superadmin AI Cost Explorer API + page shell, cached 600 s (Phase 34)
+│   │       ├── api_urls.py          # /api/v1/superadmin/ai-cost/ endpoints (Phase 34)
+│   │       └── urls.py              # /admin/ai-cost/ page routes (Phase 34)
 │   └── common/                      # shared utilities, base models, mixins
 │       ├── models.py                # TimeStampedModel, UUIDModel
 │       ├── pagination.py
