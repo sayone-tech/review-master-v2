@@ -5,11 +5,11 @@ import type { OrgCostRow, OrgSortKey } from "./types";
 
 const COLUMNS: { key: OrgSortKey; label: string; right: boolean }[] = [
   { key: "name", label: "Organisation", right: false },
-  { key: "active_shops", label: "Active shops", right: true },
-  { key: "calls", label: "Calls", right: true },
-  { key: "input_tokens", label: "Input tokens", right: true },
-  { key: "output_tokens", label: "Output tokens", right: true },
-  { key: "cost", label: "Cost", right: true },
+  { key: "active_shops", label: "Active Shops", right: true },
+  { key: "calls", label: "API Calls", right: true },
+  { key: "input_tokens", label: "Input Tokens", right: true },
+  { key: "output_tokens", label: "Output Tokens", right: true },
+  { key: "cost", label: "Cost (USD)", right: true },
 ];
 
 interface Props {
@@ -17,9 +17,11 @@ interface Props {
   sort: string;
   onSort: (sort: string) => void;
   onOpen: (orgId: number) => void;
+  /** Query string (with leading "?") appended to org links, e.g. the active range. */
+  query?: string;
 }
 
-export function OrgTable({ rows, sort, onSort, onOpen }: Props) {
+export function OrgTable({ rows, sort, onSort, onOpen, query = "" }: Props) {
   const desc = sort.startsWith("-");
   const active = desc ? sort.slice(1) : sort;
 
@@ -49,7 +51,7 @@ export function OrgTable({ rows, sort, onSort, onOpen }: Props) {
             );
           })}
           <th scope="col" className="px-4 py-2 text-left font-medium">
-            By type
+            By Request Type
           </th>
         </tr>
       </thead>
@@ -58,9 +60,27 @@ export function OrgTable({ rows, sort, onSort, onOpen }: Props) {
           <tr
             key={r.organisation_id}
             className="cursor-pointer border-b border-line last:border-0 hover:bg-line-soft"
-            onClick={() => onOpen(r.organisation_id)}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("a")) return;
+              onOpen(r.organisation_id);
+            }}
           >
-            <td className="px-4 py-3 font-medium text-ink">{r.name}</td>
+            <td className="px-4 py-3">
+              <a
+                href={`/admin/ai-cost/organisations/${r.organisation_id}/${query}`}
+                className="font-medium text-ink hover:underline"
+                onClick={(e) => {
+                  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  e.preventDefault();
+                  onOpen(r.organisation_id);
+                }}
+              >
+                {r.name}
+              </a>
+              <span className="ml-2 rounded-sm bg-line-soft px-2 py-0.5 text-[11px] capitalize text-muted">
+                {r.org_type.toLowerCase()}
+              </span>
+            </td>
             <td className="px-4 py-3 text-right">{formatCount(r.active_shops)}</td>
             <td className="px-4 py-3 text-right">{formatCount(r.calls)}</td>
             <td className="px-4 py-3 text-right" title={formatCount(r.input_tokens)}>

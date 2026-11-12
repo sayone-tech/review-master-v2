@@ -18,7 +18,7 @@ const row: OrgCostRow = {
 function setup(sort = "-cost") {
   const onSort = vi.fn();
   const onOpen = vi.fn();
-  render(<OrgTable rows={[row]} sort={sort} onSort={onSort} onOpen={onOpen} />);
+  render(<OrgTable rows={[row]} sort={sort} onSort={onSort} onOpen={onOpen} query="?range=7d" />);
   return { onSort, onOpen };
 }
 
@@ -42,5 +42,20 @@ describe("OrgTable", () => {
     setup();
     expect(screen.getByTitle("12,400,000")).toBeTruthy();
     expect(screen.getByText("48,312")).toBeTruthy();
+  });
+  it("renders org name as a link and intercepts plain clicks only", () => {
+    const { onOpen } = setup();
+    const a = screen.getByRole("link", { name: "Big Org" });
+    expect(a.getAttribute("href")).toBe("/admin/ai-cost/organisations/7/?range=7d");
+    fireEvent.click(a, { ctrlKey: true });
+    expect(onOpen).not.toHaveBeenCalled();
+    fireEvent.click(a);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+  it("shows the org type pill in Title Case and spec column labels", () => {
+    setup();
+    expect(screen.getByText("retail").className).toContain("capitalize");
+    expect(screen.getByRole("button", { name: /^Cost \(USD\)/ })).toBeTruthy();
+    expect(screen.getByText("By Request Type")).toBeTruthy();
   });
 });

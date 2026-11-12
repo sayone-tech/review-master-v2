@@ -112,6 +112,7 @@ function PlatformView({
               setSort(s);
             }}
             onOpen={onOpen}
+            query={writeFilters(filters)}
           />
           <nav
             aria-label="Pagination"
