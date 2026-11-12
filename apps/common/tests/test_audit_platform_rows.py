@@ -119,3 +119,43 @@ def test_activity_log_actor_dropdown_excludes_pricing_superadmin(platform_setup,
     resp = client.get("/admin/org/activity-log/")
     assert resp.status_code == 200
     assert resp.context["actors_json"] == []
+
+
+SYNC_ACTIONS = [
+    "ai_pricing.sync_enabled",
+    "ai_pricing.sync_disabled",
+    "ai_pricing.added_from_sync",
+    "ai_pricing.updated_from_sync",
+    "ai_pricing.sync_completed",
+    "ai_pricing.sync_failed",
+]
+
+
+@pytest.mark.parametrize("action", SYNC_ACTIONS)
+@pytest.mark.parametrize("role_key", ["org_admin", "staff"])
+def test_pricing_sync_audit_rows_never_reach_tenants(platform_setup, role_key, action):
+    """Phase 36: every LiteLLM sync audit action is platform-level (organisation NULL)."""
+    toggled = action in ("ai_pricing.sync_enabled", "ai_pricing.sync_disabled")
+    per_price = action.endswith("_from_sync")
+    row = AuditLog.objects.create(
+        organisation=None,
+        actor=platform_setup["superadmin"] if toggled else None,
+        entity_type="ai_pricing",
+        entity_id="42" if per_price else "sync",
+        action=action,
+    )
+    user = platform_setup[role_key]
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+    resp = client.get("/api/v1/audit-logs/")
+    assert resp.status_code == 200
+    results = resp.json()["results"]
+    assert row.pk not in [r["id"] for r in results]
+    assert action not in [r["action"] for r in results]
+
+    browser = APIClient()
+    browser.force_login(user)
+    page = browser.get("/admin/org/activity-log/")
+    assert page.status_code == 200
+    assert page.context["actors_json"] == []
