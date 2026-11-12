@@ -8,37 +8,57 @@ from __future__ import annotations
 from typing import ClassVar
 
 import django_filters  # type: ignore[import-untyped]
+from django.db.models import Q
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from apps.common.models import AuditLog
 
-# WR-01 fix: explicit whitelist for entity_type (D-07 restricts to these two).
+# WR-01 fix: explicit whitelist for entity_type (D-07; CVIS-06 added "credits").
 ENTITY_TYPE_CHOICES = [
     ("review", "Review"),
     ("action_item", "Action Item"),
+    # CVIS-06: "credits" maps to CREDIT_AUDIT_FILTER (shop.credits.* + organisation.credits.set).
+    # Staff selectors never return credit rows, so for Staff this filter yields nothing.
+    ("credits", "Credits"),
 ]
 
 
 class AuditLogFilterSet(django_filters.FilterSet):  # type: ignore[misc]
     # WR-01: ChoiceFilter rejects values outside the whitelist with a 400.
     entity_type = django_filters.ChoiceFilter(
-        field_name="entity_type",
         choices=ENTITY_TYPE_CHOICES,
+        method="filter_entity_type",
     )
     actor = django_filters.CharFilter(method="filter_actor")
-    date_from = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
-    date_to = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
+    # Compare calendar dates (UTC, settings.TIME_ZONE), not timestamps: a bare
+    # created_at__lte=<date> means midnight at the START of date_to, which hid
+    # every row from that day.
+    date_from = django_filters.DateFilter(field_name="created_at", lookup_expr="date__gte")
+    date_to = django_filters.DateFilter(field_name="created_at", lookup_expr="date__lte")
     shop = django_filters.NumberFilter(method="filter_shop")
 
     class Meta:
         model = AuditLog
         fields: ClassVar[list[str]] = []
 
+    def filter_entity_type(self, qs, name, value):  # type: ignore[no-untyped-def]
+        if value == "credits":
+            from apps.common.selectors.audit_logs import CREDIT_AUDIT_FILTER
+
+            return qs.filter(CREDIT_AUDIT_FILTER)
+        return qs.filter(entity_type=value)
+
     def filter_actor(self, qs, name, value):  # type: ignore[no-untyped-def]
+        from apps.accounts.models import User
+        from apps.common.selectors.audit_logs import PLATFORM_ACTOR_ID
+
         if value == "system":
             return qs.filter(actor__isnull=True)
+        # CVIS-07: Superadmins are one generic actor; their ids cannot be probed.
+        if value == PLATFORM_ACTOR_ID:
+            return qs.filter(actor__role=User.Role.SUPERADMIN)
         try:
-            return qs.filter(actor_id=int(value))
+            return qs.filter(actor_id=int(value)).exclude(actor__role=User.Role.SUPERADMIN)
         except (TypeError, ValueError):
             return qs
 
@@ -70,7 +90,12 @@ class AuditLogFilterSet(django_filters.FilterSet):  # type: ignore[misc]
                 "pk", flat=True
             )
         ]
-        return qs.filter(entity_type="review", entity_id__in=review_ids)
+        # CVIS-06: keep the shop's own credit rows too (Org Admin only; the Staff
+        # selector never returns entity_type="shop" rows).
+        return qs.filter(
+            Q(entity_type="review", entity_id__in=review_ids)
+            | Q(entity_type="shop", entity_id=str(int(value)))
+        )
 
     @property
     def qs(self):  # type: ignore[no-untyped-def]

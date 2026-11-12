@@ -4,6 +4,10 @@ trigger: "Fix three Org Admin UI bugs: empty-state CTA not clickable, root URL s
 created: 2026-04-29T00:00:00Z
 updated: 2026-04-29T00:00:00Z
 symptoms_prefilled: true
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: awaiting_human_verify
 ---
 
 ## Current Focus

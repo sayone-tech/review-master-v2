@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ExternalLink } from "lucide-react";
+import { Check, ExternalLink, Lock } from "lucide-react";
 import { getOAuthResult } from "./api";
 
 export interface OAuthListingsResult {
@@ -193,14 +193,50 @@ export function OAuthConnectionSection({ onConnected, onError }: Props) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleConnect}
-      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
-      data-testid="oauth-connect-button"
+    <>
+      <PermissionNote />
+      <button
+        type="button"
+        onClick={handleConnect}
+        aria-describedby="oauth-permission-note"
+        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
+        data-testid="oauth-connect-button"
+      >
+        <ExternalLink size={14} aria-hidden="true" />
+        Connect Google Business Profile
+      </button>
+    </>
+  );
+}
+
+// SHOP-22: shown right before Google's consent screen. Google only offers the
+// broad business.manage scope, so this states what the app actually does with it.
+// Users can edit and delete their own replies, so never claim "we never delete anything".
+function PermissionNote() {
+  return (
+    <div
+      id="oauth-permission-note"
+      data-testid="oauth-permission-note"
+      className="max-w-[520px] w-full rounded-lg border border-line bg-line-soft px-5 py-4 text-left text-[14.5px] leading-relaxed text-muted"
     >
-      <ExternalLink size={14} aria-hidden="true" />
-      Connect Google Business Profile
-    </button>
+      <p className="flex items-start gap-2 text-[15px] font-semibold text-ink">
+        <Lock size={16} aria-hidden="true" className="mt-[3px] shrink-0" />
+        Google will ask for access to manage your Business Profile.
+      </p>
+      <p className="mt-2">
+        That&apos;s the only permission Google offers for reviews. Here&apos;s all we use it for:
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        <li className="flex items-start gap-2">
+          <Check size={16} aria-hidden="true" className="mt-[3px] shrink-0 text-green" />
+          Read your reviews and your list of locations
+        </li>
+        <li className="flex items-start gap-2">
+          <Check size={16} aria-hidden="true" className="mt-[3px] shrink-0 text-green" />
+          Post, edit or delete replies, only when you choose to
+        </li>
+      </ul>
+      <p className="mt-2">We never change your business details, hours, photos or ownership.</p>
+    </div>
   );
 }

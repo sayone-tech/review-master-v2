@@ -14,6 +14,10 @@ human_verification:
   - test: "Reload the browser mid-sync (while in the vocab or enriching stage) and reopen the ProgressModal"
     expected: "Modal repaints the correct current step from the reconnect snapshot — step discriminator and per-step counters restore the view at the correct position without waiting for the next event"
     why_human: "Reconnect repaint behavior requires a live WebSocket reconnect against a running backend; static test coverage (test_reconnect_snapshot_carries_4step_keys) only checks the snapshot payload shape, not the visual repaint fidelity"
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 23: Four-Step Initial Sync, Seeding & Queue Split — Verification Report

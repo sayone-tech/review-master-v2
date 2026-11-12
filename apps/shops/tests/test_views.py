@@ -1005,3 +1005,177 @@ class TestShopListContextAllowCustomSyncDepth:
         resp = dj_client.get("/admin/org/shops/")
         assert resp.status_code == 200
         assert resp.context["allow_custom_sync_depth"] is True
+
+
+@pytest.mark.django_db
+class TestShopsListStaffScopeAndCredits:
+    def test_staff_list_returns_only_in_scope_shops_with_credit_fields(self):
+        from apps.accounts.models import StaffAccessScope
+        from apps.accounts.tests.factories import StaffAdminFactory
+        from apps.common.models import AuditLog
+        from apps.credits.models import CreditTransaction, ShopCreditBalance
+
+        org = OrganisationFactory(number_of_stores=10, monthly_credit_allocation=40)
+        shop_a = ShopFactory(organisation=org)
+        ShopFactory(organisation=org)
+        staff = StaffAdminFactory(organisation=org)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=shop_a
+        )
+        client = APIClient()
+        client.force_authenticate(user=staff)
+        audit_before = AuditLog.objects.count()
+
+        resp = client.get("/api/v1/shops/")
+
+        assert resp.status_code == 200
+        results = resp.json()["results"]
+        assert [r["id"] for r in results] == [shop_a.pk]
+        row = results[0]
+        assert row["credits_remaining"] == 40
+        assert row["credits_total"] == 40
+        assert row["credits_allocated"] == 40
+        assert row["credits_bonus"] == 0
+        assert ShopCreditBalance.objects.count() == 0
+        assert CreditTransaction.objects.count() == 0
+        assert AuditLog.objects.count() == audit_before
+
+
+def _scoped_staff(org, *shops):  # type: ignore[no-untyped-def]
+    from apps.accounts.models import StaffAccessScope
+    from apps.accounts.tests.factories import StaffAdminFactory
+
+    staff = StaffAdminFactory(organisation=org)
+    for shop in shops:
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.SHOP, shop=shop
+        )
+    return staff
+
+
+def _client_for(user):  # type: ignore[no-untyped-def]
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+@pytest.mark.django_db
+class TestShopsStaffScopeRetrieveAndCounts:
+    def test_staff_list_is_empty_when_staff_has_no_scope(self):
+        org = OrganisationFactory(number_of_stores=10)
+        ShopFactory.create_batch(2, organisation=org)
+        resp = _client_for(_scoped_staff(org)).get("/api/v1/shops/")
+        assert resp.status_code == 200
+        assert resp.json()["results"] == []
+
+    def test_staff_list_does_not_leak_when_region_scope_is_foreign_org(self):
+        from apps.accounts.models import StaffAccessScope
+
+        org = OrganisationFactory(number_of_stores=10)
+        other = OrganisationFactory(number_of_stores=10)
+        foreign_region = RegionFactory(organisation=other)
+        ShopFactory.create_batch(2, organisation=other, region=foreign_region)
+        own = ShopFactory(organisation=org)
+        staff = _scoped_staff(org, own)
+        StaffAccessScope.objects.create(
+            user=staff, scope_type=StaffAccessScope.ScopeType.REGION, region=foreign_region
+        )
+        resp = _client_for(staff).get("/api/v1/shops/")
+        assert [r["id"] for r in resp.json()["results"]] == [own.pk]
+
+    def test_staff_retrieve_is_404_when_shop_out_of_scope_and_200_when_in_scope(self):
+        org = OrganisationFactory(number_of_stores=10)
+        in_scope = ShopFactory(organisation=org)
+        out_scope = ShopFactory(organisation=org)
+        client = _client_for(_scoped_staff(org, in_scope))
+        assert client.get(f"/api/v1/shops/{in_scope.pk}/").status_code == 200
+        assert client.get(f"/api/v1/shops/{out_scope.pk}/").status_code == 404
+
+    def test_org_admin_retrieve_is_200_for_own_and_404_for_other_org(self, org_and_admin):
+        org, _, client = org_and_admin
+        own = ShopFactory(organisation=org)
+        foreign = ShopFactory(organisation=OrganisationFactory())
+        assert client.get(f"/api/v1/shops/{own.pk}/").status_code == 200
+        assert client.get(f"/api/v1/shops/{foreign.pk}/").status_code == 404
+
+    def test_retrieve_emits_null_credit_keys_when_row_is_not_annotated(self, org_and_admin):
+        org, _, client = org_and_admin
+        shop = ShopFactory(organisation=org)
+        body = client.get(f"/api/v1/shops/{shop.pk}/").json()
+        for key in ("credits_allocated", "credits_bonus", "credits_remaining", "credits_total"):
+            assert key in body
+            assert body[key] is None
+
+    @pytest.mark.parametrize("who", ["admin", "staff"])
+    def test_list_query_count_is_equal_for_1_and_20_shops_when_credits_enabled(self, who):
+        counts = []
+        for n in (1, 20):
+            org = OrganisationFactory(number_of_stores=50)
+            region = RegionFactory(organisation=org)
+            shops = ShopFactory.create_batch(n, organisation=org, region=region)
+            user = (
+                UserFactory(role="ORG_ADMIN", organisation=org)
+                if who == "admin"
+                else _scoped_staff(org, *shops)
+            )
+            client = _client_for(user)
+            with CaptureQueriesContext(connection) as ctx:
+                resp = client.get("/api/v1/shops/?page_size=100")
+            assert resp.status_code == 200
+            assert len(resp.json()["results"]) == n
+            counts.append(len(ctx.captured_queries))
+        assert counts[0] == counts[1]
+        assert counts[0] <= 7
+
+
+@pytest.mark.django_db
+class TestShopListCreditContactBootstrap:
+    def _get(self, org, role="ORG_ADMIN"):  # type: ignore[no-untyped-def]
+        user = UserFactory(role=role, organisation=org)
+        dj_client = Client()
+        dj_client.force_login(user)
+        return dj_client.get("/admin/org/shops/")
+
+    def test_context_carries_org_name_and_support_email_when_org_admin(self, settings):
+        settings.REVIEWBEE_SUPPORT_EMAIL = "credits-sentinel@example.test"
+        org = OrganisationFactory(number_of_stores=10, name="Acme Foods")
+        resp = self._get(org)
+        assert resp.status_code == 200
+        assert resp.context["credit_contact"] == {
+            "organisation_name": "Acme Foods",
+            "support_email": "credits-sentinel@example.test",
+        }
+
+    def test_html_has_single_credit_contact_json_script_when_rendered(self, settings):
+        import re
+
+        settings.REVIEWBEE_SUPPORT_EMAIL = "credits-sentinel@example.test"
+        org = OrganisationFactory(number_of_stores=10, name="Acme Foods")
+        html = self._get(org).content.decode()
+        matches = re.findall(
+            r'<script id="credit-contact" type="application/json">(.*?)</script>', html, re.S
+        )
+        assert len(matches) == 1
+        assert json.loads(matches[0]) == {
+            "organisation_name": "Acme Foods",
+            "support_email": "credits-sentinel@example.test",
+        }
+
+    def test_org_name_is_escaped_when_it_contains_a_script_closing_tag(self):
+        org = OrganisationFactory(number_of_stores=10, name="Acme </script><script>x</script>")
+        html = self._get(org).content.decode()
+        assert "</script><script>x" not in html
+        assert "\\u003C/script\\u003E" in html
+
+    def test_shop_data_rows_carry_virtual_credit_numbers_when_rendered(self):
+        org = OrganisationFactory(number_of_stores=10, monthly_credit_allocation=25)
+        ShopFactory(organisation=org)
+        resp = self._get(org)
+        row = resp.context["shops_json"][0]
+        assert row["credits_remaining"] == 25
+        assert row["credits_total"] == 25
+
+    def test_staff_is_redirected_when_requesting_shops_page(self):
+        org = OrganisationFactory(number_of_stores=10)
+        resp = self._get(org, role="STAFF_ADMIN")
+        assert resp.status_code == 302

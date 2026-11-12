@@ -17,6 +17,10 @@ human_verification:
   - test: "NOTF-02 Staff scope interpretation"
     expected: "Per REQUIREMENTS.md wording, Staff should receive new_review notifications ONLY for shops in their StaffAccessScope (and same for shop-scoped new_action_item)."
     why_human: "Implementation dispatches new_review/new_action_item to ALL Staff in the org regardless of accessible shops. Plan 13-05 explicitly interprets NOTF-02 loosely (\"this delivers it\"). Confirm with PO whether the strict accessible-shops filter is required, or whether this looser delivery is acceptable for Phase 13 scope."
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 13: Action Items and Notifications — Verification Report

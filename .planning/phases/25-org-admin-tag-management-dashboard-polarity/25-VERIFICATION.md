@@ -30,6 +30,10 @@ human_verification:
   - test: "Log in as a Staff Admin"
     expected: "Tags nav item is absent from the sidebar; direct navigation to /admin/org/tags/ redirects to login"
     why_human: "Belt-and-braces sidebar absence is a visual check; the view-level redirect is tested automatically but the combined browser flow needs human confirmation"
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 25: Org Admin Tag Management & Dashboard Polarity Verification Report

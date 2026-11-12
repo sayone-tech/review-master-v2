@@ -1,4 +1,4 @@
-.PHONY: up down rebuild migrate makemigrations shell test lint typecheck seed fmt worker beat flower
+.PHONY: up down rebuild migrate makemigrations shell test test-pg lint typecheck seed fmt worker beat flower
 
 # Pin the Compose project name so container/volume names (e.g. review-master_static_css
 # referenced by `rebuild`) stay stable regardless of the checkout directory name.
@@ -26,6 +26,11 @@ shell:
 
 test:
 	$(COMPOSE) exec web pytest apps/ -x -q
+
+# Real-PostgreSQL concurrency tests (CQA-01). Runs inside the web container, where
+# DATABASE_URL already points at the compose db.
+test-pg:
+	$(COMPOSE) exec -e REQUIRE_PG=1 web pytest --ds=config.settings.test_pg -m pg_concurrency -x -q --no-cov -rs
 
 lint:
 	pre-commit run --all-files

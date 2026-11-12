@@ -3,6 +3,10 @@ status: verifying
 trigger: "regions-ui-empty-state-missing: React widget content area is blank — no DataTable, no empty state"
 created: 2026-04-29T00:00:00Z
 updated: 2026-04-29T00:00:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: verifying
 ---
 
 ## Current Focus

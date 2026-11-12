@@ -54,6 +54,7 @@ urlpatterns = [
     path("api/v1/", include(action_items_api_urls)),
     path("api/v1/", include(notifications_api_urls)),
     path("api/v1/", include("apps.accounts.api_urls")),
+    path("api/v1/", include("apps.credits.api_urls")),
     path("api/v1/dashboard/", include("apps.dashboard.urls")),
     path("api/v1/reports/", include(reports_api_urls)),
     path("", include("apps.reports.urls")),

@@ -3,6 +3,10 @@ status: awaiting_human_verify
 trigger: "Phase 7 Regions UI is broken. React widget never mounts. GET http://localhost:5173/static/dist/region-management net::ERR_ABORTED 404 (Not Found)"
 created: 2026-04-29T00:00:00Z
 updated: 2026-04-29T14:00:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: awaiting_human_verify
 ---
 
 ## Current Focus

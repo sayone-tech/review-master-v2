@@ -12,11 +12,15 @@ from typing import ClassVar
 from rest_framework import serializers
 
 from apps.common.models import AuditLog
+from apps.common.selectors.audit_logs import PLATFORM_ACTOR_LABEL, is_platform_actor
 
 
 class AuditLogReadSerializer(serializers.ModelSerializer[AuditLog]):
     actor_id = serializers.SerializerMethodField()
     actor_name = serializers.SerializerMethodField()
+    # CVIS-05: annotated by list_audit_logs_for_org for shop credit rows;
+    # absent on Staff rows (serialises null).
+    shop_name = serializers.CharField(read_only=True, default=None, allow_null=True)
 
     class Meta:
         model = AuditLog
@@ -28,15 +32,21 @@ class AuditLogReadSerializer(serializers.ModelSerializer[AuditLog]):
             "action",
             "actor_id",
             "actor_name",
+            "shop_name",
             "after_data",
         ]
 
     def get_actor_id(self, obj: AuditLog) -> int | None:
+        # CVIS-07: never expose a Superadmin's user id to a tenant.
+        if is_platform_actor(obj.actor):
+            return None
         return obj.actor_id
 
     def get_actor_name(self, obj: AuditLog) -> str | None:
         actor = obj.actor
         if actor is None:
             return None
+        if is_platform_actor(actor):
+            return PLATFORM_ACTOR_LABEL
         full_name = getattr(actor, "full_name", "") or ""
         return str(full_name) if full_name else None

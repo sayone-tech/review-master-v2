@@ -3,6 +3,10 @@ status: fixing
 trigger: "Production notifications show '1 new review' and '1 review synced' for FRUITBAE Kakkanad, FRUITBAE Thondayad, and FRUITBAE® | Thodupuzha — but the Reports page (last 4 days) shows only FRUITBAE® | Thodupuzha actually received 1 new review."
 created: 2026-05-15T00:00:00Z
 updated: 2026-05-15T06:30:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: fixing
 ---
 
 ## Current Focus

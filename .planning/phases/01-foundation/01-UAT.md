@@ -4,6 +4,10 @@ phase: 01-foundation
 source: 01-01-SUMMARY.md, 01-02-SUMMARY.md, 01-03-SUMMARY.md, 01-04-SUMMARY.md, 01-05-SUMMARY.md
 started: 2026-04-23T12:40:00Z
 updated: 2026-04-23T13:00:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  gap_snapshot: "diagnosed::scenarios=0"
 ---
 
 ## Current Test

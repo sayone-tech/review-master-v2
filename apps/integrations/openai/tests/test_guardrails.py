@@ -27,7 +27,7 @@ import openai
 import pytest
 from django.test import override_settings
 
-from apps.integrations.openai.exceptions import ContentModeratedException
+from apps.integrations.openai.exceptions import ContentModeratedException, OpenAIError
 from apps.integrations.openai.guardrails import (
     BLOCKING_MODERATION_CATEGORIES,
     _evaluate,
@@ -328,3 +328,125 @@ class TestFailOpenRetry:
         # One retry with the 1s sleep, then fail-open ERROR log.
         mock_sleep.assert_called_once_with(1.0)
         assert any("ai.moderation.errored" in rec.message for rec in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Phase 30 — stage + usage_log_id on the exception, bounded reply-path options
+# (CCON-05, CCON-06, D-15)
+# ---------------------------------------------------------------------------
+
+_CLIENT_TARGET = "apps.integrations.openai.guardrails._get_client"
+
+
+@pytest.mark.django_db
+class TestModerationStageAndUsageLog:
+    def test_input_block_carries_stage_and_usage_log_id_when_review_given(self) -> None:
+        review = ReviewFactory()
+        with (
+            patch(_PATCH_TARGET, return_value=_mod_response({"self_harm_intent": True})),
+            pytest.raises(ContentModeratedException) as excinfo,
+        ):
+            moderate_input("bad review", review=review)
+
+        row = AiUsageLog.objects.get(review=review, status="MODERATED")
+        assert excinfo.value.stage == "input"
+        assert excinfo.value.usage_log_id == row.pk
+
+    def test_input_block_has_no_usage_log_id_when_review_is_none(self) -> None:
+        before = AiUsageLog.objects.count()
+        with (
+            patch(_PATCH_TARGET, return_value=_mod_response({"self_harm_intent": True})),
+            pytest.raises(ContentModeratedException) as excinfo,
+        ):
+            moderate_input("bad review", review=None)
+
+        assert excinfo.value.stage == "input"
+        assert excinfo.value.usage_log_id is None
+        assert AiUsageLog.objects.count() == before
+
+    def test_output_block_carries_stage_and_usage_log_id_when_review_given(self) -> None:
+        review = ReviewFactory()
+        with (
+            patch(_PATCH_TARGET, return_value=_mod_response({"violence_graphic": True})),
+            pytest.raises(ContentModeratedException) as excinfo,
+        ):
+            moderate_output("bad output", review=review)
+
+        row = AiUsageLog.objects.get(review=review, status="MODERATED")
+        assert excinfo.value.stage == "output"
+        assert excinfo.value.usage_log_id == row.pk
+
+    def test_output_block_has_no_usage_log_id_when_review_is_none(self) -> None:
+        with (
+            patch(_PATCH_TARGET, return_value=_mod_response({"violence_graphic": True})),
+            pytest.raises(ContentModeratedException) as excinfo,
+        ):
+            moderate_output("bad output", review=None)
+
+        assert excinfo.value.stage == "output"
+        assert excinfo.value.usage_log_id is None
+
+    def test_bare_exception_has_no_stage_or_usage_log_id_when_constructed_plainly(self) -> None:
+        exc = ContentModeratedException()
+        assert exc.stage is None
+        assert exc.usage_log_id is None
+        assert isinstance(exc, OpenAIError)
+
+    def test_exception_carries_no_category_names_when_blocked_by_stage(self) -> None:
+        review = ReviewFactory()
+        with (
+            patch(_PATCH_TARGET, return_value=_mod_response({"self_harm_intent": True})),
+            pytest.raises(ContentModeratedException) as excinfo,
+        ):
+            moderate_input("bad review", review=review)
+
+        exc = excinfo.value
+        assert "self_harm" not in str(exc)
+        assert all("self_harm" not in repr(v) for v in vars(exc).values())
+        assert "bad review" not in str(exc)
+        assert set(vars(exc)) <= {"stage", "usage_log_id"}
+
+
+class TestModerationOptions:
+    def test_with_options_called_once_when_timeout_and_max_retries_given(self) -> None:
+        fake = MagicMock()
+        fake.with_options.return_value.moderations.create.return_value = _mod_response({})
+        with patch(_CLIENT_TARGET, return_value=fake):
+            result = moderate_input("clean", timeout=30, max_retries=0)
+
+        assert result == "clean"
+        fake.with_options.assert_called_once_with(timeout=30, max_retries=0)
+        fake.with_options.return_value.moderations.create.assert_called_once()
+
+    def test_with_options_not_called_when_no_options_given(self) -> None:
+        fake = MagicMock()
+        fake.moderations.create.return_value = _mod_response({})
+        with patch(_CLIENT_TARGET, return_value=fake):
+            moderate_input("clean")
+
+        fake.with_options.assert_not_called()
+        fake.moderations.create.assert_called_once()
+
+    def test_output_with_options_passes_only_given_keys_when_timeout_only(self) -> None:
+        fake = MagicMock()
+        fake.with_options.return_value.moderations.create.return_value = _mod_response({})
+        with patch(_CLIENT_TARGET, return_value=fake):
+            moderate_output("reply", timeout=12)
+
+        fake.with_options.assert_called_once_with(timeout=12)
+
+    def test_no_new_kwargs_reach_call_api_when_options_absent(self) -> None:
+        with patch(_PATCH_TARGET, return_value=_mod_response({})) as mock_call:
+            moderate_input("clean")
+        mock_call.assert_called_once_with("clean")
+
+    def test_app_level_retry_still_makes_two_attempts_when_options_given(self) -> None:
+        fake = MagicMock()
+        create = fake.with_options.return_value.moderations.create
+        create.side_effect = [_connection_error(), _mod_response({})]
+        with patch(_CLIENT_TARGET, return_value=fake), patch(_SLEEP_TARGET) as mock_sleep:
+            result = moderate_input("clean", timeout=30, max_retries=0)
+
+        assert result == "clean"
+        assert create.call_count == 2
+        mock_sleep.assert_called_once_with(1.0)

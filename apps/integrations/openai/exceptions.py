@@ -29,4 +29,21 @@ class EnrichmentParseError(OpenAIError):
 
 
 class ContentModeratedException(OpenAIError):  # noqa: N818 — name fixed by plan 20-02 (D-16/D-32)
-    """Raised when input or output content is blocked by moderation (Phase 20, D-16/D-32)."""
+    """Raised when input or output content is blocked by moderation (Phase 20, D-16/D-32).
+
+    Carries only the blocking ``stage`` ("input" / "output") and the integer pk of
+    the MODERATED ``AiUsageLog`` row written just before the raise (Phase 30,
+    CCON-05/CCON-06). It never carries flagged categories or review text (T-20-LK).
+    Both default to ``None`` so existing callers behave exactly as before.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        stage: str | None = None,
+        usage_log_id: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.usage_log_id = usage_log_id

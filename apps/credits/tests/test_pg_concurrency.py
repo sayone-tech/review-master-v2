@@ -1,0 +1,878 @@
+"""Real-PostgreSQL concurrency tests for credits (CQA-01, D-14).
+
+SQLite serialises writers, so it can never expose a first-use race. These tests run
+in the ``backend-pg`` CI job (and ``make test-pg``) and auto-skip elsewhere.
+"""
+
+from __future__ import annotations
+
+import threading
+import time
+from collections.abc import Callable
+
+import pytest
+from django.db import connection, connections
+
+from apps.accounts.tests.factories import UserFactory
+from apps.common.models import AuditLog
+from apps.credits.exceptions import GenerationInProgressError, InsufficientCreditsError
+from apps.credits.models import CreditTransaction, ShopCreditBalance
+from apps.credits.services.allocation import ensure_balance
+from apps.credits.services.bonus import allocate_bonus
+from apps.credits.services.consumption import (
+    SettleResult,
+    commit_reservation,
+    refund_reservation,
+    reserve_credits,
+)
+from apps.credits.services.lapse import LapseSummary, lapse_past_balances
+from apps.credits.services.ledger import transition_status
+from apps.credits.services.periods import current_period
+from apps.credits.services.reaper import ReapSummary, reap_stale_reservations
+from apps.credits.tests.factories import CreditTransactionFactory, ShopCreditBalanceFactory
+from apps.credits.tests.helpers import age_reservation, assert_ledger_reconciles
+from apps.organisations.models import Organisation
+from apps.organisations.services.organisations import update_organisation
+from apps.organisations.tests.factories import OrganisationFactory
+from apps.reviews.tests.factories import ReviewFactory
+from apps.shops.tests.factories import ShopFactory
+
+N_THREADS = 8
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_connection_is_postgres_when_pg_concurrency_runs():
+    assert connection.vendor == "postgresql"
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_first_use_creates_one_balance_and_one_initial_when_n_threads_race():
+    org = OrganisationFactory(monthly_credit_allocation=7)
+    shop = ShopFactory(organisation=org)
+    barrier = threading.Barrier(N_THREADS)
+    results: list[tuple[bool, int]] = []
+    errors: list[str] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        try:
+            barrier.wait(timeout=10)
+            balance, created = ensure_balance(shop_id=shop.pk)
+            with lock:
+                results.append((created, balance.pk))
+        except Exception as exc:
+            with lock:
+                errors.append(repr(exc))
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=worker) for _ in range(N_THREADS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert not errors, errors
+    assert len(results) == N_THREADS
+    assert [created for created, _ in results].count(True) == 1
+    assert len({pk for _, pk in results}) == 1
+    assert ShopCreditBalance.objects.filter(shop=shop).count() == 1
+    initial = CreditTransaction.objects.filter(
+        shop=shop, transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+    )
+    assert initial.count() == 1
+    assert initial.get().credits_delta == 7
+    assert (
+        AuditLog.objects.filter(action="shop.credits.allocated", entity_id=str(shop.pk)).count()
+        == 1
+    )
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_cas_transition_succeeds_once_when_n_threads_settle_same_reservation():
+    tx = CreditTransactionFactory(credits_delta=-2)
+    barrier = threading.Barrier(N_THREADS)
+    results: list[tuple[bool, str]] = []
+    errors: list[str] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        target = (
+            CreditTransaction.Status.COMMITTED
+            if index % 2 == 0
+            else CreditTransaction.Status.REFUNDED
+        )
+        try:
+            barrier.wait(timeout=10)
+            won = transition_status(
+                transaction_id=tx.pk,
+                from_status=CreditTransaction.Status.RESERVED,
+                to_status=target,
+            )
+            with lock:
+                results.append((won, target))
+        except Exception as exc:
+            with lock:
+                errors.append(repr(exc))
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(N_THREADS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert not errors, errors
+    assert len(results) == N_THREADS
+    winners = [target for won, target in results if won]
+    assert len(winners) == 1
+    tx.refresh_from_db()
+    assert tx.status == winners[0]
+
+
+def _run_threads(count: int, target: Callable[[int], None]) -> list[str]:
+    """Start ``count`` threads running ``target(index)``; return collected error reprs.
+
+    Every thread closes its own connections in ``finally`` and the join is bounded, so a
+    deadlock between the reserve lock order and the settle CAS fails the test instead of
+    hanging the suite.
+    """
+    errors: list[str] = []
+    lock = threading.Lock()
+
+    def wrapped(index: int) -> None:
+        try:
+            target(index)
+        except Exception as exc:
+            with lock:
+                errors.append(repr(exc))
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=wrapped, args=(i,)) for i in range(count)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+    assert not any(t.is_alive() for t in threads), "a worker thread did not finish (deadlock?)"
+    return errors
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_reserve_never_overspends_when_n_threads_race_for_k_credits():
+    n_threads = 12
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org)
+    reviews = [ReviewFactory(organisation=org, shop=shop) for _ in range(n_threads)]
+    barrier = threading.Barrier(n_threads)
+    reserved: list[int] = []
+    denied: list[str] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        barrier.wait(timeout=10)
+        try:
+            res = reserve_credits(
+                shop_id=shop.pk, review_id=reviews[index].pk, credits=2, actor_id=None
+            )
+        except InsufficientCreditsError as exc:
+            with lock:
+                denied.append(exc.reason)
+            return
+        with lock:
+            reserved.append(res.transaction_id)
+
+    errors = _run_threads(n_threads, worker)
+
+    assert not errors, errors
+    assert len(reserved) == 5
+    assert denied == ["exhausted"] * 7
+    balance = ShopCreditBalance.objects.get(shop=shop)
+    assert balance.consumed_credits == 10
+    live = CreditTransaction.objects.filter(
+        shop=shop,
+        transaction_type=CreditTransaction.Type.CONSUMPTION,
+        status=CreditTransaction.Status.RESERVED,
+    )
+    assert live.count() == 5
+    assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_reserve_yields_one_reservation_when_n_threads_race_on_same_review():
+    n_threads = 8
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org)
+    review = ReviewFactory(organisation=org, shop=shop)
+    barrier = threading.Barrier(n_threads)
+    outcomes: list[str] = []
+    lock = threading.Lock()
+
+    def worker(_index: int) -> None:
+        barrier.wait(timeout=10)
+        try:
+            reserve_credits(shop_id=shop.pk, review_id=review.pk, credits=1, actor_id=None)
+        except GenerationInProgressError:
+            with lock:
+                outcomes.append("in_progress")
+            return
+        with lock:
+            outcomes.append("reserved")
+
+    errors = _run_threads(n_threads, worker)
+
+    assert not errors, errors
+    assert outcomes.count("reserved") == 1
+    assert outcomes.count("in_progress") == n_threads - 1
+    balance = ShopCreditBalance.objects.get(shop=shop)
+    assert balance.consumed_credits == 1
+    assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_first_use_reserve_creates_one_balance_when_n_threads_race():
+    n_threads = 8
+    org = OrganisationFactory(monthly_credit_allocation=7)
+    shop = ShopFactory(organisation=org)
+    reviews = [ReviewFactory(organisation=org, shop=shop) for _ in range(n_threads)]
+    assert not ShopCreditBalance.objects.filter(shop=shop).exists()
+    barrier = threading.Barrier(n_threads)
+    reserved: list[int] = []
+    denied: list[str] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        barrier.wait(timeout=10)
+        try:
+            res = reserve_credits(
+                shop_id=shop.pk, review_id=reviews[index].pk, credits=1, actor_id=None
+            )
+        except InsufficientCreditsError as exc:
+            with lock:
+                denied.append(exc.reason)
+            return
+        with lock:
+            reserved.append(res.transaction_id)
+
+    errors = _run_threads(n_threads, worker)
+
+    assert not errors, errors
+    assert len(reserved) == 7
+    assert denied == ["exhausted"]
+    assert ShopCreditBalance.objects.filter(shop=shop).count() == 1
+    balance = ShopCreditBalance.objects.get(shop=shop)
+    assert balance.consumed_credits == 7
+    assert (
+        CreditTransaction.objects.filter(
+            shop=shop, transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+        ).count()
+        == 1
+    )
+    assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_charges_once_when_commit_and_refund_race():
+    """Exactly one CAS wins per reservation, and the shop is charged exactly once either way.
+
+    Not the reaper test: the orchestrator only ever commits a reservation once, so each
+    reservation here has one committer racing one bare refunder. The real reaper racing a late
+    commit is ``test_reaper_and_late_commit_settle_each_reservation_once_when_racing`` below
+    (Phase 31, CREN-03).
+    """
+    n_reservations = 10
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org)
+    reviews = [ReviewFactory(organisation=org, shop=shop) for _ in range(n_reservations)]
+    reservations = [
+        reserve_credits(shop_id=shop.pk, review_id=r.pk, credits=1, actor_id=None) for r in reviews
+    ]
+    barriers = [threading.Barrier(2) for _ in reservations]
+    refund_wins: list[int] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        reservation = reservations[index // 2]
+        barriers[index // 2].wait(timeout=10)
+        if index % 2 == 0:
+            commit_reservation(
+                transaction_id=reservation.transaction_id,
+                ai_usage_log_id=None,
+                outcome="success",
+                actor_id=None,
+            )
+        elif refund_reservation(
+            transaction_id=reservation.transaction_id, reason="unexpected_error"
+        ):
+            with lock:
+                refund_wins.append(reservation.transaction_id)
+
+    errors = _run_threads(n_reservations * 2, worker)
+
+    assert not errors, errors
+    for review in reviews:
+        committed = CreditTransaction.objects.filter(
+            review=review,
+            transaction_type=CreditTransaction.Type.CONSUMPTION,
+            status=CreditTransaction.Status.COMMITTED,
+        )
+        assert committed.count() == 1
+    balance = ShopCreditBalance.objects.get(shop=shop)
+    assert balance.consumed_credits == n_reservations
+    assert balance.consumed_credits <= balance.allocated_credits + balance.bonus_credits
+    late_rows = CreditTransaction.objects.filter(shop=shop, note="late_commit")
+    assert late_rows.count() == len(refund_wins)
+    rededucted = [
+        a
+        for a in AuditLog.objects.filter(action="shop.credits.late_commit", entity_id=str(shop.pk))
+        if a.after_data["outcome"] == "rededucted"
+    ]
+    assert len(rededucted) == len(refund_wins)
+    assert_ledger_reconciles(balance)
+
+
+def _previous_period() -> tuple[int, int]:
+    p = current_period()
+    return (p.year - 1, 12) if p.month == 1 else (p.year, p.month - 1)
+
+
+def _refunded_audit_rows(shop_id: int, transaction_id: int) -> list[AuditLog]:
+    return [
+        a
+        for a in AuditLog.objects.filter(action="shop.credits.refunded", entity_id=str(shop_id))
+        if a.after_data["transaction_id"] == transaction_id
+    ]
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_reaper_and_late_commit_settle_each_reservation_once_when_racing():
+    """Phase 31 reaper-vs-late-commit test (CREN-03, CQA-01).
+
+    Uses the real ``reap_stale_reservations`` (not a bare refund) against ``commit_reservation``
+    on one stale reservation per round. Either the commit wins (reaper reaps nothing) or the
+    reaper wins and the late commit re-deducts once; the shop is charged exactly once per review.
+    """
+    n_rounds = 10
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org)
+    reviews = [ReviewFactory(organisation=org, shop=shop) for _ in range(n_rounds)]
+    split = {"committed": 0, "refunded": 0}
+
+    for round_index, review in enumerate(reviews):
+        res = reserve_credits(shop_id=shop.pk, review_id=review.pk, credits=1, actor_id=None)
+        age_reservation(res.transaction_id, minutes=6)
+        barrier = threading.Barrier(2)
+        reaped: list[ReapSummary] = []
+        settled: list[SettleResult] = []
+        lock = threading.Lock()
+
+        def worker(
+            index: int,
+            barrier: threading.Barrier = barrier,
+            tx_id: int = res.transaction_id,
+            reaped: list[ReapSummary] = reaped,
+            settled: list[SettleResult] = settled,
+            lock: threading.Lock = lock,
+            delay: float = 0.003 * (round_index % 2),
+        ) -> None:
+            barrier.wait(timeout=10)
+            if index == 0:
+                summary = reap_stale_reservations()
+                with lock:
+                    reaped.append(summary)
+            else:
+                # Odd rounds delay the committer 3ms, even rounds do not, so both orderings
+                # (commit first, reaper first) are likely every run; either winner is accepted.
+                if delay:
+                    time.sleep(delay)
+                result = commit_reservation(
+                    transaction_id=tx_id, ai_usage_log_id=None, outcome="success", actor_id=None
+                )
+                with lock:
+                    settled.append(result)
+
+        errors = _run_threads(2, worker)
+
+        assert not errors, errors
+        assert len(reaped) == 1
+        assert len(settled) == 1
+        summary = reaped[0]
+        result = settled[0]
+        assert summary.errored == 0
+        tx = CreditTransaction.objects.get(pk=res.transaction_id)
+        refunds = _refunded_audit_rows(shop.pk, res.transaction_id)
+        late = CreditTransaction.objects.filter(review=review, note="late_commit")
+        if tx.status == CreditTransaction.Status.COMMITTED:
+            split["committed"] += 1
+            assert result.outcome == "committed"
+            assert refunds == []
+            assert summary.reaped == 0
+            assert late.count() == 0
+        else:
+            split["refunded"] += 1
+            assert tx.status == CreditTransaction.Status.REFUNDED
+            assert len(refunds) == 1
+            assert refunds[0].after_data["reason"] == "reaped_stale"
+            assert summary.reaped == 1
+            assert result.outcome == "rededucted"
+            assert late.count() == 1
+            assert late.get().status == CreditTransaction.Status.COMMITTED
+
+    for review in reviews:
+        committed = CreditTransaction.objects.filter(
+            review=review,
+            transaction_type=CreditTransaction.Type.CONSUMPTION,
+            status=CreditTransaction.Status.COMMITTED,
+        )
+        assert committed.count() == 1
+    balance = ShopCreditBalance.objects.get(shop=shop)
+    assert balance.consumed_credits == n_rounds
+    assert balance.consumed_credits <= balance.allocated_credits + balance.bonus_credits
+    assert_ledger_reconciles(balance)
+    assert split["committed"] + split["refunded"] == n_rounds
+    print(f"reaper-vs-late-commit split: {split}")  # noqa: T201 - recorded in the SUMMARY
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_overlapping_reapers_refund_each_stale_reservation_once_when_k_threads_race():
+    n_threads = 4
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shops = [ShopFactory(organisation=org) for _ in range(2)]
+    tx_ids: list[tuple[int, int]] = []
+    for shop in shops:
+        for _ in range(6):
+            review = ReviewFactory(organisation=org, shop=shop)
+            res = reserve_credits(shop_id=shop.pk, review_id=review.pk, credits=1, actor_id=None)
+            age_reservation(res.transaction_id, minutes=6)
+            tx_ids.append((shop.pk, res.transaction_id))
+    barrier = threading.Barrier(n_threads)
+    summaries: list[ReapSummary] = []
+    lock = threading.Lock()
+
+    def worker(_index: int) -> None:
+        barrier.wait(timeout=10)
+        summary = reap_stale_reservations()
+        with lock:
+            summaries.append(summary)
+
+    errors = _run_threads(n_threads, worker)
+
+    assert not errors, errors
+    assert len(summaries) == n_threads
+    assert sum(s.reaped for s in summaries) == 12
+    assert all(s.errored == 0 for s in summaries)
+    for shop_id, tx_id in tx_ids:
+        assert CreditTransaction.objects.get(pk=tx_id).status == CreditTransaction.Status.REFUNDED
+        assert len(_refunded_audit_rows(shop_id, tx_id)) == 1
+    for shop in shops:
+        balance = ShopCreditBalance.objects.get(shop=shop)
+        assert balance.consumed_credits == 0
+        assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_overlapping_lapse_sweeps_write_one_lapsed_row_per_balance_when_n_threads_race():
+    n_threads = 6
+    year, month = _previous_period()
+    cur = current_period()
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shops = [ShopFactory(organisation=org) for _ in range(7)]
+    with_credit = []
+    for i, shop in enumerate(shops[:5]):
+        with_credit.append(
+            ShopCreditBalanceFactory(
+                shop=shop,
+                period_year=year,
+                period_month=month,
+                allocated_credits=10,
+                bonus_credits=i,
+                consumed_credits=i,
+            )
+        )
+    used_up = ShopCreditBalanceFactory(
+        shop=shops[5],
+        period_year=year,
+        period_month=month,
+        allocated_credits=10,
+        bonus_credits=2,
+        consumed_credits=12,
+    )
+    held = ShopCreditBalanceFactory(
+        shop=shops[6],
+        period_year=year,
+        period_month=month,
+        allocated_credits=10,
+        consumed_credits=2,
+    )
+    CreditTransactionFactory(
+        shop_credit_balance=held,
+        credits_delta=-2,
+        review=ReviewFactory(organisation=org, shop=shops[6]),
+        status=CreditTransaction.Status.RESERVED,
+    )
+    current_balances = [
+        ShopCreditBalanceFactory(shop=shop, period_year=cur.year, period_month=cur.month)
+        for shop in shops
+    ]
+    barrier = threading.Barrier(n_threads)
+    summaries: list[LapseSummary] = []
+    lock = threading.Lock()
+
+    def worker(_index: int) -> None:
+        barrier.wait(timeout=10)
+        summary = lapse_past_balances()
+        with lock:
+            summaries.append(summary)
+
+    errors = _run_threads(n_threads, worker)
+
+    assert not errors, errors
+    assert len(summaries) == n_threads
+    for balance in with_credit:
+        balance.refresh_from_db()
+        rows = CreditTransaction.objects.filter(
+            shop_credit_balance=balance, transaction_type=CreditTransaction.Type.LAPSED
+        )
+        assert rows.count() == 1
+        assert rows.get().credits_delta == -(
+            balance.allocated_credits + balance.bonus_credits - balance.consumed_credits
+        )
+        assert balance.lapsed_at is not None
+        audits = AuditLog.objects.filter(
+            action="shop.credits.lapsed", entity_id=str(balance.shop_id)
+        )
+        assert audits.count() == 1
+    used_up.refresh_from_db()
+    assert used_up.lapsed_at is not None
+    assert not CreditTransaction.objects.filter(
+        shop_credit_balance=used_up, transaction_type=CreditTransaction.Type.LAPSED
+    ).exists()
+    assert not AuditLog.objects.filter(
+        action="shop.credits.lapsed", entity_id=str(used_up.shop_id)
+    ).exists()
+    held.refresh_from_db()
+    assert held.lapsed_at is None
+    assert not CreditTransaction.objects.filter(
+        shop_credit_balance=held, transaction_type=CreditTransaction.Type.LAPSED
+    ).exists()
+    assert not AuditLog.objects.filter(
+        action="shop.credits.lapsed", entity_id=str(held.shop_id)
+    ).exists()
+    for balance in current_balances:
+        balance.refresh_from_db()
+        assert balance.lapsed_at is None
+    assert sum(s.lapsed for s in summaries) == 5
+    assert sum(s.lapsed_zero for s in summaries) == 1
+    assert all(s.errored == 0 for s in summaries)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_past_period_reservation_settles_once_and_balance_lapses_once_when_commit_reaper_and_sweep_race():
+    n_rounds = 6
+    year, month = _previous_period()
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    split = {"committed": 0, "free_draft": 0}
+
+    for _ in range(n_rounds):
+        shop = ShopFactory(organisation=org)
+        review = ReviewFactory(organisation=org, shop=shop)
+        balance = ShopCreditBalanceFactory(
+            shop=shop,
+            period_year=year,
+            period_month=month,
+            allocated_credits=10,
+            consumed_credits=3,
+        )
+        tx = CreditTransactionFactory(
+            shop_credit_balance=balance,
+            credits_delta=-3,
+            review=review,
+            status=CreditTransaction.Status.RESERVED,
+        )
+        age_reservation(tx.pk, minutes=6)
+        barrier = threading.Barrier(3)
+        settled: list[SettleResult] = []
+        lock = threading.Lock()
+
+        def worker(
+            index: int,
+            barrier: threading.Barrier = barrier,
+            tx_id: int = tx.pk,
+            settled: list[SettleResult] = settled,
+            lock: threading.Lock = lock,
+        ) -> None:
+            barrier.wait(timeout=10)
+            if index == 0:
+                result = commit_reservation(
+                    transaction_id=tx_id, ai_usage_log_id=None, outcome="success", actor_id=None
+                )
+                with lock:
+                    settled.append(result)
+            elif index == 1:
+                reap_stale_reservations()
+            else:
+                lapse_past_balances()
+
+        errors = _run_threads(3, worker)
+
+        assert not errors, errors
+        lapse_past_balances()
+        assert len(settled) == 1
+        outcome = settled[0].outcome
+        tx.refresh_from_db()
+        balance.refresh_from_db()
+        lapsed_rows = CreditTransaction.objects.filter(
+            shop_credit_balance=balance, transaction_type=CreditTransaction.Type.LAPSED
+        )
+        if outcome == "committed":
+            split["committed"] += 1
+            assert tx.status == CreditTransaction.Status.COMMITTED
+            assert balance.consumed_credits == 3
+            assert lapsed_rows.get().credits_delta == -7
+        else:
+            assert outcome == "free_draft", outcome
+            split["free_draft"] += 1
+            assert tx.status == CreditTransaction.Status.REFUNDED
+            assert balance.consumed_credits == 0
+            assert lapsed_rows.get().credits_delta == -10
+            assert not CreditTransaction.objects.filter(review=review, note="late_commit").exists()
+        assert lapsed_rows.count() == 1
+        assert (
+            AuditLog.objects.filter(action="shop.credits.lapsed", entity_id=str(shop.pk)).count()
+            == 1
+        )
+        assert balance.lapsed_at is not None
+        assert_ledger_reconciles(balance)
+    print(f"past-period straddle split: {split}")  # noqa: T201 - recorded in the SUMMARY
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_bonuses_sum_exactly_when_n_threads_allocate_to_one_never_used_shop():
+    """Tracer (CSUP-01): N simultaneous bonuses on a never-used shop are lossless.
+
+    The first bonus creates the balance (organisation allocation 10) and the rest wait on the
+    organisation row lock, then on the balance row; every +5 must be counted exactly once.
+    """
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org)
+    user = UserFactory()
+    period = current_period()
+    assert not ShopCreditBalance.objects.filter(shop=shop).exists()
+    barrier = threading.Barrier(N_THREADS)
+
+    def worker(_index: int) -> None:
+        barrier.wait(timeout=10)
+        allocate_bonus(shop_id=shop.pk, amount=5, reason=None, period=period, actor_id=user.pk)
+
+    errors = _run_threads(N_THREADS, worker)
+
+    assert not errors, errors
+    balances = ShopCreditBalance.objects.filter(
+        shop=shop, period_year=period.year, period_month=period.month
+    )
+    assert balances.count() == 1
+    balance = balances.get()
+    assert balance.allocated_credits == 10
+    assert balance.bonus_credits == 5 * N_THREADS
+    initial = CreditTransaction.objects.filter(
+        shop=shop, transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+    )
+    assert initial.count() == 1
+    assert initial.get().credits_delta == 10
+    bonus_rows = CreditTransaction.objects.filter(
+        shop=shop, transaction_type=CreditTransaction.Type.BONUS_ALLOCATION
+    )
+    assert bonus_rows.count() == N_THREADS
+    assert {r.credits_delta for r in bonus_rows} == {5}
+    assert {r.status for r in bonus_rows} == {CreditTransaction.Status.COMMITTED}
+    assert {r.actor_id for r in bonus_rows} == {user.pk}
+    assert (
+        AuditLog.objects.filter(
+            action="shop.credits.bonus_allocated", entity_id=str(shop.pk)
+        ).count()
+        == N_THREADS
+    )
+    assert (
+        AuditLog.objects.filter(action="shop.credits.allocated", entity_id=str(shop.pk)).count()
+        == 1
+    )
+    assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_org_edit_materialises_one_row_per_shop_at_old_value_when_first_uses_race():
+    """CRED-06 / D-20: an allocation edit racing first uses never splits a month's value.
+
+    Whichever side wins, every shop ends with exactly one current-month row at the OLD value
+    (10), one INITIAL row and one ``shop.credits.allocated`` row, and the field reads 20.
+    """
+    n_shops = 6
+    period = current_period()
+    for _round in range(3):
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        shops = [ShopFactory(organisation=org) for _ in range(n_shops)]
+        barrier = threading.Barrier(n_shops + 1)
+
+        def worker(
+            index: int,
+            org_pk: int = org.pk,
+            shops: list = shops,  # type: ignore[type-arg]
+            barrier: threading.Barrier = barrier,
+        ) -> None:
+            barrier.wait(timeout=10)
+            if index == 0:
+                fresh = Organisation.objects.get(pk=org_pk)
+                update_organisation(organisation=fresh, monthly_credit_allocation=20)
+            else:
+                ensure_balance(shop_id=shops[index - 1].pk)
+
+        errors = _run_threads(n_shops + 1, worker)
+
+        assert not errors, errors
+        for shop in shops:
+            rows = ShopCreditBalance.objects.filter(
+                shop=shop, period_year=period.year, period_month=period.month
+            )
+            assert rows.count() == 1
+            assert rows.get().allocated_credits == 10
+        initial = CreditTransaction.objects.filter(
+            organisation=org, transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+        )
+        assert initial.count() == n_shops
+        assert {t.credits_delta for t in initial} == {10}
+        assert (
+            AuditLog.objects.filter(organisation=org, action="shop.credits.allocated").count()
+            == n_shops
+        )
+        org.refresh_from_db()
+        assert org.monthly_credit_allocation == 20
+        set_rows = AuditLog.objects.filter(organisation=org, action="organisation.credits.set")
+        assert set_rows.count() == 1
+        assert set_rows.get().after_data["effective"] == "next_month"
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_bonus_and_reserve_keep_ledger_consistent_when_racing_on_one_balance():
+    n_bonus, n_reserve = 4, 8
+    org = OrganisationFactory(monthly_credit_allocation=4)
+    shop = ShopFactory(organisation=org)
+    reviews = [ReviewFactory(organisation=org, shop=shop) for _ in range(n_reserve)]
+    user = UserFactory()
+    period = current_period()
+    barrier = threading.Barrier(n_bonus + n_reserve)
+    reserved: list[int] = []
+    denied: list[str] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        barrier.wait(timeout=10)
+        if index < n_bonus:
+            allocate_bonus(shop_id=shop.pk, amount=1, reason=None, period=period, actor_id=user.pk)
+            return
+        try:
+            res = reserve_credits(
+                shop_id=shop.pk, review_id=reviews[index - n_bonus].pk, credits=1, actor_id=None
+            )
+        except InsufficientCreditsError as exc:
+            with lock:
+                denied.append(exc.reason)
+            return
+        with lock:
+            reserved.append(res.transaction_id)
+
+    errors = _run_threads(n_bonus + n_reserve, worker)
+
+    assert not errors, errors
+    assert len(reserved) + len(denied) == n_reserve
+    balance = ShopCreditBalance.objects.get(shop=shop)
+    assert balance.allocated_credits == 4
+    assert balance.bonus_credits == n_bonus
+    assert (
+        CreditTransaction.objects.filter(
+            shop=shop, transaction_type=CreditTransaction.Type.BONUS_ALLOCATION
+        ).count()
+        == n_bonus
+    )
+    assert balance.consumed_credits == len(reserved)
+    assert balance.consumed_credits <= balance.allocated_credits + balance.bonus_credits
+    assert_ledger_reconciles(balance)
+
+
+@pytest.mark.pg_concurrency
+@pytest.mark.django_db(transaction=True)
+def test_bonus_and_zero_to_n_edit_leave_no_zero_allocation_row_when_racing():
+    """Research Pitfall 6: a bonus racing a 0 -> N edit never strands a zero-allocation row.
+
+    Odd rounds delay the bonus 3 ms, even rounds delay the edit, so both orderings occur in
+    every run (bonus first: the zero row is raised; edit first: the row is created at 20).
+    """
+    user = UserFactory()
+    period = current_period()
+    split = {"bonus_first_or_equal": 0, "edit_first_or_equal": 0}
+    for round_index in range(6):
+        org = OrganisationFactory(monthly_credit_allocation=0)
+        shop = ShopFactory(organisation=org)
+        barrier = threading.Barrier(2)
+        delay_bonus = round_index % 2 == 1
+
+        def worker(
+            index: int,
+            org_pk: int = org.pk,
+            shop_pk: int = shop.pk,
+            barrier: threading.Barrier = barrier,
+            delay_bonus: bool = delay_bonus,
+        ) -> None:
+            barrier.wait(timeout=10)
+            if index == 0:
+                if delay_bonus:
+                    time.sleep(0.003)
+                allocate_bonus(
+                    shop_id=shop_pk, amount=5, reason=None, period=period, actor_id=user.pk
+                )
+            else:
+                if not delay_bonus:
+                    time.sleep(0.003)
+                fresh = Organisation.objects.get(pk=org_pk)
+                update_organisation(organisation=fresh, monthly_credit_allocation=20)
+
+        errors = _run_threads(2, worker)
+
+        assert not errors, errors
+        split["edit_first_or_equal" if delay_bonus else "bonus_first_or_equal"] += 1
+        balances = ShopCreditBalance.objects.filter(
+            shop=shop, period_year=period.year, period_month=period.month
+        )
+        assert balances.count() == 1
+        balance = balances.get()
+        assert balance.allocated_credits == 20
+        assert balance.bonus_credits == 5
+        initial = CreditTransaction.objects.filter(
+            shop=shop, transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
+        )
+        assert initial.count() == 1
+        assert initial.get().credits_delta == 20
+        assert (
+            CreditTransaction.objects.filter(
+                shop=shop, transaction_type=CreditTransaction.Type.BONUS_ALLOCATION
+            ).count()
+            == 1
+        )
+        set_rows = AuditLog.objects.filter(organisation=org, action="organisation.credits.set")
+        assert set_rows.count() == 1
+        assert set_rows.get().after_data["effective"] == "immediate"
+        assert_ledger_reconciles(balance)

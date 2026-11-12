@@ -25,11 +25,10 @@ function computeHasActiveFilters(filters: FilterParams): boolean {
 const pageBtnCls =
   "w-8 h-8 rounded-sm bg-white border border-line flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-line-soft";
 
-export function AuditLogWidget({ userRole: _userRole, actors }: Props) {
-  // userRole is currently unused at the React layer — server-side scoping handles
-  // role filtering. Prop is retained on the public API so the entrypoint contract
-  // is stable and future role-specific UI can hook in without changing callers.
-  void _userRole;
+export function AuditLogWidget({ userRole, actors }: Props) {
+  // Server-side scoping is authoritative; the role only decides whether the
+  // Credits type option is offered (CVIS-06: Staff never get credit rows).
+  const showCreditsType = userRole === "ORG_ADMIN";
   const {
     rows,
     loading,
@@ -60,6 +59,7 @@ export function AuditLogWidget({ userRole: _userRole, actors }: Props) {
         onApply={applyFilters}
         onReset={resetFilters}
         hasActiveFilters={hasActiveFilters}
+        showCreditsType={showCreditsType}
       />
 
       <div className="border border-line rounded-card overflow-hidden">

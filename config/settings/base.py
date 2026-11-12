@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.reply_templates",
     "apps.integrations.openai",
+    "apps.credits",
     "apps.reports",
 ]
 
@@ -132,6 +133,10 @@ CELERY_TASK_ROUTES = {
     "apps.reviews.tasks.reclassify_polarity_task": {"queue": "default"},
     "apps.reviews.tasks.recover_stuck_syncs_task": {"queue": "default"},
     "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},
+    # Phase 31 CREN-01 — daily idempotent lapse sweep (00:05 UTC).
+    "apps.credits.tasks.lapse_expired_credit_balances_task": {"queue": "default"},
+    # Phase 31 CREN-03 — reservation reaper (every 10 minutes).
+    "apps.credits.tasks.reap_stale_reservations_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 300  # 5-minute soft limit
@@ -227,6 +232,25 @@ POLARITY_RECLASSIFY_THRESHOLD = float(env("POLARITY_RECLASSIFY_THRESHOLD", defau
 POLARITY_RECLASSIFY_WINDOW_DAYS = env.int("POLARITY_RECLASSIFY_WINDOW_DAYS", default=30)
 # POLARITY_RECLASSIFY_MIN_REVIEWS: minimum sample guard — denominator must be >= this.
 POLARITY_RECLASSIFY_MIN_REVIEWS = env.int("POLARITY_RECLASSIFY_MIN_REVIEWS", default=10)
+
+# AI reply credits (v0.9 — Phase 29)
+# REVIEWBEE_CREDIT_TIERS: (max_comment_length, cost) tuples, ascending; the last max_len is
+#   None (open-ended top tier, D-10). Length is len(comment.strip()) in code points (D-09).
+REVIEWBEE_CREDIT_TIERS: list[tuple[int | None, int]] = [(100, 1), (500, 2), (None, 3)]
+# REVIEWBEE_CREDIT_RESERVATION_TTL_MINUTES: age after which a RESERVED credit is reaped (Phase 31).
+REVIEWBEE_CREDIT_RESERVATION_TTL_MINUTES = 5
+# REVIEWBEE_CREDIT_LAPSE_CHUNK_SIZE: balances fetched per keyset page by the daily lapse sweep (Phase 31).
+REVIEWBEE_CREDIT_LAPSE_CHUNK_SIZE = env.int("REVIEWBEE_CREDIT_LAPSE_CHUNK_SIZE", default=500)
+# REVIEWBEE_CREDIT_REAPER_BATCH_SIZE: max stale reservations refunded per 10-minute reaper run; the rest roll to the next run (Phase 31).
+REVIEWBEE_CREDIT_REAPER_BATCH_SIZE = env.int("REVIEWBEE_CREDIT_REAPER_BATCH_SIZE", default=500)
+# Reply path only: per-request OpenAI timeout (s). The whole request must stay well under the
+# reservation TTL above; enforced by apps/credits/tests/test_settings.py.
+REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS = env.int(
+    "REVIEWBEE_REPLY_OPENAI_TIMEOUT_SECONDS", default=30
+)
+# Reply path only: SDK retries on the chat call (moderation uses client.REPLY_MODERATION_MAX_RETRIES).
+REVIEWBEE_REPLY_OPENAI_MAX_RETRIES = env.int("REVIEWBEE_REPLY_OPENAI_MAX_RETRIES", default=1)
+REVIEWBEE_SUPPORT_EMAIL = env("REVIEWBEE_SUPPORT_EMAIL", default="support@reviewbee.in")
 
 # ---------------------------------------------------------------------------
 # AWS — used by Celery queue-depth metric publisher (apps.common.services.
@@ -407,6 +431,14 @@ REST_FRAMEWORK = {
         "login": "10/15min",
         "review_reply": "30/minute",
         "generate_reply": "10/minute",
+        # Phase 30 D-10: cheap read the UI calls per visible review; its own bucket so it never
+        # eats the 30/min review_reply budget (research A4, trivial to raise).
+        "credit_cost": "120/minute",
+        # Phase 32: Superadmin credit endpoints (shop list read, bonus write).
+        "superadmin_credits_read": "120/minute",
+        "superadmin_credits_write": "30/minute",
+        # Phase 33: Org Admin / Staff shop credits card read (CVIS-01).
+        "shop_credits": "120/minute",
         "audit_log_list": "120/minute",
         "sync_progress": SYNC_PROGRESS_THROTTLE_RATE,  # Phase 27 SYNC-REL-01 snapshot poll
     },

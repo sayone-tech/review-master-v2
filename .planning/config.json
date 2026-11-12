@@ -11,5 +11,10 @@
     "nyquist_validation": true,
     "auto_advance": false,
     "_auto_chain_active": false
+  },
+  "models": {
+    "planning": "opus",
+    "discuss": "opus",
+    "execution": "sonnet"
   }
 }

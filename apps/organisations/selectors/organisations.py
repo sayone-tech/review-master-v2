@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from django.db.models import Prefetch, Q
 
 from apps.accounts.models import InvitationToken
+from apps.credits.selectors.balances import org_current_month_allocation_expression
 from apps.organisations.models import Organisation
 
 if TYPE_CHECKING:
@@ -13,10 +14,11 @@ if TYPE_CHECKING:
 
 
 def _base_queryset() -> QuerySet[Organisation]:
-    return (
+    qs: QuerySet[Organisation] = (
         Organisation.objects.not_deleted()
         .select_related("created_by")
         .annotate_store_counts()
+        .annotate(current_month_credit_allocation=org_current_month_allocation_expression())
         .prefetch_related(
             Prefetch(
                 "invitation_tokens",
@@ -25,6 +27,7 @@ def _base_queryset() -> QuerySet[Organisation]:
             )
         )
     )
+    return qs
 
 
 def list_organisations(

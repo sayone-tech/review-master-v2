@@ -222,3 +222,212 @@ def test_list_audit_logs_for_org_no_n_plus_one():
     assert len(rows) == 5
     # select_related('actor') means: 1 query for AuditLog (joined with User).
     assert len(ctx.captured_queries) <= 3, [q["sql"] for q in ctx.captured_queries]
+
+
+# --- CVIS-05: credit events (Org Admin only) -------------------------------
+
+CREDIT_SHOP_ACTIONS = (
+    "shop.credits.allocated",
+    "shop.credits.bonus_allocated",
+    "shop.credits.consumed",
+    "shop.credits.late_commit",
+    "shop.credits.refunded",
+    "shop.credits.lapsed",
+)
+
+
+@pytest.mark.django_db
+def test_list_audit_logs_for_org_includes_all_seven_credit_actions_for_own_org_only():
+    org = OrganisationFactory()
+    other_org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    other_shop = ShopFactory(organisation=other_org)
+    for action in CREDIT_SHOP_ACTIONS:
+        AuditLogFactory(organisation=org, entity_type="shop", entity_id=str(shop.pk), action=action)
+        AuditLogFactory(
+            organisation=other_org,
+            entity_type="shop",
+            entity_id=str(other_shop.pk),
+            action=action,
+        )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="organisation",
+        entity_id=str(org.pk),
+        action="organisation.credits.set",
+    )
+    AuditLogFactory(organisation=org, entity_type="review", action="reply_posted")
+    AuditLogFactory(organisation=org, entity_type="action_item", action="action_item.created")
+    AuditLogFactory(
+        organisation=other_org,
+        entity_type="organisation",
+        entity_id=str(other_org.pk),
+        action="organisation.credits.set",
+    )
+
+    rows = list(list_audit_logs_for_org(organisation_id=org.id))
+
+    assert {r.organisation_id for r in rows} == {org.id}
+    actions = {r.action for r in rows}
+    assert actions == {
+        *CREDIT_SHOP_ACTIONS,
+        "organisation.credits.set",
+        "reply_posted",
+        "action_item.created",
+    }
+    assert len(rows) == 9
+
+
+@pytest.mark.django_db
+def test_list_audit_logs_for_org_excludes_non_credit_shop_and_organisation_rows():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    AuditLogFactory(
+        organisation=org, entity_type="shop", entity_id=str(shop.pk), action="shop.synced"
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="organisation",
+        entity_id=str(org.pk),
+        action="organisation.updated",
+    )
+    assert list(list_audit_logs_for_org(organisation_id=org.id)) == []
+
+
+@pytest.mark.django_db
+def test_list_audit_logs_for_staff_excludes_credit_rows_even_on_pk_collision():
+    org = OrganisationFactory()
+    shop_in = ShopFactory(organisation=org)
+    staff = UserFactory(role=User.Role.STAFF_ADMIN, organisation=org)
+    StaffAccessScopeFactory(
+        user=staff,
+        scope_type=StaffAccessScope.ScopeType.SHOP,
+        region=None,
+        shop=shop_in,
+    )
+    review = ReviewFactory(organisation=org, shop=shop_in)
+    item = ActionItemFactory(organisation=org, shop=shop_in, scope=ActionItem.Scope.SHOP)
+    # Credit rows whose entity_id equals the PK of entities the Staff user CAN see.
+    AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(review.pk),
+        action="shop.credits.consumed",
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(item.pk),
+        action="shop.credits.refunded",
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(shop_in.pk),
+        action="shop.credits.allocated",
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="organisation",
+        entity_id=str(review.pk),
+        action="organisation.credits.set",
+    )
+    # Staff-visible rows are unchanged.
+    AuditLogFactory(
+        organisation=org,
+        entity_type="review",
+        entity_id=str(review.pk),
+        action="reply_posted",
+    )
+    AuditLogFactory(
+        organisation=org,
+        entity_type="action_item",
+        entity_id=str(item.pk),
+        action="action_item.created",
+    )
+
+    rows = list(list_audit_logs_for_staff(organisation_id=org.id, user=staff))
+
+    assert {r.entity_type for r in rows} == {"review", "action_item"}
+    assert len(rows) == 2
+
+
+@pytest.mark.django_db
+def test_shop_name_resolves_same_org_shop_and_is_null_everywhere_else():
+    org = OrganisationFactory()
+    other_org = OrganisationFactory()
+    shop = ShopFactory(organisation=org, name="Downtown Store")
+    foreign_shop = ShopFactory(organisation=other_org, name="Foreign Shop")
+    deleted_shop = ShopFactory(organisation=org, name="Gone Shop")
+    deleted_pk = deleted_shop.pk
+    deleted_shop.delete()
+
+    ok = AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(shop.pk),
+        action="shop.credits.consumed",
+    )
+    # A review whose entity_id collides with a real shop PK must not borrow its name.
+    review_collision = AuditLogFactory(
+        organisation=org,
+        entity_type="review",
+        entity_id=str(shop.pk),
+        action="reply_posted",
+    )
+    item_collision = AuditLogFactory(
+        organisation=org,
+        entity_type="action_item",
+        entity_id=str(shop.pk),
+        action="action_item.created",
+    )
+    org_row = AuditLogFactory(
+        organisation=org,
+        entity_type="organisation",
+        entity_id=str(shop.pk),
+        action="organisation.credits.set",
+    )
+    other_tenant = AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(foreign_shop.pk),
+        action="shop.credits.consumed",
+    )
+    deleted = AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id=str(deleted_pk),
+        action="shop.credits.lapsed",
+    )
+    non_numeric = AuditLogFactory(
+        organisation=org,
+        entity_type="shop",
+        entity_id="not-a-number",
+        action="shop.credits.refunded",
+    )
+
+    names = {
+        r.pk: r.shop_name
+        for r in list_audit_logs_for_org(organisation_id=org.id)  # type: ignore[attr-defined]
+    }
+
+    assert names[ok.pk] == "Downtown Store"
+    for row in (review_collision, item_collision, org_row, other_tenant, deleted, non_numeric):
+        assert names[row.pk] is None
+
+
+@pytest.mark.django_db
+def test_list_audit_logs_for_org_shop_name_query_count_is_fixed():
+    org = OrganisationFactory()
+    shops = ShopFactory.create_batch(20, organisation=org)
+    for shop in shops:
+        AuditLogFactory(
+            organisation=org,
+            entity_type="shop",
+            entity_id=str(shop.pk),
+            action="shop.credits.consumed",
+        )
+    with CaptureQueriesContext(connection) as ctx:
+        rows = list(list_audit_logs_for_org(organisation_id=org.id))
+    assert len(rows) == 20
+    assert len(ctx.captured_queries) == 1

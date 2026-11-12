@@ -3,6 +3,10 @@ status: awaiting_human_verify
 trigger: "fixes-not-taking-effect: Loader stuck at 101/109 and action item notifications still firing per-review"
 created: 2026-05-05T00:00:00Z
 updated: 2026-05-05T00:00:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: awaiting_human_verify
 ---
 
 ## Current Focus

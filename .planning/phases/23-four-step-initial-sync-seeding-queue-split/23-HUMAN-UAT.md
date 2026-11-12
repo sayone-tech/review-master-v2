@@ -4,6 +4,10 @@ phase: 23-four-step-initial-sync-seeding-queue-split
 source: [23-VERIFICATION.md, 23-04-PLAN.md]
 started: 2026-06-11
 updated: 2026-06-11
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  gap_snapshot: "partial::scenarios=0"
 ---
 
 ## Current Test

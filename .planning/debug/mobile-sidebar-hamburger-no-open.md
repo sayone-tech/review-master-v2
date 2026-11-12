@@ -3,6 +3,10 @@ status: investigating
 trigger: "Mobile sidebar hamburger button is visible but clicking it does nothing — the sidebar drawer doesn't open"
 created: 2026-04-23T00:00:00Z
 updated: 2026-04-23T00:00:00Z
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: investigating
 ---
 
 ## Current Focus

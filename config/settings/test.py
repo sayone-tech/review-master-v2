@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.reply_templates",
     "apps.integrations.openai",
+    "apps.credits",
 ]
 
 AUTH_USER_MODEL = "accounts.User"

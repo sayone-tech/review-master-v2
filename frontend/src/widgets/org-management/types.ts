@@ -16,6 +16,8 @@ export interface OrgRow {
   activation_status: ActivationStatus;
   last_invited_at: string | null;
   allow_custom_sync_depth: boolean;
+  monthly_credit_allocation: number;
+  current_month_credit_allocation: number;
 }
 
 export interface ListResponse {
@@ -32,6 +34,7 @@ export interface CreateOrgPayload {
   address: string;
   number_of_stores: number;
   allow_custom_sync_depth: boolean;
+  monthly_credit_allocation: number;
 }
 
 export type UpdateOrgPayload = Partial<{
@@ -41,6 +44,7 @@ export type UpdateOrgPayload = Partial<{
   number_of_stores: number;
   status: "ACTIVE" | "DISABLED";
   allow_custom_sync_depth: boolean;
+  monthly_credit_allocation: number;
 }>;
 
 export type ApiFieldErrors = Record<string, string[]>;

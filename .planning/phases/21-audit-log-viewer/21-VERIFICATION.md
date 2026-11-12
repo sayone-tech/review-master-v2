@@ -36,6 +36,10 @@ human_verification:
     expected: "Matches D-18 and AuditLogTable ErrorState component."
     why_human: "Network failure simulation + visual error UI."
 overrides: []
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 21: Audit Log Viewer — Verification Report (Re-verification)

@@ -9,7 +9,11 @@ from django.utils import timezone
 
 from apps.accounts.models import InvitationToken
 from apps.accounts.services.audit import InvitationAuditAction, log_invitation_event
+from apps.common.models import AuditLog
 from apps.common.services.email import send_transactional_email
+from apps.credits.selectors.balances import org_has_current_month_allocation
+from apps.credits.services.allocation import materialise_org_balances, raise_zero_balances
+from apps.credits.services.periods import current_period
 from apps.organisations.models import Organisation
 
 if TYPE_CHECKING:
@@ -17,7 +21,15 @@ if TYPE_CHECKING:
 
 
 _UPDATABLE_FIELDS: frozenset[str] = frozenset(
-    {"name", "org_type", "address", "number_of_stores", "status", "allow_custom_sync_depth"}
+    {
+        "name",
+        "org_type",
+        "address",
+        "number_of_stores",
+        "status",
+        "allow_custom_sync_depth",
+        "monthly_credit_allocation",
+    }
 )
 
 
@@ -39,6 +51,7 @@ def create_organisation(
     number_of_stores: int,
     created_by: User,
     allow_custom_sync_depth: bool = False,
+    monthly_credit_allocation: int = 0,
 ) -> tuple[Organisation, str]:
     """Creates org + InvitationToken (48h) + sends invitation email atomically.
     Returns (org, raw_token) so callers can confirm delivery. If email send raises,
@@ -50,8 +63,27 @@ def create_organisation(
         address=address,
         number_of_stores=number_of_stores,
         allow_custom_sync_depth=allow_custom_sync_depth,
+        monthly_credit_allocation=monthly_credit_allocation,
         created_by=created_by,
     )
+    if monthly_credit_allocation > 0:
+        # A default of 0 is not a change (no audit row); a first value > 0 is.
+        period = current_period()
+        AuditLog.objects.create(
+            organisation=org,
+            actor=created_by,
+            entity_type="organisation",
+            entity_id=str(org.pk),
+            action="organisation.credits.set",
+            before_data={"monthly_credit_allocation": 0},
+            after_data={
+                "monthly_credit_allocation": monthly_credit_allocation,
+                "effective": "immediate",
+                "shops_touched": 0,
+                "period_year": period.year,
+                "period_month": period.month,
+            },
+        )
     raw_token = secrets.token_urlsafe(32)
     token = InvitationToken.objects.create(
         organisation=org,
@@ -178,13 +210,22 @@ def activate_account(
     return user
 
 
+@transaction.atomic
 def update_organisation(
     *,
     organisation: Organisation,
+    actor: User | None = None,
     **data: Any,
 ) -> Organisation:
-    """Applies name/org_type/address/number_of_stores/status updates.
-    Explicitly strips 'email' key if present (defence in depth vs EORG-02)."""
+    """Applies name/org_type/address/number_of_stores/status/credit-allocation updates.
+    Explicitly strips 'email' key if present (defence in depth vs EORG-02).
+
+    Credit allocation (CRED-01, CRED-06): the old value is read from the organisation row
+    locked with ``select_for_update`` (the passed instance may be stale). On a real change
+    the current-month balances are written BEFORE the field is saved: 0 -> N with no
+    current-month allocation (D-18) raises zero rows and is immediate; any other change
+    materialises every shop's row at the old value so shops keep it this month. One
+    ``organisation.credits.set`` AuditLog row is written only on a real change."""
     # Defensive: strip email even if caller/serializer passes it (EORG-02).
     data.pop("email", None)
     # SA-056: cannot allocate fewer stores than are currently in use. The React
@@ -195,6 +236,44 @@ def update_organisation(
         in_use = organisation.shops.filter(is_active=True).count()
         if new_allocation < in_use:
             raise ValidationError(f"You cannot set this below the current in-use count ({in_use}).")
+    credit_change: dict[str, Any] | None = None
+    if "monthly_credit_allocation" in data:
+        # no_key=True (FOR NO KEY UPDATE): a plain FOR UPDATE would block the foreign-key check
+        # of a concurrent first-use ``ensure_balance`` insert, which in turn holds the unique
+        # index entry this block's bulk insert waits on (a deadlock proven on PostgreSQL).
+        old = (
+            Organisation.objects.select_for_update(of=("self",), no_key=True)
+            .filter(pk=organisation.pk)
+            .values_list("monthly_credit_allocation", flat=True)
+            .get()
+        )
+        # Compare against the locked truth, not the possibly stale instance.
+        organisation.monthly_credit_allocation = old
+        new = data["monthly_credit_allocation"]
+        if new != old:
+            period = current_period()
+            if old == 0 and not org_has_current_month_allocation(
+                organisation_id=organisation.pk, period=period
+            ):
+                touched = raise_zero_balances(
+                    organisation_id=organisation.pk, allocation=new, period=period
+                )
+                effective = "immediate"
+            else:
+                touched = materialise_org_balances(
+                    organisation_id=organisation.pk, allocation=old, period=period
+                )
+                effective = "next_month"
+            credit_change = {
+                "before": {"monthly_credit_allocation": old},
+                "after": {
+                    "monthly_credit_allocation": new,
+                    "effective": effective,
+                    "shops_touched": touched,
+                    "period_year": period.year,
+                    "period_month": period.month,
+                },
+            }
     changed: list[str] = []
     for field, value in data.items():
         if field not in _UPDATABLE_FIELDS:
@@ -205,6 +284,16 @@ def update_organisation(
     if changed:
         changed.append("updated_at")
         organisation.save(update_fields=changed)
+    if credit_change is not None:
+        AuditLog.objects.create(
+            organisation=organisation,
+            actor=actor,
+            entity_type="organisation",
+            entity_id=str(organisation.pk),
+            action="organisation.credits.set",
+            before_data=credit_change["before"],
+            after_data=credit_change["after"],
+        )
     return organisation
 
 

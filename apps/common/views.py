@@ -23,6 +23,8 @@ from apps.common.models import AuditLog
 from apps.common.pagination import AuditLogCursorPagination
 from apps.common.permissions import IsOrgScoped
 from apps.common.selectors.audit_logs import (
+    PLATFORM_ACTOR_ID,
+    PLATFORM_ACTOR_LABEL,
     list_audit_logs_for_org,
     list_audit_logs_for_staff,
 )
@@ -274,13 +276,19 @@ def audit_log_view(request: HttpRequest) -> HttpResponse:
             base_qs = list_audit_logs_for_org(organisation_id=org_id)
         actors_qs = (
             base_qs.filter(actor__isnull=False)
-            .values("actor_id", "actor__full_name")
+            .values("actor_id", "actor__full_name", "actor__role")
             .distinct()
             .order_by("actor__full_name")
         )
-        actors_list = [
-            {"id": row["actor_id"], "full_name": row["actor__full_name"]} for row in actors_qs
-        ]
+        # CVIS-07: Superadmins collapse into one generic option, listed first.
+        has_platform_actor = False
+        for row in actors_qs:
+            if row["actor__role"] == User.Role.SUPERADMIN:
+                has_platform_actor = True
+                continue
+            actors_list.append({"id": row["actor_id"], "full_name": row["actor__full_name"]})
+        if has_platform_actor:
+            actors_list.insert(0, {"id": PLATFORM_ACTOR_ID, "full_name": PLATFORM_ACTOR_LABEL})
     context = {
         "actors_json": actors_list,
         "user_role": getattr(request.user, "role", ""),

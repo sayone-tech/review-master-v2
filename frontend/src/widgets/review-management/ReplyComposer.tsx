@@ -1,7 +1,19 @@
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle, ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle, ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { emitToast } from "../../lib/toast";
-import { ApiError, deleteReply, generateReply, submitReply } from "./api";
+import {
+  ApiError,
+  deleteReply,
+  generateReply,
+  getCreditCost,
+  readInsufficientCredits,
+  submitReply,
+} from "./api";
+import { setShopCredits, useShopCredits } from "../credits/creditsStore";
+import { creditsLabel } from "../credits/format";
+import { readCreditContact } from "../credits/contact";
+import { BuyMoreCreditsModal } from "../credits/BuyMoreCreditsModal";
+import { formatCount } from "../org-management/creditHint";
 import { listTemplates } from "../reply-templates/api";
 import type { TemplateRow } from "../reply-templates/types";
 import { StarRating } from "./StarRating";
@@ -36,6 +48,40 @@ export function ReplyComposer({
   // composer unmounts mid-generation.
   const generateAbortRef = useRef<AbortController | null>(null);
 
+  // CVIS-03 — the cost always comes from the server (never derived client-side).
+  const hasReviewText = row.comment.trim() !== "";
+  const [cost, setCost] = useState<number | null>(null);
+  const [costStatus, setCostStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const credits = useShopCredits(row.shop_id);
+  const [costAttempt, setCostAttempt] = useState(0);
+  const [buyMoreOpen, setBuyMoreOpen] = useState(false);
+  const creditContact = readCreditContact();
+
+  // Fetch the credit cost on mount. AbortController keeps this StrictMode-safe
+  // (effects mount twice in dev) and cancels on unmount.
+  useEffect(() => {
+    if (!hasReviewText || row.is_replied) return;
+    const controller = new AbortController();
+    setCostStatus("loading");
+    getCreditCost(row.id, controller.signal)
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setCost(res.cost);
+        setCostStatus("ready");
+        setShopCredits(row.shop_id, {
+          remaining: res.remaining,
+          total: res.total,
+          isEnabled: res.is_enabled,
+        });
+      })
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setCostStatus("error");
+      });
+    return () => controller.abort();
+  }, [row.id, row.shop_id, row.is_replied, hasReviewText, costAttempt]);
+
   useEffect(() => {
     listTemplates().then(setTemplates).catch(() => {});
   }, []);
@@ -58,6 +104,37 @@ export function ReplyComposer({
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [pickerOpen]);
+
+  // UI-SPEC Interaction C: one credit state at a time. The store entry wins for
+  // `remaining` / `isEnabled`; the cost only ever comes from the server.
+  type CreditUiState = "none" | "loading" | "ready" | "not_enabled" | "insufficient" | "load_error";
+  let creditState: CreditUiState;
+  if (!hasReviewText) creditState = "none";
+  else if (costStatus === "error") creditState = "load_error";
+  else if (costStatus !== "ready" || !credits) creditState = "loading";
+  else if (!credits.isEnabled) creditState = "not_enabled";
+  else if (cost !== null && credits.remaining < cost) creditState = "insufficient";
+  else creditState = "ready";
+
+  const showCostSuffix = (creditState === "ready" || creditState === "insufficient") && cost !== null;
+  const aiButtonLabel = showCostSuffix
+    ? `Generate with AI (requires ${creditsLabel(cost as number)})`
+    : "Generate with AI";
+  const aiButtonDisabled =
+    creditState === "loading" || creditState === "not_enabled" || creditState === "insufficient";
+
+  let creditStatusText = "";
+  if (creditState === "loading") creditStatusText = "Checking credits…";
+  else if (creditState === "ready" && credits)
+    // SHOP-23: show remaining of total so users see the monthly budget; fall back if total is unknown.
+    creditStatusText =
+      credits.total !== undefined
+        ? `${formatCount(credits.remaining)} of ${creditsLabel(credits.total)} left this month`
+        : `This shop has ${creditsLabel(credits.remaining)} remaining this month.`;
+  else if (creditState === "not_enabled") creditStatusText = "AI replies aren't enabled for this shop.";
+  else if (creditState === "insufficient" && credits && cost !== null)
+    creditStatusText = `Not enough credits — this reply needs ${formatCount(cost)}, you have ${formatCount(credits.remaining)}.`;
+  else if (creditState === "load_error") creditStatusText = "Couldn't check your credit balance.";
 
   const charCount = comment.length;
   const counterCls =
@@ -86,8 +163,10 @@ export function ReplyComposer({
     setGeneratingTone(tone);
     setErrorMessage(null);
     try {
-      const { draft } = await generateReply(row.id, tone, controller.signal);
+      const { draft, credits_remaining } = await generateReply(row.id, tone, controller.signal);
       if (controller.signal.aborted) return;
+      // D-05: the shop-keyed store updates every composer's line without a reload.
+      setShopCredits(row.shop_id, { remaining: credits_remaining });
       setComment(draft);
       setGeneratorOpen(false);
       setGeneratingTone(null);
@@ -98,8 +177,31 @@ export function ReplyComposer({
       if (e instanceof DOMException && e.name === "AbortError") return;
       setGeneratorOpen(false);
       setGeneratingTone(null);
+
+      // D-08: a 402 is a state change, not an error. Adopt the server's numbers
+      // (not stale local ones), keep the draft exactly as typed, show no banner.
+      const insufficient = readInsufficientCredits(e);
+      if (insufficient) {
+        setShopCredits(row.shop_id, {
+          remaining: insufficient.remaining,
+          isEnabled: insufficient.reason !== "not_enabled",
+        });
+        if (insufficient.reason === "exhausted") setCost(insufficient.required);
+        setCostStatus("ready");
+        document.getElementById(`reply-textarea-${row.id}`)?.focus();
+        return;
+      }
+
+      // 422 / 502 carry the shop's balance; a null credits_remaining is ignored by the store.
+      if (e instanceof ApiError && (e.status === 422 || e.status === 502)) {
+        const remaining = (e.data as { credits_remaining?: unknown } | null)?.credits_remaining;
+        if (typeof remaining === "number") setShopCredits(row.shop_id, { remaining });
+      }
+
       let message = "AI generation failed. Please try again or write your reply manually.";
-      if (e instanceof ApiError && e.status === 422 && typeof e.data === "object" && e.data && (e.data as { code?: string }).code === "content_moderated") {
+      if (e instanceof ApiError && e.status === 409 && (e.data as { code?: string } | null)?.code === "generation_in_progress") {
+        message = "A reply is already being generated for this review. Please wait a moment.";
+      } else if (e instanceof ApiError && e.status === 422 && typeof e.data === "object" && e.data && (e.data as { code?: string }).code === "content_moderated") {
         message = (e.data as { detail?: string }).detail ?? "AI reply isn't available for this review. Please write your reply manually.";
       } else if (e instanceof ApiError && e.status === 429) {
         if (typeof e.retryAfterSeconds === "number" && e.retryAfterSeconds > 0) {
@@ -294,26 +396,32 @@ export function ReplyComposer({
           )}
         </div>
         <div className="px-4 py-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-start justify-between gap-3 mb-2">
             <label
               htmlFor={`reply-textarea-${row.id}`}
-              className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]"
+              className="pt-1 text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]"
             >
               Your reply
             </label>
-            <div className="flex items-center gap-2">
-              <button
-                ref={generatorButtonRef}
-                type="button"
-                aria-label="Generate reply with AI"
-                aria-expanded={generatorOpen}
-                aria-controls={`ai-generator-${row.id}`}
-                onClick={handleToggleGenerator}
-                className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md text-ink transition-colors ${generatorOpen ? "bg-line-soft hover:bg-line" : "bg-white hover:bg-line-soft"}`}
-              >
-                <Sparkles size={12} aria-hidden="true" />
-                Generate with AI
-              </button>
+            <div className="flex flex-col items-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {hasReviewText && (
+                <button
+                  ref={generatorButtonRef}
+                  type="button"
+                  aria-label={aiButtonLabel}
+                  aria-expanded={generatorOpen}
+                  aria-controls={`ai-generator-${row.id}`}
+                  aria-busy={creditState === "loading" ? true : undefined}
+                  aria-describedby={`credit-status-${row.id}`}
+                  disabled={aiButtonDisabled}
+                  onClick={handleToggleGenerator}
+                  className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md text-ink transition-colors disabled:bg-line-soft disabled:text-subtle disabled:cursor-not-allowed ${generatorOpen ? "bg-line-soft hover:bg-line" : "bg-white hover:bg-line-soft"}`}
+                >
+                  <Sparkles size={12} aria-hidden="true" />
+                  {aiButtonLabel}
+                </button>
+              )}
               {templates.length > 0 && (
                 <div ref={pickerRef} className="relative">
                   <button
@@ -350,6 +458,37 @@ export function ReplyComposer({
                 </div>
               )}
             </div>
+            {/* Credit status sits under the AI button it explains. */}
+            {creditState !== "none" && (
+              <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                <p
+                  id={`credit-status-${row.id}`}
+                  role="status"
+                  aria-live="polite"
+                  className={
+                    creditState === "insufficient"
+                      ? "inline-flex max-w-[340px] items-start gap-1.5 rounded-md border border-amber/30 bg-amber-tint px-2.5 py-1.5 text-[12px] text-[#92400E]"
+                      : "max-w-[340px] text-right text-[12px] text-muted"
+                  }
+                >
+                  {creditState === "insufficient" && (
+                    <AlertCircle size={13} aria-hidden="true" className="mt-[2px] shrink-0" />
+                  )}
+                  <span>{creditStatusText}</span>
+                </p>
+                {creditState === "load_error" && (
+                  <button
+                    type="button"
+                    data-testid={`credit-retry-${row.id}`}
+                    onClick={() => setCostAttempt((n) => n + 1)}
+                    className="text-[12px] font-semibold text-ink underline underline-offset-2 hover:text-muted"
+                  >
+                    Retry Credit Check
+                  </button>
+                )}
+              </div>
+            )}
+            </div>
           </div>
           {generatorOpen && (
             <div
@@ -365,9 +504,13 @@ export function ReplyComposer({
                 const isLoading = generatingTone === tone;
                 const isDisabled = generatingTone !== null;
                 const label = tone === "professional" ? "Professional" : "Friendly";
+                // D-06: once a draft exists the pill shows what a replacement costs.
+                const showPillCost = comment.trim() !== "" && cost !== null;
                 const ariaLabel = isLoading
                   ? `Generating ${label} reply…`
-                  : `Generate ${label} reply`;
+                  : showPillCost
+                    ? `Generate ${label} reply, ${creditsLabel(cost as number)}`
+                    : `Generate ${label} reply`;
                 if (isLoading) {
                   return (
                     <button
@@ -393,7 +536,7 @@ export function ReplyComposer({
                     aria-label={ariaLabel}
                     className="inline-flex items-center gap-1 px-2 py-1 text-[12px] font-semibold border border-line rounded-md bg-white text-ink hover:bg-amber-tint hover:text-amber hover:border-amber transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-ink disabled:hover:border-line"
                   >
-                    {label}
+                    {showPillCost ? `${label} · ${formatCount(cost as number)} cr` : label}
                   </button>
                 );
               })}
@@ -434,24 +577,53 @@ export function ReplyComposer({
               {errorMessage}
             </div>
           )}
-          <div className="flex items-center justify-end gap-2 mt-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="bg-white text-ink border border-line hover:bg-line-soft px-4 py-2 text-[14px] font-semibold rounded-md disabled:opacity-50"
-            >
-              Discard Reply
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting || comment.trim().length === 0}
-              className="bg-yellow text-black hover:bg-yellow-hover px-4 py-2 text-[14px] font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? "Submitting…" : "Submit Reply"}
-            </button>
+          <div className="flex items-center justify-between gap-2 mt-3">
+            {creditState === "insufficient" ? (
+              <button
+                type="button"
+                data-testid={`credit-buy-more-${row.id}`}
+                onClick={() => setBuyMoreOpen(true)}
+                className="inline-flex h-8 items-center text-[12px] font-semibold text-ink underline underline-offset-2 hover:text-muted"
+              >
+                Buy More Credits
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="bg-white text-ink border border-line hover:bg-line-soft px-4 py-2 text-[14px] font-semibold rounded-md disabled:opacity-50"
+              >
+                Discard Reply
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting || comment.trim().length === 0}
+                className="bg-yellow text-black hover:bg-yellow-hover px-4 py-2 text-[14px] font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Submitting…" : "Submit Reply"}
+              </button>
+            </div>
           </div>
+          {buyMoreOpen && (
+            <BuyMoreCreditsModal
+              open
+              onClose={() => setBuyMoreOpen(false)}
+              organisationName={creditContact.organisationName}
+              supportEmail={creditContact.supportEmail}
+              shop={{
+                name: row.shop_name,
+                remaining: credits?.remaining,
+                total: credits?.total,
+                isEnabled: credits?.isEnabled,
+                periodLabel: credits?.periodLabel,
+              }}
+            />
+          )}
         </div>
       </td>
     </tr>

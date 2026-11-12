@@ -122,6 +122,25 @@ repo-root/
 │   │   └── selectors/items.py
 │   ├── notifications/               # In-app bell counter + delivery model (Phase 3+)
 │   │   └── services/dispatch.py
+│   ├── credits/                     # Per-shop monthly AI-reply credit balances + append-only ledger (v0.9)
+│   │   ├── services/
+│   │   │   ├── periods.py           # UTC period seam (current_period, next_period_start)
+│   │   │   ├── credit_cost.py       # The single pure pricing function (tiers from settings)
+│   │   │   ├── allocation.py        # Lazy, race-safe first-use balance creation + set-based org-edit materialisation (Phase 32)
+│   │   │   ├── bonus.py             # Superadmin bonus top-up: period echo, org-row lock, F() increment (Phase 32)
+│   │   │   ├── ledger.py            # Status-only CAS transitions on ledger rows
+│   │   │   ├── consumption.py       # Reserve -> commit/refund + the single late-commit path (Phase 30)
+│   │   │   ├── lapse.py             # Daily idempotent lapse sweep, lapsed_at marker (Phase 31)
+│   │   │   └── reaper.py            # Refunds stale RESERVED rows via refund_reservation (Phase 31)
+│   │   ├── selectors/
+│   │   │   ├── balances.py          # Virtual-balance reads (never writes)
+│   │   │   ├── shop_credits.py      # Superadmin shop credit list + allocation per shop (never writes) (Phase 32)
+│   │   │   ├── lapse.py             # Unlapsed past-period balance ids
+│   │   │   └── reservations.py      # RESERVED rows past the TTL
+│   │   ├── tasks.py                 # Beat: lapse daily 00:05 UTC, reaper every 10 min
+│   │   ├── serializers.py           # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32) + tenant shop credits read /api/v1/shops/{id}/credits/ (Phase 33)
+│   │   ├── views.py                 # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32) + tenant shop credits read /api/v1/shops/{id}/credits/ (Phase 33)
+│   │   └── api_urls.py              # Superadmin credit endpoints under /api/v1/superadmin/ (Phase 32) + tenant shop credits read /api/v1/shops/{id}/credits/ (Phase 33)
 │   ├── integrations/                # External API clients
 │   │   ├── google/
 │   │   │   ├── client.py
@@ -683,6 +702,8 @@ Beat tasks are stored in the database via `django-celery-beat`. Seed initial sch
 | `retry_failed_enrichments_task` | `ai-enrichment-low` | Every 6 hours |
 | `refresh_google_tokens_task` | `google-sync` | Hourly |
 | `reclassify_polarity_task` | `default` | Weekly, Sunday 03:00 UTC — DB-only polarity reclassification (v0.8/Phase 24, §29) |
+| `lapse_expired_credit_balances_task` | `default` | Daily 00:05 UTC — idempotent catch-up lapse of past-month credit balances (v0.9/Phase 31) |
+| `reap_stale_reservations_task` | `default` | Every 10 minutes — refunds RESERVED credit reservations older than the TTL (v0.9/Phase 31) |
 
 ### 12.6 Deployment
 
@@ -1500,7 +1521,7 @@ Product requirement specs live under `docs/` and are **Markdown only — never `
 
 ## 29. Canonical Tag System (v0.8 — milestone "Canonical Tag System")
 
-A per-organisation, self-organising canonical tag vocabulary, built and evolved **inside the existing single GPT enrichment call** — no extra API call, no vector DB. Spans Phases 22–26. This section is the authoritative summary; the binding spec is `docs/in-progress/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (read with the relational reconciliation in `.planning/research/SUMMARY.md` — the spec's §4 JSONB shape is superseded).
+A per-organisation, self-organising canonical tag vocabulary, built and evolved **inside the existing single GPT enrichment call** — no extra API call, no vector DB. Spans Phases 22–26. This section is the authoritative summary; the binding spec is `docs/completed/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (read with the relational reconciliation in `.planning/milestones/v0.8-research/SUMMARY.md` — the spec's §4 JSONB shape is superseded).
 
 ### 29.1 Data model (`apps/reviews/models.py`)
 

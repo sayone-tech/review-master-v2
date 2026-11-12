@@ -4,19 +4,27 @@
 
 A multi-tenant SaaS platform for managing organisations, their stores, and Google Business Profile reviews. It supports three user roles — Superadmin, Organisation Admin, and Staff Admin — each with their own dashboard and permissions.
 
-## Current Milestone: None — between milestones
+## Current Milestone: none (v0.9 shipped 2026-11-12)
 
-**v0.8 Canonical Tag System shipped 2026-06-30** (Phases 22–27; merged via PR #38). The next milestone is the **mobile app** — scope and technical direction TBD via `/gsd-new-milestone` once the brief is clear. Phase 28 (Superadmin Data Reset & Re-Sync) is the one v0.8 item carried forward, deferred until a production deployment exists.
-
-**Source spec (v0.8):** `docs/completed/ReviewBee_Canonical_Tag_Requirements_v1.0.md` (v1.0, Final), reconciled against the live schema. Key correction: review tags are the **relational `ReviewTag` model** (v0.6 Phase 17), not the JSONB `tags` column the spec assumed — canonical mapping attaches as a nullable FK on `ReviewTag`.
-
-**Key v0.8 decisions:** tag-merge progress uses **HTTP polling** (not a new WebSocket consumer — keeps the Channels surface narrow per §13.2); the Superadmin data reset would be a **hard wipe**, a deliberate one-time pre-production exception to the §11 soft-delete rule (deferred with Phase 28).
+The next milestone is the **mobile app**, which was planned to follow v0.9. Start it with `/gsd-new-milestone`.
 
 ## Status / Next
 
-🚀 **Web Beta 1 (`web-beta-1`)** closed 2026-05-24 — seven milestones shipped end-to-end (v1.0, v0.2-org-admin, v0.3, v0.4, v0.5, v0.6, v0.7); 21 phases, 115 plans. The **mobile app** remains the planned milestone *after* v0.8 — scope and technical direction TBD via `/gsd-new-milestone` once the brief is clear.
+🚀 **Web Beta 1 (`web-beta-1`)** closed 2026-05-24; v0.8 Canonical Tag System shipped 2026-06-30; **v0.9 AI Reply Credits** shipped 2026-11-12 (Phases 29–33, PR #54). The **mobile app** is next.
 
 ## Recently Shipped (Web)
+
+**v0.9 shipped 2026-11-12** — AI Reply Credits. Each shop gets a monthly
+AI-reply credit budget (1/2/3 credits by review length) that Superadmin sets
+per organisation, plus current-month bonus credits. Generation reserves
+credits, calls OpenAI outside any transaction, then commits or refunds. A daily
+lapse and a 10-minute reaper keep the append-only ledger honest. Credits are
+visible on Shop Details, the Shops list and in the reply composer, with an
+accessible Buy More (mailto) modal. The Activity Log shows AI reply and credit
+events to Org Admins, with Superadmins shown as "ReviewBee Admin". Staff
+scoping is enforced on the Shops list, shop retrieve and every credit endpoint.
+Spec: `docs/completed/Requirements_Credits_System.md`. Full archive:
+`.planning/milestones/v0.9-ROADMAP.md`.
 
 **v0.8 shipped 2026-06-30** — Canonical Tag System. Per-org self-organising
 canonical tag vocabulary built inside the existing single GPT call; visible
@@ -131,30 +139,37 @@ creation time, threaded through to the Celery backfill task.
 - ✓ KPI card row: Total Reviews, Average Rating, Negative Reviews (AI sentiment-based) — v0.4
 - ✓ Sentiment Distribution donut + summary (enriched reviews only, coverage footer) — v0.4
 - ✓ Branded 404/500 error pages wired to Django handler config — v0.4
+- ✓ Superadmin per-org monthly credit allocation (0 → N immediate, N → M next month) and current-month shop bonus credits — v0.9
+- ✓ Per-shop monthly credit balance (lazy, never-writing reads) with an append-only CreditTransaction ledger — v0.9
+- ✓ Tiered credit cost and race-safe reserve → OpenAI → commit/refund consumption, proven on real PostgreSQL in CI — v0.9
+- ✓ Credit visibility on Shop Details, Shops list and reply composer, plus the Buy More Credits modal — v0.9
+- ✓ Daily credit lapse and stale-reservation reaper (Celery Beat) — v0.9
+- ✓ Activity Log credit and AI-reply events for Org Admins; Superadmins shown as "ReviewBee Admin" — v0.9
+- ✓ StaffAccessScope enforced on the Shops list, shop retrieve and every credit endpoint — v0.9
 
 ### Active
 
-<!-- v0.8 Canonical Tag System — Phases 22+ (full REQ-IDs in .planning/REQUIREMENTS.md) -->
+<!-- No milestone in progress. Carried follow-ups below; the mobile app milestone defines its own requirements. -->
 
-- [ ] Per-org `OrgCanonicalTag` vocabulary auto-built and auto-evolving via the enrichment call
-- [ ] Canonical mapping + English-only enforcement folded into the single GPT prompt; `canonical_tag` FK populated on `ReviewTag`
-- [ ] Three-type polarity with weekly DB-only auto-reclassification (15% threshold → `mixed`)
-- [ ] Four-step initial sync with 50-review sequential seed phase; split `ai-enrichment` queues + global OpenAI rate limit
-- [ ] Org Admin tag management (list / inline rename / merge with HTTP-polled progress) + dashboard polarity split
-- [ ] Superadmin one-time data reset + re-sync (pre-production 56-store brand)
+- [ ] Superadmin one-time data reset + re-sync (carried from v0.8 Phase 28; deferred pre-launch)
+- [ ] Staff scoping on `ReviewTargetViewSet` list, and `allocation_status` / `has_regions` in the Staff Shops-list envelope (v0.9 audit follow-ups)
+- [ ] Activity Log: Org Admin shop filter should return 400 for another organisation's shop id (no leak today; makes the defence explicit)
+- [ ] Activity Log date filter compares UTC dates; send the viewer's timezone so early-morning IST events land on the right day
+- [ ] Credit follow-ups from the spec: transaction history UI (CFUT-01), Superadmin usage report (CFUT-02), shop-switcher badge (CFUT-03), real payment flow (CFUT-04)
 
 ### Out of Scope
 
 | Feature | Reason |
 | ------- | ------ |
-| Staff Admin dashboard | Phase 3 — no review data exists yet |
-| Google review fetching and response | Phase 4 |
 | Shop hard-delete / freeing allocation slot | Deactivate + future scheduled purge |
 | Email address change flow | Requires verification loop; deferred |
 | Bulk region / shop actions | Not needed until tenant count grows |
 | Region hierarchy beyond one level | Anti-feature for current scope |
 | Two-factor authentication | Future security hardening |
-| Billing and subscriptions | Phase 5+ |
+| Billing and subscriptions | Phase 5+. Buy More Credits stays a mailto placeholder (CFUT-04) |
+| Credit rollover, per-user credits, credit transfer between shops | v0.9 spec §1.2: unused credits lapse monthly and credits are per-shop |
+| Email / push credit alerts | In-app visibility only |
+| WebSocket balance updates | CLAUDE.md §13.2: the Channels surface stays narrow; balances refresh by HTTP |
 
 ## Constraints
 
@@ -190,15 +205,24 @@ creation time, threaded through to the Celery backfill task.
 | NotifBell ↔ TopbarBell bridge via CustomEvent (notifications:refresh) | Two separate React roots; no shared store | ✓ Confirmed — TopbarBell dispatches on sync.complete; useNotifications listens and fetches immediately |
 | CursorPagination for Reviews list | Reviews table grows large with incremental sync; cursor provides O(1) performance | ✓ Confirmed — PageNumberPagination would degrade on large datasets |
 | Partial unique constraint on (source_review, title, scope) WHERE source=AI | Enables idempotent AI promotion via bulk_create(ignore_conflicts=True) | ✓ Confirmed — safe for concurrent enrichment retries |
+| v0.9: Two-phase credit consumption (row-locked reserve → OpenAI outside any transaction → status CAS commit/refund) | Never hold a row lock across a slow HTTP call; a late commit and the reaper can never double-settle | ✓ Good — proven by real-PostgreSQL race tests in the `backend-pg` CI job |
+| v0.9: Virtual balances; reads never create rows | A shop with no activity reads its full allocation without write-on-read | ✓ Good — one-annotation Shops-list balances at a fixed query count |
+| v0.9: Append-only ledger enforced in the app layer; status is the only mutation | Auditable credit history without DB triggers | ✓ Good — ORM bypasses (save re-insert, bulk_create) closed in Phase 29 gap fixes |
+| v0.9: Cost shown on the button label, no click-confirmation step | Lower friction than a confirm dialog; the cost always comes from the server | ✓ Good — label became "Generate with AI (requires N credits)" after user review |
+| v0.9: Credits refunded on OpenAI failure / input moderation, consumed on output moderation | OpenAI bills once the model has produced output | ✓ Good |
+| v0.9: Staff scoping keyed on role, 404 for out-of-scope shops | Avoids the None-vs-[] trap and doesn't reveal that a shop exists | ✓ Good — also applied to shop retrieve (D-17) |
+| v0.9: Tenants never see Superadmin identities in the Activity Log | Platform staff are shown as "ReviewBee Admin"; ids can't be probed | ✓ Good — supersedes the earlier acceptance of Superadmin names (CVIS-07) |
 
 ## Context
 
-- Requirements archives: `.planning/milestones/v1.0-REQUIREMENTS.md`, `.planning/milestones/v0.2-org-admin-REQUIREMENTS.md`
+- Requirements archives: `.planning/milestones/v1.0-REQUIREMENTS.md`, `.planning/milestones/v0.2-org-admin-REQUIREMENTS.md`, … `.planning/milestones/v0.9-REQUIREMENTS.md`
 - Three-role RBAC: SUPERADMIN, ORG_ADMIN, STAFF_ADMIN
 - Brand: Primary Yellow #FACC15, Primary Black #0A0A0A — clean SaaS aesthetic
 - All email via Amazon SES (`django-ses`); local dev uses MailHog
 - GBP API production approval from Google is a non-code prerequisite for Shops to go live in production
 - Tech debt carried forward: CSP nonce migration deferred; premailer CSS inlining deferred; InvitationToken rename (step 3 of expand-contract) deferred
+- v0.9 rollout: every organisation starts at 0 credits, so AI replies are off until a Superadmin enables them (runbook `docs/sre/v0.9-credits-rollout.md`). `REVIEWBEE_SUPPORT_EMAIL` must be set to the real mailbox.
+- v0.9 closed as an override closeout: Phases 29–33 were verified manually by the user rather than through recorded UAT, and 36 older open planning artifacts were acknowledged (see STATE.md Deferred Items)
 
 ---
 
@@ -246,4 +270,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-Last updated: 2026-06-08 — v0.8 Canonical Tag System milestone started
+*Last updated: 2026-11-12 after v0.9 milestone*

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 from apps.common.models import TimeStampedModel
 from apps.organisations.managers import OrganisationQuerySet
@@ -26,6 +28,12 @@ class Organisation(TimeStampedModel):
     address = models.TextField(max_length=500, blank=True)
     number_of_stores = models.PositiveIntegerField()
     allow_custom_sync_depth = models.BooleanField(default=False)
+    # Monthly AI-reply credits granted to each shop (v0.9). IntegerField, not
+    # PositiveIntegerField: Coalesce with the balance IntegerFields would raise a
+    # mixed-type FieldError. db_index left False: read through joins, never filtered on.
+    monthly_credit_allocation = models.IntegerField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(10000)]
+    )
     status = models.CharField(
         max_length=10,
         choices=Status.choices,
@@ -45,6 +53,12 @@ class Organisation(TimeStampedModel):
     class Meta:
         db_table = "organisations_organisation"
         ordering: ClassVar[list[str]] = ["-created_at"]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=Q(monthly_credit_allocation__gte=0, monthly_credit_allocation__lte=10000),
+                name="org_monthly_credit_allocation_range",
+            ),
+        ]
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["status", "created_at"], name="org_status_created_idx"),
             models.Index(fields=["org_type", "status"], name="org_type_status_idx"),

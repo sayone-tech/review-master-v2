@@ -25,6 +25,7 @@ All services run as Docker containers managed by Docker Compose.
 | Database | [database.md](database.md) |
 | Monitoring & alerts | [monitoring.md](monitoring.md) |
 | Common incidents | [incidents.md](incidents.md) |
+| AI reply credits rollout (v0.9) | [v0.9-credits-rollout.md](v0.9-credits-rollout.md) |
 | Improvements backlog & Tier-1 triggers | [improvements.md](improvements.md) |
 
 ## Standard EC2 Session Setup

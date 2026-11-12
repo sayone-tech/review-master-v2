@@ -38,6 +38,8 @@ function makeOrg(overrides: Partial<OrgRow> = {}): OrgRow {
     activation_status: "pending",
     last_invited_at: null,
     allow_custom_sync_depth: false,
+    monthly_credit_allocation: 0,
+    current_month_credit_allocation: 0,
     ...overrides,
   };
 }

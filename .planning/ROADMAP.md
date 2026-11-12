@@ -10,6 +10,7 @@
 - ✅ **v0.6 — Tag Rework & Action Item Quality** — Phases 17–19, 11 plans, shipped 2026-05-22 → [archive](milestones/v0.6-ROADMAP.md)
 - ✅ **v0.7 — AI Safety & Governance** — Phases 20–21, 12 plans, shipped 2026-05-24 → [archive](milestones/v0.7-ROADMAP.md)
 - ✅ **v0.8 — Canonical Tag System** — Phases 22–27, 20 plans, 29/29 delivered requirements (RESET deferred), shipped 2026-06-30 → [archive](milestones/v0.8-ROADMAP.md)
+- ✅ **v0.9 — AI Reply Credits** — Phases 29–33, 23 plans, 29/29 requirements, shipped 2026-11-12 (PR #54) → [archive](milestones/v0.9-ROADMAP.md)
 
 > 🚀 **Web Beta 1 (`web-beta-1`)** — v0.7 marked the close of the first
 > web beta. v0.8 reopens web feature work for the canonical tag system
@@ -20,8 +21,8 @@
 
 ## Next Up
 
-- 📱 **Mobile app** — scope, requirements, and roadmap to be defined
-  in a new milestone (`/gsd-new-milestone` once direction is clear).
+- 📱 **Mobile app** — next milestone after v0.9; scope, requirements and
+  roadmap to be defined with `/gsd-new-milestone`.
 
 ## Phases
 
@@ -60,6 +61,34 @@ Full archive: `.planning/milestones/v0.3-ROADMAP.md`
 <summary>✅ v0.4 — Dashboard (Phase 14) — SHIPPED 2026-05-07</summary>
 
 - [x] Phase 14: Dashboard (8/8 plans) — completed 2026-05-07
+
+### Phase 14: Dashboard
+
+**Goal**: Org Admins, Managers, and Staff can view an analytics dashboard surfacing review-volume KPIs, shop performance rankings, and AI-derived sentiment distribution, filtered by Region, Store, and Date Range — with Redis caching and composite DB indexes ensuring sub-400ms P95 response times.
+**Depends on**: Phase 13 (v0.3 Reviews and Action Items complete)
+**Requirements**: FILT-01, FILT-02, FILT-03, FILT-04, FILT-05, FILT-06, FILT-07, FILT-08, FILT-09, FILT-10, TOP-01, TOP-02, TOP-03, TOP-04, TOP-05, TOP-06, TOP-07, STORE-01, STORE-02, STORE-03, KPI-01, KPI-02, KPI-03, KPI-04, KPI-05, SENT-01, SENT-02, SENT-03, SENT-04, SENT-05, SENT-06, TECH-01, TECH-02, TECH-03, TECH-04, TECH-05, TECH-06, ERR-01, ERR-02
+**Success Criteria** (what must be TRUE):
+
+  1. User can filter the dashboard by Region, Store, and Date Range (7d/30d/90d/custom), and the URL reflects the active filter state so the page is bookmarkable and shareable
+  2. User sees a Top Performing Outlets bar chart (multi-shop) or a "Your Store" card (single-shop) — both scoped to date range only, never to Region/Store filters — with threshold-based bar coloring and a hover tooltip showing exact rating and review count
+  3. User sees three KPI cards (Total Reviews, Average Rating, Negative Reviews based on AI sentiment) each with independent loading skeletons, empty states, and inline error+retry states
+  4. User sees a Sentiment Distribution donut chart with Positive/Neutral/Negative segments, color-coded summary bars, hover tooltips, and a coverage footer when enrichment is below 100%
+  5. Out-of-scope Region or Store IDs in URL params return 403 (not silent fallback); custom date ranges over 365 days or with from>to return 400 with a clear error message
+  6. All five dashboard widgets load in parallel; each widget is independently cached in Redis for 5 minutes using a scope-aware cache key that includes `accessible_shop_ids` hash to prevent cross-user leakage
+  7. User sees branded 404 and 500 error pages matching the platform design system, with navigation actions appropriate to authentication state
+
+**Plans**: 8 plans
+
+Plans:
+
+- [x] 14-01: Indexes + filter validation foundation (3 composite Review indexes, `DashboardFilterParams`, `validate_filter_params()`, `services/cache.py` with `accessible_shop_ids` hash)
+- [x] 14-02: Aggregation selectors + query-count tests (`aggregations.py` with 5 selector functions, `CaptureQueriesContext` assertions on all 5)
+- [x] 14-03: Dashboard views + URL registration (`DashboardApiView` base + 5 concrete views, `apps/dashboard/urls.py`, INSTALLED_APPS, `test_views.py` for 403/400/cache paths)
+- [x] 14-04: Django template view + bootstrap data (dashboard page view, `dashboard.html` with `#dashboard-root` + `<script type="application/json">` bootstrap tags, npm packages added)
+- [x] 14-05: React filter bar component (`types.ts`, `api.ts`, `useFilterState.ts`, `FilterBar.tsx` with cascading dropdowns + URL state + sessionStorage)
+- [x] 14-06: Bar chart + highlights widgets (`TopPerformingSection.tsx` with recharts `BarChart`, threshold coloring, hover tooltip, click navigation; `PerformanceHighlights.tsx`; `YourStore.tsx` single-shop variant)
+- [x] 14-07: KPI cards + sentiment donut widgets (`KpiCards.tsx` with parallel useQuery hooks; `SentimentDonut.tsx` donut chart + summary bars + coverage footer)
+- [x] 14-08: Dashboard root + entrypoint + error pages (`DashboardWidget.tsx` with `QueryClientProvider`, `dashboard.tsx` entrypoint, `vite.config.ts` entry, branded 404/500 templates + Django handler config)
 
 </details>
 
@@ -109,47 +138,34 @@ Full archive: `.planning/milestones/v0.8-ROADMAP.md`
 
 </details>
 
+<details>
+<summary>✅ v0.9 — AI Reply Credits (Phases 29–33) — SHIPPED 2026-11-12</summary>
+
+- [x] Phase 29: Credits Ledger Foundation (4/4 plans) — completed 2026-11-11
+- [x] Phase 30: Metered AI Reply Generation (4/4 plans) — completed 2026-11-11
+- [x] Phase 31: Monthly Renewal & Reservation Reaper (3/3 plans) — completed 2026-11-11
+- [x] Phase 32: Superadmin Credit Controls (5/5 plans) — completed 2026-11-11
+- [x] Phase 33: Credit Visibility & Staff Scoping (7/7 plans) — completed 2026-11-12
+
+Full archive: `.planning/milestones/v0.9-ROADMAP.md` · spec `docs/completed/Requirements_Credits_System.md`
+
+</details>
+
 ---
 
-🚀 **Web Beta 1 closed 2026-05-24.** v0.8 (canonical tag system) reopens
-web feature work; mobile app remains the milestone after v0.8.
+🚀 **Web Beta 1 closed 2026-05-24.** v0.8 reopened web feature work;
+v0.9 (AI reply credits) shipped 2026-11-12; the mobile app is next.
 
 ## Phase Details
 
-### Phase 14: Dashboard
-
-**Goal**: Org Admins, Managers, and Staff can view an analytics dashboard surfacing review-volume KPIs, shop performance rankings, and AI-derived sentiment distribution, filtered by Region, Store, and Date Range — with Redis caching and composite DB indexes ensuring sub-400ms P95 response times.
-**Depends on**: Phase 13 (v0.3 Reviews and Action Items complete)
-**Requirements**: FILT-01, FILT-02, FILT-03, FILT-04, FILT-05, FILT-06, FILT-07, FILT-08, FILT-09, FILT-10, TOP-01, TOP-02, TOP-03, TOP-04, TOP-05, TOP-06, TOP-07, STORE-01, STORE-02, STORE-03, KPI-01, KPI-02, KPI-03, KPI-04, KPI-05, SENT-01, SENT-02, SENT-03, SENT-04, SENT-05, SENT-06, TECH-01, TECH-02, TECH-03, TECH-04, TECH-05, TECH-06, ERR-01, ERR-02
-**Success Criteria** (what must be TRUE):
-
-  1. User can filter the dashboard by Region, Store, and Date Range (7d/30d/90d/custom), and the URL reflects the active filter state so the page is bookmarkable and shareable
-  2. User sees a Top Performing Outlets bar chart (multi-shop) or a "Your Store" card (single-shop) — both scoped to date range only, never to Region/Store filters — with threshold-based bar coloring and a hover tooltip showing exact rating and review count
-  3. User sees three KPI cards (Total Reviews, Average Rating, Negative Reviews based on AI sentiment) each with independent loading skeletons, empty states, and inline error+retry states
-  4. User sees a Sentiment Distribution donut chart with Positive/Neutral/Negative segments, color-coded summary bars, hover tooltips, and a coverage footer when enrichment is below 100%
-  5. Out-of-scope Region or Store IDs in URL params return 403 (not silent fallback); custom date ranges over 365 days or with from>to return 400 with a clear error message
-  6. All five dashboard widgets load in parallel; each widget is independently cached in Redis for 5 minutes using a scope-aware cache key that includes `accessible_shop_ids` hash to prevent cross-user leakage
-  7. User sees branded 404 and 500 error pages matching the platform design system, with navigation actions appropriate to authentication state
-
-**Plans**: 8 plans
-
-Plans:
-
-- [x] 14-01: Indexes + filter validation foundation (3 composite Review indexes, `DashboardFilterParams`, `validate_filter_params()`, `services/cache.py` with `accessible_shop_ids` hash)
-- [x] 14-02: Aggregation selectors + query-count tests (`aggregations.py` with 5 selector functions, `CaptureQueriesContext` assertions on all 5)
-- [x] 14-03: Dashboard views + URL registration (`DashboardApiView` base + 5 concrete views, `apps/dashboard/urls.py`, INSTALLED_APPS, `test_views.py` for 403/400/cache paths)
-- [x] 14-04: Django template view + bootstrap data (dashboard page view, `dashboard.html` with `#dashboard-root` + `<script type="application/json">` bootstrap tags, npm packages added)
-- [x] 14-05: React filter bar component (`types.ts`, `api.ts`, `useFilterState.ts`, `FilterBar.tsx` with cascading dropdowns + URL state + sessionStorage)
-- [x] 14-06: Bar chart + highlights widgets (`TopPerformingSection.tsx` with recharts `BarChart`, threshold coloring, hover tooltip, click navigation; `PerformanceHighlights.tsx`; `YourStore.tsx` single-shop variant)
-- [x] 14-07: KPI cards + sentiment donut widgets (`KpiCards.tsx` with parallel useQuery hooks; `SentimentDonut.tsx` donut chart + summary bars + coverage footer)
-- [x] 14-08: Dashboard root + entrypoint + error pages (`DashboardWidget.tsx` with `QueryClientProvider`, `dashboard.tsx` entrypoint, `vite.config.ts` entry, branded 404/500 templates + Django handler config)
-
-> **Phases 15–27** are shipped and archived. Full details in
+> **Phase 14** (v0.4) details are collapsed under the v0.4 entry in
+> Phases above. **Phases 15–33** are shipped and archived. Full details in
 > [`milestones/v0.5-ROADMAP.md`](milestones/v0.5-ROADMAP.md),
 > [`milestones/v0.6-ROADMAP.md`](milestones/v0.6-ROADMAP.md),
-> [`milestones/v0.7-ROADMAP.md`](milestones/v0.7-ROADMAP.md), and
+> [`milestones/v0.7-ROADMAP.md`](milestones/v0.7-ROADMAP.md),
 > [`milestones/v0.8-ROADMAP.md`](milestones/v0.8-ROADMAP.md) (Phases 22–27;
-> Phase 28 / RESET deferred pre-launch).
+> Phase 28 / RESET deferred pre-launch) and
+> [`milestones/v0.9-ROADMAP.md`](milestones/v0.9-ROADMAP.md) (Phases 29–33).
 
 ---
 
@@ -181,3 +197,8 @@ Plans:
 | 26. v0.8 Post-UAT Polish & Sync Fixes | v0.8 | 2/2 | ✅ Complete | 2026-06-24 |
 | 27. Sync Progress Reliability | v0.8 | 2/2 | ✅ Complete | 2026-06-24 |
 | 28. Superadmin Data Reset & Re-Sync | v0.8 | — | ⏸ Deferred (pre-launch) | — |
+| 29. Credits Ledger Foundation | v0.9 | 4/4 | ✅ Complete | 2026-11-11 |
+| 30. Metered AI Reply Generation | v0.9 | 4/4 | ✅ Complete | 2026-11-11 |
+| 31. Monthly Renewal & Reservation Reaper | v0.9 | 3/3 | ✅ Complete | 2026-11-11 |
+| 32. Superadmin Credit Controls | v0.9 | 5/5 | ✅ Complete | 2026-11-11 |
+| 33. Credit Visibility & Staff Scoping | v0.9 | 7/7 | ✅ Complete | 2026-11-12 |

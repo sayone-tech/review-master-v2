@@ -20,6 +20,8 @@ interface Props {
   onApply: (next: FilterParams) => void;
   onReset: () => void;
   hasActiveFilters: boolean;
+  /** CVIS-06: Org Admin only; Staff never receive credit rows. */
+  showCreditsType?: boolean;
 }
 
 function presetRange(preset: Exclude<Preset, "Custom">): { date_from: string; date_to: string } {
@@ -68,7 +70,14 @@ function detectPreset(filters: FilterParams): Preset {
   return "Custom";
 }
 
-export function AuditLogFilters({ filters, actors, onApply, onReset, hasActiveFilters }: Props) {
+export function AuditLogFilters({
+  filters,
+  actors,
+  onApply,
+  onReset,
+  hasActiveFilters,
+  showCreditsType = false,
+}: Props) {
   const [draft, setDraft] = useState<FilterParams>(filters);
   const [preset, setPreset] = useState<Preset>(() => detectPreset(filters));
 
@@ -78,8 +87,14 @@ export function AuditLogFilters({ filters, actors, onApply, onReset, hasActiveFi
     setPreset(detectPreset(filters));
   }, [filters]);
 
+  // CVIS-07: the generic "ReviewBee Admin" option stays first; people sort by name.
   const sortedActors = useMemo(
-    () => [...actors].sort((a, b) => a.full_name.localeCompare(b.full_name)),
+    () =>
+      [...actors].sort((a, b) => {
+        if (a.id === "platform") return -1;
+        if (b.id === "platform") return 1;
+        return a.full_name.localeCompare(b.full_name);
+      }),
     [actors],
   );
 
@@ -132,6 +147,7 @@ export function AuditLogFilters({ filters, actors, onApply, onReset, hasActiveFi
               <option value="">All types</option>
               <option value="review">Replies</option>
               <option value="action_item">Action Items</option>
+              {showCreditsType && <option value="credits">Credits</option>}
             </select>
             <ChevronIcon />
           </div>

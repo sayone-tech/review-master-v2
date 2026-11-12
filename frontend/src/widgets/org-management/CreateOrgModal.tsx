@@ -4,6 +4,7 @@ import { createOrg, ApiError } from "./api";
 import { emitToast } from "../../lib/toast";
 import type { CreateOrgPayload, OrgType } from "./types";
 import { ToggleSwitch } from "./ToggleSwitch";
+import { computeCreditHint, parseCreditInput } from "./creditHint";
 
 const ORG_TYPE_OPTIONS: { value: OrgType | ""; label: string }[] = [
   { value: "", label: "Select a type" },
@@ -26,6 +27,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
   const [stores, setStores] = useState("");
   const [address, setAddress] = useState("");
   const [allowCustomSyncDepth, setAllowCustomSyncDepth] = useState(false);
+  const [credits, setCredits] = useState("0");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,6 +38,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
     setStores("");
     setAddress("");
     setAllowCustomSyncDepth(false);
+    setCredits("0");
     setErrors({});
   };
 
@@ -50,6 +53,8 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
     if (!Number.isInteger(n) || n < 1 || n > 1000)
       e.number_of_stores = "Enter a whole number between 1 and 1000.";
     if (address.length > 500) e.address = "Address must be 500 characters or fewer.";
+    if (parseCreditInput(credits) === null)
+      e.monthly_credit_allocation = "Enter a whole number between 0 and 10,000.";
     return e;
   }
 
@@ -66,6 +71,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
       address: address.trim(),
       number_of_stores: Number(stores),
       allow_custom_sync_depth: allowCustomSyncDepth,
+      monthly_credit_allocation: Number(credits),
     };
     try {
       await createOrg(payload);
@@ -96,6 +102,14 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
       setSubmitting(false);
     }
   }
+
+  const creditHint = computeCreditHint({
+    mode: "create",
+    saved: 0,
+    thisMonth: 0,
+    typed: credits,
+    nowUtc: new Date(),
+  });
 
   return (
     <Modal
@@ -138,7 +152,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
         </>
       }
     >
-      <form id="create-org-form" onSubmit={submit} className="space-y-4">
+      <form id="create-org-form" onSubmit={submit} noValidate className="space-y-4">
         <Field label="Organisation Name" id="new-org-name" error={errors.name}>
           <input
             id="new-org-name"
@@ -200,6 +214,40 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
             className={inputCls(!!errors.number_of_stores)}
             data-testid="field-number_of_stores"
           />
+        </Field>
+        <Field
+          label="Monthly credits per shop"
+          id="new-org-credits"
+          error={errors.monthly_credit_allocation}
+        >
+          <input
+            id="new-org-credits"
+            type="number"
+            min={0}
+            max={10000}
+            step={1}
+            inputMode="numeric"
+            value={credits}
+            onChange={(e) => setCredits(e.target.value)}
+            placeholder="0"
+            aria-describedby="new-org-credits-help"
+            className={inputCls(!!errors.monthly_credit_allocation)}
+            data-testid="field-monthly_credit_allocation"
+          />
+          <div id="new-org-credits-help">
+            <p className="mt-1 text-[12px] text-muted">
+              Each shop in this organisation gets this many credits at the start of
+              every month. Unused credits lapse.
+            </p>
+            <p
+              data-testid="credit-allocation-hint"
+              role="status"
+              aria-live="polite"
+              className={creditHint.kind === "hidden" ? undefined : "mt-1 text-[12px] text-muted"}
+            >
+              {creditHint.text}
+            </p>
+          </div>
         </Field>
         <Field
           label="Address"

@@ -10,6 +10,22 @@ from apps.shops.models import ReviewTarget, Shop
 class ShopReadSerializer(serializers.ModelSerializer[Shop]):
     region_name = serializers.CharField(source="region.name", default="", read_only=True)
     region_region_id = serializers.CharField(source="region.region_id", default="", read_only=True)
+    # Credit fields come from list_shops(with_credits=True); null on un-annotated rows.
+    credits_allocated = serializers.IntegerField(
+        source="credit_allocated", read_only=True, default=None
+    )
+    credits_bonus = serializers.IntegerField(source="credit_bonus", read_only=True, default=None)
+    credits_remaining = serializers.IntegerField(
+        source="credit_remaining", read_only=True, default=None
+    )
+    credits_total = serializers.SerializerMethodField()
+
+    def get_credits_total(self, obj: Shop) -> int | None:
+        allocated = getattr(obj, "credit_allocated", None)
+        bonus = getattr(obj, "credit_bonus", None)
+        if allocated is None or bonus is None:
+            return None
+        return int(allocated) + int(bonus)
 
     class Meta:
         model = Shop
@@ -26,6 +42,10 @@ class ShopReadSerializer(serializers.ModelSerializer[Shop]):
             "region",
             "region_name",
             "region_region_id",
+            "credits_allocated",
+            "credits_bonus",
+            "credits_remaining",
+            "credits_total",
             "created_at",
             "updated_at",
         ]
@@ -37,6 +57,10 @@ class ShopReadSerializer(serializers.ModelSerializer[Shop]):
             "sync_depth",
             "region_name",
             "region_region_id",
+            "credits_allocated",
+            "credits_bonus",
+            "credits_remaining",
+            "credits_total",
             "created_at",
             "updated_at",
         ]

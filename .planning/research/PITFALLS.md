@@ -1,467 +1,378 @@
-# Pitfalls Research — v0.4 Dashboard
+# Pitfalls Research
 
-**Domain:** Multi-tenant SaaS dashboard — Redis TTL caching, Django ORM aggregations, React parallel fetching
-**Researched:** 2026-05-07
-**Confidence:** HIGH (cache scoping, ORM aggregation, index design — verified against codebase and Django docs) | MEDIUM (React Query stale-data patterns, URL state pitfalls — verified against community sources) | HIGH (timezone handling — verified against Django docs and known production failure modes)
+**Domain:** Per-shop monthly credit ledger (reserve / commit / refund / lapse) added to an existing Django 6 / PostgreSQL 16 / Celery multi-tenant SaaS (v0.9 AI Reply Credits)
+**Researched:** 2026-11-11
+**Confidence:** HIGH for codebase-specific findings (verified by reading the repo at the cited paths); HIGH for Postgres/Django locking semantics; MEDIUM for the client-abort behaviour under Daphne (verify in a spike)
+
+> Phase labels used below are logical groupings, because the v0.9 roadmap does not exist yet. The roadmapper should map them onto Phases 29+.
+> - **P-TEST**: test infrastructure (Postgres CI job, markers, time injection)
+> - **P-MODEL**: `apps/credits` models, migration, org field, lazy ensure, cost function, settings
+> - **P-CONSUME**: reserve/commit/refund, `generate_reply` wiring, reaper
+> - **P-LAPSE**: monthly lapse task and Beat seeding
+> - **P-API**: credits, cost and history endpoints, bonus endpoint, scoping
+> - **P-UI**: Shops list badge, Shop Details card, composer, modals, AuditLog visibility
 
 ---
 
 ## Critical Pitfalls
 
-### DASH-C1: Cache Key Missing `accessible_shop_ids` for Staff Users
+### Pitfall 1: The test suite runs on in-memory SQLite, so every locking and race bug passes CI and fails in production
 
-**What goes wrong:**
-The dashboard cache key is built from `(organisation_id, filter_region, filter_store, filter_date_range)`. A Staff Admin scoped to Shop A requests the KPI card. The response is cached. A Staff Admin scoped to Shop B (different user, same org, different scope) requests the same KPI card with the same region/store/date filters. They receive the first Staff Admin's data — including review counts and sentiment from shops outside their StaffAccessScope.
+**What goes wrong:** `config/settings/test.py:51` sets `DATABASES = sqlite3 ":memory:"`. `.github/workflows/ci.yml` has no Postgres service. On SQLite:
+- `select_for_update()` is silently ignored (and Django skips its "must be inside atomic" check).
+- An `IntegrityError` caught without a savepoint does not poison the transaction. On Postgres it does ("current transaction is aborted").
+- Threads cannot share a `:memory:` database, so a threaded concurrency test either errors or tests nothing.
+- `skip_locked` and `of=` are not exercised.
 
-**Why it happens:**
-Developers model the cache key on the filter bar parameters, which are the same for both users. The distinction that Staff users have row-level shop restrictions (via `StaffAccessScope`) is not visible at the filter bar level. The `get_accessible_shop_ids()` function already exists in `apps/reviews/selectors/reviews.py` and is used by the Reviews list, but is not yet called anywhere in the dashboard context.
+A green 85% coverage run therefore proves nothing about the central acceptance criterion (AC 7: "no over-spending past the limit").
 
-**How to avoid:**
-Cache key construction for all dashboard endpoints must include a `shop_ids_hash` component derived from the user's accessible shop ID list:
-
-```python
-import hashlib, json
-
-def dashboard_cache_key(
-    *,
-    endpoint: str,
-    organisation_id: int,
-    user_id: int,
-    accessible_shop_ids: list[int],  # sorted list; empty list = full org access (Org Admin)
-    region_id: int | None,
-    shop_id: int | None,
-    date_from: str | None,
-    date_to: str | None,
-) -> str:
-    # Org Admin: accessible_shop_ids=[] means "all shops" — this is a stable, distinct value
-    scope_hash = hashlib.sha256(
-        json.dumps(sorted(accessible_shop_ids)).encode()
-    ).hexdigest()[:12]
-    return (
-        f"dashboard:{endpoint}:org:{organisation_id}:"
-        f"scope:{scope_hash}:"
-        f"r:{region_id}:s:{shop_id}:"
-        f"from:{date_from}:to:{date_to}"
-    )
-```
-
-For Org Admins, pass `accessible_shop_ids=[]` (meaning unrestricted). The hash of `[]` is stable and distinct from any Staff user's non-empty list.
-
-**Warning signs:**
-- Cache key builder takes `organisation_id` but not `user_id` or any scope identifier
-- Staff user and Org Admin receive identical cache keys for the same filters
-- No `get_accessible_shop_ids()` call in dashboard selector or view logic
-
-**Phase to address:** Phase 14 — cache key builder must be the first utility written before any endpoint is cached.
-
----
-
-### DASH-C2: Top-Performing Outlets Widget Incorrectly Applies Region/Store Filters
-
-**What goes wrong:**
-The Top Performing Outlets section (bar chart + Performance Highlights card) is specified to respond only to the Date Range filter, not Region or Store filters. The dashboard has a single unified filter bar with Region, Store, and Date Range controls. Developers wire all four dashboard API calls with the same filter parameters. Top Performing Outlets now excludes stores from the ranking when a specific Region or Store is selected — producing nonsensical results (a "top performers" list that only shows the selected store).
-
-**Why it happens:**
-The filter bar state object is passed as a single block to all React Query hooks. It is simpler and more consistent to use the same filter object everywhere. The specification that Top Performing Outlets ignores Region/Store is easy to miss or deprioritize in implementation.
+**Why it happens:** The project's fast-test policy (CLAUDE.md §16) was fine until the first feature whose correctness depends on row locks.
 
 **How to avoid:**
-In the React dashboard component, construct two distinct filter objects before passing to hooks:
+- Add a Postgres-backed settings module (e.g. `config.settings.test_pg`) and a second CI job with `services: postgres:16`. Run only `-m pg_concurrency` tests there.
+- Register the marker in `pyproject.toml`. `--strict-markers` is in `addopts`, so an unregistered marker fails collection.
+- Split the tests: state-machine logic (RESERVED to COMMITTED/REFUNDED, double-refund, late commit, lapse idempotency) is tested deterministically on SQLite by calling the steps sequentially in the interleaved order. Only true lock/race tests (N threads, one balance) run on Postgres.
+- Make the actual over-spend guard testable on both engines. Use a conditional single-statement update: `ShopCreditBalance.objects.filter(pk=..., ...remaining >= cost).update(consumed_credits=F("consumed_credits") + cost)` and treat rowcount 0 as insufficient. Keep `select_for_update` for reading values.
 
-```typescript
-// Full filters — used by KPI cards, Sentiment Distribution
-const fullFilters = { regionId, shopId, dateFrom, dateTo };
+**Warning signs:** A concurrency test that passes with `pytest` locally but never ran against Postgres. Any "concurrent" test that does not use `threading` plus a real DB. `select_for_update` appearing in code that has no `transaction.atomic()`; it works on SQLite and raises `TransactionManagementError` on Postgres.
 
-// Date-only filters — used by Top Performing Outlets
-const dateOnlyFilters = { dateFrom, dateTo };
-
-const { data: topPerformers } = useTopPerformers(dateOnlyFilters);
-const { data: kpis } = useKPIs(fullFilters);
-```
-
-On the backend, the Top Performing Outlets endpoint must ignore `region_id` and `shop_id` query parameters even if passed. Never trust that the frontend will omit them — enforce the filter scope in the selector.
-
-**Warning signs:**
-- Top Performing Outlets API endpoint accepts `region_id` and `shop_id` parameters and applies them
-- A single `filters` object passed to all five React Query hooks
-- Manual testing: select a specific store; Top Performers shows only that one store
-
-**Phase to address:** Phase 14 — must be in the API contract specification for the Top Performing Outlets endpoint before any implementation begins.
+**Phase to address:** P-TEST, first. Nothing in P-CONSUME can be called verified without it.
 
 ---
 
-### DASH-C3: Out-of-Scope URL Parameters Silently Ignored Instead of Returning 403
+### Pitfall 2: Lazy first-use creation race (duplicate rows, double INITIAL ledger rows, poisoned transaction)
 
-**What goes wrong:**
-The filter bar stores region and store selection in the URL (`?region=5&shop=12`). When an Org Admin bookmarks a URL and shares it with a Staff Admin whose StaffAccessScope does not include Region 5 or Shop 12, the dashboard silently ignores the out-of-scope parameter and renders as if no filter is selected. No error is shown. This is a security failure, not a UX failure: the Staff user does not know their filter was silently dropped, and the dashboard data may partially reflect data from shops they are not entitled to see (depending on implementation order of filtering).
+**What goes wrong:** Two requests for the same shop in a new month both find no `ShopCreditBalance`. Variants:
+1. No DB unique constraint on `(shop, period_year, period_month)`. Duplicate balance rows give each request its own pool.
+2. A naive `try: create() except IntegrityError: get()` inside `atomic()` works on SQLite and aborts the transaction on Postgres.
+3. Both racers write an `INITIAL_ALLOCATION` CreditTransaction and a `shop.credits.allocated` AuditLog row, so the ledger double-counts the grant.
+4. `get_or_create()` followed by a separate un-locked read. The row exists, but the lock was never taken.
+5. `select_related(...).select_for_update()` locks the joined `Shop` and `Organisation` rows too. Every reserve then serialises across the entire organisation and collides with org edits. A nullable-side join also errors on Postgres.
 
-**Why it happens:**
-The "silent fallback to unfiltered" pattern is intuitive for broken URL parameters in general web UIs. Developers apply the same pattern to tenant-scoped parameters without recognizing that `region_id` and `shop_id` from URL params are authorization-relevant, not just preference-relevant.
+**Why it happens:** The spec's step 3 ("select for update; if row does not exist, create") reads as one atomic step. It is not.
 
 **How to avoid:**
-The dashboard API endpoints must validate that `region_id` and `shop_id` filter parameters belong to the requesting user's organization AND are within their StaffAccessScope. Return `403 Forbidden` (not `400 Bad Request`) for out-of-scope parameters:
+- Enforce `UniqueConstraint(fields=[shop, period_year, period_month])` in the migration. The spec already requires this (AC 4).
+- Create the row in its own short `transaction.atomic()` using `get_or_create(shop_id=..., period_year=..., period_month=..., defaults={...})`. Django wraps the create in a savepoint, and the `created` flag is reliable. Write the `INITIAL_ALLOCATION` transaction and AuditLog row only when `created is True`, in that same atomic. This is the opposite of the `bulk_create(ignore_conflicts=True)` idiom in the reviews canonical code (§29.3): `ignore_conflicts` does not say who won, so it cannot gate the INITIAL ledger row.
+- Then lock in a separate step: `ShopCreditBalance.objects.select_for_update(of=("self",)).get(pk=...)`. No `select_related`.
+- Compute `allocated_credits` from a fresh `Organisation.objects.values_list("monthly_credit_allocation", flat=True)` read. Do not use the request's cached `user.organisation`.
+- Skip the zero-delta INITIAL row when allocation is 0, but still create the balance row (bonus needs it).
+- Bonus allocation must use the same `ensure_balance()` helper. A Superadmin bonus on a shop that has not used AI this month would otherwise hit `DoesNotExist` and return 500.
 
-```python
-# In the dashboard selector or view
-def validate_filter_params(
-    *,
-    user: User,
-    organisation_id: int,
-    shop_id: int | None,
-    region_id: int | None,
-) -> None:
-    if shop_id is not None:
-        if not Shop.objects.filter(id=shop_id, organisation_id=organisation_id).exists():
-            raise PermissionDenied("shop_id is not accessible")
-        if user.role == User.Role.STAFF_ADMIN:
-            accessible = get_accessible_shop_ids(user_id=user.pk)
-            if shop_id not in accessible:
-                raise PermissionDenied("shop_id is not in your access scope")
-    if region_id is not None:
-        if not Region.objects.filter(id=region_id, organisation_id=organisation_id).exists():
-            raise PermissionDenied("region_id is not accessible")
-```
+**Warning signs:** Two INITIAL rows for one `(balance, month)`. `TransactionManagementError` in Sentry on the first request of a month. Postgres `FOR UPDATE` lock waits on `organisations_organisation`.
 
-The frontend must handle `403` on dashboard endpoints by showing an explicit "Access denied for the selected filter" message and clearing the filter from the URL, rather than silently retrying with no filters.
-
-**Warning signs:**
-- Dashboard filter validation returns `400` or silently falls back to unfiltered on invalid params
-- No cross-org check on `shop_id`/`region_id` filter params in the selector
-- No test asserting `403` when a Staff user passes a shop outside their scope as a URL param
-
-**Phase to address:** Phase 14 — validate_filter_params must be implemented and tested before any endpoint accepts region/shop filter parameters.
+**Phase to address:** P-MODEL (constraint, `ensure_balance`), verified in P-TEST (Postgres N-thread first-use test).
 
 ---
 
-### DASH-C4: Python-Side Aggregation Instead of DB-Level Avg/Count with HAVING
+### Pitfall 3: Mid-month allocation change is silently applied by lazy creation (violates spec §7.3 / AC 16)
 
-**What goes wrong:**
-The KPI card "Average Rating" is computed by fetching all reviews into Python and calling `statistics.mean([r.star_rating for r in reviews])`. The Negative Reviews count is computed by filtering `[r for r in reviews if r.sentiment == 'negative']` in Python. The "minimum 3 reviews" threshold for Top Performing Outlets is enforced by a Python-side `if len(shop_reviews) >= 3` check after fetching per-shop review lists.
+**What goes wrong:** Superadmin changes `monthly_credit_allocation` on Nov 15 from 100 to 500. Shop X first uses AI on Nov 20, so its row is lazily created with 500 in November. The spec says the change takes effect next month. Shops that already had November rows keep 100. The same org now has inconsistent November budgets depending on who clicked first.
 
-**Why it happens:**
-The Reviews list already loads review rows for the list view. Developers reuse that queryset for aggregations rather than writing a separate aggregate query. The minimum review threshold feels like a business rule that belongs in application code.
+**Why it happens:** Lazy creation reads "the current allocation" at creation time, not "the allocation in force at the start of the month."
+
+**How to avoid:** Pick one explicit behaviour in discuss-phase and test it:
+- **(Recommended)** On org edit, inside the same atomic as the audit write, materialise the current-month balance rows for the org's shops with the OLD value (`bulk_create(..., ignore_conflicts=True)`). The cost is some unused rows, only on edit, which is not the hot path. Or:
+- Store `previous_monthly_credit_allocation` and `allocation_changed_at` on Organisation. Lazy creation uses the previous value when the change happened in the same calendar month.
+- Write `organisation.credits.set` only when the value actually changed. A PATCH of other fields must not emit it.
+
+**Warning signs:** Two shops in one org with different `allocated_credits` for the same month with no bonus rows. A test for AC 16 that only covers shops that already had a row.
+
+**Phase to address:** P-MODEL (field and ensure logic), P-API (org edit service).
+
+---
+
+### Pitfall 4: Double refund, reaper versus late-arriving success (and explicit refund versus reaper)
+
+**What goes wrong:** Timeline: reserve, OpenAI call stalls, reaper refunds at the TTL (`consumed -= cost`, status REFUNDED), the call then succeeds, the commit step flips REFUNDED to COMMITTED or refunds again. Outcomes: consumed goes negative or stays inflated, the user receives a draft for free, or both. The same race exists between the view's own `refund()` on OpenAI failure and the reaper.
+
+**Why it happens:** Status is read, decided in Python, then written (check-then-act), and refund is coded as "restore the balance" rather than as one atomic state transition.
 
 **How to avoid:**
-All aggregations must be computed at the database level using `annotate()`, `Avg()`, `Count()`, and `HAVING` (`filter()` on an annotation):
+- Make every status change a conditional UPDATE: `CreditTransaction.objects.filter(pk=tx, status=RESERVED).update(status=REFUNDED, resolved_at=now)`. Only if rowcount is 1, run `ShopCreditBalance.filter(pk=...).update(consumed_credits=F("consumed_credits") - cost)`. Do both in one `atomic()`. Same for commit (`RESERVED -> COMMITTED`).
+- Keep one lock order everywhere (tx row, then balance row via F-update, never the reverse across paths) to avoid deadlocks between reaper and request.
+- Add `CheckConstraint(consumed_credits >= 0)` and `CheckConstraint(consumed_credits <= allocated_credits + bonus_credits)`. Django supports `F()` in constraints. A double refund then fails loudly instead of silently inflating credits. The reaper must wrap each transaction in its own `atomic()` and catch `IntegrityError`, so one bad row does not abort the batch.
+- Decide the late-commit policy up front. Commit returns rowcount 0 means the reaper already refunded. **Recommended:** return the draft anyway (OpenAI was billed and the user is waiting), attempt one conditional re-deduct, and if that fails log an AuditLog and Sentry event (`credit.late_commit_after_refund`). A rare free draft is cheaper than discarding a billed one. With Pitfall 5's timeout fix this should be near-impossible.
+- `consumed_credits` must only ever move via `F()` updates, never `balance.save()` from a stale instance (it would clobber a concurrent bonus or refund).
 
-```python
-from django.db.models import Avg, Count, Q
+**Warning signs:** `consumed_credits` negative or `remaining > allocated + bonus`. COMMITTED and REFUNDED rows for the same review within seconds. Reconciliation invariant violated: `consumed_credits == SUM(-credits_delta) WHERE type=CONSUMPTION AND status IN (RESERVED, COMMITTED)`. Ship this as a test and a management check.
 
-def get_kpi_metrics(
-    *,
-    organisation_id: int,
-    shop_ids: list[int] | None,
-    date_from: datetime,
-    date_to: datetime,
-) -> dict:
-    qs = (
-        Review.objects.active()
-        .filter(
-            organisation_id=organisation_id,
-            review_create_time__gte=date_from,
-            review_create_time__lt=date_to,
-            **({"shop_id__in": shop_ids} if shop_ids else {}),
-        )
-    )
-    return qs.aggregate(
-        total_reviews=Count("id"),
-        average_rating=Avg("star_rating"),
-        negative_count=Count("id", filter=Q(
-            sentiment="negative",
-            enrichment_status="SUCCESS",
-        )),
-    )
-
-# Top Performing Outlets — HAVING clause via annotation + filter
-def get_top_performers(*, organisation_id, date_from, date_to, limit=10):
-    return (
-        Review.objects.active()
-        .filter(
-            organisation_id=organisation_id,
-            review_create_time__gte=date_from,
-            review_create_time__lt=date_to,
-        )
-        .values("shop_id", "shop__display_name")
-        .annotate(
-            review_count=Count("id"),
-            avg_rating=Avg("star_rating"),
-        )
-        .filter(review_count__gte=3)  # HAVING clause — enforced at DB level
-        .order_by("-avg_rating", "-review_count")[:limit]
-    )
-```
-
-The `filter(review_count__gte=3)` after `annotate()` translates to a SQL `HAVING` clause, not a Python-side filter. This is critical for correctness: if done in Python after fetching results, a shop with 2 reviews might still appear in results if it was the only shop in the queryset.
-
-**Warning signs:**
-- `reviews = list(qs)` followed by `sum(r.star_rating for r in reviews)` in a service or selector
-- `[r for r in reviews if r.sentiment == ...]` in dashboard code
-- `len(shop_reviews) >= 3` rather than `.filter(review_count__gte=3)` after `.annotate()`
-- `CaptureQueriesContext` test missing from the dashboard selectors
-
-**Phase to address:** Phase 14 — write aggregate selectors with query-count tests before wiring to views.
+**Phase to address:** P-CONSUME. The state-machine test (sequential interleaving) runs on SQLite; the lock test runs in P-TEST's Postgres job.
 
 ---
 
-### DASH-C5: Composite Index Field Order Mismatches Query Filter Order
+### Pitfall 5: The reaper refunds a call that is still in flight (the 5-minute TTL is shorter than the real worst case)
 
-**What goes wrong:**
-The dashboard adds an index `(organisation_id, sentiment, review_create_time)` for the Sentiment Distribution query. The actual query filters on `(organisation_id, shop_id__in, review_create_time__range, enrichment_status)`. PostgreSQL cannot use the new index for this query because `shop_id` is the second filter predicate but is not in the index. The query falls back to a sequential scan. EXPLAIN ANALYZE shows `Seq Scan` on `reviews_review` with a large row estimate.
+**What goes wrong:** `apps/integrations/openai/client.py:54` builds `OpenAI(api_key=...)` with no timeout. The installed SDK's `DEFAULT_TIMEOUT` is 600s (verified in `.venv/.../openai/_constants.py`), with SDK-level retries on top. A slow but alive call can legitimately run longer than the 5-minute TTL. Add two moderation calls with their own retry. The reaper then refunds a reservation whose call later succeeds: free reply, plus Pitfall 4.
 
-**Why it happens:**
-Index design is often done once, based on a mental model of "what fields are filtered on." The composite index is created for the most commonly expected query shape, but the actual WHERE clause in the ORM query differs because of the `shop_id__in` restriction for Staff users and the `enrichment_status=SUCCESS` requirement for sentiment queries.
+**Why it happens:** The spec treats TTL as a crash-recovery number without checking it against the actual timeout configuration. Cloud Run's 60s request timeout (CLAUDE.md §10) means any call over 60s is already abandoned by the client anyway.
 
 **How to avoid:**
-Design indexes from the actual ORM queries, not from intuition. The three new indexes needed for the dashboard (as specified in the milestone requirements) must match the exact filter order:
+- Bound the reply path: `_get_client().with_options(timeout=30, max_retries=1)` for `call_openai_reply_generation` only. Do NOT change the shared client defaults, because enrichment uses them.
+- Keep the invariant `RESERVATION_TTL >= 2 x worst-case in-flight time`. Document it next to `REVIEWBEE_CREDIT_RESERVATION_TTL_MINUTES` and add a settings sanity test.
+- Age the reservation from `CreditTransaction.created_at` (the reserve commit time). The reaper selects with `select_for_update(skip_locked=True)` in bounded batches so it never grabs a row a request is committing.
+- Effective stale time is TTL plus up to 10 minutes of Beat cadence (up to 15 minutes). The UI must not promise instant refunds after a crash.
 
-```python
-# In Review.Meta.indexes — add alongside existing indexes
-indexes = [
-    # Existing indexes...
-    models.Index(
-        fields=["organisation", "review_create_time", "deleted_at"],
-        name="review_dash_date_idx",
-        # Used by: KPI total count, Top Performers (date-only filter)
-    ),
-    models.Index(
-        fields=["organisation", "shop", "review_create_time"],
-        name="review_dash_shop_date_idx",
-        # Used by: KPI with shop/region filter; shop_id IN (...) uses this
-    ),
-    models.Index(
-        fields=["organisation", "enrichment_status", "sentiment", "review_create_time"],
-        name="review_dash_sentiment_idx",
-        # Used by: Sentiment Distribution (enrichment_status=SUCCESS + sentiment)
-    ),
-]
-```
+**Warning signs:** `latency_ms` on `AiUsageLog` for `reply_generation` rows approaching the TTL. Any REFUNDED reservation that has a SUCCESS `AiUsageLog` for the same review within the window.
 
-After adding indexes, run `EXPLAIN ANALYZE` against the actual dashboard queries in a test database with representative data volume. Confirm `Index Scan` is used, not `Seq Scan` or `Bitmap Heap Scan with large filter ratio`.
-
-Note: the existing `review_org_date_idx` index covers `(organisation, review_create_time)` which helps the KPI total count query, but NOT the sentiment distribution query which also needs `enrichment_status` in the filter prefix.
-
-**Warning signs:**
-- Index defined on `(organisation, sentiment)` but query filters on `(organisation, shop, enrichment_status, sentiment)`
-- No `EXPLAIN ANALYZE` check in the implementation plan
-- Dashboard P95 latency >400ms in staging with >1000 reviews
-
-**Phase to address:** Phase 14 — index migrations must be created and reviewed against actual query plans before the endpoint tests are written.
+**Phase to address:** P-CONSUME (timeout and TTL), verified by the stalled-OpenAI test.
 
 ---
 
-### DASH-C6: Enrichment Coverage Footer Showing Zero Instead of Partial State
+### Pitfall 6: Refund or commit credits the wrong month at the month boundary, and lapse then strands the refund
 
 **What goes wrong:**
-The Sentiment Distribution card has a coverage footer: e.g., "Based on 847 of 1,200 reviews (71%)." The implementation calculates the denominator as `total_reviews_in_period` and the numerator as `enriched_reviews_in_period` (enrichment_status=SUCCESS). When some reviews in the period are unenriched (status=PENDING or FAILED), the footer correctly shows partial coverage. However, the implementation filters the entire Sentiment Distribution card to only show data when coverage is 100%, treating partial coverage as "no data." The result: if any reviews are unenriched, the entire Sentiment Distribution card is blank with a "No data" state, which is incorrect.
-
-**Why it happens:**
-The "only show AI data when enrichment is complete" heuristic is applied from the sync progress context (where showing partial data during an active sync is genuinely misleading). Developers apply the same heuristic to the dashboard analytics context, where it is incorrect: historical partial coverage is informative, not ambiguous.
+(a) Reserve at 23:59:58 Oct 31, commit or refund at 00:00:03 Nov 1. If refund looks up "current month's balance" with `now()`, it decrements the November balance (possibly below zero or creating a November row) and leaves October permanently over-charged.
+(b) A RESERVED row still on the October balance when the 00:05 lapse runs. Lapse computes `remaining` including the reserved credits. The reaper then refunds into October, so `remaining` rises after the LAPSED row was written. Those credits are stranded and the ledger no longer reconciles.
 
 **How to avoid:**
-Always render the Sentiment Distribution card when at least one enriched review exists in the period. The coverage footer is the mechanism for communicating partial state:
+- Refund and commit always operate on `tx.shop_credit_balance_id`. They never compute a period.
+- `lapse_balance(balance_id)` is the single per-balance function. It skips any balance that still has RESERVED rows (the catch-up in Pitfall 7 picks it up later). The reaper calls it after refunding into a past-period balance, so late refunds are lapsed promptly.
+- Also write a test for a clock that crosses midnight between reserve and commit.
 
-```python
-def get_sentiment_distribution(*, organisation_id, shop_ids, date_from, date_to):
-    base_qs = Review.objects.active().filter(
-        organisation_id=organisation_id,
-        review_create_time__gte=date_from,
-        review_create_time__lt=date_to,
-        **({"shop_id__in": shop_ids} if shop_ids else {}),
-    )
-    total = base_qs.count()
-    enriched_qs = base_qs.filter(enrichment_status=Review.EnrichmentStatus.SUCCESS)
-    enriched = enriched_qs.count()
-    if enriched == 0:
-        return None  # Genuine empty state — no enriched reviews at all
+**Warning signs:** `ShopCreditBalance` rows for the current month created by the refund path. A past-period balance with `remaining > 0` and an existing LAPSED row.
 
-    distribution = enriched_qs.values("sentiment").annotate(count=Count("id"))
-    return {
-        "distribution": {row["sentiment"]: row["count"] for row in distribution},
-        "enriched_count": enriched,
-        "total_count": total,
-        "coverage_pct": round(enriched / total * 100, 1) if total else 0,
-    }
-```
-
-Return `None` only when `enriched == 0`. Return partial data with coverage metadata in all other cases.
-
-**Warning signs:**
-- Card renders "No data" when any reviews are PENDING or FAILED
-- Coverage percentage is checked as a condition for rendering, rather than as metadata displayed alongside the chart
-- No test case for "50% enriched — card should still render with coverage footer"
-
-**Phase to address:** Phase 14 — Sentiment Distribution selector must include a test for partial enrichment state.
+**Phase to address:** P-CONSUME (balance-by-FK), P-LAPSE (skip and re-lapse), with a boundary test in each.
 
 ---
 
-### DASH-C7: Timezone Mismatch on Date Window Boundaries
+### Pitfall 7: Lapse is not idempotent as specified, and "previous month" drops months after an outage
+
+**What goes wrong:** Spec §7.2 says LAPSED writes a row and changes nothing on the balance. A re-run recomputes `remaining > 0` and writes a second LAPSED row (double negative delta, double `shop.credits.lapsed` audit). Also, "find previous month's rows" computed from `now()` misses a month if Beat was down across the 1st, or if the task runs twice because Beat restarted or `DatabaseScheduler` fired again.
+
+**How to avoid:**
+- One LAPSED row per balance, enforced in the DB: partial `UniqueConstraint(fields=["shop_credit_balance"], condition=Q(transaction_type="LAPSED"), name=...)`. Write it with `bulk_create(ignore_conflicts=True)`, and write the AuditLog only for rows actually created (re-query the created set, or insert and audit per balance inside one atomic).
+- Select by `period < current_period AND NOT EXISTS(LAPSED row)`, not by "previous month". This gives free catch-up after an outage and makes re-runs no-ops.
+- Compute "current period" via one helper using `datetime.now(UTC)` (not `date.today()`, which is server-local) with an injectable `now`.
+- Seed the Beat entry like `apps/reviews/migrations/0016_beat_recover_stuck_syncs.py` but with `CrontabSchedule(minute="5", hour="0", day_of_month="1", timezone="UTC")` set explicitly. Use `PeriodicTask.update_or_create(name=...)` and avoid `CrontabSchedule.get_or_create` (raises `MultipleObjectsReturned` if duplicates exist). Add a `CELERY_TASK_ROUTES` entry and make sure `apps.credits` is in INSTALLED_APPS so tasks autodiscover.
+- Monitoring: alert if no lapse completion by 00:30 UTC (spec §15), not just "task ran".
+
+**Warning signs:** Two LAPSED rows for one balance. A balance with `remaining > 0` and `period < current` with no LAPSED row.
+
+**Phase to address:** P-LAPSE.
+
+---
+
+### Pitfall 8: Negative or over-allocated balances through code paths other than the happy reserve
+
+**What goes wrong:** The reserve path checks `remaining >= cost` but other paths do not: a UX pre-check read before the lock (TOCTOU), refunds applied twice, full-object `save()`, Django admin editing, and the Superadmin who lowers a value. The result is `consumed > allocated + bonus` or negative `consumed`.
+
+**How to avoid:**
+- Check sufficiency inside the lock (or inside the conditional UPDATE). A selector-based "can afford?" is a hint for the UI only.
+- DB `CheckConstraint`s (Pitfall 4) on all three integer columns, plus non-negative `allocated/bonus`.
+- Register the models in Django admin as read-only (`has_add/change/delete_permission = False`). Admin edits bypass the ledger and the AuditLog.
+- Ledger "immutability" is not literally true here: status flips on one row. Add `resolved_at`, restrict mutation to one service module, and never expose an update endpoint. Do not delete rows on refund.
+- Use `on_delete=PROTECT` for balance to shop and `SET_NULL` for review, ai_usage_log, and performed_by so the ledger survives user or review cleanup.
+
+**Warning signs:** `UPDATE ... SET consumed_credits` anywhere outside `apps/credits/services`. Admin "Save" buttons on credit models.
+
+**Phase to address:** P-MODEL (constraints, admin), P-CONSUME.
+
+---
+
+### Pitfall 9: Bonus allocation racing an in-flight reservation, or landing in the wrong month
 
 **What goes wrong:**
-The filter bar's "Last 30 days" preset computes `date_from = datetime.utcnow() - timedelta(days=30)`. The dashboard stores reviews with `review_create_time` in UTC. The Org Admin is in UTC+8 (Singapore). When they select "Last 30 days" on May 7 at 10:00 AM local time, they expect reviews from April 7 local time onward. The UTC-based computation cuts off at April 7 00:00 UTC, which is April 7 08:00 local time — silently excluding 8 hours of reviews. For "Last 7 days," this produces a visibly wrong chart where "yesterday" is missing data.
-
-**Why it happens:**
-Django stores all `DateTimeField` values in UTC (when `USE_TZ = True`). Backend date arithmetic using `datetime.utcnow()` or `timezone.now()` is correct for UTC comparisons. The mistake is computing the date window in UTC rather than in the user's local timezone before converting to UTC for the DB query.
+- Lost update: bonus code does `balance = get(); balance.bonus_credits += n; balance.save()` while a reserve or refund changes `consumed_credits`, overwriting it.
+- Wrong month: the modal opens at 23:59 Oct 31 showing October numbers, the Superadmin submits at 00:01 Nov 1, and the server applies the bonus to November without telling anyone.
+- The modal's "Remaining: 35" is a snapshot. Never compute anything from it.
+- Double-click submits two bonuses.
 
 **How to avoid:**
-Date window boundaries must be computed in the user's timezone, then converted to UTC for the database filter. The user's timezone must be stored on the `User` model or derived from their organisation's default timezone:
+- `bonus_credits = F("bonus_credits") + n` plus the `BONUS_ALLOCATION` tx plus audit, in one atomic, using `ensure_balance()` first (Pitfall 2). Refund and bonus commute when both use `F()`. This is why Pitfall 4's "never `.save()` a stale instance" rule matters.
+- The request carries the `period` (year and month) the modal displayed. The server rejects a mismatch with 409 and the current period.
+- Derive `organisation_id` from `shop.organisation_id` server-side. Never accept it from the payload. Bound `amount` (1 to 10,000) and `notes` length.
+- Disable the submit button while pending; the 10,000 cap limits blast radius.
 
-```python
-import zoneinfo
-from django.utils import timezone
+**Warning signs:** `bonus_credits` that does not equal the sum of BONUS tx deltas for the balance.
 
-def resolve_date_window(
-    *,
-    date_from_str: str | None,
-    date_to_str: str | None,
-    user_timezone: str,  # e.g. "Asia/Singapore"
-) -> tuple[datetime, datetime]:
-    tz = zoneinfo.ZoneInfo(user_timezone)
-    if date_from_str and date_to_str:
-        # Parse as date in user's timezone, then make timezone-aware
-        from_local = datetime.fromisoformat(date_from_str).replace(tzinfo=tz)
-        to_local = datetime.fromisoformat(date_to_str).replace(tzinfo=tz)
-    else:
-        # Default: last 30 days from midnight in user's timezone
-        today_local = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
-        from_local = today_local - timedelta(days=30)
-        to_local = today_local + timedelta(days=1)  # end of today
-    # Convert to UTC for DB comparison
-    return from_local.astimezone(timezone.utc), to_local.astimezone(timezone.utc)
-```
-
-Store `User.timezone` as a `CharField` defaulting to `"UTC"`. Validate against `zoneinfo.available_timezones()` on save.
-
-If timezone storage on User is out of scope for Phase 14, use UTC boundaries and display a "Dates are shown in UTC" notice in the filter bar. This is an explicit, honest limitation rather than a silent correctness bug.
-
-**Warning signs:**
-- `datetime.utcnow()` or `timezone.now()` used directly as date window boundary without timezone conversion
-- Date filter preset ("Last 30 days") computed server-side without consulting user timezone
-- No test asserting that a UTC+N user's "last 7 days" window starts at the correct UTC timestamp
-
-**Phase to address:** Phase 14 — date window resolution utility must be written and tested before any endpoint uses date filter params.
+**Phase to address:** P-API (bonus service and endpoint), P-UI (modal).
 
 ---
 
-## Technical Debt Patterns
+### Pitfall 10: Tenant and role leakage on the credits surfaces
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Single cache key per endpoint ignoring scope differences | Simpler cache key builder | Cross-tenant data leak for Staff users — security incident | Never |
-| Python-side aggregation from a pre-fetched queryset | Reuses existing list queryset | O(N) Python computation; breaks query-count CI ceiling; N+1 under filters | Never for dashboard KPIs |
-| UTC-only date boundaries without user timezone | No User.timezone field needed | Silent data exclusion at day boundaries for non-UTC users | Acceptable only with explicit "UTC only" UI notice |
-| Applying all filters to Top Performers widget | Single filter state object for all hooks | Nonsensical "top performers" list when a specific store is selected | Never |
-| TTL-only cache invalidation (no event-based invalidation) | No invalidation code to write | Stale dashboard data for up to 5 minutes after a new sync completes | Acceptable for Phase 14 (5-min TTL is a stated requirement) |
-| One React Query hook per widget with independent loading states | Simpler hook logic | Skeleton layout appears piecemeal; some cards finish while others still load — acceptable | Acceptable for Phase 14 |
-| `history.pushState` for URL state instead of `replaceState` | Intuitive analogy to navigation | Every filter change creates a new browser history entry; Back button steps through individual filter states | Never |
+**What goes wrong:** Verified gaps in the existing code that new credit fields will inherit:
+- `ShopViewSet.list` (`apps/shops/views.py:178`) calls `list_shops(organisation_id=...)`, which has no `StaffAccessScope` filter. `retrieve` uses `TenantScopedViewSet`, which is org-only. If `remaining_credits` is added to `ShopReadSerializer` or the list annotation, Staff see credits for shops outside their scope, violating AC 28.
+- `ReviewTargetViewSet._verify_shop_org` (nested `shop_pk` pattern) checks organisation only, not staff scope. Copying it for `/shops/{shop_pk}/credits/` repeats the gap.
+- `TenantScopedViewSet.get_queryset` returns `none()` when `organisation_id` is null (Superadmin). The Superadmin Shop Details credits card, which the spec requires, will silently get 404/empty. Superadmin views must not inherit `TenantScopedViewSet`, but then they have no automatic tenant filter at all.
+- Spec §10 lets Staff call `/credits/history/`, which exposes `performed_by` identities and Superadmin `notes`. This conflicts with the §2 role table (Staff: no credit audit log).
+- The cost endpoint at `/reviews/{id}/generate-reply/cost/` must live as an `@action` on `ReviewViewSet` (which already applies org and staff-shop scoping in `get_queryset`), not as a new view that re-implements scoping.
 
----
+**How to avoid:**
+- One selector `get_accessible_shop_for_credits(user, shop_id)` that applies role, organisation, and `get_accessible_shop_ids` for Staff, used by every credit endpoint and by the list annotation.
+- On the shops list for Staff, annotate `remaining_credits` only for in-scope shops (null otherwise), or fix `list_shops` scope. Pick one deliberately and record it.
+- History endpoint: Org Admin and Superadmin only. Staff get balance only.
+- Superadmin endpoints under `/api/v1/superadmin/...` with `IsSuperadmin` plus `RequiresSessionAuth`, a throttle scope, and an explicit "no tenant filter, by design" comment (CLAUDE.md §22).
+- Write negative tests: cross-org Org Admin to 403/404, in-org out-of-scope Staff to 403/404, Staff to history 403, Org Admin to bonus 403, Staff in the shops list gets no out-of-scope balance.
+- Run `tenant-security-auditor` on the diff (CLAUDE.md §27).
 
-## Integration Gotchas
+**Warning signs:** `Shop.objects.get(pk=shop_id)` in a credits view without an org or scope predicate. A serializer field `remaining_credits` on `ShopReadSerializer` with no role gate.
 
-Specific risks when adding `apps/dashboard/` to the existing v0.3 system.
-
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| DRF router registration | Adding `dashboard/` endpoints to the existing `config/urls.py` router without a dedicated namespace, causing URL conflicts with `reviews/` endpoints | Create a separate `apps/dashboard/urls.py` with a `dashboard/` prefix; include in `config/urls.py` as `path("api/v1/dashboard/", include("apps.dashboard.urls"))` |
-| `get_accessible_shop_ids()` | Calling `get_accessible_shop_ids(user_id=user.pk)` for Org Admins (who have no StaffAccessScope rows), producing an empty list that filters out all shops | The function already returns `[]` for users with no scopes — callers must treat `[]` from Org Admin as "all shops" (no shop filter), not "no shops". Use `None` vs `[]` distinction explicitly. |
-| Review model indexes | Adding dashboard indexes in a new migration that conflicts with an in-flight Celery sync migration on the same table | Dashboard indexes must be additive (not modifying existing indexes); coordinate migration numbering with the latest v0.3 migration; use `CONCURRENTLY` for large tables if review count exceeds 100K rows |
-| Redis cache keys | Reusing `"organisations:list:*"` key namespace pattern from the existing organisations cache | Use a dedicated `"dashboard:"` key prefix; never share namespaces with other apps' cache keys |
-| Celery worker processes | Dashboard cache invalidation triggered by a Celery task (e.g., after sync completes) using `cache.delete_pattern()` — this requires the `django-redis` backend with `delete_pattern` support | Confirm `django-redis` is installed (it is, per v0.3 stack) and the cache backend is `RedisCache`, not `LocMemCache` (which does not support `delete_pattern`) |
-| React widget isolation | Mounting the dashboard React widget in a Django template that already has the TopbarBell and NotifBell widgets — three React roots competing for the same `DOMContentLoaded` event | Use separate `<div id="dashboard-root">` mount point; dashboard widget must not import from TopbarBell or NotifBell modules; no shared global state |
+**Phase to address:** P-API (selector, endpoints), P-UI (badge field gating).
 
 ---
 
-## Performance Traps
+### Pitfall 11: Existing `generate_reply` plumbing swallows or mishandles the new outcomes
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Aggregate query without date index | Dashboard KPI endpoint takes 2–3s with 50K reviews | Add composite index with `organisation_id + review_create_time` (already exists as `review_org_date_idx` — verify it is used by EXPLAIN) | >10K reviews per org |
-| Top Performers fetching all reviews then grouping in Python | Server memory spike; P95 >1s | Use `.values("shop_id").annotate(avg_rating=Avg("star_rating"))` — one DB query, not N queries | >5 shops per org |
-| Sentiment Distribution without `enrichment_status` in the index prefix | PostgreSQL falls back to filtering after index scan — slow for large orgs | Add `(organisation, enrichment_status, sentiment, review_create_time)` index | >20K enriched reviews |
-| React Query with no `staleTime` on filter-driven dashboard | Every component mount triggers a refetch even when filters haven't changed; multiple widgets refetch simultaneously on page focus | Set `staleTime: 5 * 60 * 1000` (matching backend 5-min TTL); use `refetchOnWindowFocus: false` for dashboard queries | Any page with >3 parallel queries |
-| Filter state stored in `useState` instead of URL params | Refreshing the page loses filter state; users cannot share filtered views | Store region/store/date in URL query params via `replaceState`; read from `URLSearchParams` on mount | Every page refresh |
-| Cache invalidation via `delete_pattern` across many keys | `cache.delete_pattern("dashboard:*")` scans all Redis keys — slow on large Redis instances | Use specific key deletion with known key components; avoid wildcard scans in production hot paths | Redis with >100K keys |
+**What goes wrong:** Verified in `apps/reviews/views.py` and `apps/reviews/services/reply_generation.py`:
+- The view ends with `except Exception` returning 502 `ai_unavailable`. An `InsufficientCreditsError` raised inside the `try` (not an `APIException`) becomes a 502, not 402. DRF has no built-in 402 exception, so it must be an explicit `Response(status=402)`.
+- `ContentModeratedException` carries no stage. The v0.9 policy (refund on input block, consume on output block) cannot be implemented from the exception alone.
+- `generate_reply_draft` returns only the draft string. The commit step must link `ai_usage_log_id` (AC 38) but the SUCCESS and MODERATED `AiUsageLog` rows are created inside the function and the id is not returned.
+- Any reserve placed before the `try` leaks the reservation if the view raises between reserve and the service call.
+- All Phase 19/20 tests that POST `generate-reply` now get 402 because orgs default to `monthly_credit_allocation = 0`.
 
----
+**How to avoid:**
+- Put reserve, call, commit and refund in one service (`apps/credits/services/consumption.py` driving `generate_reply_draft`) with explicit `try/except/else`, not in the view. Reserve is the LAST step after validation (tone, empty comment 400, scope).
+- Add a `stage` attribute to `ContentModeratedException` (`"input"` or `"output"`). Or moderate input before reserving, which also removes ledger noise (RESERVED to REFUNDED churn).
+- Return a small dataclass (`draft`, `usage_log_id`) from the reply service, or attach the id to the raised exceptions. Update the existing callers and tests.
+- Map `InsufficientCreditsError` to 402 with `{code, detail, remaining, cost}` before the generic handlers.
+- Update org factories and existing `generate_reply` tests in the same plan that wires credits, and update the drf-spectacular response docs (402) so `spectacular --validate` stays green.
+- Rollout: allocation 0 disables a feature that has shipped since Phase 19, so a pre-deploy backfill or runbook step is required (also flagged in FEATURES.md).
 
-## Security Mistakes
+**Warning signs:** A test expecting 402 that gets 502. `ContentModeratedException` caught in two places with identical behaviour.
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Cache key does not include `accessible_shop_ids` for Staff users | Staff Admin A sees Staff Admin B's data if they share the same org+filters | Include scope hash in all dashboard cache keys (see DASH-C1) |
-| `region_id` / `shop_id` filter params accepted without org membership check | Org Admin A passes `shop_id` belonging to Org B; receives Org B's review data | Validate every filter param is within `organisation_id` before applying; raise `PermissionDenied` not `ValidationError` |
-| Out-of-scope filter params return 400 instead of 403 | Reveals whether the shop_id exists (400 = param invalid; 403 = param valid but forbidden) | Return 403 for cross-tenant or cross-scope params; same 403 response body regardless of whether the ID exists at all |
-| Dashboard endpoint lacks `IsAuthenticated` + org-scoped permission | Anonymous access or cross-tenant API access | Every dashboard viewset must declare `permission_classes = [IsAuthenticated, IsOrgScoped]` explicitly; no default |
-| React Query error handler silently swallows 403 and retries with no filters | Security 403 is treated as a "stale data" error; widget renders all-org data | Distinguish 403 from network errors; 403 must clear the relevant filter from state and URL and show an access-denied message |
+**Phase to address:** P-CONSUME.
 
 ---
 
-## UX Pitfalls
+### Pitfall 12: Tests for new code never run because `config/settings/test.py` hard-codes `INSTALLED_APPS`
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| `history.pushState` for filter changes | Back button steps backward through every filter state (region, then store, then date); users lose their place | Use `history.replaceState` for filter changes; `pushState` only for intentional navigation (e.g., navigating to a review detail page) |
-| All five dashboard widgets show skeleton loaders independently | Page feels fragmented; cards "pop in" at different times over 0.5–2s | Group widgets by data source; show a single skeleton per section until the group resolves |
-| "No data" shown when zero enriched reviews exist but reviews do exist | User thinks the feature is broken | Show "Reviews are being analyzed — check back shortly" when `total > 0` and `enriched == 0`; reserve "No data" for `total == 0` |
-| Filter "Clear" button reloads all five dashboard endpoints simultaneously | Network burst; brief loading flash | Debounce filter changes by 300ms; batch the clear action so all five queries are re-fetched in a single render cycle |
-| "Your Store" single-shop variant (Staff with one accessible shop) shows the same bar chart as multi-shop | Meaningless chart with one bar | When `accessible_shop_ids.length === 1`, render the "Your Store" card variant (single shop KPIs + trend line) instead of the bar chart |
+**What goes wrong:** `test.py` does not extend `base.INSTALLED_APPS`; it lists apps explicitly. A new `apps.credits` that is missing there produces "model not in INSTALLED_APPS" errors or, worse, an app that is silently absent from `makemigrations --check`, so CI passes while the migration is missing.
+
+**How to avoid:** Add `apps.credits` to `base.py`, `local.py` (if it overrides), and `test.py` in the same commit as the app skeleton. Verify with `makemigrations --check` and that `django_celery_beat` is present (already in the list) for the Beat seed migration.
+
+**Phase to address:** P-MODEL (first commit).
 
 ---
 
-## "Looks Done But Isn't" Checklist
+## Moderate Pitfalls
 
-- [ ] **Cache key includes scope hash:** After implementation, log cache keys in dev and verify two Staff users with different scopes produce different keys even with identical filter params.
-- [ ] **Top Performers ignores region/store filter:** Manually test: select a region in the filter bar; confirm the Top Performers bar chart still shows all shops in the org, not just that region's shops.
-- [ ] **403 on out-of-scope params:** Write a test: Staff Admin with Shop A scope requests dashboard with `?shop=<Shop B ID>`; assert `403` returned.
-- [ ] **HAVING clause at DB level:** Confirm with `EXPLAIN ANALYZE` that the minimum-3-reviews threshold produces a `HAVING count(id) >= 3` in the SQL, not a Python-side filter.
-- [ ] **Sentiment Distribution shows partial state:** Test: org has 10 reviews, 5 enriched, 5 pending — Sentiment Distribution renders with `coverage_pct=50`, not a blank "No data" state.
-- [ ] **Date window in user timezone:** Test: create reviews at 23:30 UTC on May 6; a UTC+8 user's "today" filter (May 7 local) should NOT include those reviews; a "yesterday" filter should include them.
-- [ ] **`replaceState` not `pushState`:** Verify in browser devtools: changing the region dropdown 3 times results in 1 history entry, not 4.
-- [ ] **`accessible_shop_ids` empty list correctly means "all shops" for Org Admin:** Test that an Org Admin with no StaffAccessScope rows sees all shops' data in the KPI cards.
-- [ ] **React Query staleTime set:** Inspect network tab; confirm no refetch occurs when switching tabs and back within 5 minutes.
-- [ ] **`enrichment_status=SUCCESS` filter on Negative Reviews count:** Confirm that reviews with `sentiment=negative` but `enrichment_status=FAILED` or `PENDING` are NOT counted in the Negative Reviews KPI.
+### Pitfall 13: N+1 or wrong values on the Shops list badge
+
+**What goes wrong:** Per-row `get_current_balance(shop)` in the serializer is one query per shop (blocker-level, CLAUDE.md §6). The subtler bug: shops with no balance row yet (lazy creation) annotate to NULL, which a naive `Coalesce(..., 0)` renders as "0 credits" with the dark-grey badge for every shop that has not used AI this month.
+
+**How to avoid:** One annotation on `list_shops`: `Subquery(ShopCreditBalance filtered by OuterRef shop and the current (year, month) -> allocated+bonus-consumed)`, with `Coalesce(subquery, F("organisation__monthly_credit_allocation"))` as the fallback for "no row yet." Annotate total (`allocated+bonus`) too so the badge colour (25% / 5%) needs no second query. Compute the period once per request and pass it in. Add a `CaptureQueriesContext` test asserting the same query count for 1 and 20 shops, plus a test for the no-row shop. Never put the balance in the 5-minute Redis cache (CLAUDE.md §7.2: write-after-read data).
+
+**Phase to address:** P-UI (list selector and test).
+
+### Pitfall 14: Displayed cost differs from charged cost
+
+**What goes wrong:**
+- Frontend computes cost from `comment.length`. JS counts UTF-16 units; Python `len` and Postgres `char_length` count code points. Emoji-heavy Google reviews can fall on the other side of the 100/500 boundary.
+- `comment` is whitespace-only (`blank=True`): the button shows, the backend charges 1 or raises `ValueError`.
+- The tier function with the spec's `(10000, 3)` ceiling falls through for longer text. It also reads settings at import time so `override_settings` does not work.
+- The review is edited on Google between render and click (sync overwrites `comment`).
+- Spec endpoint `cost` per review means N HTTP calls for a page of reviews and burns the 1000/hour user throttle.
+
+**How to avoid:** One pure function `calculate_credit_cost(comment)` in `apps/credits/services/credit_cost.py`. It strips first, uses `len()` of the stripped text, treats the last tier as open-ended, and reads tiers via function call, not module constant. Expose `credit_cost` and `has_comment` in the review list serializer (comment is already loaded, no extra query). The frontend never computes cost. The generate request includes `expected_cost`; the server returns 409 `cost_changed` with the new cost on mismatch. Boundary tests: 0, 1, 100, 101, 500, 501, 4000, emoji and whitespace-only.
+
+**Phase to address:** P-MODEL (function), P-API (serializer field, 409), P-UI.
+
+### Pitfall 15: Client-side double charge and credits spent for a draft the user never sees
+
+**What goes wrong:** `ReplyComposer.tsx` (`handleGenerate`, line ~80) aborts the previous request (`generateAbortRef.current?.abort()`) and starts a new one when the user clicks a second tone while one is in flight. Aborting does not cancel server work, so both reserve and commit: two charges. The unmount cleanup also aborts, so closing the composer mid-generation spends credits for a lost draft. The server may or may not finish the view after a client disconnect (verify under Daphne in a spike), so commit and refund must not depend on the response being delivered.
+
+**How to avoid:** Disable both tone pills and close/collapse while generating (spec §5.3). Do not abort-and-restart. Keep the 10/min throttle as the backstop. An idempotency key is over-engineering here. Place finalisation (commit or refund) in `finally`-style service code and let the reaper cover hard kills.
+
+**Phase to address:** P-UI, with the server finalisation in P-CONSUME.
+
+### Pitfall 16: Frontend balance staleness
+
+**What goes wrong:** Each review row holds its own "X credits remaining". After one generate, other rows, the Shop Details card, and the Shops list badge are stale. Two users on one shop see different numbers. The browser's back/forward cache re-shows an old badge. The toast says "Y remaining" from a client subtraction that drifts under concurrency.
+
+**How to avoid:** The generate response returns `{draft, cost, remaining}` taken under the same transaction as the reserve. 402 and the refund 502 responses also carry the current `remaining`. Keep balance in one per-shop client store keyed by `shop_id`, updated from every response, and dispatch a refresh event (same CustomEvent bridge idea as `notifications:refresh`) so other widgets refetch. Send `Cache-Control: no-store` on credit endpoints. The server remains authoritative; the disabled state from stale `remaining` is a hint, and 402 must be handled gracefully. A 402 branch is needed in `api.ts` and the composer (currently handles 422/429/502).
+
+**Phase to address:** P-UI.
+
+### Pitfall 17: Wrong dates in "Renews on" and period labels
+
+**What goes wrong:** Spec §13.4 says to show the reset date in the user's timezone. `new Date("2026-12-01")` is parsed as UTC midnight and displayed as Nov 30 in the Americas. The month label ("November 2026") computed in the browser can disagree with the server's UTC period near the boundary.
+
+**How to avoid:** Server returns `period_label`, `period_year`, `period_month`, and `renews_on` (ISO date). The client renders them with `timeZone: "UTC"` and the copy "Renews Dec 1 (UTC)". Never derive the period in JS.
+
+**Phase to address:** P-UI.
+
+### Pitfall 18: AuditLog events invisible, over-visible, or inconsistent
+
+**What goes wrong:** `apps/common/selectors/audit_logs.py` whitelists entity types (`AUDIT_ENTITY_FILTER`). New `shop.credits.*` rows are invisible to the Org Admin Activity Log unless added, and if added naively can reach Staff (spec: Org Admin yes, Staff no). Writing the audit row outside the state-change `atomic()` lets them diverge. `AuditLog.organisation` is non-null so lapse must set it per shop. Writing `consumed` on RESERVED instead of COMMITTED (or again on refund) produces phantom consumption events.
+
+**How to avoid:** Write the audit in the same atomic as the ledger change. `consumed` only on commit. Add the credit entity type to the Org Admin selector only, with a Staff negative test. Put volume expectations on `consumed` in the type filter.
+
+**Phase to address:** P-UI (selector and visibility), P-CONSUME and P-LAPSE (writes).
+
+### Pitfall 19: History endpoint and "used" totals computed from the wrong rows
+
+**What goes wrong:** REFUNDED rows keep their negative `credits_delta`, so summing history double-reports usage. "85 credits used" must come from `balance.consumed_credits`, not from `SUM(history)`. Unpaginated history grows forever.
+
+**How to avoid:** Use balance columns for headline numbers. History is cursor-paginated (CLAUDE.md §8), index `(shop_id, created_at)` as the spec says, and renders REFUNDED rows visibly marked. Query-count test with a fixed ceiling.
+
+**Phase to address:** P-API.
+
+### Pitfall 20: Concurrency tests that are flaky, leak connections, or break teardown
+
+**What goes wrong:** Threads that do not close their DB connections leave the test database "being accessed by other users" on teardown (Postgres). `django_db(transaction=True)` tests are slow (flush per test) and run in the default suite. Tests wrapped in pytest-django's `db` transaction never really commit, so `on_commit` callbacks and "reserve commits before OpenAI" are not exercised. No time-freezing library is in `pyproject.toml` (no freezegun or time-machine), and month-boundary tests need clock control.
+
+**How to avoid:** `@pytest.mark.django_db(transaction=True)` plus `@pytest.mark.pg_concurrency`; in each worker `try: ... finally: connections.close_all()`; a `threading.Barrier(N)` to line threads up; a `threading.Event` held inside the mocked OpenAI call to simulate in-flight work. Keep these few and targeted: first-use race (assert one balance row and one INITIAL tx), N concurrent reserves on credits for K < N calls (assert exactly K succeed, `consumed == K x cost`), reaper versus late commit. Inject `now` or `period` into the service functions rather than adding a time-freezing dependency (pin exactly if one is added anyway). Mock OpenAI per CLAUDE.md §16. Never hit real SES, OpenAI, or LangSmith.
+
+**Phase to address:** P-TEST.
 
 ---
 
-## Recovery Strategies
+## Minor Pitfalls
 
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Cache key missing scope hash — data served to wrong Staff user | HIGH — security incident | Flush all `dashboard:*` cache keys immediately; add scope hash to key builder; audit access logs for affected Staff users; notify affected users if data was served incorrectly |
-| Python-side aggregation causing P95 >400ms | MEDIUM | Rewrite selector to use `annotate()` + `Avg()` + `Count()` in the same sprint; existing tests should catch the query-count regression if CI gates are in place |
-| Wrong index field order causing Seq Scan | MEDIUM | Add corrected index with `CONCURRENTLY` (no table lock); drop old index after new one is confirmed in EXPLAIN; no downtime required |
-| UTC date boundary excluding user's local-time reviews | LOW-MEDIUM | Add `User.timezone` field (nullable, default UTC); update `resolve_date_window()` to use it; no data migration required (timezone is read-only at query time) |
-| `pushState` instead of `replaceState` in filter bar | LOW | One-line JS fix; no backend changes; deploy immediately |
-| Top Performers applying store/region filter | LOW-MEDIUM | Fix backend endpoint to strip region/shop params; fix React hook to pass `dateOnlyFilters`; cache keys change so old cached results expire naturally |
+### Pitfall 21: Spec conflicts that will be rediscovered mid-build
+Cost function location (spec §4.3 versus §13.1; PROJECT decided `apps/credits/services/credit_cost.py`), throttle (10/min stays, not the spec's 30), confirmation step (removed), "Manager" means Org Admin, spec says `cost` endpoint unthrottled but CLAUDE.md §24 forbids unthrottled endpoints (the global `UserRateThrottle` already applies; add a scope anyway). **Prevention:** record these in REQUIREMENTS acceptance criteria so executors do not re-litigate. **Phase:** requirements, before P-MODEL.
 
----
+### Pitfall 22: Zero-allocation orgs
+Allocation 0 means every request 402s, and the "Buy More" modal is the only path. Make sure the 402 body distinguishes "no allocation configured" from "used up" so the UI can show the right message. **Phase:** P-CONSUME and P-UI.
 
-## Pitfall-to-Phase Mapping
+### Pitfall 23: Inactive or deactivated shops and disabled orgs
+Decide whether lapse and the badge include inactive shops (recommended: lapse includes them for ledger completeness; the list badge hides them as the dashboard filter already does). **Phase:** P-LAPSE, P-UI.
 
-Since this milestone is delivered as a single Phase 14, the mapping is to the specific **plan** within Phase 14 that must address each pitfall.
+### Pitfall 24: Beat timezone and duplicate seeds
+Set `timezone="UTC"` explicitly on the `CrontabSchedule`, and run exactly one Beat instance (CLAUDE.md §12.6). **Phase:** P-LAPSE.
 
-| Pitfall | Prevention Plan | Verification |
-|---------|----------------|--------------|
-| DASH-C1: Cache key missing scope hash | Plan: `apps/dashboard/` app skeleton + cache key builder | Test: two Staff users with different scopes produce different cache keys; verify in logs |
-| DASH-C2: Top Performers applies wrong filters | Plan: Dashboard API endpoints (Top Performers endpoint contract) | Test: `GET /api/v1/dashboard/top-performers/?region=1` returns all shops; assert region param is ignored |
-| DASH-C3: 403 on out-of-scope params | Plan: Dashboard API endpoints (filter param validation) | Test: Staff user with Shop A passes `?shop=<Shop B ID>`; assert `403` |
-| DASH-C4: Python-side aggregation | Plan: Dashboard selectors with CaptureQueriesContext tests | Test: `CaptureQueriesContext` asserts ≤3 queries for KPI endpoint regardless of review count |
-| DASH-C5: Wrong index field order | Plan: Review model — 3 new indexes migration | Verify: `EXPLAIN ANALYZE` shows `Index Scan` on all 5 dashboard queries after seeding 5K reviews |
-| DASH-C6: Sentiment card blank on partial enrichment | Plan: Sentiment Distribution selector + enrichment coverage logic | Test: 50% enriched org — card renders with `coverage_pct=50`, not "No data" |
-| DASH-C7: Timezone mismatch on date boundaries | Plan: Date window resolution utility | Test: UTC+8 user "last 7 days" window starts at correct UTC timestamp; verified against known review timestamps |
+### Pitfall 25: Reaper volume and logging
+Log each refund at WARNING with `tx_id`, `shop_id`, and age, but never review text (CLAUDE.md §22). Cap batch size per run and emit a count metric so a refund storm (an OpenAI outage) is visible. **Phase:** P-CONSUME.
+
+### Pitfall 26: Migration safety
+Adding `Organisation.monthly_credit_allocation` NOT NULL DEFAULT 0 is a fast metadata-only change on Postgres 16, but keep it a separate migration from the new app so rollback is clean (`.claude/rules/migrations.md`). Seed the Beat rows in a separate data migration with a reverse function. **Phase:** P-MODEL.
 
 ---
+
+## Phase-Specific Warnings
+
+| Phase | Topic | Likely Pitfall | Mitigation |
+|-------|-------|----------------|------------|
+| P-TEST | Postgres CI job, markers, time injection | SQLite hides locks (1), flaky threads (20) | Postgres job, registered marker, `connections.close_all()`, `now` injection |
+| P-MODEL | Models and constraints | Missing unique/check constraints (2, 4, 8) | Unique balance, partial-unique LAPSED, CheckConstraints, PROTECT/SET_NULL |
+| P-MODEL | App registration | Test settings list omits `apps.credits` (12) | Add to base/local/test together |
+| P-MODEL | Allocation semantics | Mid-month change leaks into lazy rows (3) | Freeze-on-edit or previous-value columns |
+| P-MODEL | Cost function | Unicode/whitespace/open tier (14) | Strip, code-point `len`, open last tier, settings read at call time |
+| P-CONSUME | Reserve/commit/refund | Double refund, TOCTOU (4, 8) | Conditional UPDATE transitions; F() only |
+| P-CONSUME | OpenAI timeout vs TTL | Reaper refunds in-flight call (5) | 30s timeout, 1 retry, TTL >= 2x worst case |
+| P-CONSUME | View wiring | 402 swallowed into 502; moderation stage unknown (11) | Service-level orchestration, `stage` on exception, dataclass return |
+| P-CONSUME | Month boundary | Refund hits wrong period (6) | Always operate via `tx.shop_credit_balance_id` |
+| P-LAPSE | Lapse idempotency | Duplicate LAPSED rows; missed months (7) | Partial unique constraint, `period < current` catch-up |
+| P-LAPSE | Stranded refunds | Refund after lapse (6) | Skip balances with RESERVED; reaper re-lapses |
+| P-API | Scoping | Staff scope gap, Superadmin null org, history leak (10) | Single accessible-shop selector; role-gated history; negative tests |
+| P-API | Bonus | Lost update, wrong month, double submit (9) | F() update, period echo with 409, ensure_balance |
+| P-UI | Shops list | N+1; NULL rendered as 0 (13) | Subquery + Coalesce to org allocation; query-count test |
+| P-UI | Composer | Abort-restart double charge; stale balances; 402 UX (15, 16) | Disable controls while loading; response carries `remaining`; shared store |
+| P-UI | Dates and caching | Timezone off-by-one; stale bfcache (16, 17) | Server-provided labels; UTC formatting; `no-store` |
+| P-UI | Audit visibility | Staff sees credit events (18) | Org Admin-only selector change plus negative test |
+
+## Research flags for deeper phase-level research
+
+- **P-CONSUME:** spike client-disconnect behaviour under Daphne for sync DRF views (does the view run to completion?). Confirm the late-commit policy (Pitfall 4) with the product owner. Confirm the `with_options` timeout does not break LangSmith tracing wrappers.
+- **P-API:** confirm whether to fix `list_shops` Staff scoping globally (an existing behaviour change) or only gate credits fields (Pitfall 10).
+- **P-LAPSE / rollout:** pre-deploy allocation backfill decision for existing orgs (FEATURES.md gap 1).
+- Standard patterns, unlikely to need research: cost function, Beat seeding (copy `0016_beat_recover_stuck_syncs.py`), serializer and list annotation.
 
 ## Sources
 
-- Django ORM `annotate()` + `HAVING` clause behavior: confirmed against Django 6.0 documentation for `.filter()` after `.annotate()` translating to SQL HAVING
-- Composite index selectivity and field order: verified against PostgreSQL documentation on multicolumn indexes — leftmost field must match the leading filter predicate
-- `history.replaceState` vs `pushState` for filter-driven UIs: React Router and TanStack Router documentation both recommend `replaceState` for filter/search state
-- Django `USE_TZ = True` and `DateTimeField` UTC storage: Django 6.0 timezone documentation — all `DateTimeField` values stored in UTC; comparison requires timezone-aware datetimes
-- React Query `staleTime` for TTL-aligned caching: TanStack Query v5 documentation — `staleTime` prevents background refetches within the window; should match backend TTL
-- Multi-tenant cache key isolation: identified from analysis of existing `TenantScopedViewSet` and `get_accessible_shop_ids()` in this codebase
-- `EXPLAIN ANALYZE` for index verification: PostgreSQL documentation — required after adding any new composite index to confirm the query planner selects it
-- Partial enrichment coverage footer: derived from the "enriched count vs total" pattern already present in the sync progress consumer payload (`sync.enrichment.progress` event in CLAUDE.md §13.5)
-
----
-*Pitfalls research for: v0.4 Dashboard — Redis caching, Django ORM aggregations, React parallel fetching, multi-tenant filter scoping*
-*Researched: 2026-05-07*
+- Repo (verified, HIGH): `config/settings/test.py` (SQLite, hard-coded INSTALLED_APPS), `.github/workflows/ci.yml` (no Postgres service), `apps/reviews/views.py` (`generate_reply`, catch-all 502), `apps/reviews/services/reply_generation.py` (return type, moderation order), `apps/integrations/openai/client.py` (default client), `apps/integrations/openai/exceptions.py` and `guardrails.py` (no stage), `apps/shops/views.py` and `selectors/shops.py` (no Staff scope on list), `apps/common/viewsets.py` (`TenantScopedViewSet` null-org behaviour), `apps/common/selectors/audit_logs.py` (entity whitelist), `apps/reviews/migrations/0016_beat_recover_stuck_syncs.py` (Beat seed pattern), `frontend/src/widgets/review-management/ReplyComposer.tsx` (abort-and-restart).
+- `.venv/lib/python3.12/site-packages/openai/_constants.py`: `DEFAULT_TIMEOUT = 600s` (HIGH; installed `openai==2.33.0`).
+- Django ORM semantics (HIGH): `get_or_create` savepoint behaviour, `select_for_update(of=...)`, `skip_locked`, `F()` in `CheckConstraint`, and conditional/partial `UniqueConstraint`. Postgres READ COMMITTED default behaviour on unique-index waits. No web research was needed beyond reading the code; verify the Django 6.0 docs when writing the constraints.
+- Project docs: `docs/completed/Requirements_Credits_System.md` (§3, §6, §7, §10, §13), `.planning/PROJECT.md` (v0.9 decisions), CLAUDE.md §6, §9, §12.4, §22, §24; `.planning/research/FEATURES.md` (parallel research, spec gaps).

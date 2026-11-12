@@ -1,11 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { listShops } from "./api";
+import { setShopCredits } from "../credits/creditsStore";
 import type { AllocationStatus, ShopFilterParams, ShopRow } from "./types";
 
 interface UseShopsInitial {
   rows: ShopRow[];
   allocation: AllocationStatus;
   hasRegions: boolean;
+}
+
+/**
+ * Mirror every row that carries credit fields into the shop-keyed store so the
+ * badge keeps its last known value when a later row arrives without them.
+ */
+function seedCredits(rows: ShopRow[]): void {
+  for (const row of rows) {
+    if (typeof row.credits_remaining === "number" && typeof row.credits_total === "number") {
+      setShopCredits(row.id, {
+        remaining: row.credits_remaining,
+        total: row.credits_total,
+        isEnabled: row.credits_total > 0,
+      });
+    }
+  }
 }
 
 export function useShops(initial: UseShopsInitial) {
@@ -27,6 +44,7 @@ export function useShops(initial: UseShopsInitial) {
       try {
         const params = override ?? filters;
         const data = await listShops(params);
+        seedCredits(data.results);
         setRows(data.results);
         setCount(data.count);
         setAllocation(data.allocation_status);
@@ -37,6 +55,12 @@ export function useShops(initial: UseShopsInitial) {
     },
     [filters],
   );
+
+  // Seed the store from the bootstrap rows once, before the first paint settles.
+  useEffect(() => {
+    seedCredits(initial.rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Run once on mount IF the URL had a region param (so the initial seeded data is replaced)
   useEffect(() => {

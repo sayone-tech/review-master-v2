@@ -1,284 +1,217 @@
 # Feature Research
 
-**Domain:** Analytics dashboard UI — Organisation Admin Dashboard (v0.4 milestone)
-**Researched:** 2026-05-07
-**Confidence:** HIGH (UX patterns well-established; implementation choices verified against existing codebase constraints)
+**Domain:** Per-shop monthly usage-credit / quota system for a single AI feature (reply drafting) in a multi-tenant B2B SaaS
+**Milestone:** v0.9 AI Reply Credits (subsequent milestone; only NEW features covered)
+**Researched:** 2026-11-11
+**Confidence:** MEDIUM overall. Industry-convention findings are from vendor blogs and developer write-ups (conventions, not standards). Dependency and gap findings are HIGH because they were verified against the live code (`ReplyComposer.tsx`, `reply_generation.py`, `reviews/views.py`) and the binding spec.
 
----
+## How credit/quota systems for AI features typically behave
+
+Consistent patterns across the sources (schematic, stigg, solvimon, flexprice, Lovable docs, and similar):
+
+- **Append-only ledger plus a balance row.** Every event (allocation, bonus, consumption, expiry, refund) is an immutable entry; the balance is derived or cached. The spec's `CreditTransaction` and `ShopCreditBalance` match this shape.
+- **Reserve, commit or release.** Hold credits before the expensive side effect, commit on success, release on failure. The conditional write (`WHERE remaining >= n`) or `SELECT FOR UPDATE` guards concurrency. The spec's two-phase pattern is the accepted approach.
+- **Cost before the click, balance always visible.** The consistent UX guidance is to show per-action cost on the trigger, keep the balance visible, and never let a generic "low on credits" message stand in for numbers. User complaints (the Figma forum, for example) centre on unclear per-action cost and unclear remaining balance.
+- **Empty state is an actionable state.** At zero balance the feature stays discoverable but disabled, with an explanation and a next step (upgrade or top-up). Here the next step is the "Buy More Credits" contact placeholder.
+- **Low-balance warning around 80% consumed.** This is convention, not a benchmark. The spec's colour bands (amber from 75%, red above 95%) are in line with it.
+- **Failures are never billed.** Provider errors release the hold. Charging on user discard or edit is normal ("the call was billed"). The spec and the locked decisions follow this.
+- **Expiry or lapse with a visible reset date.** Use-it-or-lose-it monthly allocations are common when the user is told up front. The spec covers this with the "Renews on" line and the lapse messaging.
+- **Admin grants are ledgered, with a reason.** Bonus or top-up entries carry actor and reason. Matches the spec.
 
 ## Feature Landscape
 
-### Table Stakes (Users Expect These)
-
-Features analytics dashboard users assume exist. Missing these = product feels broken or unfinished.
+### Table Stakes (users expect these)
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Filter bar persists state in URL | Every analytics tool (GA4, Looker, Metabase) does this; users share and bookmark filtered views | MEDIUM | Use `history.replaceState` + `URLSearchParams` — no router needed since page is Django-rendered with a React island. `replaceState` (not `pushState`) avoids cluttering browser history. Read params on mount to hydrate initial state. |
-| Cascading Region → Store dropdown | If a Region is selected, the Store list must narrow to that region instantly — any other behavior confuses users | MEDIUM | On Region change: clear Store selection, re-populate Store options (filter client-side if already loaded, or re-fetch). Disable Store dropdown while Region is loading. Default to "All Stores". |
-| Date range presets (7d / 30d / 90d) | Standard in every analytics product; users expect quick shortcuts | LOW | Render as a pill/tab group, not a dropdown. Active preset highlighted. Custom range reveals date pickers. Default to 30d on first load. |
-| Custom date range with date pickers | Presets cover 80% of use; power users need arbitrary ranges | MEDIUM | Show two calendar inputs (from / to). Validate: `from <= to`, neither in future, max range <= 365d. On mobile use native `<input type="date">`; on desktop show a popover calendar. |
-| Clear Filters button | Users need a fast reset escape hatch; manually resetting each filter is tedious | LOW | Disabled (not hidden) when all filters are at defaults. One click: Region → All, Store → All, Date → 30d default. Clears URL params simultaneously. |
-| KPI skeleton loading | Users expect the page skeleton immediately; a blank white card box feels broken | LOW | Each KPI card renders its own skeleton rectangle matching the card dimensions. Skeleton pulses with a shimmer animation. Cards load independently — do not block the whole page on a single slow endpoint. |
-| Independent per-card error states | If one API call fails, remaining cards must still show data | MEDIUM | Each widget (KPI row, bar chart, donut, highlights card) fetches from its endpoint independently. Error state shows a minimal inline message + Retry button within the card boundary. No full-page error overlay. |
-| Bar chart tooltip on hover | Every charting product shows a tooltip on hover; omitting it feels incomplete | LOW | Show: store name, average rating (1 decimal), review count. Tooltip must not clip at viewport edges — position it inside the chart container. |
-| Donut chart tooltip on hover | Users hover segments to read exact percentages | LOW | Show: sentiment label (Positive / Neutral / Negative), count, percentage (1 decimal). Tooltip positioned near cursor without clipping. |
-| Average Rating half-star display | Users expect a visual star representation for ratings, not just a number | LOW | Use SVG half-star clip approach. `aria-label="4.2 out of 5 stars"` on the container. Display-only (not interactive). |
-| Responsive layout | Dashboard is accessed on laptop and tablet; layout must not break at 768px | MEDIUM | KPI cards: 3-col on desktop → 1-col stack on mobile. Charts: `<ResponsiveContainer width="100%">` — never fixed pixel widths. Filter bar: wraps to two rows on tablet. |
-| Coverage footer on Sentiment donut | AI enrichment is not 100% complete; users need to know what share of reviews the donut represents | LOW | Footer text: "Based on X of Y reviews (Z% enriched)". Grey italic text below the chart. If coverage < 20%, show a yellow warning callout: "Limited data — sentiment may not be representative." |
-| Empty state for no data | Filters may legitimately return zero reviews; charts must not render broken or empty | LOW | Each widget has a distinct empty state message. Bar chart: "No review data for this period." Donut: "Sentiment data will appear once AI processing completes." KPIs: show 0 / — with no error. |
-| Trend indicator vs previous period | Users need directional context — a number without trend is incomplete | LOW | Arrow up (green) / arrow down (red) / dash (neutral, <1% change). Always show: "+12% vs previous period" label. Previous period = same duration ending at the `from` date. Used in "Your Store" variant and on KPI cards. |
-| "Your Store" single-shop variant | Staff Admin (or Org Admin with one store) should see a personalised view — multi-shop rankings reveal no context for a single-store user | MEDIUM | Detect: if exactly 1 store in scope, render "Your Store" card instead of bar chart + highlights. Show: KPIs + mini rating-distribution bars + trend vs previous period. Bar chart and Performance Highlights card are hidden. |
+| `Organisation.monthly_credit_allocation` on Create/Edit Org (0-10,000, next-month effect) | Superadmin must be able to set the budget | LOW | Extends existing org create/edit serializer, service and form. Write `organisation.credits.set` AuditLog with before/after. Show the current value on org detail as well (spec only mentions the forms). |
+| `ShopCreditBalance` (lazy per UTC month) + `CreditTransaction` ledger | Core ledger and balance | MEDIUM | New `apps/credits`. `UNIQUE(shop, year, month)` and `get_or_create` race-safe. The read path must NOT create rows (see Gap 2). |
+| Tiered cost function (1/2/3) in one pure function, thresholds in settings | Predictable pricing; displayed cost must equal charged cost | LOW | Spec §4.3 and §13.1 conflict on location. PROJECT.md decision is `apps/credits/services/credit_cost.py`. Count `len(comment.strip())` (Gap 5). |
+| Reserve, OpenAI outside txn, commit or refund | Prevents over-spend under concurrency and never bills for failures | HIGH | Highest-risk item. Wraps the existing `generate_reply_draft`. Needs guarded status transitions (Gap 9) and the moderation-stage distinction (Gap 8). |
+| 402 on insufficient credits, 400 on empty-comment review | Server-side enforcement; the UI is advisory only | LOW | Throttle and serializer validation must run BEFORE the reserve (DRF throttling already runs first). Return a machine-readable body (`code`, `required`, `remaining`). |
+| AI button hidden for star-only reviews | A useless action is not offered | LOW | `ReplyComposer.tsx` has a single "Generate with AI" toggle button. Drive visibility from a server-computed field. |
+| Cost on the button label | Cost before the click (locked: replaces the §5.4 confirmation) | LOW | See Gap 4: the existing UI is a two-step flow (toggle, then tone pills). |
+| "X credits remaining" in the composer | Balance always visible | LOW | Fetch once per shop per composer-open and update from the generate response. |
+| Insufficient and zero states: disabled button, explanation, "Buy More Credits" | Actionable empty state | LOW | See Gap 1 for the distinct copy needed for "not enabled" versus "used up". |
+| Shop Details "AI Reply Credits" card (remaining/total, bar, used, renews-on) | Balance visible to all roles with shop access | MEDIUM | New card in `ShopDetailsModal.tsx`. The bar must not be colour-only (add text). Handle total = 0. |
+| Shops-list credit badge (colour-coded) | At-a-glance health across shops | MEDIUM | Needs an annotated `remaining_credits` in the list selector (single subquery, no N+1) with a virtual fallback to org allocation when no row exists. A new query-count test is mandatory. |
+| "Buy More Credits" placeholder modal (mailto `REVIEWBEE_SUPPORT_EMAIL`) | Dead-end avoidance; the future payment hook | LOW | Reusable component with focus trap, ESC and backdrop dismissal. Mounted from the card, the badge and the composer. |
+| Superadmin "Allocate Bonus Credits" modal (current month only) | The only lever to grant credits mid-month | MEDIUM | Must lazily create the row if absent. Show a before/after preview (see Differentiators). Superadmin-only at the API and UI. |
+| Monthly lapse task (00:05 UTC on the 1st, idempotent) | The "unused credits lapse" promise | MEDIUM | `default` queue, thin task. Idempotency key is "no existing LAPSED transaction for that balance". |
+| Stale-RESERVED reaper (10 min cadence, 5 min TTL) | Crash safety for the two-phase pattern | MEDIUM | Guarded `UPDATE ... WHERE status=RESERVED`. Must refund to the ORIGINAL balance row, not the current month's. |
+| AuditLog rows for every credit event | Traceability (spec §3.4) | LOW | Reuse `apps/common` `AuditLog` (CLAUDE.md §29.4). One row per generation is acceptable at a 10/min/user ceiling. |
+| Permission matrix: Staff only sees credits for shops in their `StaffAccessScope`; non-Superadmin denied on superadmin endpoints | Tenant isolation (highest-risk surface in this repo) | MEDIUM | Needs `tenant-security-auditor`. Cross-tenant checks on the balance, history and generate endpoints. |
 
-### Differentiators (Competitive Advantage)
+### Differentiators (competitive advantage)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Threshold-based bar coloring (≥4.0 green, 3.0–3.99 amber, <3.0 red) | Instant visual triage — managers see problem stores without reading numbers | LOW | Recharts `Cell` component maps per-bar fill via a `getBarColor(rating)` function. Color constants from the Tailwind palette: `#16a34a` (green-600), `#d97706` (amber-600), `#dc2626` (red-600). Consistent with existing design system. |
-| Performance Highlights card (top + bottom) | Executives want the answer surfaced, not just a chart to interpret | LOW | Two sub-cards: top performer (green tint, trophy icon) + bottom performer (red tint, warning icon). Each shows: store name, avg rating, review count. Clicking either navigates to the Reviews page filtered to that store. |
-| Bar chart click → Reviews page navigation | Bridges from insight to action — users can immediately investigate a problem store | LOW | `onClick` on the bar: navigate to `/reviews/?store_id={storeId}&range={currentDateRange}`. Cursor changes to pointer on bar hover. |
-| Redis-cached API responses (5-min TTL) | Dashboard data is expensive to compute; caching prevents DB overload under concurrent use | MEDIUM | Cache key: `dashboard:{org_id}:{endpoint}:{params_hash}`. Explicit invalidation on new review sync completion (via Celery task post-hook). 5-min TTL is the fallback — explicit invalidation is the primary path. |
-| Session persistence of filter state | Users return to the same filters they left — reduces repetitive reconfiguration | LOW | On filter change, write params to `sessionStorage` keyed by `org_id`. On mount: URL params → sessionStorage fallback → hardcoded defaults. URL params always win so shared links override session. |
-| Rating distribution mini-bars ("Your Store") | Shows how reviews are distributed across 1–5 stars — more informative than a single average | LOW | 5 horizontal bars, each proportionally width-filled. Star labels on left, count on right. No extra endpoint needed if included in the store KPI response. |
+| Generate response returns `credits_charged` and `credits_remaining` | Exact toast ("2 credits used, 33 remaining") with no refetch; avoids stale display | LOW | Small response-shape extension to the existing endpoint. Also include `credits_charged` in the 422 moderation body (Gap 8). |
+| Embed `ai_credit_cost` (or `ai_eligible`) in the review list payload | Avoids one `/cost/` call per visible row (an N+1 over HTTP) and keeps the label instant | LOW | Computed from `comment` with no extra query. The spec's `/cost/` endpoint is still built (it is in the requirements) but the UI should not depend on it per row. |
+| Before/after preview in the bonus modal ("Remaining will become 55") | Prevents fat-finger grants, since the ledger is immutable and the spec has no reversal | LOW | Client-side arithmetic from the already-fetched balance. |
+| Low-balance emphasis in the composer (amber text at <=25% remaining) | Matches the 80% convention; costs almost nothing | LOW | Reuse the badge thresholds. No email or push (out of scope). |
+| Read-only Django admin for `ShopCreditBalance` / `CreditTransaction` | Satisfies spec §8.3 ("investigate via Django admin") instead of building reporting | LOW | Preferable to building a history UI. |
+| One-line copy "Credits are used even if you discard the draft" near the button | Honest-pricing transparency; avoids support tickets | LOW | Spec §5.5 asks for a first-use tooltip. A static helper line is simpler and accessible. |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+### Anti-Features (commonly requested, often problematic)
 
-| Anti-Feature | Why Requested | Why Problematic | Alternative |
-|--------------|---------------|-----------------|-------------|
-| WebSocket live-updating dashboard | Feels modern; "real-time data" sounds impressive | Channels scope must stay narrow (CLAUDE.md §13.2); adding a dashboard consumer requires architecture review sign-off and adds significant complexity for marginal value — review sync runs every 6 hours, not continuously | HTTP fetch on mount. Dashboard data is not time-critical. A manual Refresh button is sufficient if users request it. |
-| Global error boundary replacing all widgets | Simplest error handling to implement | Hides which widget failed; users lose all data when one endpoint fails; violates table-stakes independent error state requirement | Per-widget error boundaries with inline Retry. Each widget is independent. |
-| Date range beyond 365 days | Power users will ask for it | Large ranges generate expensive queries even with indexes; Redis TTL cache does not help; P95 < 400ms constraint becomes hard to hold | Cap at 365d with a clear validation message. Offer CSV export (future phase) for longer-range analysis. |
-| Animated chart transitions on every filter change | Looks polished | Animations during data reload create a jarring flash as old data animates out and new data animates in — noticeably worse UX than no animation | Animate only on initial mount (gate `isAnimationActive` on a `hasLoaded` flag). Disable animation on filter-change re-fetches. |
-| Inline "compare to previous period" toggle on bar chart | Useful for trend analysis | Doubles API calls; significantly complicates filter state machine | Trend arrow on "Your Store" KPI cards covers 90% of the use case. Keep bar chart clean. |
-| Filterable / sortable table inside the dashboard | Some users want to drill into outlet data inline | The Reviews page already has a full-featured table with filters. Duplicating it here creates a maintenance burden and confuses the purpose of each page | Bar chart provides visual ranking; clicking a bar navigates to the Reviews page for detailed table interaction. |
-| Custom color theme per org | Brand consistency is a real ask | Adds significant styling complexity with no clear revenue justification at this stage | Fixed brand palette: Yellow #FACC15, Black #0A0A0A, Tailwind semantic colors for status. |
+| Feature | Why Requested | Why Problematic | Alternative |
+|---------|---------------|-----------------|-------------|
+| Click-confirmation step ("This will use X credits. Continue?") | Accident prevention (spec §5.4) | Locked out. Adds friction. The existing flow already has a second deliberate click (tone pill) before spend. | Cost on the label and on the tone-pill row. |
+| "Don't ask again this session" state | Goes with the confirmation | Dead once confirmation is cut | None |
+| Credit rollover, per-user credits, inter-shop transfer | Common asks | Spec out-of-scope. Rollover contradicts the lapse model and the ledger invariants. | Superadmin bonus for the current month |
+| Reversal or negative bonus adjustment | Fixes mistaken grants | Not in the spec. Breaks the "immutable ledger, positive bonus" invariant and invites audit complexity. | Preview step; Django admin for genuine corrections |
+| Pre-creating balance rows for every shop each month | Simpler reads | Wasteful, and creates rows for shops that never use AI (spec §7.1 chose lazy). | Virtual balance in selectors when no row exists |
+| Credit-history UI / analytics widget | Looks like "usage visibility" | Spec out-of-scope. The `/credits/history/` endpoint has no UI consumer in this milestone. | Audit log plus Django admin. Build the endpoint only if it is cheap. |
+| Overage / negative balance / auto-reload / email low-balance alerts | Standard in billing products | There is no payments flow. Negative balances break the hard-cap model. | Hard cap with 402 |
+| Credits for enrichment, dashboards and other AI features | Natural extension | Enrichment is a system-driven spend and must never block sync. Spec scope is reply generation only. | Keep enrichment off the ledger |
+| WebSocket or polling balance sync | "Live" balance | Violates the Channels scope discipline (CLAUDE.md §13.2). | Refresh on composer open, on generate response, and on 402 |
+| Shop-switcher badge (§9.3, AC 33) | Spec item | No switcher exists. Deferred. Remove AC 33 from the requirements. | Revisit if a switcher is built |
 
----
+## Spec gaps and recommended resolutions
+
+These are the items the roadmap and requirements should decide explicitly. Ordered by impact.
+
+1. **Rollout dark-launch (HIGH impact).** `monthly_credit_allocation` defaults to 0 and the spec treats 0 as "feature disabled". AI reply generation has been shipped since Phase 19, so on deploy every existing org immediately loses it. Resolve with either a data migration that backfills existing orgs to a business-chosen default, or an explicit pre-deploy runbook step ("Superadmin sets allocations first"). Put this in the requirements as an explicit item.
+
+2. **No balance row yet.** The spec only addresses creation at first consumption. Reads (shop card, shops list, composer, bonus modal) must NOT write. Selectors return a virtual balance: `allocated = org.monthly_credit_allocation`, `bonus = 0`, `consumed = 0`, `period = current UTC month`. The shops list uses `Coalesce(balance subquery, org allocation)`. Add this as acceptance criteria and a query-count test. Related: lazy creation at 0 allocation should not write a row or a zero `INITIAL_ALLOCATION` transaction (return 402 first). Lazy creation SHOULD write the INITIAL transaction and `shop.credits.allocated` audit for non-zero rows.
+
+3. **Mid-month allocation change is inconsistent for shops without a row.** Spec §7.3 and AC 16 say the new value applies next month. But a shop with no row yet will lazily pick up the NEW allocation, whereas a shop that already used AI keeps the old one. Either accept and document ("takes effect next month for shops that already have a balance; others pick it up on first use"), or snapshot. Recommend accepting and putting accurate helper text on the edit form. Snapshotting adds effective-dating complexity for little value.
+
+4. **Cost label versus the real UI flow.** `ReplyComposer.tsx` is a two-step flow. The header "Generate with AI" is a toggle that opens tone pills (Professional/Friendly), and spend happens on the pill click (the "Replace your draft?" confirm state already exists when a draft is present). The spec's yellow button with sub-caption does not exist. Recommended: the cost in the toggle label (`Generate with AI (2 credits)`), a short "Uses 2 credits" note in the pill group, and the existing small border-button styling. The `aria-label="Generate reply with AI"` overrides the visible text, so update it to include the cost (label-in-name, WCAG). A disabled state must also close the pill group and set `aria-disabled`/tooltip text that is reachable by keyboard (a native `disabled` button gives no tooltip on focus; consider `aria-disabled` plus a visible helper line).
+
+5. **Comment length definition.** The spec says "1+ character" and "zero-length". Use `len(comment.strip())` consistently (whitespace-only is empty, and it is what moderation and the prompt effectively see). Server is authoritative: JS `.length` counts UTF-16 units, Python counts code points, so emoji-heavy reviews can differ on the 100/500 boundary. Therefore the UI must use the server-supplied cost, never recompute it client-side. The 4000-char input cap makes the top tier unaffected.
+
+6. **Allocation 0 versus exhausted (copy and behaviour).** Spec §5.3 treats both as "insufficient". For allocation 0 and no bonus, an Org Admin cannot fix anything by buying credits. Recommended: keep the button visible but disabled in both cases (unlike star-only, which is hidden, because discoverability and the Buy More path matter). Use distinct copy ("AI replies aren't enabled for this shop. Contact ReviewBee admin." versus "Not enough credits (needs 2, 1 remaining)."). Return `code: "insufficient_credits"` plus `reason: "not_enabled" | "exhausted"`, `required`, `remaining`. "Enabled" means `allocated + bonus > 0`, because a bonus can enable a single 0-allocation shop. Card and badge for total 0: show "Not enabled" and a dark-gray badge, with no divide-by-zero in the bar.
+
+7. **Stale balance and 402 handling.** Another user can spend between display and click. The composer needs a 402 branch (existing code only maps 422 and 429) that updates local remaining from the response body and shows an actionable message. The cost label must also re-render when remaining changes after a generation.
+
+8. **Moderation refund split needs a stage signal (verified in code).** Locked decision: refund on input-moderation block, consume on output-moderation block. `ContentModeratedException` is raised at two sites in `guardrails.py` (lines ~292 input and ~338 output) with only a message string to distinguish them, and the view returns an identical 422. Add a `stage` attribute (input/output) to the exception, branch the refund in the credits wrapper, and have the 422 body say whether a credit was charged ("1 credit was used"). Otherwise users are charged with no explanation.
+
+9. **Reserve/commit/reaper races.** (a) The reaper TTL is 5 min; make the OpenAI client timeout comfortably shorter, and make commit and refund guarded transitions (`UPDATE ... WHERE status='RESERVED'`) so a reaped reservation is never also committed. (b) Refund must target the transaction's own `shop_credit_balance`, not "current month" (a reservation can straddle UTC midnight). (c) Lapse should skip or tolerate balance rows with in-flight RESERVED transactions, since a later refund would otherwise return credits to an already-lapsed row. (d) The commit/refund must run in `finally`; the client's `AbortController` aborts the fetch but not the server work, and a disconnect on ASGI must not skip settlement. Invariant to test: `consumed_credits == sum(non-REFUNDED CONSUMPTION debits)` per balance.
+
+10. **Linking to `AiUsageLog` requires a service refactor (verified in code).** Spec requires CONSUMPTION to carry `ai_usage_log_id`. `generate_reply_draft(review, tone) -> str` currently creates its logs internally (SUCCESS, FAILED, and MODERATED via guardrails) and returns only text. Return the usage-log id (or a small result object), or the commit step cannot link it. Still exactly one `AiUsageLog` row per call (spec AC 38).
+
+11. **Throttle and ordering.** Locked at 10/min (spec says 30). Order: auth and scope, serializer validation (tone), throttle (already pre-action in DRF), empty-comment 400, then reserve. A throttled or invalid request must never create a RESERVED row.
+
+12. **Org Admin "view allocation" has no home.** Spec §2 gives Org Admin a read-only view of the org allocation, but no org-settings page exists for Org Admin. Satisfy it on the Shop Details credits card ("Monthly allocation 100 + bonus 20"). Staff see only remaining/total for accessible shops.
+
+13. **Audit-log visibility (§2, AC 25) versus the existing Activity Log (v0.7).** Org Admin sees credit events org-wide; Staff must NOT. The Activity Log is Staff-scoped by action/shop today, so `shop.credits.*` and `organisation.credits.set` must be excluded from Staff queries, and consumed events may add volume (the type filter exists). Needs a deliberate selector change plus a Staff negative test. This was not verified in depth, so treat it as phase-specific research.
+
+14. **Reviews-page credits (§1.1) versus §9.** §1.1 promises credits on the Reviews page, but §9 only specifies the composer. The Reviews list spans shops. Recommend the composer only (per §9.4). Defer any page-level display.
+
+15. **Timezone display.** "Renews Dec 1" in the user's timezone can read Nov 30 for the Americas. Display "Renews Dec 1 (UTC)" or the exact local time; the boundary is UTC.
+
+16. **Ledger conventions.** Define sign conventions (`credits_delta` negative for consumption, `consumed_credits` increments), the `status` field for non-consumption rows (default COMMITTED), and that REFUNDED consumption nets to zero. State these once in the requirements to keep tests unambiguous.
+
+17. **Minor.** Superadmin hitting generate-reply ("Not applicable") should be a clean 403, not a crash. Deactivated or disconnected shops still hold balances; the lapse and badge should tolerate them. The `/credits/history/` endpoint has no UI consumer, so defer or build it as a bare selector. AC 33 (switcher popup) must be struck from the requirements.
 
 ## Feature Dependencies
 
 ```
-Filter Bar (Region + Store + Date Range)
-    └──feeds──> All 5 dashboard API endpoints (passed as query params)
-    └──requires──> Region list API  (existing Regions app — already built)
-    └──requires──> Store list API   (existing Stores app, filtered by region — already built)
-    └──owns──>  Shared filter context (React Context or page-root prop-drill)
+Organisation.monthly_credit_allocation (field + form + audit)
+    └──feeds──> Lazy ShopCreditBalance creation / virtual balance selector
+                    ├──required by──> Credits read API (GET /shops/{id}/credits/)
+                    │       ├──> Shop Details credits card
+                    │       ├──> Shops-list badge (annotated list selector)
+                    │       └──> Composer "X remaining"
+                    ├──required by──> Bonus allocation (Superadmin modal + endpoint)
+                    └──required by──> Consumption (reserve -> OpenAI -> commit/refund)
 
-KPI Card Row (Total Reviews, Average Rating, Negative Reviews)
-    └──requires──> Filter Bar (provides date range + store scope)
-    └──requires──> Review model (v0.3, already exists)
-    └──requires──> enrichment_status / sentiment field on Review (v0.3, already exists)
-    └──renders──>  Half-Star Rating Display (sub-component, no dependency)
+credit_cost.py (pure function)
+    ├──required by──> Consumption service
+    ├──required by──> Review list `ai_credit_cost` field and /cost/ endpoint
+    └──required by──> Cost label on button
 
-Sentiment Distribution Donut
-    └──requires──> AI enrichment pipeline (v0.3, already exists)
-    └──requires──> Filter Bar
-    └──requires──> Coverage footer logic (enriched_count / total_count from same endpoint)
-    └──shows-empty-state-when──> enriched_count === 0
+Consumption service
+    ├──requires──> generate_reply_draft refactor (return usage-log id; moderation `stage`)
+    ├──requires──> CreditTransaction status enum (RESERVED/COMMITTED/REFUNDED)
+    ├──enables──> Reaper task
+    └──enables──> Composer 402/updated-balance handling
 
-Best Performing Outlets Bar Chart
-    └──requires──> Filter Bar (date range only — Store filter collapses to "Your Store" variant)
-    └──requires──> 2+ stores in scope (single store → "Your Store" variant instead)
-    └──same-endpoint-as──> Performance Highlights Card (top/bottom derived from same response)
-
-Performance Highlights Card
-    └──requires──> Best Performing Outlets data (same endpoint, derived values)
-    └──enhances──> Bar Chart (surfaces top/bottom without requiring chart interpretation)
-    └──hidden-when──> "Your Store" variant is active
-
-"Your Store" Single-Shop Variant
-    └──requires──> KPI data for the current store
-    └──requires──> Rating distribution (1–5 star counts) for current store
-    └──requires──> Trend calculation (previous period, same endpoint or derived)
-    └──conflicts──> Bar Chart + Performance Highlights (render one OR the other, never both)
-    └──active-when──> exactly 1 store in scope (Staff single-scope or single-shop org)
-
-Redis TTL Cache
-    └──requires──> apps/dashboard/ endpoints exist
-    └──enhanced-by──> Cache invalidation hook in Celery review sync task (v0.3 infra — already exists)
+Lapse task ──requires──> ShopCreditBalance + CreditTransaction (LAPSED)
+Buy More modal ──independent──> mounted from card, badge, composer (no backend)
+Activity Log scoping change ──requires──> AuditLog rows for credit events
+Rollout migration/runbook ──must precede──> enabling the 402 gate in production
 ```
 
 ### Dependency Notes
 
-- **Filter Bar is the shared state owner.** All widgets on the page consume from a single filter context (React Context at the page root or explicit prop-drill). Do not let each widget independently manage its own filter state.
-- **Bar chart requires 2+ stores.** If filters narrow to 1 store, switch to "Your Store" variant client-side. The same API endpoint can serve both paths — the frontend decides which component to render based on `stores.length`.
-- **Sentiment donut requires enrichment data.** If `enriched_count === 0`, render a specific empty state rather than an empty chart. Do not render a donut with zero data points.
-- **"Your Store" variant conflicts with multi-store components.** Never render both the bar chart and the "Your Store" card simultaneously. The single-store detection is the branch condition.
-
----
+- **Consumption requires the `reply_generation.py` refactor:** the existing service writes its own `AiUsageLog` rows and exposes only text; linking and the stage-aware refund need changes there.
+- **UI cards and badge require the virtual-balance selector first:** otherwise they render empty or wrong for shops that have not used AI this month.
+- **The 402 gate must not ship before the rollout step:** otherwise existing orgs lose a shipped feature (Gap 1).
+- **Composer changes depend on the `ReviewReadSerializer` additions:** `ai_credit_cost` and eligibility. A new field is cheap but touches the list query-count test.
+- **Lapse and reaper are independent of the UI** and can be built after the core ledger and consumption.
 
 ## MVP Definition
 
-### Launch With (v0.4)
+### Launch With (v0.9)
 
-All items below are required for the milestone — none are optional.
+- [ ] Allocation field on Org Create/Edit with audit — the lever for everything else
+- [ ] Balance and ledger models, virtual balance selector, lazy creation — the foundation
+- [ ] Cost function, the consumption wrapper with reserve/commit/refund, 402/400, moderation-stage refund split — the spending cap
+- [ ] Composer: hidden for star-only, cost label, remaining text, disabled and zero states, 402 handling, Buy More link
+- [ ] Shop Details card, Shops-list badge, Buy More modal, Superadmin bonus modal
+- [ ] Lapse and reaper Beat tasks, AuditLog events, Staff-excluded Activity Log scoping
+- [ ] Rollout step (backfill or runbook) — required for a safe deploy
 
-- [ ] Filter bar — Region, Store, Date Range (presets + custom date pickers), Clear Filters — URL state via `history.replaceState` + `sessionStorage` fallback
-- [ ] KPI card row — Total Reviews, Average Rating (with half-star display), Negative Reviews (AI sentiment-based) — with skeleton loading and independent per-card error states
-- [ ] Best Performing Outlets bar chart — threshold coloring (green / amber / red), hover tooltip, click-to-reviews navigation
-- [ ] Performance Highlights card — top + bottom performer sub-cards (multi-store path only)
-- [ ] "Your Store" card — KPIs + rating distribution mini-bars + trend indicator (single-store path, mutually exclusive with bar chart)
-- [ ] Sentiment Distribution donut — 3 segments (Positive / Neutral / Negative), hover tooltips, legend, coverage footer, enrichment-aware empty state
-- [ ] `apps/dashboard/` Django app with 5 focused API endpoints + Redis 5-min TTL caching
-- [ ] 3 new indexes on the Review table covering dashboard query shapes
-- [ ] `CaptureQueriesContext` tests asserting fixed query count ceiling on all 5 endpoints
+### Add After Validation (v0.9.x)
 
-### Add After Validation (v1.x)
+- [ ] Credits history endpoint or UI — when a consumer or support need appears
+- [ ] Reviews-page credit indicator — when users ask for it
+- [ ] Superadmin usage report — spec §8.3 defers it
 
-- [ ] Manual Refresh button on dashboard — if user research shows staleness complaints
-- [ ] Export to CSV — when users need historical analysis beyond the 365d cap
-- [ ] Weekly email digest — after engagement data shows Org Admins want async reporting
+### Future Consideration (v1.0+)
 
-### Future Consideration (v2+)
-
-- [ ] Real-time dashboard via WebSocket — only after explicit Channels scope review and evidence that 6-hour sync staleness causes churn
-- [ ] Compare-to-previous-period toggle on bar chart — after validating trend arrow on "Your Store" KPI cards is insufficient for multi-store users
-- [ ] AI-powered anomaly callout ("Store X rating dropped 0.8 stars this week")
-
----
+- [ ] Real payment and checkout in place of the Buy More placeholder (spec: within about 2 months)
+- [ ] Shop-switcher badge (needs a switcher)
+- [ ] Credits for other AI features, rollover, overage, alerts
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Filter bar with URL state | HIGH | MEDIUM | P1 |
-| KPI cards with skeletons + error states | HIGH | MEDIUM | P1 |
-| Bar chart with threshold coloring | HIGH | MEDIUM | P1 |
-| "Your Store" single-shop variant | HIGH | MEDIUM | P1 |
-| Sentiment donut with coverage footer | HIGH | MEDIUM | P1 |
-| Performance Highlights card | MEDIUM | LOW | P1 |
-| Half-star rating display | MEDIUM | LOW | P1 |
-| Trend indicator ("Your Store") | MEDIUM | LOW | P1 |
-| Bar chart click → Reviews navigation | MEDIUM | LOW | P1 |
-| Redis TTL caching + invalidation | HIGH | MEDIUM | P1 |
-| Session persistence of filters | LOW | LOW | P2 |
-| Manual Refresh button | LOW | LOW | P2 |
+| Consumption with reserve/commit/refund | HIGH | HIGH | P1 |
+| Allocation field + ledger/balance models | HIGH | MEDIUM | P1 |
+| Rollout backfill/runbook | HIGH | LOW | P1 |
+| Composer cost label, remaining, empty/zero/402 states | HIGH | MEDIUM | P1 |
+| Shop Details card + Shops-list badge | HIGH | MEDIUM | P1 |
+| Bonus allocation modal | MEDIUM | MEDIUM | P1 |
+| Lapse and reaper tasks | HIGH | MEDIUM | P1 |
+| Buy More placeholder modal | MEDIUM | LOW | P1 |
+| Moderation-stage refund split | HIGH | LOW | P1 |
+| Response carries `credits_charged`/`remaining`; list carries `ai_credit_cost` | MEDIUM | LOW | P2 |
+| Bonus-modal before/after preview | MEDIUM | LOW | P2 |
+| Activity Log Staff scoping for credit events | MEDIUM | MEDIUM | P1 (security) |
+| Read-only Django admin for ledger | MEDIUM | LOW | P2 |
+| Credits history endpoint | LOW | LOW | P3 |
 
-**Priority key:**
-- P1: Required for v0.4 launch
-- P2: Add in same phase if time permits, low risk
-- P3: Nice to have, defer to v1.x
+**Priority key:** P1 = must have for launch; P2 = should have, add when possible; P3 = nice to have, future.
 
----
+## Competitor / Analogue Feature Analysis
 
-## UX Behavior Reference (Per Component)
+Generic AI-credit products (not review-tool competitors) are the relevant analogues here. Based on vendor docs and posts, not hands-on testing.
 
-### 1. Cascading Filter Dropdowns + URL State
-
-**Expected behaviors (table-stakes):**
-
-- Region dropdown: "All Regions" as default option. On Region change → clear Store selection → re-populate Store options. Disable Store dropdown with a spinner while Region options are loading.
-- Store dropdown: disabled if no regions have loaded yet. "All Stores" is default within the selected region. If Region = "All", Store dropdown shows all stores across the org.
-- Selecting a Store auto-sets Region to that store's parent region if Region was "All" (optional but polished behavior — avoids an inconsistent state where Store is filtered but Region shows "All").
-- Date presets: pill/tab group, one active at a time. Clicking the active preset does nothing (no re-fetch). Selecting "Custom" reveals two date inputs; selecting a preset hides them.
-- On any filter change: call `history.replaceState(null, '', '?' + params.toString())` immediately (not debounced). Also write to `sessionStorage`.
-- On mount: read `window.location.search` → parse with `URLSearchParams` → hydrate filter state. Validate: if a store ID is not in the org's store list, silently ignore it (prevents tampered or stale URLs leaking cross-tenant state at the UI layer; the API enforces the real check with a 403).
-- 403 from API (out-of-scope store): reset Store filter to "All Stores" + display an inline toast: "Selected store is not accessible."
-- Clear Filters: disabled (greyed, cursor: not-allowed) when all filters are at their defaults (All Regions, All Stores, 30d preset). Enabled as soon as any filter deviates from the default. One click restores all defaults and clears URL params.
-- The URL must be shareable: another Org Admin from the same organisation opening the link sees the same filtered view.
-
-**Implementation approach (confidence: HIGH):**
-Use `URLSearchParams` + `history.replaceState` directly — no routing library needed since this is a React island mounted in a Django template page. `replaceState` over `pushState` avoids polluting browser history with every filter change. Read from `window.location.search` on component mount; fall back to `sessionStorage` if no URL params present.
-
-### 2. Bar Chart — Threshold-Based Coloring
-
-**Expected behaviors (table-stakes):**
-
-- Vertical bars. X-axis: store names (truncate to ~20 chars; full name in a tooltip on label hover). Y-axis: average rating, domain fixed at [0, 5].
-- Color logic: `rating >= 4.0` → green `#16a34a`, `3.0 <= rating < 4.0` → amber `#d97706`, `rating < 3.0` → red `#dc2626`. Applied per-bar using the Recharts `<Cell>` component inside `<Bar>`.
-- Horizontal reference line at y=4.0: dashed, grey, labelled "Target" — makes the green/amber threshold visible without explanation.
-- Bars sorted descending by `avg_rating` so best performers appear on the left.
-- Tooltip on hover: store name + avg rating (1 decimal) + review count for the period. Custom `<Tooltip content={<CustomTooltip />}>`.
-- Bar click: navigate to `/reviews/?store_id={storeId}&range={currentDateRange}`. Change cursor to `pointer` on bar hover using `cursor: "pointer"` on the BarChart component.
-- `<ResponsiveContainer width="100%" height={300}>` — never a fixed pixel width.
-- Animation: `isAnimationActive={hasInitiallyLoaded}` — animate once on first mount; skip animation on filter-driven re-fetches.
-- Empty state (no reviews in date range): replace chart with "No review data for this period." centered placeholder text.
-- Only rendered when 2+ stores are in scope. At exactly 1 store: switch the entire section to "Your Store" variant.
-
-**Implementation: Recharts over Nivo for this project.**
-Rationale: Recharts has a smaller initial bundle (~150kB vs Nivo's 500kB+ for a full install). This matters in a React-island pattern where the chart bundle is loaded on a Django-rendered page. Recharts per-bar `Cell` coloring is well-documented and confirmed working. Recharts is already likely in the project's frontend dependencies from prior phases (verify in `frontend/package.json`). If not present, add `recharts` — do not add Nivo.
-
-### 3. KPI Cards — Skeleton Loading + Independent Error States
-
-**Expected behaviors (table-stakes):**
-
-- 3 cards in a row: Total Reviews, Average Rating, Negative Reviews.
-- Single `/api/v1/dashboard/kpis/` endpoint returns all three metrics. The React component handles loading/error state independently per card field using the single response.
-- Skeleton state (`isLoading === true`): grey pulsing shimmer rectangle fills the number area of each card (approximately 40px tall, full card width minus padding). Skeleton is not a spinner — it mimics the layout of the real content.
-- On filter change: immediately replace current data with skeleton — do not show stale numbers while re-fetching.
-- Error state: replace the metric number with "—" + a small "Failed to load" label + a "Retry" link that re-triggers the fetch. Error is contained within the card; other cards are unaffected.
-- Success: show the metric number. On first load only, animate a brief count-up from 0 (optional, low-cost differentiator). Skip animation on filter-change re-fetches.
-- Total Reviews card: integer, large font.
-- Average Rating card: numeric value (e.g. "4.2") + half-star visual below the number.
-- Negative Reviews card: integer with a red accent on the number. An `(i)` tooltip icon beside the label: "Based on AI sentiment analysis of enriched reviews." Uses `review.sentiment === 'negative'` count, not star rating.
-
-**Implementation note:** If the KPI endpoint returns partial data (e.g., enrichment count unavailable due to a DB error), Negative Reviews shows its error state independently while Total Reviews and Average Rating display correctly. Model this as three `status` fields derived from a single fetch, not three separate fetches.
-
-### 4. Donut Chart — Percentage Tooltips + Coverage Footer
-
-**Expected behaviors (table-stakes):**
-
-- 3 segments: Positive (green `#16a34a`), Neutral (grey `#6b7280`), Negative (red `#dc2626`). Order: Positive → Neutral → Negative (clockwise from top).
-- Hollow donut: Recharts `<Pie innerRadius="60%" outerRadius="80%">`.
-- No labels on the segments themselves — the legend handles labeling.
-- Center of donut: largest segment's label + its percentage as static text (e.g., "Positive 72%"). Rendered as an SVG `<text>` element at `cx, cy`.
-- Tooltip on hover: `{Label}: {count} reviews ({percentage}%)`. Percentage formatted to 1 decimal. Custom tooltip component.
-- Legend: 3 rows below (or to the right of) the donut. Each row: colored circle swatch + sentiment label + count + percentage. Order matches segment order.
-- Zero-value segments: do not render the segment (a 0% sliver creates visual noise). Show the legend row with "0%" and a greyed swatch.
-- Coverage footer: `"Based on {enriched_count} of {total_count} reviews ({pct}% enriched)"`. Grey italic `<p>` below the chart.
-- Warning callout: if `enriched_count / total_count < 0.20` (less than 20% enriched), show a yellow callout above the chart: "Limited enrichment data — sentiment distribution may not be representative."
-- Empty state (enriched_count === 0): do not render the donut. Show placeholder: "Sentiment data will appear once AI processing completes." No broken empty chart.
-- Accessibility: `role="img"` with `<title>` on the SVG container. `aria-label="Sentiment distribution: 72% positive, 18% neutral, 10% negative"` updated from data.
-
-### 5. Half-Star Rating Display
-
-**Expected behaviors (table-stakes):**
-
-- Display-only. Not interactive (no click, hover, or focus states beyond the container `aria-label`).
-- Supports: full star (fully filled), half star (left 50% filled via `<clipPath>`), empty star (outline only).
-- Rounding: `Math.floor(rating)` full stars; if `(rating % 1) >= 0.5`, add one half star; fill remaining positions with empty stars to total 5.
-  - 4.2 → 4 full + 0 half + 1 empty (fractional part 0.2 < 0.5)
-  - 4.5 → 4 full + 1 half + 0 empty
-  - 4.7 → 4 full + 1 half + 0 empty (fractional part 0.7 >= 0.5)
-- SVG implementation: each of 5 stars is an SVG path. For the half-star position, render the filled star SVG clipped to 50% width using an inline `<clipPath>`. Empty star uses `fill="none" stroke="#FACC15"`.
-- Color: `#FACC15` (brand primary yellow — consistent with the existing design system).
-- Wrapper: `<span role="img" aria-label="4.2 out of 5 stars">`. Individual SVG stars are `aria-hidden="true"`.
-- Size: 16px star icons in a 24px line-height in the KPI card context. Can be made a size-prop for reuse.
-- Do not use emoji stars (`★`) — inaccessible, rendering inconsistent across platforms.
-- Do not pull in a third-party star-rating library for a display-only component — implement with SVG directly (< 30 lines, no extra bundle weight).
-
----
-
-## Existing Phase Dependencies (v0.3 Components to Reuse)
-
-| Existing Component | Dashboard Usage | Location |
-|--------------------|-----------------|----------|
-| Region list API | Populates Region dropdown | `apps/stores/` — already built |
-| Store list API | Populates Store dropdown (filtered by region) | `apps/stores/` — already built |
-| `Review` model + `enrichment_status` / `sentiment` field | All dashboard metrics derive from this | `apps/reviews/` — already built |
-| `AiUsageLog` | Negative Reviews KPI + Sentiment donut | `apps/reviews/` / `apps/integrations/openai/` — already built |
-| Redis cache infrastructure (DB 0) | TTL caching on dashboard endpoints | `apps/common/` + existing `django-redis` setup |
-| Celery task infrastructure | Post-sync cache invalidation hook | `apps/reviews/tasks.py` — already built |
-| `TenantScopedViewSet` | All 5 dashboard endpoints inherit tenant scoping | `apps/common/` — already built |
-| React island pattern | Dashboard page mounts an embedded React root | Established in v0.3 (Action Items, Notification Bell) |
-| Tailwind design tokens (yellow `#FACC15`, black `#0A0A0A`) | All chart colors, button states, card styling | `static/css/` — already defined |
-| `CursorPagination` | Not needed for dashboard endpoints (aggregates, not lists) | N/A — dashboard endpoints return scalar aggregates |
-| Recharts | Bar chart + Donut chart | Verify in `frontend/package.json`; add if absent |
-
----
+| Feature | Typical AI-credit SaaS (e.g. Lovable, Schematic-style) | ReviewBee v0.9 approach |
+|---------|--------------------------------------------------------|--------------------------|
+| Cost shown before action | Cost label on the trigger, updated as inputs change | Cost on the toggle label and tone-pill row, server-computed |
+| Out-of-credits | Disabled action plus upgrade or top-up path | Disabled plus contact-admin modal (placeholder) |
+| Low-balance warning | About 80% consumed | Colour bands at 75% and 95% used, no emails |
+| Failed requests | Released or refunded | Refund on OpenAI failure and input block; consume on output block |
+| Overage / auto-reload | Common | Anti-feature here (hard cap) |
+| Monthly expiry | Common with a visible reset date | Lapse, "Renews on ... (UTC)" |
 
 ## Sources
 
-- Cascading dropdown + URL state: [LogRocket — Advanced React state management via URL parameters](https://blog.logrocket.com/advanced-react-state-management-using-url-parameters/), [DEV Community — Sync React State with URL Search Params](https://dev.to/kphr99/sync-react-state-with-url-search-parameters-using-usequeryparamsstate-hook-1pgi)
-- KPI skeleton + independent error states: [Carbon Design System — Loading Pattern](https://carbondesignsystem.com/patterns/loading-pattern/), [Medium — How Senior React Developers Handle Loading States](https://medium.com/@sainudheenp/how-senior-react-developers-handle-loading-states-error-handling-a-complete-guide-ffe9726ad00a)
-- Bar chart threshold coloring via Cell: [Recharts GitHub — Dynamic Fill Color Per Bar](https://github.com/recharts/recharts/issues/280), [Recharts GitHub — Positive/Negative Referenced Chart discussion](https://github.com/recharts/recharts/discussions/4278)
-- Donut chart UX patterns: [Domo — What Is a Donut Chart?](https://www.domo.com/learn/charts/donut-charts), [PatternFly — Donut Chart](https://pf3.patternfly.org/v3/pattern-library/data-visualization/donut-chart/), [GeeksforGeeks — Recharts Donut](https://www.geeksforgeeks.org/reactjs/create-a-donut-chart-using-recharts-in-reactjs/)
-- Half-star rating accessibility: [DEV Community — Dynamic Star Rating in React](https://dev.to/ramcpucoder/how-you-can-build-a-dynamic-star-rating-component-in-reactjs-full-half-and-empty-stars-included-j0k), [Material UI Rating](https://mui.com/material-ui/react-rating/)
-- Filter bar UX: [Pencil & Paper — Filter UX Design Patterns](https://www.pencilandpaper.io/articles/ux-pattern-analysis-enterprise-filtering), [Eleken — Filter UX and UI for SaaS](https://www.eleken.co/blog-posts/filter-ux-and-ui-for-saas)
-- Chart library selection: [PkgPulse — Recharts vs Chart.js vs Nivo 2026](https://www.pkgpulse.com/guides/recharts-vs-chartjs-vs-nivo-vs-visx-react-charting-2026), [LogRocket — Best React chart libraries 2025](https://blog.logrocket.com/best-react-chart-libraries-2025/)
-- Dashboard design principles: [Carbon Design System — Loading Pattern](https://carbondesignsystem.com/patterns/loading-pattern/), [Pencil & Paper — Dashboard UX Patterns](https://www.pencilandpaper.io/articles/ux-pattern-analysis-data-dashboards)
+- Spec: `/Users/renjith/Documents/Accounts/review-master/docs/completed/Requirements_Credits_System.md` (HIGH, binding)
+- Project decisions: `/Users/renjith/Documents/Accounts/review-master/.planning/PROJECT.md` (HIGH)
+- Live code verified: `frontend/src/widgets/review-management/ReplyComposer.tsx` (two-step toggle then tone-pill flow, 422/429 handling only), `apps/reviews/services/reply_generation.py` (returns str, writes logs internally), `apps/reviews/views.py` (identical 422 for both moderation stages), `apps/integrations/openai/guardrails.py` (two raise sites) (HIGH)
+- [Schematic: AI credit system](https://schematichq.com/blog/ai-credit-system) and [credit ledger docs](https://docs.schematichq.com/use-cases/credit-ledger) (MEDIUM, vendor)
+- [Stigg: credits enforced in the request path](https://www.stigg.io/blog-posts/credits-are-a-financial-system-we-built-it-for-you-enforced-in-the-request-path) (MEDIUM, vendor)
+- [Towards AI: AI credit pricing UX, show the cost before the click](https://pub.towardsai.net/ai-credit-pricing-ux-show-the-cost-before-the-click-ce25489465c7) (LOW-MEDIUM, personal write-up)
+- [Lovable docs: out of credits](https://docs.lovable.dev/introduction/out-of-credits) (MEDIUM)
+- [Figma forum: credit system causes frustration](https://forum.figma.com/report-a-problem-6/credit-system-causes-frustration-55167) (LOW, anecdotal user feedback on unclear cost and balance)
 
 ---
-
-*Feature research for: Organisation Admin Dashboard (v0.4)*
-*Researched: 2026-05-07*
+*Feature research for: per-shop monthly AI reply credits (v0.9)*
+*Researched: 2026-11-11*

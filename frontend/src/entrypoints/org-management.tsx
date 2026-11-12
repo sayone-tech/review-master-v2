@@ -8,6 +8,7 @@ import { DisableConfirmModal } from "../widgets/org-management/DisableConfirmMod
 import { EnableConfirmModal } from "../widgets/org-management/EnableConfirmModal";
 import { DeleteConfirmModal } from "../widgets/org-management/DeleteConfirmModal";
 import { StoreAllocationModal } from "../widgets/org-management/StoreAllocationModal";
+import { ManageCreditsModal } from "../widgets/org-management/ManageCreditsModal";
 import { ResendInvitationModal } from "../widgets/org-management/ResendInvitationModal";
 import { useOrgs } from "../widgets/org-management/useOrgs";
 import type { OrgRow } from "../widgets/org-management/types";
@@ -55,6 +56,7 @@ function OrgModals() {
   const [enableRow, setEnableRow] = useState<OrgRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<OrgRow | null>(null);
   const [storeRow, setStoreRow] = useState<OrgRow | null>(null);
+  const [creditsRow, setCreditsRow] = useState<OrgRow | null>(null);
   const [resendRow, setResendRow] = useState<OrgRow | null>(null);
 
   const handleOpenCreate = useCallback(() => setCreateOpen(true), []);
@@ -67,6 +69,7 @@ function OrgModals() {
         onOpenView: (r: OrgRow) => void;
         onOpenEdit: (r: OrgRow) => void;
         onOpenAdjustStores: (r: OrgRow) => void;
+        onOpenManageCredits: (r: OrgRow) => void;
         onOpenEnable: (r: OrgRow) => void;
         onOpenDisable: (r: OrgRow) => void;
         onOpenDelete: (r: OrgRow) => void;
@@ -77,6 +80,7 @@ function OrgModals() {
       onOpenView: (r) => setViewRow(r),
       onOpenEdit: (r) => setEditRow(r),
       onOpenAdjustStores: (r) => setStoreRow(r),
+      onOpenManageCredits: (r) => setCreditsRow(r),
       onOpenEnable: (r) => setEnableRow(r),
       onOpenDisable: (r) => setDisableRow(r),
       onOpenDelete: (r) => setDeleteRow(r),
@@ -168,6 +172,7 @@ function OrgModals() {
           window.dispatchEvent(new CustomEvent("org:refresh"));
         }}
       />
+      <ManageCreditsModal org={creditsRow} onClose={() => setCreditsRow(null)} />
     </>
   );
 }
@@ -196,6 +201,7 @@ function OrgTableWidget() {
             onOpenView: (r: OrgRow) => void;
             onOpenEdit: (r: OrgRow) => void;
             onOpenAdjustStores: (r: OrgRow) => void;
+            onOpenManageCredits: (r: OrgRow) => void;
             onOpenEnable: (r: OrgRow) => void;
             onOpenDisable: (r: OrgRow) => void;
             onOpenDelete: (r: OrgRow) => void;
@@ -213,6 +219,7 @@ function OrgTableWidget() {
         onOpenEdit: (r) => getHandlers()?.onOpenEdit(r),
         onOpenResend: (r) => getHandlers()?.onOpenResend(r),
         onOpenAdjustStores: (r) => getHandlers()?.onOpenAdjustStores(r),
+        onOpenManageCredits: (r) => getHandlers()?.onOpenManageCredits(r),
         onOpenEnable: (r) => getHandlers()?.onOpenEnable(r),
         onOpenDisable: (r) => getHandlers()?.onOpenDisable(r),
         onOpenDelete: (r) => getHandlers()?.onOpenDelete(r),

@@ -7,9 +7,11 @@ import {
   Ban,
   CheckCircle,
   Trash2,
+  Coins,
 } from "lucide-react";
 import { DataTable, type DataTableColumn } from "../data-table";
 import { RowActionsMenu, type RowAction } from "./RowActionsMenu";
+import { formatCount } from "./creditHint";
 import { ORG_TYPE_LABELS, type OrgRow } from "./types";
 
 /** SA-090: true below the `md` breakpoint (<768px). Table and card layouts need
@@ -37,6 +39,7 @@ export interface OrgTableHandlers {
   onOpenEdit: (row: OrgRow) => void;
   onOpenResend: (row: OrgRow) => void;
   onOpenAdjustStores: (row: OrgRow) => void;
+  onOpenManageCredits: (row: OrgRow) => void;
   onOpenEnable: (row: OrgRow) => void;
   onOpenDisable: (row: OrgRow) => void;
   onOpenDelete: (row: OrgRow) => void;
@@ -47,6 +50,15 @@ function formatDate(iso: string): string {
   const day = String(d.getDate()).padStart(2, "0");
   const month = d.toLocaleString("en", { month: "short" });
   return `${day} ${month} ${d.getFullYear()}`;
+}
+
+/** D-14: saved allocation with a thousands separator, or a muted "Off" at 0. */
+function CreditsValue({ value }: { value: number }) {
+  return value === 0 ? (
+    <span className="text-[13px] text-subtle">Off</span>
+  ) : (
+    <span className="text-[13px] text-ink">{formatCount(value)}</span>
+  );
 }
 
 function StatusBadge({ status }: { status: OrgRow["status"] }) {
@@ -135,6 +147,13 @@ export function buildColumns(
       ),
     },
     {
+      key: "credits",
+      label: "Credits/shop",
+      skeletonWidth: "56px",
+      align: "right",
+      accessor: (r) => <CreditsValue value={r.monthly_credit_allocation} />,
+    },
+    {
       key: "status",
       label: "Status",
       skeletonWidth: "64px",
@@ -178,6 +197,12 @@ export function buildRowActions(handlers: OrgTableHandlers): RowAction[] {
       label: "Adjust Store Count",
       icon: <Layers size={14} aria-hidden="true" />,
       onSelect: handlers.onOpenAdjustStores,
+    },
+    {
+      key: "credits",
+      label: "Manage Credits",
+      icon: <Coins size={14} aria-hidden="true" />,
+      onSelect: handlers.onOpenManageCredits,
     },
     {
       key: "disable",
@@ -248,6 +273,12 @@ function OrgCard({
           <dt className="text-subtle">Stores</dt>
           <dd className="text-ink text-right">
             {row.active_stores} used of {row.number_of_stores} allocated
+          </dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-subtle">Credits/shop</dt>
+          <dd className="text-right">
+            <CreditsValue value={row.monthly_credit_allocation} />
           </dd>
         </div>
         <div className="flex justify-between gap-3">

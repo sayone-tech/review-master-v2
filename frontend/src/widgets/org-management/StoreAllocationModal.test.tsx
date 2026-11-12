@@ -25,6 +25,8 @@ const ORG: OrgRow = {
   activation_status: "active",
   last_invited_at: null,
   allow_custom_sync_depth: false,
+  monthly_credit_allocation: 0,
+  current_month_credit_allocation: 0,
 };
 
 function captureToasts() {

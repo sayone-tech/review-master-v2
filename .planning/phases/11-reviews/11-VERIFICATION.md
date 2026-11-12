@@ -28,6 +28,10 @@ human_verification:
   - test: "ReplyComposer inline accordion expand/collapse"
     expected: "Click Reply on an unreplied row inserts an inline <tr> composer; submitting posts to Google synchronously; on success composer replaces with Replied view; Discard closes composer"
     why_human: "Inline DOM accordion manipulation and actual reply posting requires browser"
+audit_acknowledged:
+  milestone: v0.9
+  at: 2026-11-12
+  status: human_needed
 ---
 
 # Phase 11: Reviews Module Verification Report

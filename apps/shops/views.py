@@ -6,8 +6,10 @@ import logging
 import secrets
 from typing import Any
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views import View
@@ -25,6 +27,7 @@ from apps.accounts.models import User
 from apps.accounts.permissions import IsOrgAdmin, org_admin_required
 from apps.common.permissions import IsOrgScoped, RequiresSessionAuth
 from apps.common.viewsets import TenantScopedViewSet
+from apps.credits.services.periods import current_period
 from apps.integrations.google.exceptions import (
     GoogleAuthError,
     GoogleUnreachableError,
@@ -39,7 +42,12 @@ from apps.regions.serializers import RegionReadSerializer
 from apps.reviews.tasks import initial_backfill_task
 from apps.shops.exceptions import PlaceIdLockedError, ShopAtLimitError
 from apps.shops.models import ReviewTarget, Shop
-from apps.shops.selectors.shops import get_allocation_status, get_has_regions, list_shops
+from apps.shops.selectors.shops import (
+    get_allocation_status,
+    get_has_regions,
+    list_shops,
+    restrict_to_staff_scope,
+)
 from apps.shops.selectors.targets import list_target_history, list_targets_for_shop
 from apps.shops.serializers import (
     ReviewTargetHistorySerializer,
@@ -91,13 +99,13 @@ def _shop_page_url_params(request: HttpRequest, per_page: int) -> str:
 def shop_list(request):  # type: ignore[no-untyped-def]
     org = request.user.organisation
     per_page = _shop_resolve_per_page(request.GET.get("per_page"))
-    qs = list_shops(organisation_id=org.pk)
+    user = request.user
+    qs = list_shops(organisation_id=org.pk, user=user, with_credits=True, period=current_period())
     paginator = Paginator(qs, per_page)
     page_obj = paginator.get_page(request.GET.get("page", 1))
     shops_data = list(ShopReadSerializer(list(page_obj.object_list), many=True).data)
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
-    user = request.user
     return render(
         request,
         "shops/shop_list.html",
@@ -115,6 +123,10 @@ def shop_list(request):  # type: ignore[no-untyped-def]
             "is_org_admin": user.role == User.Role.ORG_ADMIN,
             "allow_custom_sync_depth": org.allow_custom_sync_depth,
             "org_data": {"allow_custom_sync_depth": org.allow_custom_sync_depth},
+            "credit_contact": {
+                "organisation_name": org.name,
+                "support_email": settings.REVIEWBEE_SUPPORT_EMAIL,
+            },
         },
     )
 
@@ -160,6 +172,13 @@ class ShopViewSet(
         # Read actions (list, retrieve) are open to both ORG_ADMIN and STAFF_ADMIN.
         return [IsOrgScoped()]
 
+    def get_queryset(self) -> QuerySet[Shop]:
+        # Organisation filter first (TenantScopedViewSet), then the shared Staff rule so
+        # retrieve answers 404 for an out-of-scope shop (D-17).
+        qs = super().get_queryset()
+        user = self.request.user
+        return restrict_to_staff_scope(queryset=qs, user=user if isinstance(user, User) else None)
+
     def get_serializer_class(self) -> type[drf_serializers.BaseSerializer[Any]]:
         if self.action == "create":
             return ShopCreateSerializer
@@ -188,6 +207,9 @@ class ShopViewSet(
             region_id=int(request.query_params["region"])
             if request.query_params.get("region")
             else None,
+            user=user,
+            with_credits=True,
+            period=current_period(),
         )
         page = self.paginate_queryset(qs)
         serializer = self.get_serializer(page if page is not None else qs, many=True)
