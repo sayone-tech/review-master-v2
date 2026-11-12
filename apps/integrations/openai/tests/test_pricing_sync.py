@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from apps.common.models import AuditLog
 from apps.integrations.openai.models import AiPricing, AiPricingSyncConfig, AiUsageLog
-from apps.integrations.openai.services import pricing_sync
+from apps.integrations.openai.services import pricing_management, pricing_sync
 from apps.integrations.openai.services.pricing_management import add_price
 from apps.integrations.openai.services.pricing_sync import (
     SyncOutcome,
@@ -386,6 +386,7 @@ def test_completed_run_records_summary_and_audit(now, django_capture_on_commit_c
             }
         ],
         "skipped_scheduled": [],
+        "skipped_concurrent": [],
         "unpriced": [CFG_MODEL],
         "errored": [],
         "error": "",
@@ -404,6 +405,7 @@ def test_completed_run_records_summary_and_audit(now, django_capture_on_commit_c
             "unchanged": 0,
             "skipped_manual": 1,
             "skipped_scheduled": 0,
+            "skipped_concurrent": 0,
             "unpriced": 1,
             "errored": 0,
         },
@@ -423,7 +425,7 @@ def test_success_clears_previous_error_and_keeps_enabled(now):
 def test_price_change_invalidates_missing_cache(now, django_capture_on_commit_callbacks):
     _enable()
     with (
-        mock.patch.object(pricing_sync, "invalidate_missing_pricing_cache") as inv,
+        mock.patch.object(pricing_management, "invalidate_missing_pricing_cache") as inv,
         django_capture_on_commit_callbacks(execute=True),
     ):
         run_pricing_sync(now=now, transport=_transport({CFG_MODEL: SAME}))
@@ -433,7 +435,7 @@ def test_price_change_invalidates_missing_cache(now, django_capture_on_commit_ca
 def test_no_change_does_not_invalidate_cache(now, django_capture_on_commit_callbacks):
     _enable()
     with (
-        mock.patch.object(pricing_sync, "invalidate_missing_pricing_cache") as inv,
+        mock.patch.object(pricing_management, "invalidate_missing_pricing_cache") as inv,
         django_capture_on_commit_callbacks(execute=True),
     ):
         run_pricing_sync(now=now, transport=_transport({}))
@@ -528,3 +530,128 @@ def test_crash_in_success_audit_recorded_as_failed(now):
     cfg = AiPricingSyncConfig.load()
     assert cfg.last_success_at is None
     assert cfg.last_summary == {}
+
+
+# --- Task 7 audit fixes ---------------------------------------------------------------------
+
+
+def test_manual_price_landing_mid_sync_is_protected_under_the_row_lock(now):
+    """Race (ORM I1): the unlocked check sees a seed row; an admin's manual price replaces it
+    before add_price locks the open row. add_price must refuse, and the run reports it."""
+    _enable()
+    _use("m1")
+    AiPricingFactory(model="m1", source=SEED, effective_from=now - timedelta(days=2))
+    real_add_price = pricing_sync.add_price
+
+    def admin_wins_the_race(**kw):
+        manual = add_price(
+            model="m1",
+            input_token_price_per_1m=Decimal("0.2"),
+            output_token_price_per_1m=Decimal("0.8"),
+            cached_token_price_per_1m=Decimal("0.1"),
+            effective_from=now - timedelta(days=1),
+            actor=None,
+            now=now - timedelta(days=1),
+        )
+        assert manual.source == MANUAL
+        return real_add_price(**kw)
+
+    with mock.patch.object(pricing_sync, "add_price", side_effect=admin_wins_the_race):
+        summary = run_pricing_sync(now=now, transport=_transport({"m1": CHEAPER}))
+    assert summary.updated == summary.added == summary.errored == []
+    assert summary.skipped_manual == [
+        {
+            "model": "m1",
+            "ours": {"input": Decimal("0.2"), "output": Decimal("0.8"), "cached": Decimal("0.1")},
+            "litellm": {
+                "input": Decimal("0.1"),
+                "output": Decimal("0.4"),
+                "cached": Decimal("0.05"),
+            },
+        }
+    ]
+    assert _open_row("m1").source == MANUAL
+    assert not AiPricing.objects.filter(model="m1", source=SYNC).exists()
+
+
+def test_concurrent_price_change_is_skipped_concurrent(now):
+    _enable()
+    _use("m1")
+    from apps.integrations.openai.services.pricing_management import ConcurrentPriceChangeError
+
+    with mock.patch.object(pricing_sync, "add_price", side_effect=ConcurrentPriceChangeError):
+        summary = run_pricing_sync(now=now, transport=_transport({"m1": SAME}))
+    assert summary.skipped_concurrent == ["m1"]
+    assert summary.errored == []
+    assert summary.counts()["skipped_concurrent"] == 1
+    assert AiPricingSyncConfig.load().last_summary["skipped_concurrent"] == ["m1"]
+
+
+def test_soft_time_limit_is_reraised_out_of_the_model_loop(now):
+    from celery.exceptions import SoftTimeLimitExceeded
+
+    _use("m1")
+    with (
+        mock.patch.object(pricing_sync, "_sync_model", side_effect=SoftTimeLimitExceeded()),
+        pytest.raises(SoftTimeLimitExceeded),
+    ):
+        pricing_sync._run_locked(now=now, fixed_now=True, transport=_transport({"m1": SAME}))
+
+
+def test_soft_time_limit_stops_the_run_and_is_recorded_as_failed(now):
+    from celery.exceptions import SoftTimeLimitExceeded
+
+    _enable()
+    _use("m1", "m2")
+    seen: list[str] = []
+
+    def out_of_time(**kw):
+        seen.append(kw["model"])
+        raise SoftTimeLimitExceeded()
+
+    with mock.patch.object(pricing_sync, "_sync_model", side_effect=out_of_time):
+        summary = run_pricing_sync(now=now, transport=_transport({"m1": SAME}))
+    assert seen == [CFG_MODEL]  # first model in sorted order; the rest never ran
+    _assert_crash_recorded(summary, "Sync failed unexpectedly (SoftTimeLimitExceeded)")
+
+
+def test_run_marks_running_at_start(now):
+    _enable()
+    seen = {}
+
+    def handler(request):
+        cfg = AiPricingSyncConfig.load()
+        seen["state"] = (cfg.last_status, cfg.last_run_at)
+        return httpx.Response(200, json={})
+
+    run_pricing_sync(now=now, transport=httpx.MockTransport(handler))
+    assert seen["state"] == ("running", now)
+    assert AiPricingSyncConfig.load().last_status == "success"
+
+
+def test_each_new_price_starts_when_it_is_written(lock_acquired):
+    """ORM minor 5: without an injected ``now`` each model's row starts at its own write time."""
+    _enable()
+    _use("m1", "m2")
+    start = timezone.now()
+    ticks = iter(start + timedelta(seconds=i) for i in range(100))
+    with mock.patch.object(pricing_sync.timezone, "now", side_effect=lambda: next(ticks)):
+        summary = run_pricing_sync(transport=_transport({"m1": SAME, "m2": SAME}))
+    assert sorted(summary.added) == ["m1", "m2"]
+    run_start = AiPricingSyncConfig.load().last_run_at
+    assert run_start == start
+    starts = {_open_row(m).effective_from for m in ("m1", "m2")}
+    assert len(starts) == 2
+    assert all(s > run_start for s in starts)
+
+
+def test_lock_error_recorded_as_failed_not_skipped(now, lock_acquired):
+    import redis
+
+    _enable()
+    lock_acquired.side_effect = redis.exceptions.ConnectionError("redis down: secret-host")
+    baseline = _rows()
+    summary = run_pricing_sync(now=now, transport=_transport({CFG_MODEL: SAME}))
+    _assert_crash_recorded(summary, "Could not acquire sync lock (ConnectionError).")
+    assert "secret-host" not in summary.error
+    assert _rows() == baseline

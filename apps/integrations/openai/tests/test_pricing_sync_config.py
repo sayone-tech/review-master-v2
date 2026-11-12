@@ -100,3 +100,32 @@ def test_status_passes_through_fields():
     _configure(last_status="failed", last_error="boom", last_summary={"a": 1})
     s = get_sync_status(now=NOW)
     assert (s["last_status"], s["last_error"], s["summary"]) == ("failed", "boom", {"a": 1})
+
+
+def test_status_is_read_only_and_never_creates_the_row():
+    AiPricingSyncConfig.objects.all().delete()
+    s = get_sync_status(now=NOW)
+    assert not AiPricingSyncConfig.objects.exists()
+    assert (s["enabled"], s["last_status"], s["overdue"], s["summary"]) == (
+        False,
+        "never",
+        False,
+        {},
+    )
+
+
+def test_fresh_running_status_passes_through():
+    _configure(last_status="running", last_run_at=NOW - timedelta(minutes=14), last_error="old")
+    s = get_sync_status(now=NOW)
+    assert (s["last_status"], s["last_error"]) == ("running", "old")
+
+
+@pytest.mark.parametrize("last_run_at", [NOW - timedelta(minutes=16), None])
+def test_stale_running_status_reported_as_failed(last_run_at):
+    _configure(last_status="running", last_run_at=last_run_at)
+    s = get_sync_status(now=NOW)
+    assert (s["last_status"], s["last_error"]) == (
+        "failed",
+        "Sync did not finish (worker stopped).",
+    )
+    assert AiPricingSyncConfig.load().last_status == "running"  # display only, no write

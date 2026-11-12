@@ -259,10 +259,9 @@ class AiPricingSyncToggleView(_AiPricingBaseView):
     def post(self, request: Request) -> Response:
         serializer = SyncToggleSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            set_sync_enabled(
-                enabled=serializer.validated_data["enabled"], actor=cast(User, request.user)
-            )
+        set_sync_enabled(  # atomic itself
+            enabled=serializer.validated_data["enabled"], actor=cast(User, request.user)
+        )
         return Response(SyncStatusSerializer(get_sync_status()).data)
 
 

@@ -10,6 +10,12 @@ from django.utils import timezone
 from apps.integrations.openai.models import AiPricingSyncConfig
 
 OVERDUE_AFTER = timedelta(days=14)
+# A "running" status older than this means the worker died mid-run (the task's hard time limit
+# is 180 s), so it is reported as failed.
+STALE_RUNNING_AFTER = timedelta(minutes=15)
+STALE_RUNNING_ERROR = "Sync did not finish (worker stopped)."
+# Fixed copy of the Beat schedule seeded by migration 0007 (Monday 09:00 UTC). Editing the
+# PeriodicTask in Django admin does NOT move ``next_run_at``; change both together.
 RUN_WEEKDAY = 0  # Monday
 RUN_HOUR_UTC = 9
 
@@ -36,17 +42,23 @@ def _next_run_at(now: datetime) -> datetime:
 
 
 def get_sync_status(*, now: datetime | None = None) -> SyncStatus:
+    """Read-only: never creates the singleton (an unsaved default stands in when missing)."""
     now = now or timezone.now()
-    config = AiPricingSyncConfig.load()
+    config = AiPricingSyncConfig.objects.filter(pk=1).first() or AiPricingSyncConfig()
     overdue = config.enabled and (
         config.last_success_at is None or now - config.last_success_at > OVERDUE_AFTER
     )
+    last_status, last_error = config.last_status, config.last_error
+    if last_status == AiPricingSyncConfig.Status.RUNNING and (
+        config.last_run_at is None or now - config.last_run_at > STALE_RUNNING_AFTER
+    ):
+        last_status, last_error = AiPricingSyncConfig.Status.FAILED, STALE_RUNNING_ERROR
     return SyncStatus(
         enabled=config.enabled,
         last_run_at=config.last_run_at,
         last_success_at=config.last_success_at,
-        last_status=config.last_status,
-        last_error=config.last_error,
+        last_status=last_status,
+        last_error=last_error,
         overdue=overdue,
         summary=config.last_summary,
         next_run_at=_next_run_at(now) if config.enabled else None,

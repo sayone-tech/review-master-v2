@@ -28,6 +28,7 @@ EMPTY_SUMMARY = {
     "unchanged": [],
     "skipped_manual": [],
     "skipped_scheduled": [],
+    "skipped_concurrent": [],
     "unpriced": [],
     "errored": [],
 }
@@ -191,6 +192,24 @@ def test_trigger_rate_setting_and_parse_rate(settings):
     assert throttle.parse_rate("10/m") == (10, 60)
     assert throttle.parse_rate("1/2h") == (1, 7200)
     assert throttle.parse_rate("5/day") == (5, 86400)
+
+
+@pytest.mark.parametrize("bad", ["1/15x", "1/", "abc/m", "1-15m"])
+def test_parse_rate_malformed_raises_improperly_configured(bad):
+    from django.core.exceptions import ImproperlyConfigured
+
+    with pytest.raises(ImproperlyConfigured):
+        SyncTriggerThrottle().parse_rate(bad)
+
+
+def test_status_passes_fresh_running_through(superadmin_client):
+    config = AiPricingSyncConfig.load()
+    AiPricingSyncConfig.objects.filter(pk=config.pk).update(
+        last_run_at=timezone.now(), last_status="running"
+    )
+    body = superadmin_client.get(STATUS_URL).json()
+    assert body["last_status"] == "running"
+    assert body["last_error"] == ""
 
 
 def test_query_ceilings(superadmin_client):

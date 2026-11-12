@@ -102,15 +102,19 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM }: Props) {
   }
 
   const failed = status.last_status === "failed";
-  const attention = failed || (status.enabled && status.overdue);
+  const running = status.last_status === "running";
+  const attention = failed || (!running && status.enabled && status.overdue);
   const tone = attention
     ? "bg-amber-50 border-amber-300"
-    : status.enabled
+    : status.enabled && !running
       ? "bg-green-50 border-green-300"
       : "bg-line-soft border-line";
 
   let text: React.ReactNode;
-  if (attention) {
+  if (running) {
+    // Sync Now stays available; a second run while this one holds the lock is skipped.
+    text = "Sync in progress…";
+  } else if (attention) {
     const label = failed
       ? `Last sync failed${status.last_run_at ? ` ${formatSyncDate(status.last_run_at)}` : ""}. Click to view details.`
       : "No successful sync in over 14 days. Click to view details.";
@@ -128,6 +132,7 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM }: Props) {
   }
 
   const skipped = status.summary.skipped_manual;
+  const concurrent = status.summary.skipped_concurrent ?? [];
 
   return (
     <section
@@ -203,6 +208,18 @@ export function SyncBanner({ onChanged, onStatus, onUseLiteLLM }: Props) {
             Last run: {status.last_run_at ? formatSyncDateTime(status.last_run_at) : "never"}
           </p>
           <p className="font-mono text-[12.5px] break-words">{status.last_error || "No error recorded."}</p>
+          {concurrent.length > 0 && (
+            <p data-testid="sync-skipped-concurrent">
+              Skipped because the price changed at the same time:{" "}
+              {concurrent.map((m, i) => (
+                <span key={m}>
+                  {i > 0 && ", "}
+                  <code className="font-mono">{m}</code>
+                </span>
+              ))}
+              . The next sync will retry.
+            </p>
+          )}
         </div>
       </Modal>
     </section>

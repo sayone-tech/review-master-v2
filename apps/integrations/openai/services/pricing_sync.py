@@ -8,6 +8,7 @@ touched. One run at a time, guarded by a non-blocking Redis lock.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -16,6 +17,7 @@ from enum import StrEnum
 from typing import Any
 
 import httpx
+from celery.exceptions import SoftTimeLimitExceeded
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -31,9 +33,10 @@ from apps.integrations.openai.litellm import (
 )
 from apps.integrations.openai.models import AiPricing, AiPricingSyncConfig
 from apps.integrations.openai.selectors.pricing import list_recent_usage_models
-from apps.integrations.openai.services.pricing_cache import invalidate_missing_pricing_cache
 from apps.integrations.openai.services.pricing_management import (
     MAX_PRICE_PER_1M,
+    ConcurrentPriceChangeError,
+    ManualPriceProtectedError,
     ScheduledPriceExistsError,
     add_price,
 )
@@ -86,6 +89,7 @@ class SyncSummary:
     unchanged: list[str] = field(default_factory=list)
     skipped_manual: list[dict[str, Any]] = field(default_factory=list)
     skipped_scheduled: list[str] = field(default_factory=list)
+    skipped_concurrent: list[str] = field(default_factory=list)
     unpriced: list[str] = field(default_factory=list)
     errored: list[str] = field(default_factory=list)
     error: str = ""
@@ -97,6 +101,7 @@ class SyncSummary:
             "unchanged": len(self.unchanged),
             "skipped_manual": len(self.skipped_manual),
             "skipped_scheduled": len(self.skipped_scheduled),
+            "skipped_concurrent": len(self.skipped_concurrent),
             "unpriced": len(self.unpriced),
             "errored": len(self.errored),
         }
@@ -118,6 +123,7 @@ class SyncSummary:
             "unchanged": sorted(self.unchanged),
             "skipped_manual": manual,
             "skipped_scheduled": sorted(self.skipped_scheduled),
+            "skipped_concurrent": sorted(self.skipped_concurrent),
             "unpriced": sorted(self.unpriced),
             "errored": sorted(self.errored),
             "error": self.error,
@@ -146,8 +152,11 @@ def _within_tolerance(ours: dict[str, Decimal], theirs: dict[str, Decimal]) -> b
 
 
 def _sync_model(
-    *, model: str, catalog: LiteLLMCatalog, now: datetime, summary: SyncSummary
+    *, model: str, catalog: LiteLLMCatalog, now: datetime | None, summary: SyncSummary
 ) -> None:
+    # Each model's new price starts when it is written, not when the run started (a slow run
+    # would otherwise date prices minutes in the past). Tests inject a fixed ``now``.
+    now = now or timezone.now()
     price = catalog.prices.get(model)
     if price is None:
         reason = "unusable entry" if model in catalog.unusable else "not in catalog"
@@ -189,9 +198,20 @@ def _sync_model(
             audit_action=(
                 "ai_pricing.added_from_sync" if active is None else "ai_pricing.updated_from_sync"
             ),
+            protect_manual=True,
         )
+    except ManualPriceProtectedError as exc:
+        # A hand-set price landed after the unlocked check above; add_price re-checked it under
+        # the row lock and refused, so nothing was written.
+        summary.skipped_manual.append(
+            {"model": model, "ours": _triple(exc.current), "litellm": theirs}
+        )
+        return
     except ScheduledPriceExistsError:
         summary.skipped_scheduled.append(model)
+        return
+    except ConcurrentPriceChangeError:
+        summary.skipped_concurrent.append(model)
         return
     (summary.added if active is None else summary.updated).append(model)
 
@@ -217,10 +237,14 @@ def _record_failure(*, now: datetime, error: str) -> SyncSummary:
     return SyncSummary(outcome=SyncOutcome.FAILED, error=error)
 
 
-def _run_locked(*, now: datetime, transport: httpx.BaseTransport | None) -> SyncSummary:
+def _run_locked(
+    *, now: datetime, fixed_now: bool, transport: httpx.BaseTransport | None
+) -> SyncSummary:
     AiPricingSyncConfig.load()
     config = AiPricingSyncConfig.objects.filter(pk=1)
-    config.update(last_run_at=now, updated_at=now)
+    # "running" lets the status selector spot a run whose worker was hard-killed (it never
+    # reaches the success/failed write below).
+    config.update(last_status=AiPricingSyncConfig.Status.RUNNING, last_run_at=now, updated_at=now)
 
     try:
         catalog = fetch_litellm_catalog(transport=transport)
@@ -233,9 +257,15 @@ def _run_locked(*, now: datetime, transport: httpx.BaseTransport | None) -> Sync
     models.add(settings.OPENAI_MODEL)
     for model in sorted(models):
         try:
-            # Savepoint: a DB error for one model never poisons the next one's queries.
+            # One transaction per model (a savepoint when an outer transaction is open, e.g. in
+            # tests): a DB error rolls back only this model's writes and never poisons the
+            # next model's queries.
             with transaction.atomic():
-                _sync_model(model=model, catalog=catalog, now=now, summary=summary)
+                _sync_model(
+                    model=model, catalog=catalog, now=now if fixed_now else None, summary=summary
+                )
+        except SoftTimeLimitExceeded:
+            raise  # the run is out of time: stop, and let run_pricing_sync record the failure
         except Exception:
             logger.exception("ai_pricing.sync_model_failed model=%s", model)
             summary.errored.append(model)
@@ -257,8 +287,8 @@ def _run_locked(*, now: datetime, transport: httpx.BaseTransport | None) -> Sync
         last_summary=data,
         updated_at=now,
     )
-    if summary.added or summary.updated:
-        transaction.on_commit(invalidate_missing_pricing_cache)
+    # No cache invalidation here: every add_price call already drops the missing-pricing cache
+    # on commit, and added/updated only ever hold models add_price wrote.
     logger.info("ai_pricing.sync_completed %s", summary.counts())
     return summary
 
@@ -272,23 +302,34 @@ def run_pricing_sync(
     """Apply LiteLLM prices to ``AiPricing`` for recently used models.
 
     ``force`` runs even when the switch is off ("Sync Now"); the scheduled run passes False.
-    Never raises once the lock is held: an unexpected error is recorded as a failed run (the
-    status banner is the owner's signal; the task does not retry).
+    Never raises past the enabled check: a lock (Redis) error, an unexpected error, or the
+    Celery soft time limit (``SoftTimeLimitExceeded``, re-raised out of the per-model loop) is
+    recorded as a failed run and returned (the status banner is the owner's signal; the task
+    does not retry). Returning on the soft limit lets the task end cleanly before the hard limit.
     """
+    fixed_now = now is not None
     now = now or timezone.now()
     if not force:
         enabled = AiPricingSyncConfig.objects.filter(pk=1).values_list("enabled", flat=True)
         if not enabled.first():
             return SyncSummary(outcome=SyncOutcome.SKIPPED_DISABLED)
 
-    with distributed_lock(SYNC_LOCK_KEY, timeout=300) as acquired:
+    with contextlib.ExitStack() as stack:
+        try:
+            acquired = stack.enter_context(distributed_lock(SYNC_LOCK_KEY, timeout=300))
+        except Exception as exc:
+            logger.exception("ai_pricing.sync_lock_failed")
+            return _record_failure(
+                now=now, error=f"Could not acquire sync lock ({type(exc).__name__})."
+            )
         if not acquired:
             logger.info("ai_pricing.sync_skipped reason=locked")
             return SyncSummary(outcome=SyncOutcome.SKIPPED_LOCKED)
         try:
-            return _run_locked(now=now, transport=transport)
+            return _run_locked(now=now, fixed_now=fixed_now, transport=transport)
         except Exception as exc:
-            # Class name only: exception text may carry response or DB content.
+            # The stored/audited error carries the class name only (exception text may hold
+            # response or DB content); the full traceback goes to the server log only.
             logger.exception("ai_pricing.sync_crashed")
             return _record_failure(
                 now=now, error=f"Sync failed unexpectedly ({type(exc).__name__})"

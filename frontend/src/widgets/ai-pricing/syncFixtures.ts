@@ -15,6 +15,7 @@ export function syncStatus(over: Partial<SyncStatus> = {}): SyncStatus {
       unchanged: [],
       skipped_manual: [],
       skipped_scheduled: [],
+      skipped_concurrent: [],
       unpriced: [],
       errored: [],
     },

@@ -23,6 +23,8 @@ describe("syncStatusWord", () => {
     ).toBe("sync failed");
     expect(syncStatusWord(syncStatus({ enabled: true }), NOW)).toBe("not synced yet");
     expect(syncStatusWord(syncStatus({ enabled: false, last_status: "failed" }), NOW)).toBe("sync failed");
+    expect(syncStatusWord(syncStatus({ enabled: true, last_status: "running" }), NOW)).toBe("sync in progress");
+    expect(syncStatusWord(syncStatus({ enabled: false, last_status: "running" }), NOW)).toBe("sync in progress");
   });
 });
 

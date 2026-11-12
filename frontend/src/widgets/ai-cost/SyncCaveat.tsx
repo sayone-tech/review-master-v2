@@ -11,6 +11,7 @@ const utcDay = (d: Date) => Math.floor(d.getTime() / DAY_MS);
 /** Status word for the footer. A failed last run takes precedence, even when sync is off. */
 export function syncStatusWord(s: SyncStatus, now: Date = new Date()): string {
   if (s.last_status === "failed") return "sync failed";
+  if (s.last_status === "running") return "sync in progress";
   if (!s.enabled) return "sync off";
   if (!s.last_success_at) return "not synced yet";
   const days = utcDay(now) - utcDay(new Date(s.last_success_at));

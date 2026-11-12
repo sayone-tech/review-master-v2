@@ -33,6 +33,13 @@ def test_task_passes_force_to_service() -> None:
     assert result["outcome"] == "completed"
 
 
+def test_task_has_own_time_limits_below_the_lock_ttl() -> None:
+    assert sync_ai_pricing_from_litellm_task.soft_time_limit == 120
+    assert sync_ai_pricing_from_litellm_task.time_limit == 180
+    assert sync_ai_pricing_from_litellm_task.time_limit < 300  # SYNC lock TTL
+    assert not getattr(sync_ai_pricing_from_litellm_task, "autoretry_for", ())  # no autoretry
+
+
 def test_task_is_routed_to_default_queue_and_registered() -> None:
     from config.celery import app
 

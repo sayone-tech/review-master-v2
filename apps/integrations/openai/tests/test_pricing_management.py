@@ -19,6 +19,7 @@ from apps.integrations.openai.selectors.pricing import MISSING_CACHE_KEY
 from apps.integrations.openai.services.pricing_management import (
     BackdatedPriceError,
     ConcurrentPriceChangeError,
+    ManualPriceProtectedError,
     PriceNotScheduledError,
     ScheduledPriceExistsError,
     add_price,
@@ -241,4 +242,52 @@ def test_new_price_starting_at_or_before_current_start_rejected(actor, offset):
     cur.refresh_from_db()
     assert cur.effective_to is None
     assert AiPricing.objects.filter(model="m").count() == 1
+    assert not AuditLog.objects.exists()
+
+
+@pytest.mark.parametrize("source", [AiPricing.Source.SEED, AiPricing.Source.SYNC])
+def test_protect_manual_allows_replacing_non_manual_rows(source):
+    now = timezone.now()
+    AiPricingFactory(model="pm", source=source, effective_from=now - timedelta(days=1))
+    new = add_price(
+        model="pm",
+        input_token_price_per_1m=Decimal(1),
+        output_token_price_per_1m=Decimal(1),
+        cached_token_price_per_1m=Decimal(0),
+        effective_from=now,
+        actor=None,
+        source=AiPricing.Source.SYNC,
+        now=now,
+        protect_manual=True,
+    )
+    assert new.effective_to is None
+
+
+@pytest.mark.parametrize("protect", [True, False])
+def test_protect_manual_refuses_manual_open_row(protect):
+    now = timezone.now()
+    manual = AiPricingFactory(
+        model="pm", source=AiPricing.Source.MANUAL, effective_from=now - timedelta(days=1)
+    )
+    kwargs = {
+        "model": "pm",
+        "input_token_price_per_1m": Decimal(1),
+        "output_token_price_per_1m": Decimal(1),
+        "cached_token_price_per_1m": Decimal(0),
+        "effective_from": now,
+        "actor": None,
+        "source": AiPricing.Source.SYNC,
+        "now": now,
+        "protect_manual": protect,
+    }
+    if not protect:  # default: a hand-entered price may replace a manual one
+        add_price(**kwargs)
+        return
+    with pytest.raises(ManualPriceProtectedError) as info:
+        add_price(**kwargs)
+    assert info.value.code == "manual_price_protected"
+    assert info.value.current == manual
+    assert list(AiPricing.objects.filter(model="pm")) == [manual]
+    manual.refresh_from_db()
+    assert manual.effective_to is None
     assert not AuditLog.objects.exists()

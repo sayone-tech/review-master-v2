@@ -49,7 +49,8 @@ export interface MissingResponse {
   generated_at: string;
 }
 
-export type SyncRunStatus = "never" | "success" | "failed";
+/** "running" is only ever fresh: the API reports a run stuck for 15+ minutes as "failed". */
+export type SyncRunStatus = "never" | "running" | "success" | "failed";
 
 export interface PriceTriple {
   input: string;
@@ -77,6 +78,7 @@ export interface SyncStatus {
     unchanged: string[];
     skipped_manual: SkippedManual[];
     skipped_scheduled: string[];
+    skipped_concurrent: string[];
     unpriced: string[];
     errored: string[];
   };

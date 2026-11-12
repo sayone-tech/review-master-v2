@@ -239,6 +239,7 @@ SYNC_SUMMARY_LIST_KEYS = (
     "unchanged",
     "skipped_manual",
     "skipped_scheduled",
+    "skipped_concurrent",
     "unpriced",
     "errored",
 )
@@ -262,6 +263,7 @@ class SyncSummarySerializer(serializers.Serializer[Any]):
     unchanged = serializers.ListField(child=serializers.CharField())
     skipped_manual = SyncSkippedManualSerializer(many=True)
     skipped_scheduled = serializers.ListField(child=serializers.CharField())
+    skipped_concurrent = serializers.ListField(child=serializers.CharField())
     unpriced = serializers.ListField(child=serializers.CharField())
     errored = serializers.ListField(child=serializers.CharField())
 

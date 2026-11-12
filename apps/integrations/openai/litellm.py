@@ -11,6 +11,7 @@ import logging
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from django.conf import settings
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 _PER_1M = Decimal(1_000_000)
 _QUANT = Decimal("0.00000001")
+# The real catalog is ~1-2 MB; anything far larger is refused rather than buffered.
+MAX_RESPONSE_BYTES = 20 * 1024 * 1024
 
 
 class LiteLLMFetchError(Exception):
@@ -75,18 +78,27 @@ def fetch_litellm_catalog(
     transport: httpx.BaseTransport | None = None,
 ) -> LiteLLMCatalog:
     target = url or settings.AI_PRICING_SYNC_SOURCE_URL
+    if urlsplit(target).scheme != "https":
+        raise LiteLLMFetchError("LiteLLM URL must use https")
+    body = bytearray()
     try:
-        with httpx.Client(transport=transport, timeout=timeout) as client:
-            response = client.get(target)
+        with (
+            httpx.Client(transport=transport, timeout=timeout) as client,
+            client.stream("GET", target) as response,
+        ):
+            if response.status_code != 200:
+                raise LiteLLMFetchError(f"LiteLLM returned HTTP {response.status_code}")
+            for chunk in response.iter_bytes():
+                body.extend(chunk)
+                if len(body) > MAX_RESPONSE_BYTES:
+                    raise LiteLLMFetchError("LiteLLM response too large")
     except httpx.TimeoutException as exc:
         raise LiteLLMFetchError(f"LiteLLM request timed out after {timeout:g}s") from exc
     except httpx.HTTPError as exc:
         raise LiteLLMFetchError(f"Could not reach LiteLLM: {type(exc).__name__}") from exc
 
-    if response.status_code != 200:
-        raise LiteLLMFetchError(f"LiteLLM returned HTTP {response.status_code}")
     try:
-        payload = json.loads(response.content)
+        payload = json.loads(bytes(body))
     except ValueError as exc:
         raise LiteLLMFetchError("LiteLLM response was not valid JSON") from exc
     if not isinstance(payload, dict):

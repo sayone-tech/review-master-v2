@@ -141,3 +141,47 @@ def test_uses_configured_url_and_timeout(settings):
     fetch_litellm_catalog(transport=httpx.MockTransport(handler))
     assert seen["url"] == "https://example.test/prices.json"
     assert seen["timeout"]["read"] == 15.0
+
+
+@pytest.mark.parametrize(
+    "url", ["http://example.test/prices.json", "ftp://example.test/p", "example.test/p"]
+)
+def test_non_https_url_rejected_before_any_request(url):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={})
+
+    with pytest.raises(LiteLLMFetchError) as info:
+        fetch_litellm_catalog(url=url, transport=httpx.MockTransport(handler))
+    assert str(info.value) == "LiteLLM URL must use https"
+    assert calls == []
+
+
+def test_oversized_response_rejected(monkeypatch):
+    from apps.integrations.openai import litellm
+
+    monkeypatch.setattr(litellm, "MAX_RESPONSE_BYTES", 1024)
+    with pytest.raises(LiteLLMFetchError) as info:
+        fetch_litellm_catalog(transport=_transport(content=b"{" + b" " * 2048 + b"}"))
+    assert str(info.value) == "LiteLLM response too large"
+
+
+def test_response_at_the_cap_is_accepted(monkeypatch):
+    from apps.integrations.openai import litellm
+
+    body = b'{"m": {"input_cost_per_token": 1e-7, "output_cost_per_token": 2e-7}}'
+    monkeypatch.setattr(litellm, "MAX_RESPONSE_BYTES", len(body))
+    catalog = fetch_litellm_catalog(transport=_transport(content=body))
+    assert set(catalog.prices) == {"m"}
+
+
+def test_default_cap_is_20_mb():
+    from apps.integrations.openai import litellm
+
+    assert litellm.MAX_RESPONSE_BYTES == 20 * 1024 * 1024
+
+
+def test_test_settings_point_at_an_unroutable_host(settings):
+    assert settings.AI_PRICING_SYNC_SOURCE_URL == "https://litellm.invalid/prices.json"

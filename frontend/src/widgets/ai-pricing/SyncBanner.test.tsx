@@ -66,6 +66,36 @@ describe("SyncBanner", () => {
     expect(screen.getByText(/Nov 12, 2026 at 09:00 UTC/)).toBeInTheDocument();
   });
 
+  it("a fresh running sync shows a neutral in-progress state and keeps Sync Now", async () => {
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(
+      syncStatus({ enabled: true, overdue: true, last_status: "running", last_run_at: "2026-11-12T09:00:03Z" }),
+    );
+    render(<SyncBanner onChanged={vi.fn()} />);
+    expect(await screen.findByText("Sync in progress…")).toBeInTheDocument();
+    const banner = screen.getByTestId("sync-banner");
+    expect(banner.className).toContain("bg-line-soft");
+    expect(banner.className).not.toContain("amber");
+    expect(screen.queryByText(/Click to view details/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sync Now" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Disable sync" })).toBeInTheDocument();
+  });
+
+  it("details modal lists models skipped because of a concurrent price change", async () => {
+    const base = syncStatus().summary;
+    vi.mocked(api.fetchSyncStatus).mockResolvedValue(
+      syncStatus({
+        enabled: true,
+        last_status: "failed",
+        last_error: "boom",
+        summary: { ...base, skipped_concurrent: ["m-a", "m-b"] },
+      }),
+    );
+    render(<SyncBanner onChanged={vi.fn()} />);
+    await userEvent.click(await screen.findByRole("button", { name: /Last sync failed/ }));
+    const line = screen.getByTestId("sync-skipped-concurrent");
+    expect(line).toHaveTextContent("Skipped because the price changed at the same time: m-a, m-b. The next sync will retry.");
+  });
+
   it("overdue without failure shows the 14-day copy and 'No error recorded.'", async () => {
     vi.mocked(api.fetchSyncStatus).mockResolvedValue(
       syncStatus({ enabled: true, overdue: true, last_status: "success", last_success_at: "2026-10-01T09:00:00Z" }),

@@ -63,6 +63,17 @@ class ConcurrentPriceChangeError(PricingError):
     )
 
 
+class ManualPriceProtectedError(PricingError):
+    """Raised (only with ``protect_manual=True``) when the locked open row was set by hand."""
+
+    code = "manual_price_protected"
+    detail = "The current price was set by hand; automatic updates never replace it."
+
+    def __init__(self, current: AiPricing) -> None:
+        super().__init__()
+        self.current = current
+
+
 def _price(value: Decimal) -> str:
     return str(Decimal(value).quantize(Decimal("0.00000001")))
 
@@ -91,11 +102,15 @@ def add_price(
     source: str = AiPricing.Source.MANUAL,
     now: datetime | None = None,
     audit_action: str = "ai_pricing.added",
+    protect_manual: bool = False,
 ) -> AiPricing:
     """Add a price starting at ``effective_from``, closing the model's open row at that instant.
 
     Raises ``BackdatedPriceError``, ``ScheduledPriceExistsError`` (a not-yet-started price is
     already queued) or ``ConcurrentPriceChangeError`` (the one-open-row constraint tripped).
+    With ``protect_manual=True`` (the LiteLLM sync) it also raises ``ManualPriceProtectedError``
+    when the open row, re-read under the row lock, has ``source="manual"``; this closes the race
+    where a hand-set price lands between the sync's unlocked check and this write.
     """
     model = model.strip()
     if not model:
@@ -109,6 +124,8 @@ def add_price(
         raise BackdatedPriceError
     if open_row is not None and open_row.effective_from > now:
         raise ScheduledPriceExistsError
+    if protect_manual and open_row is not None and open_row.source == AiPricing.Source.MANUAL:
+        raise ManualPriceProtectedError(open_row)
     if open_row is not None and effective_from <= open_row.effective_from:
         # Inside the 5 s grace a new price could otherwise close the open row at or before
         # its own start, leaving a zero/negative-length window.
