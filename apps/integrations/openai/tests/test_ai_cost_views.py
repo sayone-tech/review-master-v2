@@ -87,7 +87,7 @@ def test_summary_shape_and_values(superadmin_client):
         "org_count",
         "active_shops",
     }
-    assert body["totals"]["cost"] == "1.000000"
+    assert body["totals"]["cost"] == "1.00000000"
     assert body["totals"]["calls"] == 2
     assert body["totals"]["failed_calls"] == 1
     assert body["totals"]["org_count"] == 1
@@ -96,7 +96,7 @@ def test_summary_shape_and_values(superadmin_client):
 def test_summary_has_any_usage_false_when_empty(superadmin_client):
     body = superadmin_client.get(SUMMARY_URL).json()
     assert body["has_any_usage"] is False
-    assert body["totals"]["cost"] == "0.000000"
+    assert body["totals"]["cost"] == "0.00000000"
 
 
 def test_bad_range_returns_400(superadmin_client):
@@ -126,8 +126,8 @@ def test_org_list_includes_request_type_badges_and_paginates(superadmin_client):
     assert "generated_at" in body
     first = body["results"][0]
     assert first["name"] == "Big Org"
-    assert first["cost"] == "7.500000"
-    assert first["by_request_type"] == {"enrichment": "5.000000", "reply": "2.500000"}
+    assert first["cost"] == "7.50000000"
+    assert first["by_request_type"] == {"enrichment": "5.00000000", "reply": "2.50000000"}
     assert set(first) == {
         "organisation_id",
         "name",
@@ -249,7 +249,7 @@ def test_org_summary_shape_and_shop_count(superadmin_client):
     }
     assert body["range"]["key"] == "this_month"
     assert body["generated_at"].endswith("Z")
-    assert body["totals"]["cost"] == "2.000000"
+    assert body["totals"]["cost"] == "2.00000000"
     assert body["totals"]["calls"] == 1
     assert body["totals"]["active_shops"] == 1
 
@@ -276,13 +276,13 @@ def test_shops_endpoint_returns_unattributed_block(superadmin_client):
     }
     assert row["shop_id"] == shop.id
     assert row["name"] == "High St"
-    assert row["cost"] == "4.000000"
-    assert row["by_request_type"] == {"enrichment": "3.000000", "reply": "1.000000"}
+    assert row["cost"] == "4.00000000"
+    assert row["by_request_type"] == {"enrichment": "3.00000000", "reply": "1.00000000"}
     un = body["unattributed"]
     assert set(un) == {"calls", "input_tokens", "output_tokens", "cost", "by_request_type"}
     assert un["calls"] == 1
-    assert un["cost"] == "0.500000"
-    assert un["by_request_type"] == {"enrichment": "0.500000"}
+    assert un["cost"] == "0.50000000"
+    assert un["by_request_type"] == {"enrichment": "0.50000000"}
 
 
 def test_shops_endpoint_unattributed_null_when_none_and_bad_sort_400(superadmin_client):
@@ -298,9 +298,9 @@ def test_shops_endpoint_sorts_and_paginates(superadmin_client):
     for i in range(1, 4):
         _shop_log(org, ShopFactory(organisation=org), estimated_cost_usd=Decimal(i))
     body = superadmin_client.get(org_shops_url(org.id), {"page_size": 10}).json()
-    assert [r["cost"] for r in body["results"]] == ["3.000000", "2.000000", "1.000000"]
+    assert [r["cost"] for r in body["results"]] == ["3.00000000", "2.00000000", "1.00000000"]
     asc = superadmin_client.get(org_shops_url(org.id), {"sort": "cost", "page_size": 10}).json()
-    assert asc["results"][0]["cost"] == "1.000000"
+    assert asc["results"][0]["cost"] == "1.00000000"
 
 
 def test_models_endpoint_sorted_by_cost(superadmin_client):
@@ -312,7 +312,7 @@ def test_models_endpoint_sorted_by_cost(superadmin_client):
     assert set(body) == {"results", "generated_at"}
     assert [r["model"] for r in body["results"]] == ["big", "small"]
     assert set(body["results"][0]) == {"model", "calls", "input_tokens", "output_tokens", "cost"}
-    assert body["results"][0]["cost"] == "4.000000"
+    assert body["results"][0]["cost"] == "4.00000000"
 
 
 @pytest.mark.parametrize("factory", [OrgAdminFactory, StaffAdminFactory])
@@ -389,16 +389,16 @@ def test_drilldown_cache_is_keyed_per_org(superadmin_client):
     for _ in range(2):  # second round is served from cache
         a = superadmin_client.get(org_summary_url(org_a.id)).json()
         b = superadmin_client.get(org_summary_url(org_b.id)).json()
-        assert (a["organisation"]["id"], a["totals"]["cost"]) == (org_a.id, "1.000000")
-        assert (b["organisation"]["id"], b["totals"]["cost"]) == (org_b.id, "10.000000")
+        assert (a["organisation"]["id"], a["totals"]["cost"]) == (org_a.id, "1.00000000")
+        assert (b["organisation"]["id"], b["totals"]["cost"]) == (org_b.id, "10.00000000")
         shops_a = superadmin_client.get(org_shops_url(org_a.id)).json()["results"]
         shops_b = superadmin_client.get(org_shops_url(org_b.id)).json()["results"]
-        assert [r["cost"] for r in shops_a] == ["1.000000"]
-        assert [r["cost"] for r in shops_b] == ["7.000000"]
+        assert [r["cost"] for r in shops_a] == ["1.00000000"]
+        assert [r["cost"] for r in shops_b] == ["7.00000000"]
         models_a = superadmin_client.get(org_models_url(org_a.id)).json()["results"]
         models_b = superadmin_client.get(org_models_url(org_b.id)).json()["results"]
-        assert [m["cost"] for m in models_a] == ["1.000000"]
-        assert [m["cost"] for m in models_b] == ["7.000000", "3.000000"]
+        assert [m["cost"] for m in models_a] == ["1.00000000"]
+        assert [m["cost"] for m in models_b] == ["7.00000000", "3.00000000"]
 
 
 def test_list_cache_is_keyed_per_page(superadmin_client):
@@ -428,11 +428,11 @@ def test_cache_is_keyed_per_range(superadmin_client):
         for url in (SUMMARY_URL, org_summary_url(org.id)):
             week = superadmin_client.get(url, {"range": "7d"}).json()["totals"]["cost"]
             month = superadmin_client.get(url, {"range": "30d"}).json()["totals"]["cost"]
-            assert (week, month) == ("1.000000", "5.000000")
+            assert (week, month) == ("1.00000000", "5.00000000")
         orgs_7 = superadmin_client.get(ORGS_URL, {"range": "7d"}).json()["results"]
         orgs_30 = superadmin_client.get(ORGS_URL, {"range": "30d"}).json()["results"]
-        assert [r["cost"] for r in orgs_7] == ["1.000000"]
-        assert [r["cost"] for r in orgs_30] == ["5.000000"]
+        assert [r["cost"] for r in orgs_7] == ["1.00000000"]
+        assert [r["cost"] for r in orgs_30] == ["5.00000000"]
         shops_7 = superadmin_client.get(org_shops_url(org.id), {"range": "7d"}).json()
         shops_30 = superadmin_client.get(org_shops_url(org.id), {"range": "30d"}).json()
         assert shops_7["count"] == 1

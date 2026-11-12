@@ -14,8 +14,8 @@ describe("ModelTable", () => {
     );
     const rows = screen.getAllByRole("row").slice(1);
     expect(rows[0]).toHaveTextContent("big-model");
-    expect(rows[0]).toHaveTextContent("$4.00");
+    expect(rows[0]).toHaveTextContent("$4.00000000");
     expect(rows[1]).toHaveTextContent("small-model");
-    expect(rows[1]).toHaveTextContent("$0.25");
+    expect(rows[1]).toHaveTextContent("$0.25000000");
   });
 });

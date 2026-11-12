@@ -17,7 +17,7 @@ from apps.integrations.openai.services.pricing_management import MAX_PRICE_PER_1
 
 
 def cost_field() -> serializers.DecimalField:
-    return serializers.DecimalField(max_digits=20, decimal_places=6)
+    return serializers.DecimalField(max_digits=20, decimal_places=8)
 
 
 class CostWindowSerializer(serializers.Serializer[Any]):

@@ -99,6 +99,12 @@ def test_summary_cost_is_quantized(db):
     assert get_cost_summary(window=W)["cost"] == Decimal("0.300000")
 
 
+def test_summary_cost_keeps_eight_decimal_places(db):
+    AiUsageLogFactory(estimated_cost_usd=Decimal("0.000195"), created_at=IN)
+    cost = get_cost_summary(window=W)["cost"]
+    assert str(cost) == "0.00019500"
+
+
 def test_org_list_excludes_inactive_orgs_and_sorts_by_cost_desc(db):
     org_a, org_b, org_c = OrganisationFactory(), OrganisationFactory(), OrganisationFactory()
     AiUsageLogFactory(organisation=org_a, estimated_cost_usd=Decimal("2.00"), created_at=IN)
@@ -213,7 +219,7 @@ def test_shop_list_groups_by_shop_and_sorts_by_cost(db):
 
 
 def quantize(v):
-    return Decimal(v).quantize(Decimal("0.000001"))
+    return Decimal(v).quantize(Decimal("0.00000001"))
 
 
 def test_shop_list_scoped_to_org(db):

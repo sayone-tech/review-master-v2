@@ -1,8 +1,8 @@
 const costFmt = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  minimumFractionDigits: 8,
+  maximumFractionDigits: 8,
 });
 const countFmt = new Intl.NumberFormat("en-US");
 

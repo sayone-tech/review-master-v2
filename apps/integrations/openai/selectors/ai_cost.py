@@ -24,7 +24,7 @@ from apps.integrations.openai.cost_window import CostWindow
 from apps.integrations.openai.models import AiUsageLog
 from apps.organisations.models import Organisation
 
-COST_QUANT = Decimal("0.000001")
+COST_QUANT = Decimal("0.00000001")
 SUCCESS = Q(status=AiUsageLog.Status.SUCCESS)
 
 # API sort key -> annotation name on the org-list rows.

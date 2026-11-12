@@ -34,7 +34,7 @@ describe("ShopTable", () => {
     expect(within(last).getByText(UNATTRIBUTED_HINT)).toHaveClass("sr-only");
     expect(within(last).queryByRole("link")).toBeNull();
     expect(within(last).queryByText("North")).toBeNull();
-    expect(within(last).getAllByText("$0.50").length).toBeGreaterThan(0);
+    expect(within(last).getAllByText("$0.50000000").length).toBeGreaterThan(0);
   });
 
   it("renders no Unattributed row when null", () => {

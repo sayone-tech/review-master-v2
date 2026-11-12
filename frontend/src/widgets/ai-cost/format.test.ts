@@ -9,9 +9,10 @@ import {
 } from "./format";
 
 describe("format", () => {
-  it("formats cost with separators and 2dp", () => {
-    expect(formatCost("1245.670000")).toBe("$1,245.67");
-    expect(formatCost("0.000195")).toBe("$0.00");
+  it("formats cost with separators and 8dp", () => {
+    expect(formatCost("1245.67000000")).toBe("$1,245.67000000");
+    expect(formatCost("0.00019500")).toBe("$0.00019500");
+    expect(formatCost("0.00000000")).toBe("$0.00000000");
   });
   it("abbreviates tokens", () => {
     expect(formatTokens(12_400_000)).toBe("12.4M");
