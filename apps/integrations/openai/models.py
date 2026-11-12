@@ -152,6 +152,7 @@ class AiPricingSyncConfig(models.Model):
 
     class Status(models.TextChoices):
         NEVER = "never", "Never run"
+        RUNNING = "running", "Running"
         SUCCESS = "success", "Success"
         FAILED = "failed", "Failed"
 

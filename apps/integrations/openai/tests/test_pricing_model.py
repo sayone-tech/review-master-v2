@@ -97,6 +97,53 @@ def test_backfill_marks_only_the_0002_seed_row_as_seed():
     assert same_model_later.source == AiPricing.Source.MANUAL
 
 
+def test_0008_marks_hand_entered_seed_rows_manual_and_is_idempotent():
+    migration = importlib.import_module(
+        "apps.integrations.openai.migrations.0008_backfill_hand_entered_prices_manual"
+    )
+    seed = AiPricing.objects.get(
+        model=migration.SEED_MODEL, effective_from=migration.SEED_EFFECTIVE_FROM
+    )
+    assert seed.source == AiPricing.Source.SEED
+    old_0005_leftover = AiPricingFactory(model="legacy", source="seed")
+    same_model_later = AiPricingFactory(
+        model=migration.SEED_MODEL,
+        effective_from=migration.SEED_EFFECTIVE_FROM + timedelta(days=1),
+        effective_to=migration.SEED_EFFECTIVE_FROM + timedelta(days=2),
+        source="seed",
+    )
+    synced = AiPricingFactory(model="synced", source="sync")
+    manual = AiPricingFactory(model="hand", source="manual")
+    for _ in range(2):  # idempotent
+        migration.backfill_hand_entered_manual(django_apps, None)
+        rows = {
+            r.pk: r.source
+            for r in AiPricing.objects.filter(
+                pk__in=[seed.pk, old_0005_leftover.pk, same_model_later.pk, synced.pk, manual.pk]
+            )
+        }
+        assert rows == {
+            seed.pk: "seed",
+            old_0005_leftover.pk: "manual",
+            same_model_later.pk: "manual",
+            synced.pk: "sync",
+            manual.pk: "manual",
+        }
+
+
+def test_0008_seed_identity_matches_0002():
+    m0002 = importlib.import_module(
+        "apps.integrations.openai.migrations.0002_seed_aiprice_gpt4o_mini"
+    )
+    m0008 = importlib.import_module(
+        "apps.integrations.openai.migrations.0008_backfill_hand_entered_prices_manual"
+    )
+    assert (m0008.SEED_MODEL, m0008.SEED_EFFECTIVE_FROM) == (
+        m0002.GPT4O_MINI_MODEL,
+        m0002.EFFECTIVE_FROM,
+    )
+
+
 def test_calculate_cost_unchanged_with_scheduled_row():
     now = timezone.now()
     AiPricingFactory(
