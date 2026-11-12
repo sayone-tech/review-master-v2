@@ -217,26 +217,26 @@ function PermissionNote() {
     <div
       id="oauth-permission-note"
       data-testid="oauth-permission-note"
-      className="max-w-[420px] w-full rounded-md border border-line bg-line-soft px-3.5 py-3 text-left text-[13px] text-muted"
+      className="max-w-[520px] w-full rounded-lg border border-line bg-line-soft px-5 py-4 text-left text-[14.5px] leading-relaxed text-muted"
     >
-      <p className="flex items-start gap-1.5 font-semibold text-ink">
-        <Lock size={14} aria-hidden="true" className="mt-[2px] shrink-0" />
+      <p className="flex items-start gap-2 text-[15px] font-semibold text-ink">
+        <Lock size={16} aria-hidden="true" className="mt-[3px] shrink-0" />
         Google will ask for access to manage your Business Profile.
       </p>
-      <p className="mt-1">
+      <p className="mt-2">
         That&apos;s the only permission Google offers for reviews. Here&apos;s all we use it for:
       </p>
-      <ul className="mt-1.5 space-y-1">
-        <li className="flex items-start gap-1.5">
-          <Check size={14} aria-hidden="true" className="mt-[2px] shrink-0" />
+      <ul className="mt-2 space-y-1.5">
+        <li className="flex items-start gap-2">
+          <Check size={16} aria-hidden="true" className="mt-[3px] shrink-0 text-green" />
           Read your reviews and your list of locations
         </li>
-        <li className="flex items-start gap-1.5">
-          <Check size={14} aria-hidden="true" className="mt-[2px] shrink-0" />
+        <li className="flex items-start gap-2">
+          <Check size={16} aria-hidden="true" className="mt-[3px] shrink-0 text-green" />
           Post, edit or delete replies, only when you choose to
         </li>
       </ul>
-      <p className="mt-1.5">We never change your business details, hours, photos or ownership.</p>
+      <p className="mt-2">We never change your business details, hours, photos or ownership.</p>
     </div>
   );
 }
