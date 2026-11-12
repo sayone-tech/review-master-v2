@@ -1,7 +1,9 @@
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 env = environ.Env()
@@ -137,6 +139,8 @@ CELERY_TASK_ROUTES = {
     "apps.credits.tasks.lapse_expired_credit_balances_task": {"queue": "default"},
     # Phase 31 CREN-03 — reservation reaper (every 10 minutes).
     "apps.credits.tasks.reap_stale_reservations_task": {"queue": "default"},
+    # Phase 36 — weekly LiteLLM AI pricing sync (Monday 09:00 UTC).
+    "apps.integrations.openai.tasks.sync_ai_pricing_from_litellm_task": {"queue": "default"},
 }
 CELERY_TASK_TIME_LIMIT = 600  # 10-minute hard limit
 CELERY_TASK_SOFT_TIME_LIMIT = 300  # 5-minute soft limit
@@ -173,6 +177,36 @@ OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini-2024-07-18")
 OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
 # Input cap for review text fed to OpenAI (D-21).
 OPENAI_REVIEW_TEXT_MAX_CHARS = env.int("OPENAI_REVIEW_TEXT_MAX_CHARS", default=4000)
+
+# Superadmin AI Pricing page (Phase 35): missing-price gap detection.
+AI_PRICING_LOOKBACK_DAYS = env.int("AI_PRICING_LOOKBACK_DAYS", default=90)
+AI_PRICING_KNOWN_FREE_MODELS = env.list(
+    "AI_PRICING_KNOWN_FREE_MODELS",
+    default=["omni-moderation-latest", "text-moderation-latest", "text-moderation-stable"],
+)
+AI_PRICING_MISSING_CACHE_TTL_SECONDS = env.int("AI_PRICING_MISSING_CACHE_TTL_SECONDS", default=600)
+# Phase 36: LiteLLM price auto-sync. The on/off switch lives in the DB, not here.
+AI_PRICING_SYNC_SOURCE_URL = env(
+    "AI_PRICING_SYNC_SOURCE_URL",
+    default=(
+        "https://raw.githubusercontent.com/BerriAI/litellm/main/"
+        "model_prices_and_context_window.json"
+    ),
+)
+
+
+def parse_non_negative_decimal(name: str, raw: str) -> Decimal:
+    """Parse a Decimal setting; a negative value would silently mark every price as drifted."""
+    value = Decimal(raw)
+    if value < 0:
+        raise ImproperlyConfigured(f"{name} must be >= 0 (got {raw}).")
+    return value
+
+
+AI_PRICING_SYNC_TOLERANCE_USD_PER_1M = parse_non_negative_decimal(
+    "AI_PRICING_SYNC_TOLERANCE_USD_PER_1M",
+    env("AI_PRICING_SYNC_TOLERANCE_USD_PER_1M", default="0.000001"),
+)
 
 LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
 LANGSMITH_ENDPOINT = env("LANGSMITH_ENDPOINT", default="https://api.smith.langchain.com")
@@ -436,6 +470,11 @@ REST_FRAMEWORK = {
         "credit_cost": "120/minute",
         # Phase 32: Superadmin credit endpoints (shop list read, bonus write).
         "superadmin_credits_read": "120/minute",
+        "superadmin_ai_cost_read": "120/minute",
+        "superadmin_ai_pricing_read": "120/minute",
+        "superadmin_ai_pricing_write": "30/minute",
+        "superadmin_ai_pricing_refresh": "1/minute",
+        "superadmin_ai_pricing_sync_trigger": "1/15m",
         "superadmin_credits_write": "30/minute",
         # Phase 33: Org Admin / Staff shop credits card read (CVIS-01).
         "shop_credits": "120/minute",

@@ -34,6 +34,8 @@ export default defineConfig({
         reports: resolve(__dirname, "src/entrypoints/reports.tsx"),
         "audit-log": resolve(__dirname, "src/entrypoints/audit-log.tsx"),
         "tag-management": resolve(__dirname, "src/entrypoints/tag-management.tsx"),
+        "ai-cost-explorer": resolve(__dirname, "src/entrypoints/ai-cost-explorer.tsx"),
+        "ai-pricing": resolve(__dirname, "src/entrypoints/ai-pricing.tsx"),
       },
     },
   },

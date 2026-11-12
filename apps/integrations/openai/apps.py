@@ -22,3 +22,5 @@ class OpenaiConfig(AppConfig):
         from apps.integrations.openai.tracing import configure_langsmith
 
         configure_langsmith()
+
+        from apps.integrations.openai import checks

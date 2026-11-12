@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}AI Cost Explorer — Review Bear{% endblock %}
+
+{% block content %}
+  <div class="max-w-[1200px] mx-auto">
+    <div id="ai-cost-root" data-org-id="{{ org_id|default:'' }}" data-org-name="{{ org_name }}"></div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/ai-cost-explorer.tsx' %}
+{% endblock %}

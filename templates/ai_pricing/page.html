@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}AI Pricing — Review Bear{% endblock %}
+
+{% block content %}
+  <div class="max-w-[1200px] mx-auto">
+    <div id="ai-pricing-root"></div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/ai-pricing.tsx' %}
+{% endblock %}

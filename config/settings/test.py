@@ -81,3 +81,7 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels.layers.InMemoryChannelLayer",
     },
 }
+
+# LiteLLM pricing sync — unroutable host (.invalid never resolves) as a network backstop:
+# tests always inject an httpx MockTransport. See CLAUDE.md §14.10 / §16.
+AI_PRICING_SYNC_SOURCE_URL = "https://litellm.invalid/prices.json"
