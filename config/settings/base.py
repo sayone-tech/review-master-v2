@@ -436,6 +436,7 @@ REST_FRAMEWORK = {
         "credit_cost": "120/minute",
         # Phase 32: Superadmin credit endpoints (shop list read, bonus write).
         "superadmin_credits_read": "120/minute",
+        "superadmin_ai_cost_read": "120/minute",
         "superadmin_credits_write": "30/minute",
         # Phase 33: Org Admin / Staff shop credits card read (CVIS-01).
         "shop_credits": "120/minute",
