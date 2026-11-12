@@ -51,6 +51,8 @@ class AuditLog(TimeStampedModel):
         on_delete=models.CASCADE,
         related_name="audit_logs",
         db_index=True,
+        null=True,
+        blank=True,
     )
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,

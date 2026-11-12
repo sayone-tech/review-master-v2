@@ -8,31 +8,56 @@ Per CLAUDE.md §14.3 and §14.4:
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from typing import ClassVar
 
+from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
+
+from apps.common.models import AuditLog
 
 
 class AiPricingQuerySet(models.QuerySet["AiPricing"]):
-    def get_active(self, *, model: str) -> AiPricing:
-        """Return the active pricing row for a model.
+    def active_at(self, at: datetime) -> AiPricingQuerySet:
+        """Rows whose window covers ``at``: effective_from <= at < coalesce(effective_to, inf)."""
+        return self.filter(Q(effective_to__isnull=True) | Q(effective_to__gt=at)).filter(
+            effective_from__lte=at
+        )
 
-        Active = effective_to IS NULL. There must be exactly one active row
-        per model at any time (the seed migration enforces this; admin actions
-        that close one row and open another must use select_for_update).
+    def get_active(self, *, model: str, at: datetime | None = None) -> AiPricing:
+        """Return the pricing row for ``model`` that is active at ``at`` (default: now).
+
+        Time-window lookup, so a scheduled (future) row never prices current
+        usage. Raises ``AiPricing.DoesNotExist`` when no row covers the time.
         """
-        return self.get(model=model, effective_to__isnull=True)
+        return self.active_at(at or timezone.now()).get(model=model)
 
 
 class AiPricing(models.Model):
+    class Source(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        SYNC = "sync", "Sync"
+        SEED = "seed", "Seed"
+
     model = models.CharField(max_length=100)
     input_token_price_per_1m = models.DecimalField(max_digits=12, decimal_places=8)
     output_token_price_per_1m = models.DecimalField(max_digits=12, decimal_places=8)
     cached_token_price_per_1m = models.DecimalField(max_digits=12, decimal_places=8)
     effective_from = models.DateTimeField()
     effective_to = models.DateTimeField(null=True, blank=True)
+    source = models.CharField(
+        max_length=10, choices=Source.choices, default=Source.MANUAL, db_index=False
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
 
     objects: ClassVar[AiPricingQuerySet] = AiPricingQuerySet.as_manager()  # type: ignore[assignment]
 
@@ -42,6 +67,11 @@ class AiPricing(models.Model):
             models.UniqueConstraint(
                 fields=["model", "effective_from"],
                 name="ai_pricing_model_from_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["model"],
+                condition=Q(effective_to__isnull=True),
+                name="ai_pricing_one_open_row_per_model",
             ),
         ]
         indexes: ClassVar[list[models.Index]] = [
@@ -104,3 +134,12 @@ class AiUsageLog(models.Model):
 
     def __str__(self) -> str:
         return f"AiUsageLog(model={self.model}, status={self.status})"
+
+
+class PlatformAuditLog(AuditLog):
+    """Proxy exposing platform-level (organisation NULL) pricing audit rows in admin."""
+
+    class Meta:
+        proxy = True
+        app_label = "openai"
+        verbose_name = "platform audit log"
