@@ -19,9 +19,18 @@
 > become reliable. Tag `web-beta-1` still points at the v0.7 release for
 > rollback / reference.
 
+## In Progress
+
+- 🚧 **v0.10 — AI Cost & Pricing (Superadmin)** — Phases 34–36, planned
+  with superpowers (not GSD). Requirements: `.planning/REQUIREMENTS.md`.
+  Design: `docs/superpowers/specs/2026-11-12-ai-cost-and-pricing-design.md`.
+  - [ ] Phase 34: AI Cost Explorer (COST-01..07)
+  - [ ] Phase 35: AI Pricing Page + Gap Detection (PRICE-01..06, GAP-01..02)
+  - [ ] Phase 36: LiteLLM Auto-Sync (SYNC-01..04)
+
 ## Next Up
 
-- 📱 **Mobile app** — next milestone after v0.9; scope, requirements and
+- 📱 **Mobile app** — after v0.10; scope, requirements and
   roadmap to be defined with `/gsd-new-milestone`.
 
 ## Phases
