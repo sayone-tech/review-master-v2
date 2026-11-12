@@ -90,6 +90,47 @@ A living document updated after each milestone. Lessons feed forward into future
 
 ---
 
+## Milestone: v0.9 — AI Reply Credits
+
+**Shipped:** 2026-11-12
+**Phases:** 5 (29–33) | **Plans:** 23 | **Tasks:** 45 | **PR:** #54 (191 commits, 274 files, +41,395/−1,790)
+
+### What Was Built
+
+- `apps/credits`: per-shop monthly balances created lazily, an append-only ledger, a pure tiered cost function and never-writing virtual-balance selectors
+- Metered AI reply generation: row-locked reserve → OpenAI outside any transaction → status-CAS commit or refund, with 402/400/409 gates and a cost endpoint
+- Daily lapse and 10-minute reservation reaper on Celery Beat, both idempotent
+- Superadmin monthly allocation (0 → N immediate, N → M next month) and current-month shop bonus credits
+- Credit visibility on Shop Details, the Shops list and the composer; Buy More mailto modal; Activity Log credit and AI-reply events; Staff scoping on the Shops list, shop retrieve and every credit endpoint
+
+### What Worked
+
+- Real-PostgreSQL race tests in a dedicated `backend-pg` CI job. They found a genuine deadlock (FOR UPDATE vs a concurrent balance insert, fixed with FOR NO KEY UPDATE) that SQLite tests could never show
+- A per-phase `tenant-security-auditor` pass on every scoping change; each review returned concrete, cheap fixes (tone-only Staff payload, cross-tenant filter tests)
+- Writing the regression test first for the Activity Log date bug reproduced the exact user report before the fix
+- Requirements-first discipline held even for small UI copy changes (SHOP-22/23, CVIS-06/07 logged before building)
+
+### What Was Inefficient
+
+- UAT was recorded as "human needed" for every phase and never closed in GSD, so the milestone closed as an override after manual verification
+- Several user-visible gaps (no "AI reply generated" event, Superadmin names shown to tenants, date filter excluding the end day) were only found in manual testing after Phase 33 was marked done
+- A research decision (accept Superadmin names in the Org Admin log) was later reversed by the user; product-facing privacy calls belong in discuss-phase, not research
+- `UserFactory` defaults to SUPERADMIN, so one older test was silently exercising the wrong role
+
+### Patterns Established
+
+- Org-only audit filter constants kept separate from the filter shared with Staff (`CREDIT_AUDIT_FILTER` vs `AUDIT_ENTITY_FILTER`)
+- Staff-visible audit payloads hold an explicit allowlist (tone only) and are pinned by an API-level test
+- Platform staff are rendered to tenants as a generic actor ("ReviewBee Admin") with ids hidden and unprobeable
+- Additive response fields with a frontend fallback (`total` on credit-cost) so older responses keep working
+
+### Key Lessons
+
+1. Walk the end-user flows (Activity Log, composer copy, filters) before marking a UI phase complete; the auditors check correctness, not whether the result makes sense to a user
+2. Close UAT in GSD as part of manual verification so milestones can close cleanly instead of by override
+3. Decide any tenant-visible identity or privacy question with the user up front
+4. Factory defaults matter: make role explicit in tests that are about roles
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -99,6 +140,7 @@ A living document updated after each milestone. Lessons feed forward into future
 | v1.0 | 5 | 24 | Initial GSD workflow established |
 | v0.2-org-admin | 4 | 17 | TenantScopedViewSet base established; React CustomEvent bus pattern for modals |
 | v0.3 | 4 | 37 | Celery/Channels infra; AI pipeline; on_commit dispatch pattern; CustomEvent inter-root bridge |
+| v0.9 | 5 | 23 | Real-PostgreSQL concurrency CI job; per-phase tenant/ORM auditors; override closeout after manual verification |
 
 ### Cumulative Quality
 
@@ -107,6 +149,7 @@ A living document updated after each milestone. Lessons feed forward into future
 | v1.0 | ~200 | 52/52 | Superadmin control plane |
 | v0.2-org-admin | 438 | 57/57 | Org Admin operational layer |
 | v0.3 | TBD | 77/77 | Reviews, AI enrichment, Action Items, notifications |
+| v0.9 | backend suite + 360 frontend | 29/29 | AI reply credits; CI green incl. `backend-pg` |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -115,3 +158,4 @@ A living document updated after each milestone. Lessons feed forward into future
 3. GSD disk artifacts (PLAN.md, SUMMARY.md) must be created for every plan regardless of execution style
 4. Requirement checkbox state drifts — verify against implementation at each phase summary, not only at milestone end
 5. Side-effect dispatch (notifications, events) must use `transaction.on_commit` — signals fire pre-commit and create phantom rows on rollback
+6. Concurrency claims need real-PostgreSQL tests in CI; SQLite hides lock ordering and deadlocks (v0.9)
