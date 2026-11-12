@@ -15,7 +15,7 @@ created: "2026-11-11"
 **Scope (Org Admin + Staff surfaces; the same components, no role branching, D-10):**
 1. "AI Reply Credits" card at the top of Shop Details (CVIS-01, D-09..D-12)
 2. Credits badge column on every Shops-list row (CVIS-02, D-01..D-04)
-3. Reply composer: credits line, "Generate with AI · N credits" button, per-tone cost, disabled states, 402 handling (CVIS-03, D-05..D-08)
+3. Reply composer: credits line, "Generate with AI (requires N credits)" button, per-tone cost, disabled states, 402 handling (CVIS-03, D-05..D-08)
 4. Buy More Credits modal, opened from surfaces 1 and 3 (the badge reaches it via the card, D-01) (CVIS-04, D-13..D-16)
 5. Activity Log: presentation of credit events for Org Admin (CVIS-05) — type pill, action labels, and the shop name on shop-entity credit rows (user-confirmed)
 6. Staff Shops-list empty state, a consequence of `list_shops` Staff scoping (SCOPE-01)
@@ -173,7 +173,7 @@ Title Case for buttons and titles ("Buy More Credits", "Contact Admin"); sentenc
 |---------|------|
 | Credits line (enabled) | `This shop has {n} credits remaining this month.` (`1 credit remaining`) |
 | Credits line (loading) | `Checking credits…` |
-| AI button label and `aria-label` (identical text) | `Generate with AI · {N} credits` (`· 1 credit`); while the cost is unknown (loading, load error) and when not enabled: `Generate with AI` |
+| AI button label and `aria-label` (identical text) | `Generate with AI (requires {N} credits)` (`(requires 1 credit)`); while the cost is unknown (loading, load error) and when not enabled: `Generate with AI` |
 | Not-enabled message (inline, no link, D-07) | `AI replies aren't enabled for this shop.` |
 | Insufficient message (inline, D-07) | `Not enough credits — this reply needs {cost}, you have {remaining}.` (bare numbers) |
 | Link beneath the composer (insufficient state only) | `Buy More Credits` |
@@ -251,13 +251,13 @@ Applies to every `ReplyComposer` whose review has a comment (`row.comment.trim()
 
 - **Star-only review** (blank comment): the AI button is not rendered (existing tone panel never opens); no credits line, no cost request, no Buy More link. (User-confirmed: the line is tied to generation, so it disappears with the button.)
 - **Cost fetch:** on composer mount, `GET /api/v1/reviews/{id}/credit-cost/` -> `{cost, remaining, is_enabled}`. Cost always from the server; never computed on the client. `remaining`/`is_enabled` are written to the balance store keyed by `shop_id`; `cost` stays local to the composer (cost differs per review). Abort on unmount.
-- **Layout:** a status line is the first element inside the reply block (`px-4 py-4` container), above the `YOUR REPLY` label row: `<p id="credit-status-{row.id}" role="status" aria-live="polite" class="text-[12px] text-muted mb-2">`. It shows the enabled/loading/disabled copy (one message at a time; the disabled messages replace the "This shop has..." line).
+- **Layout (revised 2026-11-12, user request):** the status line sits directly under the `Generate with AI` button, right-aligned in the `YOUR REPLY` header row (button row and status line stack in a right-hand column): `<p id="credit-status-{row.id}" role="status" aria-live="polite">`, `text-[12px] text-muted text-right`. The insufficient state renders as a small amber callout (`bg-amber-tint border border-amber/30 rounded-md px-2.5 py-1.5`, `text-[#92400E]`, `AlertCircle` icon, `aria-hidden`). It shows the enabled/loading/disabled copy (one message at a time; the disabled messages replace the "This shop has..." line).
 - **State machine** (button + line):
 
 | State | Trigger | AI button | Line | Beneath composer |
 |-------|---------|-----------|------|------------------|
 | loading | cost request in flight | `disabled`, `aria-busy`, label `Generate with AI` | `Checking credits…` | — |
-| ready | `is_enabled` and `remaining >= cost` | enabled, label `Generate with AI · {cost} credits` | `This shop has {remaining} credits remaining this month.` (`text-muted`) | — |
+| ready | `is_enabled` and `remaining >= cost` | enabled, label `Generate with AI (requires {cost} credits)` | `This shop has {remaining} credits remaining this month.` (`text-muted`) | — |
 | not enabled | `is_enabled === false` (cost response or 402 `reason: not_enabled`) | `disabled`, label `Generate with AI` | `AI replies aren't enabled for this shop.` (`text-muted`) | nothing (no Buy More link here, D-07) |
 | insufficient | `is_enabled` and `remaining < cost` (cost response, post-generate, or 402 `reason: exhausted`) | `disabled`, label with cost | `Not enough credits — this reply needs {cost}, you have {remaining}.` (`text-[#92400E]`) | `Buy More Credits` link |
 | load error | cost request failed | enabled (fail open), label `Generate with AI`, no cost suffix | `Couldn't check your credit balance.` + `Retry Credit Check` text button | — (the server still enforces; 402 below handles it) |
@@ -360,7 +360,7 @@ Probe: 7 elements, 34 applicable considerations — 27 resolved (explicit), 4 re
 | E4 AI button + tone pills | error | resolved (explicit) | 402 -> matching disabled state, draft kept, focus to textarea; 409 -> existing banner; 422/429/502 unchanged |
 | E4 AI button + tone pills | empty | resolved (explicit) | Star-only review: button not rendered, no line, no cost request |
 | E4 AI button + tone pills | zero-one-many | resolved (explicit) | `1 credit` / `2 credits` on the button, `1 cr` / `N cr` on pills |
-| E4 AI button + tone pills | long-text | resolved (backstop) | Label `Generate with AI · 3 credits` plus Use template button wrap/stack at 360px without overlapping; verify visually |
+| E4 AI button + tone pills | long-text | resolved (backstop) | Label `Generate with AI (requires 3 credits)` plus Use template button wrap/stack at 360px without overlapping; verify visually |
 | E5 Buy More modal | error | dismissed | No network request; `mailto:` handoff is the browser's concern, hence the visible fallback address line |
 | E5 Buy More modal | long-text | resolved (backstop) | Long org/shop names stay inside the URL-encoded mailto only (never rendered in the modal body), so the layout cannot overflow; verify the mailto string with a 200-char name and emoji |
 | E5 Buy More modal | partial | resolved (explicit) | No shop context -> org-only subject/body; unknown balance -> `Current balance` line omitted |
@@ -374,7 +374,7 @@ Probe: 7 elements, 34 applicable considerations — 27 resolved (explicit), 4 re
 
 Backstop items (verification: backstop):
 - { statement: "Composer insufficient-credits message wraps without clipping at 360px width", verification: backstop }
-- { statement: "Composer label 'Generate with AI · 3 credits' and the Use template button do not overlap at 360px width", verification: backstop }
+- { statement: "Composer label 'Generate with AI (requires 3 credits)' and the Use template button do not overlap at 360px width", verification: backstop }
 - { statement: "Buy More mailto string is correctly URL-encoded for a 200-character shop name and emoji, and contains no review text", verification: backstop }
 - { statement: "Esc on Buy More opened from Shop Details closes only Buy More; a second Esc closes Shop Details", verification: backstop }
 

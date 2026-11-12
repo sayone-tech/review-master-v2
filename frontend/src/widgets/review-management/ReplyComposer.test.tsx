@@ -88,8 +88,8 @@ describe("ReplyComposer credit awareness (tracer, CVIS-03)", () => {
   it("shows the server cost and remaining credits and updates the line after a generate", async () => {
     renderComposer();
 
-    const button = await screen.findByRole("button", { name: "Generate with AI · 2 credits" });
-    expect(button).toHaveTextContent("Generate with AI · 2 credits");
+    const button = await screen.findByRole("button", { name: "Generate with AI (requires 2 credits)" });
+    expect(button).toHaveTextContent("Generate with AI (requires 2 credits)");
     expect(await screen.findByText("This shop has 35 credits remaining this month.")).toBeInTheDocument();
     expect(costSpy).toHaveBeenCalledWith(1, expect.any(AbortSignal));
 
@@ -141,7 +141,7 @@ describe("ReplyComposer credit states (CVIS-03, D-06, D-07)", () => {
     expect(
       await screen.findByText("Not enough credits — this reply needs 3, you have 1."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Generate with AI · 3 credits" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate with AI (requires 3 credits)" })).toBeDisabled();
 
     fireEvent.click(screen.getByTestId("credit-buy-more-1"));
     const dialog = screen.getByRole("dialog", { name: "Buy More Credits" });
@@ -163,14 +163,14 @@ describe("ReplyComposer credit states (CVIS-03, D-06, D-07)", () => {
     expect(screen.getByRole("button", { name: "Generate with AI" })).toBeEnabled();
 
     fireEvent.click(screen.getByTestId("credit-retry-1"));
-    expect(await screen.findByRole("button", { name: "Generate with AI · 2 credits" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Generate with AI (requires 2 credits)" })).toBeEnabled();
     expect(costSpy).toHaveBeenCalledTimes(2);
     expect(screen.getByText("This shop has 35 credits remaining this month.")).toBeInTheDocument();
   });
 
   it("shows plain tone pills without a draft and cost pills once a draft exists", async () => {
     renderComposer();
-    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI · 2 credits" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI (requires 2 credits)" }));
     expect(screen.getByRole("button", { name: "Generate Professional reply" })).toHaveTextContent(
       /^Professional$/,
     );
@@ -189,7 +189,7 @@ describe("ReplyComposer credit states (CVIS-03, D-06, D-07)", () => {
   it("uses the singular credit in the pill label when the cost is 1", async () => {
     costSpy.mockResolvedValue({ cost: 1, remaining: 10, is_enabled: true });
     renderComposer();
-    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI · 1 credit" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI (requires 1 credit)" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Write your reply" }), {
       target: { value: "My draft" },
     });
@@ -199,7 +199,7 @@ describe("ReplyComposer credit states (CVIS-03, D-06, D-07)", () => {
   it("disables every tone pill while a generate is pending", async () => {
     generateSpy.mockReturnValue(new Promise(() => {}));
     renderComposer();
-    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI · 2 credits" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI (requires 2 credits)" }));
     fireEvent.click(screen.getByRole("button", { name: "Generate Professional reply" }));
     expect(screen.getByRole("button", { name: "Generating Professional reply…" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Generate Friendly reply" })).toBeDisabled();
@@ -228,7 +228,7 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
       new api.ApiError(402, { code: "insufficient_credits", reason: "exhausted", required: 3, remaining: 1 }),
     );
     renderComposer();
-    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI · 2 credits" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI (requires 2 credits)" }));
     const textarea = screen.getByRole("textbox", { name: "Write your reply" });
     fireEvent.change(textarea, { target: { value: "My draft" } });
     fireEvent.click(screen.getByRole("button", { name: /Generate Professional reply/ }));
@@ -239,7 +239,7 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: /AI reply/ })).not.toBeInTheDocument();
     expect(textarea).toHaveValue("My draft");
-    expect(screen.getByRole("button", { name: "Generate with AI · 3 credits" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate with AI (requires 3 credits)" })).toBeDisabled();
     expect(document.activeElement).toBe(textarea);
   });
 
@@ -248,7 +248,7 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
       new api.ApiError(402, { code: "insufficient_credits", reason: "not_enabled", required: 2, remaining: 0 }),
     );
     renderComposer();
-    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI · 2 credits" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Generate with AI (requires 2 credits)" }));
     const textarea = screen.getByRole("textbox", { name: "Write your reply" });
     fireEvent.change(textarea, { target: { value: "Keep me" } });
     fireEvent.click(screen.getByRole("button", { name: /Generate Friendly reply/ }));
@@ -278,11 +278,11 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
       new api.ApiError(409, { code: "generation_in_progress", detail: "busy" }),
     );
     renderComposer();
-    await openPanelAndGenerate("Generate with AI · 2 credits", "Generate Professional reply");
+    await openPanelAndGenerate("Generate with AI (requires 2 credits)", "Generate Professional reply");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "A reply is already being generated for this review. Please wait a moment.",
     );
-    expect(screen.getByRole("button", { name: "Generate with AI · 2 credits" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Generate with AI (requires 2 credits)" })).toBeEnabled();
   });
 
   it("updates the line from a 422 credits_remaining and shows the moderation copy", async () => {
@@ -295,7 +295,7 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
       }),
     );
     renderComposer();
-    await openPanelAndGenerate("Generate with AI · 2 credits", "Generate Professional reply");
+    await openPanelAndGenerate("Generate with AI (requires 2 credits)", "Generate Professional reply");
     expect(await screen.findByRole("alert")).toHaveTextContent("Moderated copy.");
     expect(screen.getByText("This shop has 30 credits remaining this month.")).toBeInTheDocument();
   });
@@ -305,7 +305,7 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
       new api.ApiError(502, { code: "ai_unavailable", detail: "x", credits_charged: 0, credits_remaining: null }),
     );
     renderComposer();
-    await openPanelAndGenerate("Generate with AI · 2 credits", "Generate Professional reply");
+    await openPanelAndGenerate("Generate with AI (requires 2 credits)", "Generate Professional reply");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "AI generation failed. Please try again or write your reply manually.",
     );
@@ -317,7 +317,7 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
       new api.ApiError(502, { code: "ai_unavailable", detail: "x", credits_charged: 0, credits_remaining: 35 }),
     );
     renderComposer();
-    await openPanelAndGenerate("Generate with AI · 2 credits", "Generate Professional reply");
+    await openPanelAndGenerate("Generate with AI (requires 2 credits)", "Generate Professional reply");
     await screen.findByRole("alert");
     expect(screen.getByText("This shop has 35 credits remaining this month.")).toBeInTheDocument();
   });
@@ -325,7 +325,7 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
   it("applies the draft and leaves remaining unchanged when a 200 has null credits_remaining", async () => {
     generateSpy.mockResolvedValue({ draft: "Hello", credits_charged: 2, credits_remaining: null });
     renderComposer();
-    await openPanelAndGenerate("Generate with AI · 2 credits", "Generate Professional reply");
+    await openPanelAndGenerate("Generate with AI (requires 2 credits)", "Generate Professional reply");
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Write your reply" })).toHaveValue("Hello"));
     expect(screen.getByText("This shop has 35 credits remaining this month.")).toBeInTheDocument();
   });
@@ -333,11 +333,11 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
   it("switches to insufficient after a success that leaves fewer credits than the cost", async () => {
     generateSpy.mockResolvedValue({ draft: "Hello", credits_charged: 2, credits_remaining: 1 });
     renderComposer();
-    await openPanelAndGenerate("Generate with AI · 2 credits", "Generate Professional reply");
+    await openPanelAndGenerate("Generate with AI (requires 2 credits)", "Generate Professional reply");
     expect(
       await screen.findByText("Not enough credits — this reply needs 2, you have 1."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Generate with AI · 2 credits" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate with AI (requires 2 credits)" })).toBeDisabled();
   });
 
   it("shares remaining between two composers of the same shop while keeping each cost", async () => {
@@ -364,8 +364,8 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
         </tbody>
       </table>,
     );
-    const first = await screen.findByRole("button", { name: "Generate with AI · 2 credits" });
-    await screen.findByRole("button", { name: "Generate with AI · 3 credits" });
+    const first = await screen.findByRole("button", { name: "Generate with AI (requires 2 credits)" });
+    await screen.findByRole("button", { name: "Generate with AI (requires 3 credits)" });
     fireEvent.click(first);
     fireEvent.click(screen.getByRole("button", { name: "Generate Professional reply" }));
 
@@ -377,13 +377,13 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
     expect(document.getElementById("credit-status-1")).toHaveTextContent(
       "This shop has 10 credits remaining this month.",
     );
-    expect(screen.getByRole("button", { name: "Generate with AI · 3 credits" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Generate with AI (requires 3 credits)" })).toBeEnabled();
   });
 
   it("changes nothing when a generate is aborted", async () => {
     generateSpy.mockRejectedValue(new DOMException("aborted", "AbortError"));
     renderComposer();
-    await openPanelAndGenerate("Generate with AI · 2 credits", "Generate Professional reply");
+    await openPanelAndGenerate("Generate with AI (requires 2 credits)", "Generate Professional reply");
     await act(async () => {});
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByText("This shop has 35 credits remaining this month.")).toBeInTheDocument();

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle, ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle, ChevronDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { emitToast } from "../../lib/toast";
 import {
   ApiError,
@@ -114,7 +114,7 @@ export function ReplyComposer({
 
   const showCostSuffix = (creditState === "ready" || creditState === "insufficient") && cost !== null;
   const aiButtonLabel = showCostSuffix
-    ? `Generate with AI · ${creditsLabel(cost as number)}`
+    ? `Generate with AI (requires ${creditsLabel(cost as number)})`
     : "Generate with AI";
   const aiButtonDisabled =
     creditState === "loading" || creditState === "not_enabled" || creditState === "insufficient";
@@ -388,36 +388,15 @@ export function ReplyComposer({
           )}
         </div>
         <div className="px-4 py-4">
-          {creditState !== "none" && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
-              <p
-                id={`credit-status-${row.id}`}
-                role="status"
-                aria-live="polite"
-                className={`text-[12px] ${creditState === "insufficient" ? "text-[#92400E]" : "text-muted"}`}
-              >
-                {creditStatusText}
-              </p>
-              {creditState === "load_error" && (
-                <button
-                  type="button"
-                  data-testid={`credit-retry-${row.id}`}
-                  onClick={() => setCostAttempt((n) => n + 1)}
-                  className="text-[12px] font-semibold text-ink underline underline-offset-2 hover:text-muted"
-                >
-                  Retry Credit Check
-                </button>
-              )}
-            </div>
-          )}
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-start justify-between gap-3 mb-2">
             <label
               htmlFor={`reply-textarea-${row.id}`}
-              className="text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]"
+              className="pt-1 text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]"
             >
               Your reply
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {hasReviewText && (
                 <button
                   ref={generatorButtonRef}
@@ -470,6 +449,37 @@ export function ReplyComposer({
                   )}
                 </div>
               )}
+            </div>
+            {/* Credit status sits under the AI button it explains. */}
+            {creditState !== "none" && (
+              <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                <p
+                  id={`credit-status-${row.id}`}
+                  role="status"
+                  aria-live="polite"
+                  className={
+                    creditState === "insufficient"
+                      ? "inline-flex max-w-[340px] items-start gap-1.5 rounded-md border border-amber/30 bg-amber-tint px-2.5 py-1.5 text-[12px] text-[#92400E]"
+                      : "max-w-[340px] text-right text-[12px] text-muted"
+                  }
+                >
+                  {creditState === "insufficient" && (
+                    <AlertCircle size={13} aria-hidden="true" className="mt-[2px] shrink-0" />
+                  )}
+                  <span>{creditStatusText}</span>
+                </p>
+                {creditState === "load_error" && (
+                  <button
+                    type="button"
+                    data-testid={`credit-retry-${row.id}`}
+                    onClick={() => setCostAttempt((n) => n + 1)}
+                    className="text-[12px] font-semibold text-ink underline underline-offset-2 hover:text-muted"
+                  >
+                    Retry Credit Check
+                  </button>
+                )}
+              </div>
+            )}
             </div>
           </div>
           {generatorOpen && (
