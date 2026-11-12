@@ -174,6 +174,14 @@ OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
 # Input cap for review text fed to OpenAI (D-21).
 OPENAI_REVIEW_TEXT_MAX_CHARS = env.int("OPENAI_REVIEW_TEXT_MAX_CHARS", default=4000)
 
+# Superadmin AI Pricing page (Phase 35): missing-price gap detection.
+AI_PRICING_LOOKBACK_DAYS = env.int("AI_PRICING_LOOKBACK_DAYS", default=90)
+AI_PRICING_KNOWN_FREE_MODELS = env.list(
+    "AI_PRICING_KNOWN_FREE_MODELS",
+    default=["omni-moderation-latest", "text-moderation-latest", "text-moderation-stable"],
+)
+AI_PRICING_MISSING_CACHE_TTL_SECONDS = env.int("AI_PRICING_MISSING_CACHE_TTL_SECONDS", default=600)
+
 LANGSMITH_API_KEY = env("LANGSMITH_API_KEY", default=None)
 LANGSMITH_ENDPOINT = env("LANGSMITH_ENDPOINT", default="https://api.smith.langchain.com")
 LANGSMITH_PROJECT = env(
