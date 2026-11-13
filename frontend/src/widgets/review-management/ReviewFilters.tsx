@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, ChevronDown, Search, Star, ThumbsUp } from "lucide-react";
-import type { LucideIcon, LucideProps } from "lucide-react";
+import { Calendar, ChevronDown, Search, Star, Store, ThumbsUp } from "lucide-react";
 import { FilterChips, FilterSearch, FilterSelect, MoreFiltersPanel, formatDateChip } from "../filters";
 import type { FilterChip } from "../filters";
 import type { ReviewFilterParams, ShopOption, TagOption } from "./types";
@@ -33,26 +32,6 @@ const SEARCH_DEBOUNCE_MS = 300;
 const triSelectCls =
   "appearance-none w-full h-[34px] px-3 pr-8 text-[13px] text-ink bg-white border border-line rounded-[8px] outline-none cursor-pointer focus:border-ink";
 
-function StoreIcon({ size = 15, strokeWidth = 1.75, className }: LucideProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M3 9l1-4h16l1 4" />
-      <path d="M3 9v11h18V9" />
-      <path d="M9 9v11" />
-      <path d="M15 9v11" />
-    </svg>
-  );
-}
 
 interface TagsFilterProps {
   availableTags?: TagOption[];
@@ -300,13 +279,28 @@ export function ReviewFilters({ shops, filters, availableTags, onChange }: Props
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Mirror external changes (Clear all, empty-state clear) into the box.
+  // A typed-but-not-yet-applied search (debounce pending), else null.
+  const pendingRef = useRef<string | null>(null);
+
+  // External changes to the applied search (Clear all, empty-state clear, tag click) sync the
+  // box and cancel any pending debounced apply of the old text.
   useEffect(() => {
+    clearTimeout(timerRef.current);
+    pendingRef.current = null;
     setSearchText(filters.search ?? "");
   }, [filters.search]);
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  const apply = (patch: Partial<ReviewFilterParams>) => onChange({ ...filters, ...patch, page: 1 });
+  // Any other change folds in a pending search so it is ONE request, not two.
+  const apply = (patch: Partial<ReviewFilterParams>) => {
+    const next = { ...filters, ...patch, page: 1 };
+    if (pendingRef.current !== null && !("search" in patch)) {
+      next.search = pendingRef.current || undefined;
+    }
+    clearTimeout(timerRef.current);
+    pendingRef.current = null;
+    onChange(next);
+  };
 
   function handleSearch(v: string) {
     setSearchText(v);
@@ -315,9 +309,17 @@ export function ReviewFilters({ shops, filters, availableTags, onChange }: Props
       apply({ search: undefined });
       return;
     }
+    pendingRef.current = v;
     timerRef.current = setTimeout(() => {
+      pendingRef.current = null;
       onChangeRef.current({ ...filtersRef.current, search: v, page: 1 });
     }, SEARCH_DEBOUNCE_MS);
+  }
+
+  function submitSearch() {
+    clearTimeout(timerRef.current);
+    pendingRef.current = null;
+    if (searchText !== (filters.search ?? "")) apply({ search: searchText || undefined });
   }
 
   const tags = filters.tags ?? [];
@@ -374,9 +376,9 @@ export function ReviewFilters({ shops, filters, availableTags, onChange }: Props
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        <FilterSearch value={searchText} placeholder="Search reviews…" ariaLabel="Search reviews" onChange={handleSearch} />
+        <FilterSearch value={searchText} placeholder="Search reviews…" ariaLabel="Search reviews" onChange={handleSearch} onSubmit={submitSearch} />
         <FilterSelect<number>
-          icon={StoreIcon as unknown as LucideIcon}
+          icon={Store}
           ariaLabel="Filter by store"
           placeholder="All stores"
           value={filters.shop}

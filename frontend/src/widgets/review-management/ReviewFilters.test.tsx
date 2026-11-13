@@ -65,6 +65,54 @@ describe("ReviewFilters", () => {
     const { onChange } = setup({ search: "pizza", shop: 3, rating: 4, tags: ["A"], is_replied: true, page: 3 });
     await userEvent.click(screen.getByRole("button", { name: "Clear all" }));
     expect(onChange).toHaveBeenCalledWith({ page: 1 });
+    expect((screen.getByLabelText("Search reviews") as HTMLInputElement).value).toBe("");
+  });
+
+  it("Enter applies the typed search immediately", () => {
+    vi.useFakeTimers();
+    try {
+      const { onChange } = setup({});
+      const input = screen.getByLabelText("Search reviews");
+      fireEvent.change(input, { target: { value: "pizza" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith({ search: "pizza", page: 1 });
+      vi.advanceTimersByTime(500);
+      expect(onChange).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a Store change mid-debounce makes one onChange containing both", () => {
+    vi.useFakeTimers();
+    try {
+      const { onChange } = setup({});
+      fireEvent.change(screen.getByLabelText("Search reviews"), { target: { value: "pi" } });
+      fireEvent.change(screen.getByLabelText("Filter by store"), { target: { value: "3" } });
+      vi.advanceTimersByTime(500);
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith({ search: "pi", shop: 3, page: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an external search reset cancels a pending debounced search", () => {
+    vi.useFakeTimers();
+    try {
+      const onChange = vi.fn();
+      const { rerender } = render(
+        <ReviewFilters shops={shops} filters={{ search: "old" }} availableTags={tags} onChange={onChange} />,
+      );
+      fireEvent.change(screen.getByLabelText("Search reviews"), { target: { value: "oldx" } });
+      rerender(<ReviewFilters shops={shops} filters={{}} availableTags={tags} onChange={onChange} />);
+      vi.advanceTimersByTime(500);
+      expect(onChange).not.toHaveBeenCalled();
+      expect((screen.getByLabelText("Search reviews") as HTMLInputElement).value).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("opening the panel after an external tag filter shows that tag selected", async () => {
