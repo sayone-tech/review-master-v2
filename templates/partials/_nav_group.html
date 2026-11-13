@@ -1,0 +1,33 @@
+{% comment %}Renders one NavGroup. Context: group. Ungrouped (label None) has no heading/toggle.{% endcomment %}
+<section data-nav-group="{{ group.key }}" class="px-2.5" x-data="{ open: true }">
+  {% if group.label %}
+    <button
+      type="button"
+      data-nav-group-toggle
+      aria-expanded="true"
+      :aria-expanded="open.toString()"
+      aria-controls="nav-group-{{ group.key }}"
+      @click="open = !open"
+      class="
+             flex md:hidden lg:flex w-full items-center justify-between
+             px-2.5 pt-3 pb-1.5 rounded-md
+             text-[12px] font-medium text-[#A1A1AA] hover:text-white
+             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow
+            "
+    >
+      <span>{{ group.label }}</span>
+      <span class="w-3.5 h-3.5 text-[#52525B]" aria-hidden="true" data-lucide="chevron-down"></span>
+    </button>
+    <div class="hidden md:block lg:hidden my-2 mx-2.5 h-px bg-[#27272A]" aria-hidden="true"></div>
+  {% endif %}
+  <ul
+    id="nav-group-{{ group.key }}"
+    role="list"
+    class="space-y-0.5{% if group.label %} md:max-lg:block!{% endif %}"
+    {% if group.label %}x-show="open"{% endif %}
+  >
+    {% for item in group.items %}
+      {% include "partials/_nav_item.html" with item=item %}
+    {% endfor %}
+  </ul>
+</section>

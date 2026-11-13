@@ -4,6 +4,8 @@ from django import template
 from django.core.paginator import Paginator as DjangoPaginator
 from django.urls import NoReverseMatch, reverse
 
+from apps.common.navigation import NavGroup, nav_groups_for
+
 register = template.Library()
 
 
@@ -49,3 +51,12 @@ def elided_page_range(page_obj: Any) -> Any:
 def is_page_ellipsis(value: Any) -> bool:
     """Return True when value is the paginator ellipsis marker (not a page number)."""
     return bool(value == DjangoPaginator.ELLIPSIS)
+
+
+@register.simple_tag(takes_context=True)
+def nav_groups(context: template.Context) -> tuple[NavGroup, ...]:
+    """Return the sidebar nav groups for the current request's user role."""
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    role = getattr(user, "role", "") if user is not None else ""
+    return nav_groups_for(role=role)

@@ -1,25 +1,38 @@
 {% load ui %}
-{% is_active_route href as active %}
+{% is_active_route item.href as active %}
 <li>
   <a
-    href="{{ href }}"
+    href="{{ item.href }}"
     class="
-           flex items-center gap-3
-           px-5 py-2.5
-           text-[14px] font-medium
-           border-l-[3px] border-transparent
+           relative flex items-center gap-2.5
+           px-2.5 py-2 rounded-[9px]
+           text-[13.5px]
+           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow
            {% if active %}
-             border-yellow text-yellow font-medium
-             bg-gradient-to-r from-yellow/[0.08] to-transparent
-             pl-[17px]
+             bg-yellow text-black font-semibold
            {% else %}
-             text-[#D4D4D8] hover:text-yellow
+             font-medium text-[#D4D4D8] hover:text-white hover:bg-white/[0.06]
            {% endif %}
           "
     {% if active %}aria-current="page"{% endif %}
-    data-testid="nav-item-{{ label|lower }}"
+    data-testid="nav-item-{{ item.label|lower }}"
+    title="{{ item.label }}"
   >
-    <span class="w-[18px] h-[18px] shrink-0" aria-hidden="true" data-lucide="{{ icon }}"></span>
-    <span class="md:hidden lg:inline">{{ label }}</span>
+    <span class="w-[18px] h-[18px] shrink-0" aria-hidden="true" data-lucide="{{ item.icon }}"></span>
+    <span class="md:hidden lg:inline truncate">{{ item.label }}</span>
+    {% if item.badge_key %}
+      <span
+        data-nav-badge="{{ item.badge_key }}"
+        hidden
+        class="
+               ml-auto rounded-full text-center font-semibold
+               min-w-[20px] px-1.5 text-[11px] leading-[18px]
+               {% if active %}bg-black text-yellow{% else %}bg-[#27272A] text-[#E4E4E7]{% endif %}
+               md:absolute md:right-1.5 md:top-1 md:h-2 md:w-2 md:min-w-0 md:p-0 md:text-[0] md:bg-yellow
+               lg:static lg:h-auto lg:w-auto lg:min-w-[20px] lg:px-1.5 lg:text-[11px]
+               {% if active %}lg:bg-black lg:text-yellow{% else %}lg:bg-[#27272A] lg:text-[#E4E4E7]{% endif %}
+              "
+      ></span>
+    {% endif %}
   </a>
 </li>
