@@ -160,6 +160,29 @@ describe("ReviewFilters", () => {
     expect(onChange.mock.calls[0][0].search).toBeUndefined();
   });
 
+  it.each([
+    ["pagination", { page: 2, shop: 3 }],
+    ["sort", { page: 1, shop: 3, ordering: "-star_rating" }],
+    ["rows per page", { page: 1, shop: 3, page_size: 50 }],
+    ["row tag click", { page: 1, shop: 3, tags: ["Cleanliness"] }],
+  ] as [string, ReviewFilterParams][])(
+    "a %s change while typing keeps the text and still applies it",
+    (_label, next) => {
+      vi.useFakeTimers();
+      try {
+        const { onChange, rerender } = setup({ page: 1, shop: 3 });
+        fireEvent.change(screen.getByLabelText("Search reviews"), { target: { value: "pizza" } });
+        rerender(<ReviewFilters shops={shops} filters={next} availableTags={tags} onChange={onChange} />);
+        expect((screen.getByLabelText("Search reviews") as HTMLInputElement).value).toBe("pizza");
+        vi.advanceTimersByTime(300);
+        expect(onChange).toHaveBeenCalledTimes(1);
+        expect(onChange).toHaveBeenCalledWith({ ...next, search: "pizza", page: 1 });
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it("an external reset of the filters drops a pending search", async () => {
     const { onChange, rerender } = setup({ page: 1, shop: 3 });
     await userEvent.type(screen.getByLabelText("Search reviews"), "pizza");

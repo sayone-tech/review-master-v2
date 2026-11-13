@@ -271,6 +271,20 @@ function TriSelect({
   );
 }
 
+// Filters a user sets (not paging/sorting/page size, not search).
+function hasAnyFilter(f: ReviewFilterParams): boolean {
+  return (
+    f.shop !== undefined ||
+    f.rating !== undefined ||
+    f.sentiment !== undefined ||
+    f.is_replied !== undefined ||
+    f.has_comment !== undefined ||
+    !!f.from_date ||
+    !!f.to_date ||
+    (f.tags?.length ?? 0) > 0
+  );
+}
+
 export function ReviewFilters({ shops, filters, availableTags, onChange }: Props) {
   const [searchText, setSearchText] = useState(filters.search ?? "");
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -291,10 +305,15 @@ export function ReviewFilters({ shops, filters, availableTags, onChange }: Props
   }, [filters.search]);
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  // The parent replaced the filters with no search (e.g. the empty-state "Clear filters"): any
-  // typed-but-unapplied search is stale too, so drop it.
+  // The parent reset the filters (e.g. the empty-state "Clear filters"): any typed-but-unapplied
+  // search is stale too, so drop it. Only a real reset counts — some filter set before, none now.
+  // Paging, sorting, rows-per-page and row-tag clicks keep the pending text; the debounce then
+  // applies it on top of the latest filters (filtersRef).
+  const prevFiltersRef = useRef(filters);
   useEffect(() => {
-    if (!filters.search && pendingRef.current !== null) {
+    const wasFiltered = hasAnyFilter(prevFiltersRef.current);
+    prevFiltersRef.current = filters;
+    if (wasFiltered && !hasAnyFilter(filters) && !filters.search && pendingRef.current !== null) {
       clearTimeout(timerRef.current);
       pendingRef.current = null;
       setSearchText("");
