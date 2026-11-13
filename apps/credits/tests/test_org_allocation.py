@@ -64,21 +64,26 @@ def test_update_organisation_materialises_rows_at_old_value_when_allocation_chan
     rows = ShopCreditBalance.objects.filter(
         organisation=org, period_year=period.year, period_month=period.month
     )
-    assert rows.count() == 3
+    assert rows.count() == 2
+    assert not rows.filter(shop=fresh_b).exists()
     assert {r.allocated_credits for r in rows} == {100}
     untouched = rows.get(shop=existing)
     assert untouched.consumed_credits == 7
-    for shop in (existing, fresh_a, fresh_b):
+    for shop in (existing, fresh_a):
         assert get_shop_credit_balance(shop_id=shop.pk).allocated == 100
     initials = CreditTransaction.objects.filter(
         transaction_type=CreditTransaction.Type.INITIAL_ALLOCATION
     )
-    assert initials.count() == 3
+    assert initials.count() == 2
+    assert not CreditTransaction.objects.filter(shop=fresh_b).exists()
     assert all(
         t.credits_delta == 100 and t.actor_id is None and t.status == "COMMITTED" for t in initials
     )
     assert get_shop_credit_balance(shop_id=fresh_a.pk).remaining == 100
-    assert AuditLog.objects.filter(action="shop.credits.allocated").count() == 3
+    assert AuditLog.objects.filter(action="shop.credits.allocated").count() == 2
+    assert not AuditLog.objects.filter(
+        action="shop.credits.allocated", entity_id=str(fresh_b.pk)
+    ).exists()
     audit = AuditLog.objects.get(action="organisation.credits.set")
     assert audit.entity_type == "organisation"
     assert audit.entity_id == str(org.pk)
@@ -92,7 +97,7 @@ def test_update_organisation_materialises_rows_at_old_value_when_allocation_chan
         "period_month",
     }
     assert audit.after_data["effective"] == "next_month"
-    assert audit.after_data["shops_touched"] == 2
+    assert audit.after_data["shops_touched"] == 1
 
 
 def test_update_organisation_is_immediate_and_creates_no_rows_when_raising_zero_to_n():
@@ -320,17 +325,18 @@ def test_materialise_matches_looping_ensure_balance(allocation):
         organisation_id=org_a.pk, allocation=allocation, period=current_period()
     )
     for shop in shops_b:
-        ensure_balance(shop_id=shop.pk)
+        if shop.is_active:
+            ensure_balance(shop_id=shop.pk)
 
     a, b = _normalised(org_a, names), _normalised(org_b, names)
     assert a == b
-    assert len(a[0]) == 3
+    assert len(a[0]) == 2
     if allocation == 0:
         assert a[1] == []
         assert a[2] == []
     else:
-        assert len(a[1]) == 3
-        assert len(a[2]) == 3
+        assert len(a[1]) == 2
+        assert len(a[2]) == 2
 
 
 def test_raise_zero_balances_writes_same_ledger_and_audit_as_ensure_balance():
@@ -399,3 +405,87 @@ def test_raise_zero_balances_rejects_non_positive_allocation():
     org = OrganisationFactory()
     with pytest.raises(ValueError, match="positive"):
         raise_zero_balances(organisation_id=org.pk, allocation=0, period=current_period())
+
+
+def test_materialise_skips_inactive_shops_when_org_has_active_and_inactive():
+    org = OrganisationFactory(monthly_credit_allocation=30)
+    active = ShopFactory.create_batch(2, organisation=org)
+    inactive = ShopFactory(organisation=org, is_active=False)
+
+    created = materialise_org_balances(
+        organisation_id=org.pk, allocation=30, period=current_period()
+    )
+
+    assert created == 2
+    assert set(_balances(org).values_list("shop_id", flat=True)) == {s.pk for s in active}
+    assert CreditTransaction.objects.filter(shop=inactive).count() == 0
+    assert CreditTransaction.objects.count() == 2
+    assert not AuditLog.objects.filter(
+        action="shop.credits.allocated", entity_id=str(inactive.pk)
+    ).exists()
+    assert AuditLog.objects.filter(action="shop.credits.allocated").count() == 2
+
+
+def test_raise_zero_balances_skips_inactive_shop_rows():
+    org = OrganisationFactory(monthly_credit_allocation=0)
+    active = ShopFactory(organisation=org)
+    inactive = ShopFactory(organisation=org, is_active=False)
+    active_row = ShopCreditBalanceFactory(shop=active, allocated_credits=0)
+    inactive_row = ShopCreditBalanceFactory(shop=inactive, allocated_credits=0)
+
+    raised = raise_zero_balances(organisation_id=org.pk, allocation=50, period=current_period())
+
+    assert raised == 1
+    active_row.refresh_from_db()
+    inactive_row.refresh_from_db()
+    assert active_row.allocated_credits == 50
+    assert inactive_row.allocated_credits == 0
+    assert CreditTransaction.objects.filter(shop_credit_balance=inactive_row).count() == 0
+    assert not AuditLog.objects.filter(
+        action="shop.credits.allocated", entity_id=str(inactive.pk)
+    ).exists()
+    assert CreditTransaction.objects.filter(shop_credit_balance=active_row).count() == 1
+
+
+def test_update_organisation_zero_to_n_does_not_raise_inactive_shop_row():
+    org = OrganisationFactory(monthly_credit_allocation=0)
+    active = ShopFactory(organisation=org)
+    inactive = ShopFactory(organisation=org, is_active=False)
+    active_row = ShopCreditBalanceFactory(shop=active, allocated_credits=0, bonus_credits=5)
+    inactive_row = ShopCreditBalanceFactory(shop=inactive, allocated_credits=0)
+
+    update_organisation(organisation=org, monthly_credit_allocation=10)
+
+    active_row.refresh_from_db()
+    inactive_row.refresh_from_db()
+    assert active_row.allocated_credits == 10
+    assert inactive_row.allocated_credits == 0
+    assert _credit_audits(org).get().after_data["shops_touched"] == 1
+
+
+def test_update_organisation_n_to_m_creates_no_row_for_inactive_shop():
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    active = ShopFactory(organisation=org)
+    inactive = ShopFactory(organisation=org, is_active=False)
+
+    update_organisation(organisation=org, monthly_credit_allocation=20)
+
+    assert _balances(org).get(shop=active).allocated_credits == 10
+    assert not _balances(org).filter(shop=inactive).exists()
+    assert not CreditTransaction.objects.filter(shop=inactive).exists()
+
+
+def test_reactivated_shop_gets_full_allocation_on_first_use_via_ensure_balance():
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    shop = ShopFactory(organisation=org, is_active=False)
+    update_organisation(organisation=org, monthly_credit_allocation=20)
+    assert not _balances(org).filter(shop=shop).exists()
+
+    shop.is_active = True
+    shop.save(update_fields=["is_active"])
+    balance, created = ensure_balance(shop_id=shop.pk)
+
+    assert created is True
+    assert balance.allocated_credits == 20
+    ledger = CreditTransaction.objects.get(shop_credit_balance=balance)
+    assert (ledger.transaction_type, ledger.credits_delta) == ("INITIAL_ALLOCATION", 20)

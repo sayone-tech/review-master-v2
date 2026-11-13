@@ -128,6 +128,10 @@ class ReplyUnavailableError(Exception):
         self.credits_remaining: int | None = None
 
 
+class ShopInactiveError(Exception):
+    """The review's shop is inactive: it never gets or spends AI reply credits (CRED-INACTIVE-01)."""
+
+
 class EmptyCommentError(Exception):
     """The review has no chargeable text (empty or whitespace-only comment, CCON-04)."""
 
@@ -335,12 +339,15 @@ def generate_reply_with_credits(*, review: Review, tone: str, actor_id: int | No
     error, stage-less moderation exception, interruption). Settlement completes before any
     result or wrapper exception is built, so ``credits_remaining`` is the settled balance.
 
-    Raises ``EmptyCommentError`` before any reservation, ``InsufficientCreditsError`` /
+    Raises ``ShopInactiveError`` and ``EmptyCommentError`` before any reservation, ``InsufficientCreditsError`` /
     ``GenerationInProgressError`` from the reserve, ``ReplyModeratedError`` and
     ``ReplyUnavailableError`` after settlement.
     """
     if tone not in _ALLOWED_TONES:
         raise ValueError(f"Unknown tone: {tone!r}")
+    # CRED-INACTIVE-01: refuse before any balance, reservation, or OpenAI call.
+    if not review.shop.is_active:
+        raise ShopInactiveError(f"shop {review.shop_id} is inactive")
     cost = credit_cost(review.comment)
     if cost == 0:
         raise EmptyCommentError(f"review {review.pk} has no chargeable comment")

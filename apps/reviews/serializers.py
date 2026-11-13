@@ -33,6 +33,7 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
     shop_name = serializers.CharField(source="shop.name", read_only=True)
     shop_region_name = serializers.SerializerMethodField()
     region_id = serializers.IntegerField(source="shop.region_id", read_only=True)
+    shop_is_active = serializers.BooleanField(source="shop.is_active", read_only=True)
     replied_by_name = serializers.SerializerMethodField()
     # Phase 13 Plan 07 (B3): True iff one or more ActionItem rows exist for this
     # review. Backed by an Exists() annotation on the queryset (see
@@ -51,6 +52,7 @@ class ReviewReadSerializer(serializers.ModelSerializer):  # type: ignore[type-ar
             "shop_id",
             "shop_name",
             "shop_region_name",
+            "shop_is_active",
             "region_id",
             "google_review_id",
             "star_rating",

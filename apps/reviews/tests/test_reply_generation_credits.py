@@ -30,9 +30,11 @@ from apps.reviews.services.reply_generation import (
     ReplyModeratedError,
     ReplyResult,
     ReplyUnavailableError,
+    ShopInactiveError,
     generate_reply_with_credits,
 )
 from apps.reviews.tests.factories import ReviewFactory
+from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -348,3 +350,23 @@ class TestAiReplyGeneratedAudit:
 
         assert result.draft == "A fine draft."
         assert result.credits_charged == COST
+
+
+def test_inactive_shop_is_refused_before_any_credit_or_openai_work():
+    """CRED-INACTIVE-01: no balance, no ledger row, no usage log, no OpenAI call."""
+    org = OrganisationFactory(monthly_credit_allocation=ALLOCATION)
+    shop = ShopFactory(organisation=org, is_active=False)
+    review = ReviewFactory(organisation=org, shop=shop, comment=REVIEW_TEXT)
+
+    with (
+        patch(CALL) as call,
+        patch(MODERATION_API) as moderation,
+        pytest.raises(ShopInactiveError),
+    ):
+        _generate(review)
+
+    call.assert_not_called()
+    moderation.assert_not_called()
+    assert ShopCreditBalance.objects.count() == 0
+    assert CreditTransaction.objects.count() == 0
+    assert AiUsageLog.objects.count() == 0

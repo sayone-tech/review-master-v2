@@ -283,6 +283,10 @@ When Superadmin changes `Organisation.monthly_credit_allocation`, the change app
 
 If Superadmin needs to give more credits to a shop in the current month, they use the Bonus Allocation feature (§8.2), not the organisation-level allocation.
 
+> **Amendment (2026-11-13): inactive shops.** Credit allocation skips inactive shops. Editing the organisation's allocation never creates or raises current-month balances for shops with `is_active=False`; balances they already hold are left as-is (no clawback) and lapse normally. A shop reactivated later gets its month's allocation lazily on first use (§7.1). This supersedes Phase 29 D-13 for allocation only; balance reads and the lapse job still treat inactive shops like active ones.
+
+> **Amendment (2026-11-13): AI reply generation is blocked for inactive shops (server + UI).** `generate-reply` refuses with 409 `shop_inactive` before any balance, reservation or OpenAI call, and the Generate AI reply control is disabled with a reason; manual replies are unchanged.
+
 ## 8. Superadmin Credit Management
 
 ### 8.1 Organisation Creation and Edit

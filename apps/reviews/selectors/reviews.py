@@ -34,10 +34,14 @@ def get_accessible_shop_ids(*, user_id: int) -> list[int]:
 
 
 def base_reviews_queryset(*, organisation_id: int) -> QuerySet[Review]:
-    """Base queryset for an org — active (non-deleted), prefetched for list views."""
+    """Base queryset for an org — non-deleted reviews of active shops, prefetched for list views.
+
+    Reviews of inactive shops are hidden, matching the Store filter and the dashboard,
+    which already exclude inactive shops (CRED-INACTIVE-01 follow-up, 2026-11-13).
+    """
     return (
         Review.objects.active()
-        .filter(organisation_id=organisation_id)
+        .filter(organisation_id=organisation_id, shop__is_active=True)
         .select_related("shop", "shop__region", "replied_by")
         # Phase 17 (TAG-02): prefetch ReviewTag rows so ReviewTagSerializer(many=True)
         # does not trigger N+1 — exactly one extra IN query regardless of page size.

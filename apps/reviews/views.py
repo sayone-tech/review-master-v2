@@ -63,6 +63,7 @@ from apps.reviews.services.reply_generation import (
     EmptyCommentError,
     ReplyModeratedError,
     ReplyUnavailableError,
+    ShopInactiveError,
     generate_reply_with_credits,
     read_credits_remaining,
 )
@@ -464,7 +465,7 @@ class ReviewViewSet(
         """POST: generate an AI draft reply for the given review.
 
         Returns 200 {draft, credits_charged, credits_remaining} on success.
-        Returns 400 on invalid tone or an empty review comment, 402 when the shop cannot
+        Returns 400 on invalid tone or an empty review comment, 409 (shop_inactive) for an inactive shop, 402 when the shop cannot
         afford the cost, 409 when a generation is already in flight for the review, 422 on a
         moderation block and 502 on any OpenAI failure (transient/permanent/unexpected).
         D-08, D-09, D-11, D-12, D-17, D-18.
@@ -478,6 +479,15 @@ class ReviewViewSet(
         tone: str = serializer.validated_data["tone"]
         try:
             result = generate_reply_with_credits(review=review, tone=tone, actor_id=request.user.pk)
+        except ShopInactiveError:
+            # CRED-INACTIVE-01: inactive shops never spend credits; nothing was reserved.
+            return Response(
+                {
+                    "code": "shop_inactive",
+                    "detail": "AI replies are unavailable because this shop is inactive.",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         except EmptyCommentError:
             # CCON-04: nothing chargeable; no reservation was made.
             return Response(

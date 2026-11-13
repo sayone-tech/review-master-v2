@@ -675,7 +675,7 @@ def test_patch_credit_allocation_keeps_shops_at_old_value_this_month_and_lists_b
     org = OrganisationFactory(monthly_credit_allocation=100)
     holder = ShopFactory(organisation=org)
     ShopFactory(organisation=org)
-    ShopFactory(organisation=org, is_active=False)
+    inactive = ShopFactory(organisation=org, is_active=False)
     balance, _ = ensure_balance(shop_id=holder.pk)
     ShopCreditBalance.objects.filter(pk=balance.pk).update(consumed_credits=7)
     AuditLog.objects.all().delete()
@@ -691,7 +691,8 @@ def test_patch_credit_allocation_keeps_shops_at_old_value_this_month_and_lists_b
     rows = ShopCreditBalance.objects.filter(
         organisation=org, period_year=period.year, period_month=period.month
     )
-    assert rows.count() == 3
+    assert rows.count() == 2
+    assert not rows.filter(shop=inactive).exists()
     assert {r.allocated_credits for r in rows} == {100}
     kept = rows.get(shop=holder)
     assert kept.consumed_credits == 7
@@ -705,10 +706,11 @@ def test_patch_credit_allocation_keeps_shops_at_old_value_this_month_and_lists_b
         CreditTransaction.objects.filter(
             organisation=org, transaction_type="INITIAL_ALLOCATION"
         ).count()
-        == 3
+        == 2
     )
-    # Two new shops each wrote one allocated audit row; the pre-existing one was cleared above.
-    assert AuditLog.objects.filter(action="shop.credits.allocated").count() == 2
+    # One new active shop wrote one allocated audit row; the pre-existing one was cleared above
+    # and the inactive shop gets nothing.
+    assert AuditLog.objects.filter(action="shop.credits.allocated").count() == 1
     audit = AuditLog.objects.get(action="organisation.credits.set")
     assert audit.actor_id == superadmin.pk
     assert audit.entity_type == "organisation"
@@ -722,7 +724,7 @@ def test_patch_credit_allocation_keeps_shops_at_old_value_this_month_and_lists_b
         "period_month",
     }
     assert audit.after_data["effective"] == "next_month"
-    assert audit.after_data["shops_touched"] == 2
+    assert audit.after_data["shops_touched"] == 1
 
     listing = api_client_superadmin.get("/api/v1/organisations/").json()
     results = listing["results"] if isinstance(listing, dict) else listing

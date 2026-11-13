@@ -57,6 +57,7 @@ complete, pending merge of `feat/v0.10-ai-cost-pricing`. Specs moved to `docs/co
 | ID | Requirement | Acceptance | Status |
 |---|---|---|---|
 | ORG-TYPE-01 | Organisation types: add Clinic, Hospital, Salon, Spa, Hotel & Resort, Gym & Fitness; relabel Restaurant → "Restaurant & Cafe" (stored value unchanged) | owner request 2026-11-13 | ✅ Delivered |
+| CRED-INACTIVE-01 | Credit allocation skips inactive shops: Edit Organisation never creates or raises balances for inactive shops; a reactivated shop gets its allocation on first use. AI reply generation is blocked for inactive shops (server + UI): 409 `shop_inactive`, no balance/reservation/OpenAI call; manual replies unchanged. Reviews of inactive shops are hidden from the Reviews list, its stat cards and review actions (matches the Store filter and dashboard) | owner request 2026-11-13 | ✅ Delivered |
 
 ## Out of scope (deferred)
 

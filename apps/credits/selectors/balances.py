@@ -7,8 +7,8 @@ create, update or delete a row: materialisation is a write-side concern
 break the next-month rule (CRED-06).
 
 These selectors are unscoped primitives. Tenant / Staff scoping is the caller's job
-(Phase 32/33 endpoints). They never filter on ``is_active`` (D-13): inactive shops are
-computed exactly like active ones.
+(Phase 32/33 endpoints). They never filter on ``is_active``: reads compute inactive shops exactly like active
+ones. (Allocation, by contrast, skips inactive shops: see ``services.allocation``.)
 """
 
 from __future__ import annotations
