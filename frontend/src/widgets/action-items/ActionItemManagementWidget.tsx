@@ -9,9 +9,7 @@ import { transitionStatus } from "./api";
 import { useActionItems } from "./useActionItems";
 import { emitToast } from "../../lib/toast";
 import type {
-  ActionItemCategory,
   ActionItemListRow,
-  ActionItemScope,
   ActionItemStatus,
   ListParams,
   PaginatedActionItems,
@@ -108,7 +106,7 @@ export function ActionItemManagementWidget({
     const p = new URLSearchParams(window.location.search);
     return p.get("review") ?? undefined;
   }, []);
-  const { data, loading, params, setParams, refetch } = useActionItems({ reviewParam });
+  const { data, loading, params, setParams, searchInput, setSearchInput, refetch } = useActionItems({ reviewParam });
 
   const [openModalId, setOpenModalId] = useState<number | null>(null);
   const [assignRow, setAssignRow] = useState<ActionItemListRow | null>(null);
@@ -168,31 +166,12 @@ export function ActionItemManagementWidget({
     }
   }, []);
 
-  const handleApplyFilters = (draft: {
-    search: string;
-    shop?: number;
-    status?: ActionItemStatus;
-    scope?: ActionItemScope;
-    category?: ActionItemCategory;
-    assignee?: string;
-    from_date?: string;
-    to_date?: string;
-  }) => {
-    setParams({
-      ...params,
-      page: 1,
-      search: draft.search || undefined,
-      shop: draft.shop,
-      status: draft.status,
-      scope: draft.scope,
-      category: draft.category,
-      assignee: draft.assignee,
-      from_date: draft.from_date,
-      to_date: draft.to_date,
-    });
+  const handleFilterChange = (next: Partial<ListParams>) => {
+    setParams((p) => ({ ...p, ...next, page: 1 }));
   };
 
   const handleReset = () => {
+    setSearchInput("");
     setParams({
       page: 1,
       page_size: params.page_size,
@@ -227,8 +206,10 @@ export function ActionItemManagementWidget({
         shops={shops}
         teamMembers={teamMembers}
         filters={params}
-        onApply={handleApplyFilters}
-        onReset={handleReset}
+        searchInput={searchInput}
+        onSearchChange={setSearchInput}
+        onChange={handleFilterChange}
+        onClearAll={handleReset}
       />
 
       {isOrgAdmin && selectedIds.size >= 2 && (
