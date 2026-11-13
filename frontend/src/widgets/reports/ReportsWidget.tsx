@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FilterBar } from "./FilterBar";
 import { ReportsTable } from "./ReportsTable";
 import { useReportData } from "./useReportData";
-import type { ReportFilters } from "./types";
+import type { ReportFilters, SortDir, SortKey } from "./types";
 
 const qc = new QueryClient();
 
@@ -18,6 +18,8 @@ const DEFAULT_FILTERS: ReportFilters = {
 
 function Inner() {
   const [filters, setFilters] = useState<ReportFilters>(DEFAULT_FILTERS);
+  const [sortKey, setSortKey] = useState<SortKey>("total_reviews");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const { data, isLoading, error } = useReportData(filters);
 
   // Store count shown next to the page title in the header.
@@ -27,9 +29,24 @@ function Inner() {
     return () => setHeaderCount(null);
   }, [storeCount]);
 
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <FilterBar filters={filters} onApply={setFilters} />
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={handleSort}
+      />
 
       {error && (
         <div className="text-[13.5px] text-red-600 py-4">
@@ -37,7 +54,13 @@ function Inner() {
         </div>
       )}
 
-      <ReportsTable rows={data ?? []} loading={isLoading} />
+      <ReportsTable
+        rows={data ?? []}
+        loading={isLoading}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={handleSort}
+      />
     </div>
   );
 }
