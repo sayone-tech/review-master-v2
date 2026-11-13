@@ -52,6 +52,12 @@ complete, pending merge of `feat/v0.10-ai-cost-pricing`. Specs moved to `docs/co
 | XCUT-01 | Historical `AiUsageLog.estimated_cost_usd` never altered | PM AC 38 | ✅ Delivered |
 | XCUT-02 | Query-count tests on every endpoint; OpenAPI schema updated | PM AC 37; CLAUDE.md §24 | ✅ Delivered |
 
+## Post-v0.10 changes
+
+| ID | Requirement | Acceptance | Status |
+|---|---|---|---|
+| ORG-TYPE-01 | Organisation types: add Clinic, Hospital, Salon, Spa, Hotel & Resort, Gym & Fitness; relabel Restaurant → "Restaurant & Cafe" (stored value unchanged) | owner request 2026-11-13 | ✅ Delivered |
+
 ## Out of scope (deferred)
 
 - Changing enrichment's behaviour when a model has no price (it currently fails the enrichment) — design §5.1

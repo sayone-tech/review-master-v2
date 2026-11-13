@@ -131,6 +131,31 @@ def test_api_create_organisation_returns_201(api_client_superadmin):
     assert resp.status_code == 201
 
 
+@pytest.mark.parametrize("org_type", Organisation.OrgType.values)
+def test_api_create_and_update_organisation_with_each_type(api_client_superadmin, org_type):
+    """Every OrgType is accepted on create and on update (ORG-TYPE-01)."""
+    resp = api_client_superadmin.post(
+        "/api/v1/organisations/",
+        {
+            "name": f"Org {org_type}",
+            "org_type": org_type,
+            "email": f"{org_type.lower()}@example.com",
+            "address": "",
+            "number_of_stores": 1,
+        },
+        format="json",
+    )
+    assert resp.status_code == 201
+    assert resp.json()["org_type"] == org_type
+    org = Organisation.objects.get(email=f"{org_type.lower()}@example.com")
+    other = "SPA" if org_type != "SPA" else "CLINIC"
+    resp = api_client_superadmin.patch(
+        f"/api/v1/organisations/{org.pk}/", {"org_type": other}, format="json"
+    )
+    assert resp.status_code == 200
+    assert resp.json()["org_type"] == other
+
+
 def test_api_create_organisation_duplicate_email_returns_400(api_client_superadmin):
     """Duplicate email on POST returns 400 with email field error (CORG-02)."""
     OrganisationFactory(email="dup@example.com")

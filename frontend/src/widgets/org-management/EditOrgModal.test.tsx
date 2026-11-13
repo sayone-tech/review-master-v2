@@ -196,3 +196,24 @@ describe("EditOrgModal monthly credits per shop", () => {
     expect(screen.getByTestId("credit-allocation-hint")).toHaveAttribute("role", "status");
   });
 });
+
+describe("EditOrgModal org types", () => {
+  it("lists 10 org types in order with labels", () => {
+    render(<EditOrgModal org={makeOrg()} onClose={() => {}} onUpdated={() => {}} />);
+    const opts = Array.from(
+      (screen.getByTestId("edit-field-org_type") as HTMLSelectElement).options,
+    ).map((o) => [o.value, o.textContent]);
+    expect(opts).toEqual([
+  ["RETAIL", "Retail"],
+  ["RESTAURANT", "Restaurant & Cafe"],
+  ["PHARMACY", "Pharmacy"],
+  ["SUPERMARKET", "Supermarket"],
+  ["CLINIC", "Clinic"],
+  ["HOSPITAL", "Hospital"],
+  ["SALON", "Salon"],
+  ["SPA", "Spa"],
+  ["HOTEL_RESORT", "Hotel & Resort"],
+  ["GYM_FITNESS", "Gym & Fitness"],
+]);
+  });
+});

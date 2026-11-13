@@ -1,4 +1,18 @@
-export type OrgType = "RETAIL" | "RESTAURANT" | "PHARMACY" | "SUPERMARKET";
+// Single source of truth for organisation types (mirrors Organisation.OrgType).
+export const ORG_TYPE_OPTIONS = [
+  { value: "RETAIL", label: "Retail" },
+  { value: "RESTAURANT", label: "Restaurant & Cafe" },
+  { value: "PHARMACY", label: "Pharmacy" },
+  { value: "SUPERMARKET", label: "Supermarket" },
+  { value: "CLINIC", label: "Clinic" },
+  { value: "HOSPITAL", label: "Hospital" },
+  { value: "SALON", label: "Salon" },
+  { value: "SPA", label: "Spa" },
+  { value: "HOTEL_RESORT", label: "Hotel & Resort" },
+  { value: "GYM_FITNESS", label: "Gym & Fitness" },
+] as const;
+
+export type OrgType = (typeof ORG_TYPE_OPTIONS)[number]["value"];
 export type OrgStatus = "ACTIVE" | "DISABLED" | "DELETED";
 export type ActivationStatus = "pending" | "active" | "expired";
 
@@ -49,12 +63,9 @@ export type UpdateOrgPayload = Partial<{
 
 export type ApiFieldErrors = Record<string, string[]>;
 
-export const ORG_TYPE_LABELS: Record<OrgType, string> = {
-  RETAIL: "Retail",
-  RESTAURANT: "Restaurant",
-  PHARMACY: "Pharmacy",
-  SUPERMARKET: "Supermarket",
-};
+export const ORG_TYPE_LABELS = Object.fromEntries(
+  ORG_TYPE_OPTIONS.map((o) => [o.value, o.label]),
+) as Record<OrgType, string>;
 
 export const ORG_STATUS_LABELS: Record<Exclude<OrgStatus, "DELETED">, string> = {
   ACTIVE: "Active",

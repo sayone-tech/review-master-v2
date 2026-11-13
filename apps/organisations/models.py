@@ -18,9 +18,15 @@ class Organisation(TimeStampedModel):
 
     class OrgType(models.TextChoices):
         RETAIL = "RETAIL", "Retail"
-        RESTAURANT = "RESTAURANT", "Restaurant"
+        RESTAURANT = "RESTAURANT", "Restaurant & Cafe"
         PHARMACY = "PHARMACY", "Pharmacy"
         SUPERMARKET = "SUPERMARKET", "Supermarket"
+        CLINIC = "CLINIC", "Clinic"
+        HOSPITAL = "HOSPITAL", "Hospital"
+        SALON = "SALON", "Salon"
+        SPA = "SPA", "Spa"
+        HOTEL_RESORT = "HOTEL_RESORT", "Hotel & Resort"
+        GYM_FITNESS = "GYM_FITNESS", "Gym & Fitness"
 
     name = models.CharField(max_length=100, db_index=True)
     org_type = models.CharField(max_length=20, choices=OrgType.choices, db_index=True)

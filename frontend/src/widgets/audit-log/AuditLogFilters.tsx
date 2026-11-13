@@ -87,7 +87,7 @@ export function AuditLogFilters({
     setPreset(detectPreset(filters));
   }, [filters]);
 
-  // CVIS-07: the generic "ReviewBee Admin" option stays first; people sort by name.
+  // CVIS-07: the generic "Review Bear Admin" option stays first; people sort by name.
   const sortedActors = useMemo(
     () =>
       [...actors].sort((a, b) => {

@@ -26,6 +26,25 @@ async function fillRequiredFields() {
 }
 
 describe("CreateOrgModal", () => {
+  it("lists the placeholder plus 10 org types in order with labels", () => {
+    render(<CreateOrgModal open={true} onClose={() => {}} onCreated={() => {}} />);
+    const opts = Array.from(
+      (screen.getByTestId("field-org_type") as HTMLSelectElement).options,
+    ).map((o) => [o.value, o.textContent]);
+    expect(opts).toEqual([["", "Select a type"], ...[
+  ["RETAIL", "Retail"],
+  ["RESTAURANT", "Restaurant & Cafe"],
+  ["PHARMACY", "Pharmacy"],
+  ["SUPERMARKET", "Supermarket"],
+  ["CLINIC", "Clinic"],
+  ["HOSPITAL", "Hospital"],
+  ["SALON", "Salon"],
+  ["SPA", "Spa"],
+  ["HOTEL_RESORT", "Hotel & Resort"],
+  ["GYM_FITNESS", "Gym & Fitness"],
+]]);
+  });
+
   it("client-side validation blocks submit when fields invalid", async () => {
     const onCreated = vi.fn();
     render(<CreateOrgModal open={true} onClose={() => {}} onCreated={onCreated} />);

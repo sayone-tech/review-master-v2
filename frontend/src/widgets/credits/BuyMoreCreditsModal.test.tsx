@@ -83,7 +83,7 @@ describe("BuyMoreCreditsModal states", () => {
     );
     expect(
       screen.getByText(
-        "To purchase additional credits for this month, please contact your ReviewBee administrator. Your administrator will add credits as soon as possible.",
+        "To purchase additional credits for this month, please contact your Review Bear administrator. Your administrator will add credits as soon as possible.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("support@reviewbee.in")).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe("BuyMoreCreditsModal states", () => {
     );
     expect(
       screen.getByText(
-        "AI replies aren't enabled for this shop yet. To turn them on, please contact your ReviewBee administrator. Your administrator will add credits as soon as possible.",
+        "AI replies aren't enabled for this shop yet. To turn them on, please contact your Review Bear administrator. Your administrator will add credits as soon as possible.",
       ),
     ).toBeInTheDocument();
   });

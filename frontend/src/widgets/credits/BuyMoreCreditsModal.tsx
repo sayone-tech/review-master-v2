@@ -11,9 +11,9 @@ export interface BuyMoreCreditsModalProps {
 }
 
 const ENABLED_COPY =
-  "To purchase additional credits for this month, please contact your ReviewBee administrator. Your administrator will add credits as soon as possible.";
+  "To purchase additional credits for this month, please contact your Review Bear administrator. Your administrator will add credits as soon as possible.";
 const NOT_ENABLED_COPY =
-  "AI replies aren't enabled for this shop yet. To turn them on, please contact your ReviewBee administrator. Your administrator will add credits as soon as possible.";
+  "AI replies aren't enabled for this shop yet. To turn them on, please contact your Review Bear administrator. Your administrator will add credits as soon as possible.";
 
 /**
  * Shared Buy More Credits modal (CVIS-04, D-13..D-16). It only explains how to

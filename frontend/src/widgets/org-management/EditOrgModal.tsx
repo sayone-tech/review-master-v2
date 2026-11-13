@@ -2,16 +2,11 @@ import { useEffect, useState } from "react";
 import { Modal } from "../modal";
 import { updateOrg, ApiError } from "./api";
 import { emitToast } from "../../lib/toast";
+import { ORG_TYPE_OPTIONS } from "./types";
 import type { OrgRow, OrgType, UpdateOrgPayload } from "./types";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { computeCreditHint, parseCreditInput } from "./creditHint";
 
-const ORG_TYPE_OPTIONS: { value: OrgType; label: string }[] = [
-  { value: "RETAIL", label: "Retail" },
-  { value: "RESTAURANT", label: "Restaurant" },
-  { value: "PHARMACY", label: "Pharmacy" },
-  { value: "SUPERMARKET", label: "Supermarket" },
-];
 
 interface Props {
   org: OrgRow | null;

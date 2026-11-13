@@ -29,6 +29,7 @@ from apps.common.selectors.audit_logs import (
     list_audit_logs_for_staff,
 )
 from apps.common.serializers import AuditLogReadSerializer
+from apps.organisations.models import Organisation
 
 
 class ScalarDocsView(APIView):
@@ -142,10 +143,7 @@ def showcase(request: HttpRequest) -> HttpResponse:
     ctx = {
         "org_type_options": [
             ("", "Select one"),
-            ("RETAIL", "Retail"),
-            ("RESTAURANT", "Restaurant"),
-            ("PHARMACY", "Pharmacy"),
-            ("SUPERMARKET", "Supermarket"),
+            *Organisation.OrgType.choices,
         ],
         "status_options": [("", "All statuses"), ("ACTIVE", "Active"), ("DISABLED", "Disabled")],
         "type_options": [("", "All types"), ("RETAIL", "Retail")],

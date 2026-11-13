@@ -5,6 +5,7 @@ import {
   formatCount,
   formatTokens,
   requestTypeLabel,
+  orgTypeLabel,
   titleCase,
 } from "./format";
 
@@ -40,5 +41,11 @@ describe("labels", () => {
   });
   it("title-cases", () => {
     expect(titleCase("RETAIL")).toBe("Retail");
+  });
+  it("uses the shared org-type labels with a title-case fallback", () => {
+    expect(orgTypeLabel("RESTAURANT")).toBe("Restaurant & Cafe");
+    expect(orgTypeLabel("HOTEL_RESORT")).toBe("Hotel & Resort");
+    expect(orgTypeLabel("GYM_FITNESS")).toBe("Gym & Fitness");
+    expect(orgTypeLabel("UNKNOWN_TYPE")).toBe("Unknown Type");
   });
 });

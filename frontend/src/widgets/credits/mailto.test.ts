@@ -84,7 +84,7 @@ describe("buildCreditRequestMailto", () => {
     expect(href).toContain("%0D%0A");
     expect(href).not.toMatch(/[\r\n]/);
     expect(body.endsWith("Thank you.")).toBe(true);
-    expect(body.split("\r\n")[0]).toBe("Hello ReviewBee team,");
+    expect(body.split("\r\n")[0]).toBe("Hello Review Bear team,");
   });
 
   it("should replace CR and LF in names with spaces so a name cannot add mail lines", () => {
