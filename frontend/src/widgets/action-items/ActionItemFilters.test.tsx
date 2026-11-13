@@ -87,4 +87,17 @@ describe("ActionItemFilters", () => {
     expect(onSearchChange).toHaveBeenLastCalledWith("");
     expect(onChange).toHaveBeenLastCalledWith({ search: undefined });
   });
+
+  it("folds a typed-but-unapplied search into another change (one call with both)", async () => {
+    const { onChange } = setup({}, "ORG_ADMIN", "pizza");
+    await userEvent.selectOptions(screen.getByLabelText("Filter by status"), "TODO");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ status: "TODO", search: "pizza" });
+  });
+
+  it("does not add search when it is already applied", async () => {
+    const { onChange } = setup({ search: "pizza" }, "ORG_ADMIN", "pizza");
+    await userEvent.selectOptions(screen.getByLabelText("Filter by status"), "TODO");
+    expect(onChange).toHaveBeenCalledWith({ status: "TODO" });
+  });
 });

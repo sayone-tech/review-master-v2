@@ -66,9 +66,15 @@ export function ActionItemFilters({
   filters,
   searchInput,
   onSearchChange,
-  onChange,
+  onChange: onChangeProp,
   onClearAll,
 }: Props) {
+  // A typed-but-not-yet-applied search is folded into any other change so it is ONE request;
+  // the hook's later debounce then finds search already applied and does nothing.
+  const onChange = (patch: Partial<ListParams>) => {
+    const pending = searchInput !== (filters.search ?? "");
+    onChangeProp(pending && !("search" in patch) ? { ...patch, search: searchInput || undefined } : patch);
+  };
   const isOrgAdmin = userRole === "ORG_ADMIN";
   const hasDate = Boolean(filters.from_date || filters.to_date);
   const scopeActive = isOrgAdmin && Boolean(filters.scope);

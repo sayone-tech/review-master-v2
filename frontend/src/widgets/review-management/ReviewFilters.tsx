@@ -291,6 +291,16 @@ export function ReviewFilters({ shops, filters, availableTags, onChange }: Props
   }, [filters.search]);
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
+  // The parent replaced the filters with no search (e.g. the empty-state "Clear filters"): any
+  // typed-but-unapplied search is stale too, so drop it.
+  useEffect(() => {
+    if (!filters.search && pendingRef.current !== null) {
+      clearTimeout(timerRef.current);
+      pendingRef.current = null;
+      setSearchText("");
+    }
+  }, [filters]);
+
   // Any other change folds in a pending search so it is ONE request, not two.
   const apply = (patch: Partial<ReviewFilterParams>) => {
     const next = { ...filters, ...patch, page: 1 };
@@ -369,6 +379,7 @@ export function ReviewFilters({ shops, filters, availableTags, onChange }: Props
 
   function clearAll() {
     clearTimeout(timerRef.current);
+    pendingRef.current = null;
     setSearchText("");
     onChange({ page: 1 });
   }

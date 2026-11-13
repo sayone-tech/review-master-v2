@@ -82,4 +82,19 @@ describe("Reports FilterBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Avg Rating" }));
     expect(onSort).toHaveBeenCalledWith("avg_rating");
   });
+
+  it("re-selecting Custom after a preset shows empty date boxes and fires nothing", () => {
+    const { onChange } = setup();
+    const period = screen.getByLabelText("Filter by period");
+    fireEvent.change(period, { target: { value: "custom" } });
+    fireEvent.change(screen.getByLabelText("From date"), { target: { value: "2026-11-01" } });
+    fireEvent.change(screen.getByLabelText("To date"), { target: { value: "2026-11-13" } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    fireEvent.change(period, { target: { value: "7d" } });
+    expect(onChange).toHaveBeenCalledTimes(2);
+    fireEvent.change(period, { target: { value: "custom" } });
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect((screen.getByLabelText("From date") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("To date") as HTMLInputElement).value).toBe("");
+  });
 });

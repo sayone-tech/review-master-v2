@@ -149,4 +149,24 @@ describe("ReviewFilters", () => {
       vi.useRealTimers();
     }
   });
+
+  it("Clear all drops a typed-but-unapplied search so a later change does not carry it", async () => {
+    const { onChange } = setup({ page: 1, is_replied: true });
+    await userEvent.type(screen.getByLabelText("Search reviews"), "pizza");
+    await userEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    onChange.mockClear();
+    await userEvent.selectOptions(screen.getByLabelText("Filter by store"), "Downtown");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0].search).toBeUndefined();
+  });
+
+  it("an external reset of the filters drops a pending search", async () => {
+    const { onChange, rerender } = setup({ page: 1, shop: 3 });
+    await userEvent.type(screen.getByLabelText("Search reviews"), "pizza");
+    rerender(<ReviewFilters shops={shops} filters={{ page: 1 }} availableTags={tags} onChange={onChange} />);
+    expect((screen.getByLabelText("Search reviews") as HTMLInputElement).value).toBe("");
+    onChange.mockClear();
+    await userEvent.selectOptions(screen.getByLabelText("Filter by store"), "Uptown");
+    expect(onChange.mock.calls[0][0].search).toBeUndefined();
+  });
 });

@@ -14,6 +14,7 @@ export function MoreFiltersPanel<D>({ applied, activeCount, onApply, onReset, ch
   const [draft, setDraft] = useState<D>(applied);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const panelId = useId();
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -24,6 +25,16 @@ export function MoreFiltersPanel<D>({ applied, activeCount, onApply, onReset, ch
     setDraft(applied);
     setOpen(true);
   }
+
+  // Move focus into the panel on open (spec §2.6).
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current
+      ?.querySelector<HTMLElement>(
+        'input:not([disabled]), select:not([disabled]), button:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )
+      ?.focus();
+  }, [open]);
 
   const closeAndRefocus = useCallback(() => {
     setOpen(false);
@@ -83,6 +94,7 @@ export function MoreFiltersPanel<D>({ applied, activeCount, onApply, onReset, ch
       {open && (
         <div
           id={panelId}
+          ref={panelRef}
           role="dialog"
           aria-label="More filters"
           className="absolute right-0 top-[calc(100%+8px)] w-[320px] max-w-[calc(100vw-32px)] bg-white border border-line rounded-[12px] shadow-[0_18px_40px_rgba(10,10,10,0.16)] p-[14px] z-30"

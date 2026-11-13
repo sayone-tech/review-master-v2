@@ -59,12 +59,15 @@ export function FilterBar({ filters, onChange, sortKey, sortDir, onSort }: Props
 
   function handleRange(v: DateRangePreset | undefined) {
     const range = v ?? "all";
+    // Locally kept dates never outlive the choice: nothing applies until both are valid.
+    setFrom("");
+    setTo("");
+    setDateError(null);
     if (range === "custom") {
       setCustomOpen(true);
       return;
     }
     setCustomOpen(false);
-    setDateError(null);
     onChange({ ...filters, range, date_from: null, date_to: null });
   }
 

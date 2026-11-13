@@ -107,6 +107,12 @@ describe("MoreFiltersPanel", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("moves focus into the dialog on open", async () => {
+    render(<Harness />);
+    await userEvent.click(screen.getByRole("button", { name: /more filters/i }));
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+  });
+
   it("Escape and outside click discard the draft and return focus to the button", async () => {
     const onApply = vi.fn();
     render(<Harness onApply={onApply} />);
