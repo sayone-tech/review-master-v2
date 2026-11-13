@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
 
 export interface MoreFiltersPanelProps<D> {
@@ -15,20 +15,26 @@ export function MoreFiltersPanel<D>({ applied, activeCount, onApply, onReset, ch
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelId = useId();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // The refocus timer outlives the open effect (it fires after close); clear it only on unmount.
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   function openPanel() {
     setDraft(applied);
     setOpen(true);
   }
 
-  function closeAndRefocus() {
+  const closeAndRefocus = useCallback(() => {
     setOpen(false);
     buttonRef.current?.focus();
-  }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
+      // Nested listboxes must handle Escape in a React onKeyDown (or capture phase) and call
+      // preventDefault(); this document listener ignores events that are already defaultPrevented.
       if (e.key !== "Escape" || e.defaultPrevented) return;
       closeAndRefocus();
     }
@@ -37,8 +43,13 @@ export function MoreFiltersPanel<D>({ applied, activeCount, onApply, onReset, ch
       if (rootRef.current?.contains(target as Node)) return;
       if (target?.closest?.("[data-filter-popover]")) return;
       setOpen(false);
-      // The browser moves focus to the clicked element after mousedown; restore it afterwards.
-      setTimeout(() => buttonRef.current?.focus(), 0);
+      // The browser moves focus after mousedown; only restore it if it landed nowhere, so we
+      // never steal focus from the control the user clicked.
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        const a = document.activeElement;
+        if (!a || a === document.body) buttonRef.current?.focus();
+      }, 0);
     }
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("mousedown", onMouseDown);
@@ -46,7 +57,7 @@ export function MoreFiltersPanel<D>({ applied, activeCount, onApply, onReset, ch
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("mousedown", onMouseDown);
     };
-  }, [open]);
+  }, [open, closeAndRefocus]);
 
   return (
     <div ref={rootRef} className="relative">
@@ -83,7 +94,7 @@ export function MoreFiltersPanel<D>({ applied, activeCount, onApply, onReset, ch
               type="button"
               onClick={() => {
                 onReset();
-                setOpen(false);
+                closeAndRefocus();
               }}
               className="text-[12px] text-muted underline cursor-pointer focus-visible:outline-2 focus-visible:outline-ink rounded-sm"
             >
@@ -93,7 +104,7 @@ export function MoreFiltersPanel<D>({ applied, activeCount, onApply, onReset, ch
               type="button"
               onClick={() => {
                 onApply(draft);
-                setOpen(false);
+                closeAndRefocus();
               }}
               className="bg-yellow hover:bg-yellow-hover text-black rounded-[8px] px-4 py-[7px] text-[13px] font-semibold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >

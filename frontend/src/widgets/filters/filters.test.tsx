@@ -58,7 +58,7 @@ function Harness({
 }) {
   return (
     <div>
-      <button>outside</button>
+      <div data-testid="outside">outside</div><input aria-label="outside input" />
       <MoreFiltersPanel<string> applied={applied} activeCount={activeCount} onApply={onApply} onReset={onReset}>
         {(draft, setDraft) => (
           <input aria-label="draft" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={onChildKey} />
@@ -116,10 +116,41 @@ describe("MoreFiltersPanel", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(btn).toHaveFocus();
     await userEvent.click(btn);
-    await userEvent.click(screen.getByRole("button", { name: "outside" }));
+    await userEvent.click(screen.getByTestId("outside"));
     expect(screen.queryByRole("dialog")).toBeNull();
     await waitFor(() => expect(btn).toHaveFocus());
     expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it("outside click discards the draft; reopening shows the applied value", async () => {
+    render(<Harness applied="a" />);
+    const btn = screen.getByRole("button", { name: /more filters/i });
+    await userEvent.click(btn);
+    await userEvent.type(screen.getByLabelText("draft"), "zzz");
+    await userEvent.click(screen.getByTestId("outside"));
+    await userEvent.click(btn);
+    expect((screen.getByLabelText("draft") as HTMLInputElement).value).toBe("a");
+  });
+
+  it("clicking an outside input leaves focus in that input", async () => {
+    render(<Harness />);
+    await userEvent.click(screen.getByRole("button", { name: /more filters/i }));
+    const input = screen.getByLabelText("outside input");
+    await userEvent.click(input);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(input).toHaveFocus();
+  });
+
+  it("Apply and Reset return focus to the button", async () => {
+    render(<Harness />);
+    const btn = screen.getByRole("button", { name: /more filters/i });
+    await userEvent.click(btn);
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(btn).toHaveFocus();
+    await userEvent.click(btn);
+    await userEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(btn).toHaveFocus();
   });
 
   it("ignores an Escape already handled by a nested listbox", async () => {
