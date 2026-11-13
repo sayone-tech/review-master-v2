@@ -19,6 +19,8 @@ from apps.action_items.models import ActionItem
 from apps.reviews.selectors.reviews import get_accessible_shop_ids
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from apps.accounts.models import User
 
 
@@ -28,6 +30,7 @@ def list_action_items(
     user: User,
     include_duplicates: bool = False,
     with_duplicate_count: bool = True,
+    accessible_shop_ids: Sequence[int] | None = None,
 ) -> QuerySet[ActionItem]:
     """Return the ActionItem queryset scoped per role.
 
@@ -51,7 +54,11 @@ def list_action_items(
         "source_review__shop",
     )
     if role == "STAFF_ADMIN":
-        accessible = get_accessible_shop_ids(user_id=user.pk)
+        accessible = (
+            accessible_shop_ids
+            if accessible_shop_ids is not None
+            else get_accessible_shop_ids(user_id=user.pk)
+        )
         # CRITICAL Layer 1: Staff sees only SHOP-scope items in accessible shops.
         qs = qs.filter(scope=ActionItem.Scope.SHOP, shop_id__in=accessible)
     # Phase 18 (D-10/D-11): hide merged duplicates for list views. Annotation

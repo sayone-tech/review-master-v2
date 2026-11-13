@@ -56,8 +56,7 @@ def test_org_admin_open_action_items_include_brand_items_and_exclude_done_and_du
     org = OrganisationFactory()
     admin = OrgAdminFactory(organisation=org)
     shop = ShopFactory(organisation=org)
-    canonical = ActionItemFactory(organisation=org, shop=shop, status=ActionItem.Status.COMPLETE)
-    ActionItemFactory(organisation=org, shop=shop, status=ActionItem.Status.TODO)
+    canonical = ActionItemFactory(organisation=org, shop=shop, status=ActionItem.Status.TODO)
     ActionItemFactory(
         organisation=org,
         shop=None,
@@ -153,7 +152,9 @@ def test_other_organisation_data_never_counted():
 
 
 def test_superadmin_gets_empty_summary():
-    assert get_nav_summary(user=UserFactory(role="SUPERADMIN")).credits is None
+    assert get_nav_summary(user=UserFactory(role="SUPERADMIN")) == NavSummary(
+        reviews_awaiting_reply=0, open_action_items=0, credits=None
+    )
 
 
 def test_endpoint_returns_payload_shape_for_org_admin():
@@ -204,3 +205,36 @@ def test_get_nav_summary_query_count_fixed():
 
     assert one == five
     assert five <= 5
+
+
+def test_endpoint_ok_for_staff():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    staff = _staff(org, shop=shop)
+    ReviewFactory(organisation=org, shop=shop)
+    client = APIClient()
+    client.force_authenticate(user=staff)
+
+    resp = client.get("/api/v1/me/nav-summary/")
+
+    assert resp.status_code == 200
+    assert resp.json()["reviews_awaiting_reply"] == 1
+
+
+def test_endpoint_rejects_unauthenticated():
+    assert APIClient().get("/api/v1/me/nav-summary/").status_code in (401, 403)
+
+
+def test_get_nav_summary_query_count_fixed_for_region_scoped_staff():
+    counts = []
+    for n in (1, 5):
+        org = OrganisationFactory(monthly_credit_allocation=5)
+        region = RegionFactory(organisation=org)
+        staff = _staff(org, region=region)
+        for s in ShopFactory.create_batch(n, organisation=org, region=region):
+            ReviewFactory(organisation=org, shop=s)
+            ActionItemFactory(organisation=org, shop=s)
+        counts.append(_query_count(staff))
+
+    assert counts[0] == counts[1]
+    assert counts[1] <= 6

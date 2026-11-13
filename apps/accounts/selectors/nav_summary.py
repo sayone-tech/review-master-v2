@@ -36,6 +36,7 @@ def get_nav_summary(*, user: User) -> NavSummary:
     is_staff = user.role == User.Role.STAFF_ADMIN
     shops = Shop.objects.filter(organisation_id=org_id, is_active=True)
     reviews = base_reviews_queryset(organisation_id=org_id).filter(is_replied=False)
+    accessible: list[int] | None = None
     if is_staff:
         accessible = get_accessible_shop_ids(user_id=user.pk)
         shops = shops.filter(pk__in=accessible)
@@ -43,7 +44,12 @@ def get_nav_summary(*, user: User) -> NavSummary:
     shop_ids = list(shops.values_list("pk", flat=True))
 
     open_items = (
-        list_action_items(organisation_id=org_id, user=user, with_duplicate_count=False)
+        list_action_items(
+            organisation_id=org_id,
+            user=user,
+            with_duplicate_count=False,
+            accessible_shop_ids=accessible,
+        )
         .filter(status__in=[ActionItem.Status.TODO, ActionItem.Status.IN_PROGRESS])
         .order_by()
         .values("pk")
