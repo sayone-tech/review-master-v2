@@ -2,16 +2,7 @@
 {% load static django_vite %}
 
 {% block content %}
-  <div class="flex items-center justify-end mb-5">
-    <button
-      id="open-create-region"
-      class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover"
-    >
-      + Create Region
-    </button>
-  </div>
-
-  {% include "components/filter_bar.html" with search_placeholder="Search by name or region ID" %}
+  {% include "components/filter_bar.html" with search_placeholder="Search by name or region ID" action_id="open-create-region" action_label="Create Region" %}
 
   <div id="region-modals-root"></div>
 

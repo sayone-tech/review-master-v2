@@ -276,6 +276,20 @@ def test_region_list_template_with_regions(client, db):
     assert b"region-data" in resp.content  # json_script tag present
 
 
+@pytest.mark.django_db
+def test_create_region_button_sits_in_search_row_when_page_renders(client, db):
+    org = OrganisationFactory()
+    admin = UserFactory(role="ORG_ADMIN", organisation=org)
+    client.force_login(admin)
+    html = client.get("/admin/org/regions/").content.decode()
+    form_start = html.index('data-testid="filter-bar"')
+    form_end = html.index("</form>", form_start)
+    filter_bar = html[form_start:form_end]
+    assert 'id="open-create-region"' in filter_bar
+    assert 'type="button"' in filter_bar  # never submits the search form
+    assert html.count('id="open-create-region"') == 1
+
+
 # ---------------------------------------------------------------------------
 # TestRegionMobileScoping — JWT clients cannot mutate regions (Task 4)
 # ---------------------------------------------------------------------------
