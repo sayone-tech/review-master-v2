@@ -10,8 +10,10 @@ from django.test.utils import CaptureQueriesContext
 from apps.credits.models import CreditTransaction, ShopCreditBalance
 from apps.credits.selectors.balances import (
     CreditBalanceView,
+    CreditTotals,
     annotate_credit_state,
     get_shop_credit_balance,
+    sum_credit_balances,
 )
 from apps.credits.services.periods import Period, current_period
 from apps.credits.tests.factories import ShopCreditBalanceFactory
@@ -254,3 +256,46 @@ def test_annotate_defaults_to_current_period_when_period_omitted():
     ShopCreditBalanceFactory(shop=shop, organisation=shop.organisation, allocated_credits=4)
     (row,) = annotate_credit_state(queryset=Shop.objects.filter(pk=shop.pk))
     assert (row.credit_remaining, row.credit_materialized) == (4, True)
+
+
+# --- sum_credit_balances -------------------------------------------------------------
+
+
+def test_sum_credit_balances_adds_allocated_bonus_and_remaining_across_shops():
+    org = OrganisationFactory(monthly_credit_allocation=100)
+    shop_a = ShopFactory(organisation=org)
+    shop_b = ShopFactory(organisation=org)
+    _row(shop_a, allocated_credits=100, bonus_credits=20, consumed_credits=30)
+
+    totals = sum_credit_balances(shop_ids=[shop_a.pk, shop_b.pk], period=PERIOD)
+
+    assert totals == CreditTotals(remaining=100 + 20 - 30 + 100, total=100 + 20 + 100)
+    assert totals == CreditTotals(190, 220)
+
+
+def test_sum_credit_balances_returns_none_for_empty_shop_ids():
+    assert sum_credit_balances(shop_ids=[], period=PERIOD) is None
+
+
+def test_sum_credit_balances_returns_none_when_total_is_zero():
+    shop = _shop(allocation=0)
+
+    assert sum_credit_balances(shop_ids=[shop.pk], period=PERIOD) is None
+
+
+def test_sum_credit_balances_counts_bonus_when_allocation_zero():
+    shop = _shop(allocation=0)
+    _row(shop, allocated_credits=0, bonus_credits=15)
+
+    assert sum_credit_balances(shop_ids=[shop.pk], period=PERIOD) == CreditTotals(15, 15)
+
+
+@pytest.mark.parametrize("n_shops", [2, 6])
+def test_sum_credit_balances_uses_one_query_for_any_shop_count(n_shops):
+    org = OrganisationFactory(monthly_credit_allocation=10)
+    ids = [ShopFactory(organisation=org).pk for _ in range(n_shops)]
+
+    with CaptureQueriesContext(connection) as ctx:
+        sum_credit_balances(shop_ids=ids, period=PERIOD)
+
+    assert len(ctx.captured_queries) == 1
