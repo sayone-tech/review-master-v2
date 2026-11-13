@@ -172,3 +172,49 @@ def test_group_toggle_and_badge_have_base_classes_for_mobile_drawer() -> None:
     inactive = re.search(r'<span\s[^>]*data-nav-badge="action_items"[^>]*>', html)
     assert inactive
     assert "bg-[#27272A]" in _classes(inactive.group(0))
+
+
+def _sidebar_and_menu(role: str) -> tuple[str, str]:
+    path = "/" if role == "SUPERADMIN" else "/admin/org/reviews/"
+    html = _client_for(role).get(path, follow=True).content.decode()
+    sidebar = html[html.index("<aside") : html.index("</aside>")]
+    menu = html[html.index('data-testid="avatar-dropdown"') : html.index("</header>")]
+    return sidebar, menu
+
+
+@pytest.mark.parametrize("role", ["SUPERADMIN", "ORG_ADMIN", "STAFF_ADMIN"])
+def test_sidebar_has_no_logout_or_profile_link(role: str) -> None:
+    sidebar, _ = _sidebar_and_menu(role)
+    assert 'action="/logout/"' not in sidebar
+    assert "sidebar-logout" not in sidebar
+    assert "sidebar-user" not in sidebar
+    assert "/admin/profile/" not in sidebar
+    assert "/admin/org/profile/" not in sidebar
+
+
+@pytest.mark.parametrize(
+    ("role", "profile_url"),
+    [
+        ("SUPERADMIN", "/admin/profile/"),
+        ("ORG_ADMIN", "/admin/org/profile/"),
+        ("STAFF_ADMIN", "/admin/org/profile/"),
+    ],
+)
+def test_header_menu_has_profile_and_logout_post_form(role: str, profile_url: str) -> None:
+    _, menu = _sidebar_and_menu(role)
+    assert f'href="{profile_url}"' in menu
+    assert 'method="post" action="/logout/"' in menu
+    assert "csrfmiddlewaretoken" in menu
+    assert 'role="menu"' in menu
+    assert 'aria-haspopup="menu"' in menu
+
+
+@pytest.mark.parametrize("role", ["ORG_ADMIN", "STAFF_ADMIN"])
+def test_header_menu_shows_organisation_strip_for_tenant_roles(role: str) -> None:
+    _, menu = _sidebar_and_menu(role)
+    assert 'data-testid="profile-menu-org"' in menu
+
+
+def test_header_menu_omits_organisation_strip_for_superadmin() -> None:
+    _, menu = _sidebar_and_menu("SUPERADMIN")
+    assert 'data-testid="profile-menu-org"' not in menu

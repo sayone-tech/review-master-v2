@@ -61,6 +61,7 @@ complete, pending merge of `feat/v0.10-ai-cost-pricing`. Specs moved to `docs/co
 | UI-NAV-01 | Black frame shell + grouped, foldable sidebar and dark header for all three roles (spec §2.1–2.5, §2.8) | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
 | UI-NAV-02 | Reviews / Action items badges scoped per spec §2.6, §4 | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
 | UI-NAV-03 | AI-credits meter: sum over the person's active shops (spec §2.7, §4) | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
+| UI-NAV-04 | Profile menu in the header (dark panel, option B); Profile and Log out removed from the sidebar | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
 
 ## Out of scope (deferred)
 

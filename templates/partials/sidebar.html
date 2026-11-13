@@ -39,41 +39,6 @@
           </div>
         </div>
       {% endif %}
-
-      <div class="border-t border-[#27272A] pt-3">
-        <form method="post" action="{% url 'logout' %}">
-          {% csrf_token %}
-          <button
-            type="submit"
-            class="
-                   flex items-center gap-2 w-full px-2.5
-                   text-[14px] font-medium text-[#D4D4D8]
-                   py-2 rounded-md
-                   hover:text-yellow
-                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow
-                  "
-            data-testid="sidebar-logout"
-          >
-            <span class="w-[18px] h-[18px]" aria-hidden="true" data-lucide="log-out"></span>
-            <span class="md:hidden lg:inline">Log out</span>
-          </button>
-        </form>
-
-        <a
-          href="{% if user.role == 'SUPERADMIN' %}/admin/profile/{% else %}/admin/org/profile/{% endif %}"
-          class="mt-2 flex items-center gap-2 rounded-md py-1 px-2.5 hover:bg-white/[0.06] transition-colors group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
-          data-testid="sidebar-user"
-          aria-label="Go to profile"
-        >
-          <span class="w-7 h-7 rounded-full bg-black text-yellow flex items-center justify-center text-[11px] font-semibold border border-[#27272A] shrink-0 group-hover:border-yellow/40 transition-colors">
-            {{ user.full_name|slice:":1"|default:user.email|slice:":1"|upper }}
-          </span>
-          <div class="md:hidden lg:block min-w-0">
-            <div class="text-[13px] text-white truncate group-hover:text-yellow transition-colors">{{ user.full_name|default:user.email }}</div>
-            <div class="text-[11px] text-[#A1A1AA] truncate">{{ user.get_role_display }}</div>
-          </div>
-        </a>
-      </div>
     </div>
   {% endif %}
 </aside>
