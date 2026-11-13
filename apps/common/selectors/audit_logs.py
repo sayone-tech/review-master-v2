@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 # CVIS-07: tenants never see a Superadmin's name or id. Their actions show as one
 # generic platform actor, and the actor filter accepts this id for them.
 PLATFORM_ACTOR_ID = "platform"
-PLATFORM_ACTOR_LABEL = "ReviewBee Admin"
+PLATFORM_ACTOR_LABEL = "Review Bear Admin"
 
 
 def is_platform_actor(actor: object) -> bool:

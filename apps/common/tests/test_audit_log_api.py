@@ -390,7 +390,7 @@ def _superadmin_credit_row(org):
 def test_actor_dropdown_shows_platform_label_not_superadmin_name_for_org_admin(
     staff_setup,
 ) -> None:
-    """CVIS-07: Superadmins appear as one generic 'ReviewBee Admin' option, never by
+    """CVIS-07: Superadmins appear as one generic 'Review Bear Admin' option, never by
     name or id. Staff never see it (they get no credit rows)."""
     _client, staff, org, accessible_shop, _inaccessible = staff_setup
     org_admin = OrgAdminFactory(organisation=org)
@@ -406,7 +406,7 @@ def test_actor_dropdown_shows_platform_label_not_superadmin_name_for_org_admin(
     )
 
     org_admin_actors = _activity_log_actors(org_admin)
-    assert {"id": "platform", "full_name": "ReviewBee Admin"} in org_admin_actors
+    assert {"id": "platform", "full_name": "Review Bear Admin"} in org_admin_actors
     assert superadmin.pk not in {a["id"] for a in org_admin_actors}
     assert "Internal Person" not in {a["full_name"] for a in org_admin_actors}
 
@@ -419,7 +419,7 @@ def test_superadmin_rows_show_platform_label_and_hide_actor_id(org_admin_setup) 
     client, _user, org = org_admin_setup
     superadmin = _superadmin_credit_row(org)
     row = client.get(LIST_URL).data["results"][0]
-    assert row["actor_name"] == "ReviewBee Admin"
+    assert row["actor_name"] == "Review Bear Admin"
     assert row["actor_id"] is None
     assert superadmin.full_name not in str(client.get(LIST_URL).data)
 

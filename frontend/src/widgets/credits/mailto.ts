@@ -34,7 +34,7 @@ export function buildCreditRequestMailto(args: {
   const subject = shop ? `Credit request — ${org} / ${shopName}` : `Credit request — ${org}`;
 
   const lines: string[] = [
-    "Hello ReviewBee team,",
+    "Hello Review Bear team,",
     "",
     "I'd like to request more AI reply credits.",
     "",
