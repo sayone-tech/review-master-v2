@@ -63,6 +63,9 @@ complete, pending merge of `feat/v0.10-ai-cost-pricing`. Specs moved to `docs/co
 | UI-NAV-03 | AI-credits meter: sum over the person's active shops (spec §2.7, §4) | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
 | UI-NAV-04 | Profile menu in the header (dark panel, option B); Profile and Log out removed from the sidebar | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
 | UI-NAV-05 | Pages inside the black frame no longer repeat their title as a page heading; the header title is the page title, with the list count shown next to it | owner decision 2026-11-13 | ✅ Delivered |
+| UI-FILTER-01 | Compact shared filter toolbar (search + 3 quick filters + "More filters" panel + removable chips) on Reviews, Action items and Reports (spec §2.1–2.4, 2.6–2.7) | spec docs/superpowers/specs/2026-11-13-compact-filter-toolbar-design.md | ✅ Delivered |
+| UI-FILTER-02 | Reviews slim number bar replacing the stat cards (spec §2.5) | spec docs/superpowers/specs/2026-11-13-compact-filter-toolbar-design.md | ✅ Delivered |
+| UI-FILTER-03 | Shops and Team: add button moved into the existing search/filter row (Shop limit note before Add Shop) (spec §2.8) | spec docs/superpowers/specs/2026-11-13-compact-filter-toolbar-design.md | ✅ Delivered |
 
 ## Out of scope (deferred)
 

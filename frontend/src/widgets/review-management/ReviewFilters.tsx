@@ -1,76 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, MessageSquare, RefreshCw, Search, Star, Tag, ThumbsUp } from "lucide-react";
+import { Calendar, ChevronDown, Search, Star, Store, ThumbsUp } from "lucide-react";
+import { FilterChips, FilterSearch, FilterSelect, MoreFiltersPanel, formatDateChip } from "../filters";
+import type { FilterChip } from "../filters";
 import type { ReviewFilterParams, ShopOption, TagOption } from "./types";
-
-interface DraftFilters {
-  search: string;
-  shop?: number;
-  rating?: 1 | 2 | 3 | 4 | 5;
-  sentiment?: "positive" | "neutral" | "negative";
-  is_replied?: boolean;
-  has_comment?: boolean;
-  from_date?: string;
-  to_date?: string;
-  tags?: string[];
-}
 
 interface Props {
   shops: ShopOption[];
   filters: ReviewFilterParams;
-  onApply: (draft: DraftFilters) => void;
-  onReset: () => void;
   availableTags?: TagOption[];
+  onChange: (next: ReviewFilterParams) => void;
 }
 
-const selectCls =
-  "appearance-none w-full px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]";
-
-function ChevronIcon() {
-  return (
-    <svg
-      width={16}
-      height={16}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle pointer-events-none"
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
+interface PanelDraft {
+  tags?: string[];
+  from_date?: string;
+  to_date?: string;
+  is_replied?: boolean;
+  has_comment?: boolean;
 }
 
-function FilterLabel({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-[12px] font-semibold text-subtle uppercase tracking-[0.05em]">
-      <span className="text-muted">{icon}</span>
-      <span>{label}</span>
-    </span>
-  );
-}
+const PANEL_RESET: PanelDraft = {
+  tags: undefined,
+  from_date: undefined,
+  to_date: undefined,
+  is_replied: undefined,
+  has_comment: undefined,
+};
 
-function StoreIcon({ size = 15 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 9l1-4h16l1 4" />
-      <path d="M3 9v11h18V9" />
-      <path d="M9 9v11" />
-      <path d="M15 9v11" />
-    </svg>
-  );
-}
+const SEARCH_DEBOUNCE_MS = 300;
+
+const triSelectCls =
+  "appearance-none w-full h-[34px] px-3 pr-8 text-[13px] text-ink bg-white border border-line rounded-[8px] outline-none cursor-pointer focus:border-ink";
+
 
 interface TagsFilterProps {
   availableTags?: TagOption[];
@@ -168,8 +129,8 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
   };
 
   return (
-    <label className="flex flex-col gap-2 min-w-0">
-      <FilterLabel icon={<Tag size={15} />} label="Tags" />
+    <div className="flex flex-col gap-[6px] min-w-0">
+      <span className="text-[12px] font-semibold text-subtle">Tags</span>
       <div className="relative" ref={containerRef}>
         <button
           ref={triggerRef}
@@ -182,7 +143,7 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
           onClick={() => !loading && setOpen((o) => !o)}
           onKeyDown={onTriggerKeyDown}
           className={
-            "w-full flex items-center justify-between gap-2 px-4 py-2 pr-9 text-[14px] font-normal text-ink bg-white border border-line rounded-[10px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]" +
+            "relative w-full flex items-center justify-between gap-2 px-3 h-[34px] pr-8 text-[13px] font-normal text-ink bg-white border border-line rounded-[8px] outline-none cursor-pointer transition-[border-color,box-shadow] focus:border-ink focus:shadow-[0_0_0_3px_rgba(10,10,10,0.05)]" +
             (loading ? " opacity-50 cursor-not-allowed pointer-events-none" : "")
           }
         >
@@ -197,9 +158,10 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
               </span>
             )}
           </span>
-          <ChevronIcon />
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle pointer-events-none" />
         </button>
         {open && (
+          <div data-filter-popover>
           <div
             role="listbox"
             aria-multiselectable="true"
@@ -268,290 +230,266 @@ function TagsFilter({ availableTags, selected, onChange }: TagsFilterProps) {
               })
             )}
           </div>
+          </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+
+function TriSelect({
+  label,
+  ariaLabel,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  ariaLabel: string;
+  value: boolean | undefined;
+  onChange: (v: boolean | undefined) => void;
+  options: [string, string, string];
+}) {
+  return (
+    <label className="flex flex-col gap-[6px] min-w-0">
+      <span className="text-[12px] font-semibold text-subtle">{label}</span>
+      <div className="relative">
+        <select
+          aria-label={ariaLabel}
+          className={triSelectCls}
+          value={value === undefined ? "" : value ? "true" : "false"}
+          onChange={(e) => onChange(e.target.value === "" ? undefined : e.target.value === "true")}
+        >
+          <option value="">{options[0]}</option>
+          <option value="true">{options[1]}</option>
+          <option value="false">{options[2]}</option>
+        </select>
+        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle pointer-events-none" />
       </div>
     </label>
   );
 }
 
-export function ReviewFilters({ shops, filters, onApply, onReset, availableTags }: Props) {
-  const [draft, setDraft] = useState<DraftFilters>({
-    search: filters.search ?? "",
-    shop: filters.shop,
-    rating: filters.rating,
-    sentiment: filters.sentiment,
-    is_replied: filters.is_replied,
-    has_comment: filters.has_comment,
-    from_date: filters.from_date,
-    to_date: filters.to_date,
-    tags: filters.tags ?? [],
-  });
-
-  // Keep draft.tags in sync when tags are applied externally (e.g. tag chip clicks on review rows)
-  useEffect(() => {
-    setDraft((d) => ({ ...d, tags: filters.tags ?? [] }));
-  }, [filters.tags]);
-
-  const hasActiveFilters = Boolean(
-    filters.search ||
-      filters.shop !== undefined ||
-      filters.rating !== undefined ||
-      filters.sentiment ||
-      filters.is_replied !== undefined ||
-      filters.has_comment !== undefined ||
-      filters.from_date ||
-      filters.to_date ||
-      (filters.tags && filters.tags.length > 0),
+// Filters a user sets (not paging/sorting/page size, not search).
+function hasAnyFilter(f: ReviewFilterParams): boolean {
+  return (
+    f.shop !== undefined ||
+    f.rating !== undefined ||
+    f.sentiment !== undefined ||
+    f.is_replied !== undefined ||
+    f.has_comment !== undefined ||
+    !!f.from_date ||
+    !!f.to_date ||
+    (f.tags?.length ?? 0) > 0
   );
+}
 
-  const handleReset = () => {
-    setDraft({
-      search: "",
-      shop: undefined,
-      rating: undefined,
-      sentiment: undefined,
-      is_replied: undefined,
-      has_comment: undefined,
-      from_date: undefined,
-      to_date: undefined,
-      tags: [],
-    });
-    onReset();
+export function ReviewFilters({ shops, filters, availableTags, onChange }: Props) {
+  const [searchText, setSearchText] = useState(filters.search ?? "");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // A typed-but-not-yet-applied search (debounce pending), else null.
+  const pendingRef = useRef<string | null>(null);
+
+  // External changes to the applied search (Clear all, empty-state clear, tag click) sync the
+  // box and cancel any pending debounced apply of the old text.
+  useEffect(() => {
+    clearTimeout(timerRef.current);
+    pendingRef.current = null;
+    setSearchText(filters.search ?? "");
+  }, [filters.search]);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  // The parent reset the filters (e.g. the empty-state "Clear filters"): any typed-but-unapplied
+  // search is stale too, so drop it. Only a real reset counts — some filter set before, none now.
+  // Paging, sorting, rows-per-page and row-tag clicks keep the pending text; the debounce then
+  // applies it on top of the latest filters (filtersRef).
+  const prevFiltersRef = useRef(filters);
+  useEffect(() => {
+    const wasFiltered = hasAnyFilter(prevFiltersRef.current);
+    prevFiltersRef.current = filters;
+    if (wasFiltered && !hasAnyFilter(filters) && !filters.search && pendingRef.current !== null) {
+      clearTimeout(timerRef.current);
+      pendingRef.current = null;
+      setSearchText("");
+    }
+  }, [filters]);
+
+  // Any other change folds in a pending search so it is ONE request, not two.
+  const apply = (patch: Partial<ReviewFilterParams>) => {
+    const next = { ...filters, ...patch, page: 1 };
+    if (pendingRef.current !== null && !("search" in patch)) {
+      next.search = pendingRef.current || undefined;
+    }
+    clearTimeout(timerRef.current);
+    pendingRef.current = null;
+    onChange(next);
   };
 
+  function handleSearch(v: string) {
+    setSearchText(v);
+    clearTimeout(timerRef.current);
+    if (v === "") {
+      apply({ search: undefined });
+      return;
+    }
+    pendingRef.current = v;
+    timerRef.current = setTimeout(() => {
+      pendingRef.current = null;
+      onChangeRef.current({ ...filtersRef.current, search: v, page: 1 });
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  function submitSearch() {
+    clearTimeout(timerRef.current);
+    pendingRef.current = null;
+    if (searchText !== (filters.search ?? "")) apply({ search: searchText || undefined });
+  }
+
+  const tags = filters.tags ?? [];
+  const dateChip = formatDateChip(filters.from_date, filters.to_date);
+  const chips: FilterChip[] = [];
+  if (filters.is_replied !== undefined)
+    chips.push({
+      key: "is_replied",
+      label: filters.is_replied ? "Replied" : "Not replied",
+      onRemove: () => apply({ is_replied: undefined }),
+    });
+  if (filters.has_comment !== undefined)
+    chips.push({
+      key: "has_comment",
+      label: filters.has_comment ? "With comment" : "No comment",
+      onRemove: () => apply({ has_comment: undefined }),
+    });
+  for (const tag of tags)
+    chips.push({
+      key: `tag:${tag}`,
+      label: tag,
+      onRemove: () => {
+        const next = tags.filter((t) => t !== tag);
+        apply({ tags: next.length ? next : undefined });
+      },
+    });
+  if (dateChip)
+    chips.push({
+      key: "date",
+      label: dateChip,
+      onRemove: () => apply({ from_date: undefined, to_date: undefined }),
+    });
+
+  const activeCount =
+    (tags.length ? 1 : 0) +
+    (filters.from_date || filters.to_date ? 1 : 0) +
+    (filters.is_replied !== undefined ? 1 : 0) +
+    (filters.has_comment !== undefined ? 1 : 0);
+
+  const applied: PanelDraft = {
+    tags: filters.tags,
+    from_date: filters.from_date,
+    to_date: filters.to_date,
+    is_replied: filters.is_replied,
+    has_comment: filters.has_comment,
+  };
+
+  function clearAll() {
+    clearTimeout(timerRef.current);
+    pendingRef.current = null;
+    setSearchText("");
+    onChange({ page: 1 });
+  }
+
   return (
-    <div className="bg-white border border-line rounded-xl p-4 mb-4">
-      {/* Row 1 — search + store + rating + sentiment */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
-          gap: 16,
-          alignItems: "end",
-        }}
-      >
-        {/* Search */}
-        <label className="flex flex-col gap-2 min-w-0">
-          <FilterLabel icon={<Search size={15} />} label="Search" />
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#A1A1AA" }} aria-hidden="true" />
-            <input
-              type="text"
-              className="w-full pl-9 pr-3.5 py-2 text-[14px] font-normal text-ink placeholder:text-faint bg-white border border-line rounded-[10px] transition-[border-color,box-shadow] focus:outline-none focus:border-ink focus:ring focus:ring-black/[0.05]"
-              placeholder="Search reviews…"
-              value={draft.search}
-              onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
-              aria-label="Search reviews"
-            />
-          </div>
-        </label>
-
-        {/* Store */}
-        <label className="flex flex-col gap-2 min-w-0">
-          <FilterLabel icon={<StoreIcon size={15} />} label="Store" />
-          <div className="relative">
-            <select
-              aria-label="Filter by store"
-              className={selectCls}
-              value={draft.shop ?? ""}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  shop: e.target.value ? Number(e.target.value) : undefined,
-                }))
-              }
-            >
-              <option value="">All stores</option>
-              {shops.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <ChevronIcon />
-          </div>
-        </label>
-
-        {/* Tags multi-select — placed after Store because the inline search
-           input makes this control visually heavier than a plain <select>;
-           grouping it next to Store keeps the heavier "entity" filters
-           together and the lighter scalar filters (Rating, Sentiment) to
-           the right. */}
-        <TagsFilter
-          availableTags={availableTags}
-          selected={draft.tags ?? []}
-          onChange={(next) => setDraft((d) => ({ ...d, tags: next }))}
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterSearch value={searchText} placeholder="Search reviews…" ariaLabel="Search reviews" onChange={handleSearch} onSubmit={submitSearch} />
+        <FilterSelect<number>
+          icon={Store}
+          ariaLabel="Filter by store"
+          placeholder="All stores"
+          value={filters.shop}
+          options={shops.map((s) => ({ value: s.id, label: s.name }))}
+          onChange={(shop) => apply({ shop })}
         />
-
-        {/* Rating */}
-        <label className="flex flex-col gap-2 min-w-0">
-          <FilterLabel icon={<Star size={15} />} label="Rating" />
-          <div className="relative">
-            <select
-              aria-label="Filter by rating"
-              className={selectCls}
-              value={draft.rating ?? ""}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  rating: e.target.value
-                    ? (Number(e.target.value) as 1 | 2 | 3 | 4 | 5)
-                    : undefined,
-                }))
-              }
-            >
-              <option value="">Any rating</option>
-              <option value="5">★★★★★ 5 stars</option>
-              <option value="4">★★★★☆ 4 stars</option>
-              <option value="3">★★★☆☆ 3 stars</option>
-              <option value="2">★★☆☆☆ 2 stars</option>
-              <option value="1">★☆☆☆☆ 1 star</option>
-            </select>
-            <ChevronIcon />
-          </div>
-        </label>
-
-        {/* Sentiment */}
-        <label className="flex flex-col gap-2 min-w-0">
-          <FilterLabel icon={<ThumbsUp size={15} />} label="Sentiment" />
-          <div className="relative">
-            <select
-              aria-label="Filter by sentiment"
-              className={selectCls}
-              value={draft.sentiment ?? ""}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  sentiment: e.target.value
-                    ? (e.target.value as "positive" | "neutral" | "negative")
-                    : undefined,
-                }))
-              }
-            >
-              <option value="">Any sentiment</option>
-              <option value="positive">Positive</option>
-              <option value="neutral">Neutral</option>
-              <option value="negative">Negative</option>
-            </select>
-            <ChevronIcon />
-          </div>
-        </label>
-
-      </div>
-
-      {/* Row 2 — date range + reply + comment + actions */}
-      <div
-        className="mt-3 pt-3 border-t border-dashed border-line"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto",
-          gap: 16,
-          alignItems: "end",
-        }}
-      >
-        {/* Date range — two date inputs side by side */}
-        <label className="flex flex-col gap-2 min-w-0">
-          <FilterLabel icon={<Calendar size={15} />} label="Date range" />
-          <div className="flex items-center gap-2 px-4 py-2 border border-line rounded-[10px] bg-white focus-within:border-ink focus-within:shadow-[0_0_0_3px_rgba(10,10,10,0.05)] transition-[border-color,box-shadow]">
-            <Calendar size={14} className="text-subtle shrink-0" aria-hidden="true" />
-            <input
-              type="date"
-              aria-label="From date"
-              className="flex-1 bg-transparent focus:outline-none text-[14px] text-ink min-w-0"
-              value={draft.from_date ?? ""}
-              max={draft.to_date ?? undefined}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, from_date: e.target.value || undefined }))
-              }
-            />
-            <span className="text-faint font-normal shrink-0">—</span>
-            <input
-              type="date"
-              aria-label="To date"
-              className="flex-1 bg-transparent focus:outline-none text-[14px] text-ink min-w-0"
-              value={draft.to_date ?? ""}
-              min={draft.from_date ?? undefined}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, to_date: e.target.value || undefined }))
-              }
-            />
-          </div>
-        </label>
-
-        {/* Reply status */}
-        <label className="flex flex-col gap-2 min-w-0">
-          <FilterLabel icon={<MessageSquare size={15} />} label="Reply" />
-          <div className="relative">
-            <select
-              aria-label="Filter by reply status"
-              className={selectCls}
-              value={
-                draft.is_replied === undefined ? "" : draft.is_replied ? "true" : "false"
-              }
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  is_replied:
-                    e.target.value === "" ? undefined : e.target.value === "true",
-                }))
-              }
-            >
-              <option value="">All replies</option>
-              <option value="true">Replied</option>
-              <option value="false">Not replied</option>
-            </select>
-            <ChevronIcon />
-          </div>
-        </label>
-
-        {/* Comment presence */}
-        <label className="flex flex-col gap-2 min-w-0">
-          <FilterLabel icon={<Tag size={15} />} label="Comment" />
-          <div className="relative">
-            <select
-              aria-label="Filter by comment presence"
-              className={selectCls}
-              value={
-                draft.has_comment === undefined ? "" : draft.has_comment ? "true" : "false"
-              }
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  has_comment:
-                    e.target.value === "" ? undefined : e.target.value === "true",
-                }))
-              }
-            >
-              <option value="">All comments</option>
-              <option value="true">With comment</option>
-              <option value="false">No comment</option>
-            </select>
-            <ChevronIcon />
-          </div>
-        </label>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-transparent border border-dashed border-line text-subtle text-[14px] hover:text-ink hover:border-ink transition-colors"
-            >
-              <RefreshCw size={13} aria-hidden="true" />
-              Reset
-            </button>
+        <FilterSelect<number>
+          icon={Star}
+          ariaLabel="Filter by rating"
+          placeholder="Any rating"
+          value={filters.rating}
+          options={[5, 4, 3, 2, 1].map((n) => ({ value: n, label: `${n} star${n === 1 ? "" : "s"}` }))}
+          onChange={(rating) => apply({ rating: rating as ReviewFilterParams["rating"] })}
+        />
+        <FilterSelect<string>
+          icon={ThumbsUp}
+          ariaLabel="Filter by sentiment"
+          placeholder="Any sentiment"
+          value={filters.sentiment}
+          options={[
+            { value: "positive", label: "Positive" },
+            { value: "neutral", label: "Neutral" },
+            { value: "negative", label: "Negative" },
+          ]}
+          onChange={(sentiment) => apply({ sentiment: sentiment as ReviewFilterParams["sentiment"] })}
+        />
+        <MoreFiltersPanel<PanelDraft>
+          applied={applied}
+          activeCount={activeCount}
+          onApply={(d) => apply({ ...d, tags: d.tags?.length ? d.tags : undefined })}
+          onReset={() => apply(PANEL_RESET)}
+        >
+          {(draft, setDraft) => (
+            <>
+              <TagsFilter
+                availableTags={availableTags}
+                selected={draft.tags ?? []}
+                onChange={(next) => setDraft({ ...draft, tags: next })}
+              />
+              <div className="flex flex-col gap-[6px] min-w-0">
+                <span className="text-[12px] font-semibold text-subtle">Date range</span>
+                <div className="flex items-center gap-2 px-3 h-[34px] border border-line rounded-[8px] bg-white focus-within:border-ink">
+                  <Calendar size={14} className="text-subtle shrink-0" aria-hidden="true" />
+                  <input
+                    type="date"
+                    aria-label="From date"
+                    className="flex-1 bg-transparent focus:outline-none text-[13px] text-ink min-w-0"
+                    value={draft.from_date ?? ""}
+                    max={draft.to_date ?? undefined}
+                    onChange={(e) => setDraft({ ...draft, from_date: e.target.value || undefined })}
+                  />
+                  <span className="text-faint shrink-0">—</span>
+                  <input
+                    type="date"
+                    aria-label="To date"
+                    className="flex-1 bg-transparent focus:outline-none text-[13px] text-ink min-w-0"
+                    value={draft.to_date ?? ""}
+                    min={draft.from_date ?? undefined}
+                    onChange={(e) => setDraft({ ...draft, to_date: e.target.value || undefined })}
+                  />
+                </div>
+              </div>
+              <TriSelect
+                label="Reply"
+                ariaLabel="Filter by reply status"
+                value={draft.is_replied}
+                onChange={(v) => setDraft({ ...draft, is_replied: v })}
+                options={["All replies", "Replied", "Not replied"]}
+              />
+              <TriSelect
+                label="Comment"
+                ariaLabel="Filter by comment presence"
+                value={draft.has_comment}
+                onChange={(v) => setDraft({ ...draft, has_comment: v })}
+                options={["All comments", "With comment", "No comment"]}
+              />
+            </>
           )}
-          <button
-            type="button"
-            onClick={() => onApply(draft)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-[10px] bg-yellow text-black border border-yellow-hover text-[14px] font-semibold hover:bg-yellow-hover transition-colors shrink-0"
-          >
-            Apply
-          </button>
-        </div>
+        </MoreFiltersPanel>
       </div>
+      <FilterChips chips={chips} onClearAll={clearAll} />
     </div>
   );
 }

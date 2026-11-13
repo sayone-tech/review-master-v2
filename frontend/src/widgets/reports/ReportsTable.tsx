@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { DataTable, type DataTableColumn } from "../data-table/DataTable";
 import type { SortDir, SortKey, StoreReportRow } from "./types";
@@ -6,6 +5,9 @@ import type { SortDir, SortKey, StoreReportRow } from "./types";
 interface Props {
   rows: StoreReportRow[];
   loading: boolean;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
 }
 
 const SENTIMENT_BADGE: Record<string, { bg: string; text: string }> = {
@@ -61,19 +63,7 @@ function sentimentCell(count: number, type: "positive" | "neutral" | "negative")
   );
 }
 
-export function ReportsTable({ rows, loading }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey>("total_reviews");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-
-  function handleSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  }
-
+export function ReportsTable({ rows, loading, sortKey, sortDir, onSort }: Props) {
   const sorted = [...rows].sort((a, b) => {
     const av = a[sortKey] ?? 0;
     const bv = b[sortKey] ?? 0;
@@ -82,7 +72,7 @@ export function ReportsTable({ rows, loading }: Props) {
 
   function sortLabel(label: string, key: SortKey) {
     return (
-      <SortButton label={label} sortKey={key} active={sortKey === key} dir={sortDir} onSort={handleSort} />
+      <SortButton label={label} sortKey={key} active={sortKey === key} dir={sortDir} onSort={onSort} />
     );
   }
 
@@ -172,39 +162,6 @@ export function ReportsTable({ rows, loading }: Props) {
 
   return (
     <div>
-      {/* Sort control */}
-      <div className="flex items-center justify-end gap-3 mb-2 text-[12px] text-muted">
-        <span>Sort by:</span>
-        {(
-          [
-            ["total_reviews", "Reviews"],
-            ["avg_rating", "Avg Rating"],
-            ["replied_count", "Replied"],
-            ["not_replied_count", "Not Replied"],
-            ["positive_count", "Positive"],
-            ["negative_count", "Negative"],
-          ] as [SortKey, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => handleSort(key)}
-            className={`inline-flex items-center gap-0.5 transition-colors ${
-              sortKey === key ? "text-ink font-semibold" : "hover:text-ink"
-            }`}
-          >
-            {label}
-            {sortKey === key ? (
-              sortDir === "desc" ? (
-                <ArrowDown size={10} aria-hidden="true" />
-              ) : (
-                <ArrowUp size={10} aria-hidden="true" />
-              )
-            ) : null}
-          </button>
-        ))}
-      </div>
-
       <DataTable
         columns={sortableColumns}
         rows={sorted}

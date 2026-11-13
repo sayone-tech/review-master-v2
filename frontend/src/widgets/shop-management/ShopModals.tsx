@@ -31,10 +31,12 @@ function CreateButtonBridge({
   allocationAtLimit: boolean;
 }) {
   useEffect(() => {
-    // Wire Django-template "+ Add Shop" button (always in DOM)
-    const btn = document.getElementById("open-create-shop");
-    const btnHandler = (e: Event) => {
-      const atLimit = allocationAtLimit || btn?.getAttribute("data-at-limit") === "true";
+    // Delegated click: the "+ Add Shop" button is rendered by another React root
+    // (the table), so it may mount before or after this component.
+    const btnHandler = (e: MouseEvent) => {
+      const btn = (e.target as Element | null)?.closest?.("#open-create-shop");
+      if (!btn) return;
+      const atLimit = allocationAtLimit || btn.getAttribute("data-at-limit") === "true";
       if (atLimit) {
         e.preventDefault();
         emitToast({
@@ -45,14 +47,14 @@ function CreateButtonBridge({
       }
       onOpen();
     };
-    btn?.addEventListener("click", btnHandler);
+    document.addEventListener("click", btnHandler);
 
     // Wire empty-state CTA button via CustomEvent (rendered by React in separate root)
     const eventHandler = () => onOpen();
     window.addEventListener("shop:open-create", eventHandler);
 
     return () => {
-      btn?.removeEventListener("click", btnHandler);
+      document.removeEventListener("click", btnHandler);
       window.removeEventListener("shop:open-create", eventHandler);
     };
   }, [onOpen, allocationAtLimit]);

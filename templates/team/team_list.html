@@ -2,16 +2,6 @@
 {% load static django_vite %}
 
 {% block content %}
-  <div class="flex items-center justify-end mb-6">
-    <button
-      id="open-add-team-member"
-      type="button"
-      class="inline-flex items-center gap-1.5 px-4 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[14px] font-semibold hover:bg-yellow-hover"
-    >
-      + Add Team Member
-    </button>
-  </div>
-
   <div
     id="team-modals-root"
     data-current-user-id="{{ current_user_id }}"

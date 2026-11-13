@@ -165,23 +165,10 @@ export const ReviewManagementWidget = ({
         shops={shops}
         filters={filters}
         availableTags={availableTags}
-        onApply={(draft) =>
-          applyFilters({
-            search: draft.search || undefined,
-            shop: draft.shop,
-            rating: draft.rating,
-            sentiment: draft.sentiment,
-            is_replied: draft.is_replied,
-            has_comment: draft.has_comment,
-            from_date: draft.from_date,
-            to_date: draft.to_date,
-            tags: draft.tags?.length ? draft.tags : undefined,
-          })
-        }
-        onReset={clearFilters}
+        onChange={applyFilters}
       />
 
-      {/* Stats cards — below the filter so they reflect active filter context */}
+      {/* Number bar — below the filter so it reflects active filter context */}
       <ReviewStatsCards stats={stats} loading={statsLoading} />
 
       <div className="border border-line rounded-card overflow-hidden">

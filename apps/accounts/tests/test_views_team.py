@@ -565,3 +565,13 @@ def test_team_list_page_renders(db) -> None:
     assert resp.status_code == 200
     assert b"Team" in resp.content
     assert b"team-table-root" in resp.content
+
+
+def test_team_list_page_has_no_server_rendered_add_button_row(db) -> None:
+    """The add button lives in the React filter row, not a separate template row."""
+    admin, _org = _make_org_admin(email="teamnorow@example.com")
+    client = Client()
+    client.force_login(admin)
+    resp = client.get("/admin/org/team/")
+    assert resp.status_code == 200
+    assert resp.content.count(b"open-add-team-member") == 0

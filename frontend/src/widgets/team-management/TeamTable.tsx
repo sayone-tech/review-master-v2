@@ -257,6 +257,13 @@ export function TeamTableWidget({
             </option>
           ))}
         </select>
+        <button
+          id="open-add-team-member"
+          type="button"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover whitespace-nowrap"
+        >
+          + Add Team Member
+        </button>
       </div>
       <div className="border border-line rounded-card overflow-hidden">
         <DataTable<TeamMemberRow>
