@@ -18,6 +18,12 @@ and ``raise_zero_balances`` below instead of looping ``ensure_balance`` (D-20; t
 consumption still call ``ensure_balance``). The caller must hold the organisation row lock
 inside its own ``transaction.atomic``; the global lock order is organisation row -> balance
 rows.
+
+Inactive shops (owner decision 2026-11-13, reverses Phase 29 D-13 for allocation): the
+org-edit helpers never create or raise balances for shops with ``is_active=False``.
+``ensure_balance`` is deliberately unchanged, so a shop reactivated later receives its
+month's allocation on first use. Balances an inactive shop already holds are left as-is
+(no clawback) and lapse normally.
 """
 
 from __future__ import annotations
@@ -147,9 +153,9 @@ def _write_initial_ledger_and_audit(
 
 
 def materialise_org_balances(*, organisation_id: int, allocation: int, period: Period) -> int:
-    """Create ``period`` rows at ``allocation`` for every shop of the organisation lacking one.
+    """Create ``period`` rows at ``allocation`` for every active shop of the organisation lacking one.
 
-    Active and inactive shops alike (Phase 29 D-13). Writes the same rows as looping
+    Inactive shops are skipped (owner decision 2026-11-13; reverses Phase 29 D-13). Writes the same rows as looping
     ``ensure_balance`` would (balance; plus INITIAL_ALLOCATION and ``shop.credits.allocated``
     when ``allocation > 0``) in a fixed number of queries. Existing rows are never touched,
     and a concurrent ``ensure_balance`` winner keeps its row. Returns the number of shops
@@ -162,7 +168,7 @@ def materialise_org_balances(*, organisation_id: int, allocation: int, period: P
     )
     missing = [
         shop_id
-        for shop_id in Shop.objects.filter(organisation_id=organisation_id)
+        for shop_id in Shop.objects.filter(organisation_id=organisation_id, is_active=True)
         .order_by("pk")
         .values_list("pk", flat=True)
         if shop_id not in have
@@ -210,6 +216,9 @@ def materialise_org_balances(*, organisation_id: int, allocation: int, period: P
 def raise_zero_balances(*, organisation_id: int, allocation: int, period: Period) -> int:
     """Raise the organisation's zero-allocation ``period`` rows to ``allocation`` (0 -> N).
 
+    Only rows of active shops are raised; an inactive shop's zero row stays at 0
+    (owner decision 2026-11-13; reverses Phase 29 D-13).
+
     A bonus on a 0-allocation organisation creates a zero row that must pick up the new
     allocation immediately. Bonus and consumed columns are untouched. Writes the same
     INITIAL_ALLOCATION and ``shop.credits.allocated`` rows ``ensure_balance`` would at
@@ -223,6 +232,7 @@ def raise_zero_balances(*, organisation_id: int, allocation: int, period: Period
             period_year=period.year,
             period_month=period.month,
             allocated_credits=0,
+            shop__is_active=True,
         )
         .order_by("shop_id")
         .values_list("pk", "shop_id")
