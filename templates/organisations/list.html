@@ -4,7 +4,7 @@
 {% block title %}Organisations — Review Bear{% endblock %}
 
 {% block content %}
-  <div class="max-w-[1200px] mx-auto">
+  <div>
     {% include "components/filter_bar.html" with search_placeholder="Search by name or email" status_options=status_options type_options=type_options action_id="open-create-org" action_label="Create Organisation" action_testid="create-org-btn" %}
 
     {% if page_obj.paginator.count == 0 %}
