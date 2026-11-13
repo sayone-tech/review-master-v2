@@ -6,6 +6,7 @@
 
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { setHeaderCount } from "../../shell/header";
 import { MergeProgressBanner } from "./MergeProgressBanner";
 import { TagMergeModal } from "./TagMergeModal";
 import { TagTable } from "./TagTable";
@@ -42,6 +43,12 @@ export function TagManagementWidget() {
     setSearch,
     refetch,
   } = useTagList();
+
+  // Total shown next to the page title in the header.
+  useEffect(() => {
+    setHeaderCount(loading && count === 0 ? null : count);
+    return () => setHeaderCount(null);
+  }, [count, loading]);
 
   // Debounced search — clones TeamTable.tsx pattern (lines 42–54)
   const [searchInput, setSearchInput] = useState("");
@@ -89,12 +96,6 @@ export function TagManagementWidget() {
 
   return (
     <div className="space-y-4">
-      {/* Header with "Tags (N)" count — mirrors team_list.html lines 7–9 */}
-      <h1 className="text-[20px] font-semibold text-ink">
-        Tags
-        <span className="text-muted font-normal text-[14px] ml-1">({count})</span>
-      </h1>
-
       {bannerVisible && job && (
         <MergeProgressBanner
           job={job}

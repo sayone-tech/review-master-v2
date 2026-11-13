@@ -153,3 +153,16 @@ class TeamMemberUpdateSerializer(serializers.Serializer):  # type: ignore[type-a
         ):
             raise serializers.ValidationError("Please select at least one region or store.")
         return attrs
+
+
+class CreditTotalsSerializer(serializers.Serializer):  # type: ignore[type-arg]
+    remaining = serializers.IntegerField()
+    total = serializers.IntegerField()
+
+
+class NavSummarySerializer(serializers.Serializer):  # type: ignore[type-arg]
+    """Sidebar badge counts + AI-credits meter. ``credits`` is null when nothing is allocated."""
+
+    reviews_awaiting_reply = serializers.IntegerField()
+    open_action_items = serializers.IntegerField()
+    credits = CreditTotalsSerializer(allow_null=True)

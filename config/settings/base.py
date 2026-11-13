@@ -468,6 +468,8 @@ REST_FRAMEWORK = {
         # Phase 30 D-10: cheap read the UI calls per visible review; its own bucket so it never
         # eats the 30/min review_reply budget (research A4, trivial to raise).
         "credit_cost": "120/minute",
+        # Sidebar badges + credits meter poll (cheap aggregate read, every page load).
+        "nav_summary": "240/minute",
         # Phase 32: Superadmin credit endpoints (shop list read, bonus write).
         "superadmin_credits_read": "120/minute",
         "superadmin_ai_cost_read": "120/minute",

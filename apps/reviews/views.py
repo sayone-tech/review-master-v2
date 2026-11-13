@@ -795,7 +795,7 @@ def tags_page_view(request: HttpRequest) -> HttpResponse:
     Renders the Django template that mounts the #tag-management-root React widget.
     No bootstrap data needed — all data is fetched via the /api/v1/reviews/ DRF endpoints.
     """
-    return render(request, "org-admin/tags.html", {})
+    return render(request, "org-admin/tags.html", {"page_title": "Tags"})
 
 
 # ---------------------------------------------------------------------------

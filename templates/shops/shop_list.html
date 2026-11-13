@@ -3,12 +3,9 @@
 
 {% block content %}
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-[18px] font-semibold text-ink">
-      Shops
-      <span class="text-muted font-normal text-[14px] ml-1">
-        ({{ allocation.current }} / {{ allocation.max }})
-      </span>
-    </h1>
+    <p class="text-[13px] text-muted" data-testid="shop-allocation">
+      Shop limit: {{ allocation.max }}
+    </p>
     <button
       id="open-create-shop"
       type="button"

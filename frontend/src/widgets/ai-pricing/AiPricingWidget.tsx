@@ -94,7 +94,7 @@ export function AiPricingWidget() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="AI Pricing" sub="Token rates used to calculate AI cost">
+      <PageHeader sub="Token rates used to calculate AI cost">
         <AddPriceButton label="Add new price" onAddPrice={openAdd} className={PRIMARY_BTN} />
       </PageHeader>
 

@@ -1,5 +1,7 @@
 {% comment %}
 Usage: {% include "components/filter_bar.html" with search_placeholder="Search organisations" status_options=status_opts type_options=type_opts %}
+Optional create button at the end of the row: action_id="open-create-x" action_label="Create X" (action_testid="...").
+The page's JS binds the button by its id; it is type="button" so it never submits the search form.
 {% endcomment %}
 <form
   method="get"
@@ -40,5 +42,16 @@ Usage: {% include "components/filter_bar.html" with search_placeholder="Search o
     >
       {% for v, l in type_options %}<option value="{{ v }}" {% if v == request.GET.type %}selected{% endif %}>{{ l }}</option>{% endfor %}
     </select>
+  {% endif %}
+  {% if action_id %}
+    <button
+      type="button"
+      id="{{ action_id }}"
+      {% if action_testid %}data-testid="{{ action_testid }}"{% endif %}
+      class="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+    >
+      <span class="w-[14px] h-[14px]" aria-hidden="true" data-lucide="plus"></span>
+      {{ action_label }}
+    </button>
   {% endif %}
 </form>

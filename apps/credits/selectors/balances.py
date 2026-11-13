@@ -13,6 +13,7 @@ ones. (Allocation, by contrast, skips inactive shops: see ``services.allocation`
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -28,6 +29,7 @@ from django.db.models import (
     Q,
     QuerySet,
     Subquery,
+    Sum,
     Value,
 )
 from django.db.models.functions import Coalesce
@@ -92,6 +94,37 @@ def get_shop_credit_balance(*, shop_id: int, period: Period | None = None) -> Cr
         is_materialized=materialized,
         renews_on=next_period_start(p).date(),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class CreditTotals:
+    remaining: int
+    total: int
+
+
+def sum_credit_balances(
+    *, shop_ids: Sequence[int], period: Period | None = None
+) -> CreditTotals | None:
+    """Sum remaining and total (allocated + bonus) credits across ``shop_ids`` in one query.
+
+    Returns ``None`` when ``shop_ids`` is empty or the total is 0 (nothing to show).
+    Does not filter ``is_active``: the caller passes the right ids.
+    """
+    if not shop_ids:
+        return None
+    # Function-level import keeps the credits -> shops edge out of module scope.
+    from apps.shops.models import Shop
+
+    agg = annotate_credit_state(
+        queryset=Shop.objects.filter(pk__in=shop_ids), period=period
+    ).aggregate(
+        remaining=Sum("credit_remaining"),
+        total=Sum(F("credit_allocated") + F("credit_bonus"), output_field=IntegerField()),
+    )
+    total = agg["total"] or 0
+    if total == 0:
+        return None
+    return CreditTotals(remaining=agg["remaining"] or 0, total=total)
 
 
 def annotate_credit_state(

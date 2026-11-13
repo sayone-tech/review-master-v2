@@ -2,11 +2,7 @@
 {% load static django_vite %}
 
 {% block content %}
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-[20px] font-semibold text-ink">
-      Team
-      <span class="text-muted font-normal text-[14px] ml-1">({{ stats.total_members }})</span>
-    </h1>
+  <div class="flex items-center justify-end mb-6">
     <button
       id="open-add-team-member"
       type="button"

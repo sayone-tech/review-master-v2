@@ -213,3 +213,19 @@ def test_template_list_page_renders_for_org_admin(db):
     resp = c.get("/admin/org/reply-templates/")
     assert resp.status_code == 200
     assert b"Reply Templates" in resp.content
+
+
+@pytest.mark.django_db
+def test_create_template_button_sits_in_search_row_when_page_renders(db):
+    org = OrganisationFactory()
+    admin = UserFactory(role="ORG_ADMIN", organisation=org)
+    from django.test import Client as DjangoClient
+
+    c = DjangoClient()
+    c.force_login(admin)
+    html = c.get("/admin/org/reply-templates/").content.decode()
+    form_start = html.index('data-testid="filter-bar"')
+    filter_bar = html[form_start : html.index("</form>", form_start)]
+    assert 'id="open-create-template"' in filter_bar
+    assert 'type="button"' in filter_bar  # never submits the search form
+    assert html.count('id="open-create-template"') == 1

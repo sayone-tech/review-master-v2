@@ -4,8 +4,9 @@
   data-turbo-permanent
   class="
          sticky top-0 z-20
-         bg-white border-b border-line
-         px-4 md:px-8 py-[14px]
+         bg-black text-white
+         h-[60px] shrink-0
+         px-4 md:pl-[18px] md:pr-3
          flex items-center justify-between gap-4
         "
   data-testid="topbar"
@@ -16,16 +17,19 @@
       type="button"
       x-data
       @click="$store.nav.mobileOpen = true"
-      class="md:hidden w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
+      class="md:hidden w-[34px] h-[34px] rounded-md text-[#D4D4D8] hover:bg-white/10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
       aria-label="Open navigation"
       data-testid="mobile-menu-toggle"
     >
       <span class="w-[18px] h-[18px]" aria-hidden="true" data-lucide="menu"></span>
     </button>
 
-    <div class="text-[15px] font-medium text-muted truncate" data-testid="topbar-title">
+    <div class="text-[14px] text-[#A1A1AA] truncate" data-testid="topbar-title">
+      {% if user.role == 'SUPERADMIN' %}Platform{% else %}{{ user.organisation.name|default:"Review Bear" }}{% endif %}
+      <span aria-hidden="true" class="mx-1 text-[#52525B]">/</span>
       {% block breadcrumb %}
-        <strong id="topbar-breadcrumb" class="text-ink font-semibold">{{ page_title|default:"Dashboard" }}</strong>
+        <h1 id="topbar-breadcrumb" class="inline text-white font-semibold">{{ page_title|default:"Dashboard" }}</h1>
+        <span id="topbar-count" hidden class="ml-2 text-[12px] font-semibold bg-[#27272A] text-[#E4E4E7] rounded-full px-2 py-0.5"></span>
       {% endblock %}
     </div>
   </div>
@@ -46,7 +50,8 @@
         <button
           type="button"
           @click="open = !open"
-          class="w-8 h-8 rounded-full bg-black text-yellow flex items-center justify-center text-[12px] font-semibold"
+          class="w-8 h-8 rounded-full bg-yellow text-black flex items-center justify-center text-[12px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          :class="open ? 'ring-2 ring-yellow ring-offset-2 ring-offset-black' : ''"
           :aria-expanded="open.toString()"
           aria-haspopup="menu"
           aria-label="Open user menu"
@@ -58,22 +63,38 @@
           x-cloak
           @click.outside="open = false"
           x-transition.origin.top.right
-          class="absolute right-0 mt-2 min-w-[190px] bg-white border border-line rounded-menu shadow-lg p-1"
+          class="absolute right-0 mt-2 w-[264px] bg-[#18181B] border border-[#27272A] rounded-[12px] shadow-2xl shadow-black/60 p-1.5"
           role="menu"
+          data-testid="profile-menu"
         >
+          <div class="flex items-center gap-3 px-2.5 pt-2 pb-3" role="none">
+            <span class="w-10 h-10 shrink-0 rounded-full bg-yellow text-black flex items-center justify-center text-[15px] font-semibold" aria-hidden="true">
+              {{ user.full_name|slice:":1"|default:user.email|slice:":1"|upper }}
+            </span>
+            <div class="min-w-0">
+              <div class="text-[14px] font-semibold text-white truncate">{{ user.full_name|default:user.email }}</div>
+              <div class="text-[12px] text-[#A1A1AA] truncate">{{ user.email }}</div>
+            </div>
+          </div>
+          {% if user.role != 'SUPERADMIN' and user.organisation %}
+            <div class="flex items-center justify-between gap-3 bg-black rounded-lg px-3 py-2 mb-1.5 text-[12px]" data-testid="profile-menu-org" role="none">
+              <span class="text-[#A1A1AA]">Organisation</span>
+              <span class="text-white truncate" title="{{ user.organisation.name }}">{{ user.organisation.name }}</span>
+            </div>
+          {% endif %}
           <a
             href="{% if user.role == 'SUPERADMIN' %}/admin/profile/{% else %}/admin/org/profile/{% endif %}"
-            class="flex items-center gap-2 px-2.5 py-2 text-[13px] text-ink rounded-sm hover:bg-line-soft"
+            class="flex items-center gap-2.5 px-2.5 py-2 text-[13px] text-[#D4D4D8] rounded-md hover:bg-white/[0.07] hover:text-white focus-visible:bg-white/[0.07] focus-visible:text-white focus-visible:outline-none"
             role="menuitem"
           >
-            <span class="w-[15px] h-[15px] text-subtle" aria-hidden="true" data-lucide="user"></span>
+            <span class="w-[15px] h-[15px]" aria-hidden="true" data-lucide="user"></span>
             Profile
           </a>
-          <div class="h-px bg-line-soft my-1 mx-0.5" role="none"></div>
+          <div class="h-px bg-[#27272A] my-1 mx-0.5" role="none"></div>
           <form method="post" action="{% url 'logout' %}" role="none">
             {% csrf_token %}
-            <button type="submit" class="flex items-center gap-2 w-full px-2.5 py-2 text-[13px] text-ink rounded-sm hover:bg-line-soft" role="menuitem">
-              <span class="w-[15px] h-[15px] text-subtle" aria-hidden="true" data-lucide="log-out"></span>
+            <button type="submit" class="flex items-center gap-2.5 w-full px-2.5 py-2 text-[13px] text-[#FCA5A5] rounded-md hover:bg-white/[0.07] hover:text-white focus-visible:bg-white/[0.07] focus-visible:text-white focus-visible:outline-none" role="menuitem">
+              <span class="w-[15px] h-[15px]" aria-hidden="true" data-lucide="log-out"></span>
               Log out
             </button>
           </form>

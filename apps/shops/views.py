@@ -106,13 +106,15 @@ def shop_list(request):  # type: ignore[no-untyped-def]
     shops_data = list(ShopReadSerializer(list(page_obj.object_list), many=True).data)
     regions_qs = list_regions(organisation_id=org.pk)
     regions_data = list(RegionReadSerializer(regions_qs, many=True).data)
+    allocation = get_allocation_status(organisation=org)
     return render(
         request,
         "shops/shop_list.html",
         {
+            "page_count": allocation["current"],
             "shops_json": shops_data,
             "shops_count": len(shops_data),
-            "allocation": get_allocation_status(organisation=org),
+            "allocation": allocation,
             "has_regions": get_has_regions(organisation_id=org.pk),
             "regions_json": regions_data,
             "page_obj": page_obj,
@@ -649,6 +651,7 @@ def shop_targets_view(request: Any, shop_id: int) -> Any:
         request,
         "shops/shop_targets.html",
         {
+            "page_title": "Review Targets",
             "shop_id": shop.pk,
             "shop_name": shop.name,
             "is_org_admin": user.role == User.Role.ORG_ADMIN,

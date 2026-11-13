@@ -19,17 +19,28 @@ from apps.action_items.models import ActionItem
 from apps.reviews.selectors.reviews import get_accessible_shop_ids
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from apps.accounts.models import User
 
 
 def list_action_items(
-    *, organisation_id: int, user: User, include_duplicates: bool = False
+    *,
+    organisation_id: int,
+    user: User,
+    include_duplicates: bool = False,
+    with_duplicate_count: bool = True,
+    accessible_shop_ids: Sequence[int] | None = None,
 ) -> QuerySet[ActionItem]:
     """Return the ActionItem queryset scoped per role.
 
     - ORG_ADMIN: all action items in org
     - STAFF_ADMIN: only SHOP-scope items in accessible shops (Layer 1)
     - SUPERADMIN: empty (action items are org-scoped; superadmin uses other routes)
+
+    ``accessible_shop_ids`` is an optional precomputed value; it MUST come from
+    ``get_accessible_shop_ids(user_id=user.pk)`` for this same ``user`` (passing another
+    user's ids would widen Staff scope).
 
     Phase 18 (WR-01 fix): by default the list view hides merged duplicates
     (canonical__isnull=True). Detail / mutator endpoints pass
@@ -47,7 +58,11 @@ def list_action_items(
         "source_review__shop",
     )
     if role == "STAFF_ADMIN":
-        accessible = get_accessible_shop_ids(user_id=user.pk)
+        accessible = (
+            accessible_shop_ids
+            if accessible_shop_ids is not None
+            else get_accessible_shop_ids(user_id=user.pk)
+        )
         # CRITICAL Layer 1: Staff sees only SHOP-scope items in accessible shops.
         qs = qs.filter(scope=ActionItem.Scope.SHOP, shop_id__in=accessible)
     # Phase 18 (D-10/D-11): hide merged duplicates for list views. Annotation
@@ -55,7 +70,9 @@ def list_action_items(
     # from the count of duplicates pointing at each canonical row.
     if not include_duplicates:
         qs = qs.filter(canonical__isnull=True)
-    qs = qs.annotate(duplicate_count=Count("duplicates"))
+    # Count-only callers (nav badge) pass with_duplicate_count=False to skip the JOIN + GROUP BY.
+    if with_duplicate_count:
+        qs = qs.annotate(duplicate_count=Count("duplicates"))
     return qs.order_by("-created_at")
 
 

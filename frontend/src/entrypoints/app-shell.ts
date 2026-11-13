@@ -1,6 +1,8 @@
 import "@hotwired/turbo";
 import Alpine from "alpinejs";
 import { createIcons, icons } from "lucide";
+import { registerHeaderNavigation } from "../shell/header";
+import { refreshSummary, restoreFolds, syncActiveItem, toggleGroup } from "../shell/nav";
 
 declare global {
   interface Window {
@@ -9,6 +11,8 @@ declare global {
 }
 
 window.Alpine = Alpine;
+
+registerHeaderNavigation(document);
 
 Alpine.store("nav", {
   mobileOpen: false,
@@ -29,42 +33,34 @@ function updateBreadcrumb() {
   }
 }
 
-// Keep the permanent sidebar's active nav item in sync with the current URL.
-// Classes mirror what Django's {% is_active_route %} template tag injects.
-const NAV_ACTIVE = [
-  "border-yellow",
-  "text-yellow",
-  "bg-gradient-to-r",
-  "from-yellow/[0.08]",
-  "to-transparent",
-  "pl-[17px]",
-];
-const NAV_INACTIVE = ["border-transparent", "text-[#D4D4D8]", "hover:text-yellow"];
+function safeStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
-function updateSidebarActiveState() {
+function syncSidebar() {
   const sidebar = document.getElementById("main-sidebar");
   if (!sidebar) return;
-
-  const path = window.location.pathname;
-  sidebar.querySelectorAll<HTMLAnchorElement>("nav a[href]").forEach((a) => {
-    const href = a.getAttribute("href") ?? "";
-    const isActive = path.startsWith(href) && href !== "/";
-
-    if (isActive) {
-      a.classList.remove(...NAV_INACTIVE);
-      a.classList.add(...NAV_ACTIVE);
-      a.setAttribute("aria-current", "page");
-    } else {
-      a.classList.remove(...NAV_ACTIVE);
-      a.classList.add(...NAV_INACTIVE);
-      a.removeAttribute("aria-current");
-    }
-  });
+  syncActiveItem(sidebar, window.location.pathname);
+  void refreshSummary(sidebar);
 }
+
+// Single owner of group fold state (delegated; the sidebar is turbo-permanent).
+document.addEventListener("click", (e) => {
+  const toggle = (e.target as Element | null)?.closest<HTMLElement>("[data-nav-group-toggle]");
+  const sidebar = toggle?.closest<HTMLElement>("#main-sidebar");
+  if (toggle && sidebar) toggleGroup(sidebar, toggle, safeStorage());
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   initIcons();
   updateBreadcrumb();
+  const sidebar = document.getElementById("main-sidebar");
+  if (sidebar) restoreFolds(sidebar, safeStorage());
+  // Active pill + summary are handled by turbo:load, which also fires on first load.
 });
 
 // Re-run after Alpine finishes rendering (handles x-if / x-show content)
@@ -74,5 +70,5 @@ document.addEventListener("alpine:initialized", initIcons);
 document.addEventListener("turbo:load", () => {
   initIcons();
   updateBreadcrumb();
-  updateSidebarActiveState();
+  syncSidebar();
 });

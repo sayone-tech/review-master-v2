@@ -50,7 +50,7 @@ describe("AiPricingWidget", () => {
   it("renders header, an enabled Add New Price, and the table", async () => {
     vi.mocked(api.fetchPriceSummary).mockResolvedValue(page(null));
     render(<AiPricingWidget />);
-    expect(screen.getByRole("heading", { name: "AI Pricing" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "AI Pricing" })).toBeNull();
     expect(
       screen.getByText("Token rates used to calculate AI cost"),
     ).toBeInTheDocument();

@@ -87,4 +87,4 @@ class StoreReportApiView(APIView):
 
 @org_admin_required
 def reports_page_view(request: HttpRequest) -> HttpResponse:
-    return render(request, "reports/store_report.html", {})
+    return render(request, "reports/store_report.html", {"page_title": "Reports"})
