@@ -33,6 +33,7 @@ beforeEach(() => {
 });
 
 const list = (k: string) => document.getElementById(`nav-group-${k}`)!;
+const isFolded = (k: string) => list(k).classList.contains("hidden");
 const mem = (init?: string) => {
   const m = new Map<string, string>(init ? [["rb.nav.folded", init]] : []);
   return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
@@ -60,9 +61,9 @@ describe("syncActiveItem", () => {
 
   it("opens a folded group when navigating into it", () => {
     toggleGroup(sidebar, sidebar.querySelector("[data-nav-group='insights'] button")!, null);
-    expect(list("insights").hidden).toBe(true);
+    expect(isFolded("insights")).toBe(true);
     syncActiveItem(sidebar, "/reports/");
-    expect(list("insights").hidden).toBe(false);
+    expect(isFolded("insights")).toBe(false);
   });
 });
 
@@ -70,8 +71,8 @@ describe("fold memory", () => {
   it("restores folded groups from storage but keeps the active group open", () => {
     syncActiveItem(sidebar, "/reviews/");
     restoreFolds(sidebar, mem('["work","insights"]'));
-    expect(list("work").hidden).toBe(false);
-    expect(list("insights").hidden).toBe(true);
+    expect(isFolded("work")).toBe(false);
+    expect(isFolded("insights")).toBe(true);
     expect(sidebar.querySelector("[data-nav-group='insights'] button")!.getAttribute("aria-expanded")).toBe("false");
   });
 
@@ -79,17 +80,29 @@ describe("fold memory", () => {
     const bad = { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("denied"); } };
     expect(() => restoreFolds(sidebar, bad)).not.toThrow();
     expect(() => rememberFold("work", true, bad)).not.toThrow();
-    expect(list("work").hidden).toBe(false);
-    expect(list("insights").hidden).toBe(false);
+    expect(isFolded("work")).toBe(false);
+    expect(isFolded("insights")).toBe(false);
   });
 
   it("toggleGroup persists the fold", () => {
     const s = mem();
     toggleGroup(sidebar, sidebar.querySelector("[data-nav-group='work'] button")!, s);
-    expect(list("work").hidden).toBe(true);
+    expect(isFolded("work")).toBe(true);
     expect(s.getItem("rb.nav.folded")).toBe('["work"]');
     toggleGroup(sidebar, sidebar.querySelector("[data-nav-group='work'] button")!, s);
     expect(s.getItem("rb.nav.folded")).toBe("[]");
+  });
+});
+
+describe("fold rendering", () => {
+  it("never sets the hidden attribute and keeps the rail override class", () => {
+    list("work").className = "space-y-0.5 md:max-lg:block!";
+    toggleGroup(sidebar, sidebar.querySelector("[data-nav-group='work'] button")!, null);
+    expect(isFolded("work")).toBe(true);
+    expect(list("work").hasAttribute("hidden")).toBe(false);
+    expect(list("work").classList.contains("md:max-lg:block!")).toBe(true);
+    restoreFolds(sidebar, mem('["insights"]'));
+    expect(list("insights").hasAttribute("hidden")).toBe(false);
   });
 });
 

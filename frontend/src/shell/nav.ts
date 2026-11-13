@@ -25,7 +25,9 @@ function setFolded(sidebar: HTMLElement, key: string, folded: boolean): void {
   const list = sidebar.querySelector<HTMLElement>(`#nav-group-${key}`);
   if (!toggle || !list) return;
   toggle.setAttribute("aria-expanded", String(!folded));
-  list.hidden = folded;
+  // Class, not the `hidden` attribute: the attribute rule lives in Tailwind's base layer with
+  // !important and would beat the rail's `md:max-lg:block!` utility.
+  list.classList.toggle("hidden", folded);
 }
 
 function openGroupOf(sidebar: HTMLElement, el: Element): void {
