@@ -23,7 +23,11 @@ if TYPE_CHECKING:
 
 
 def list_action_items(
-    *, organisation_id: int, user: User, include_duplicates: bool = False
+    *,
+    organisation_id: int,
+    user: User,
+    include_duplicates: bool = False,
+    with_duplicate_count: bool = True,
 ) -> QuerySet[ActionItem]:
     """Return the ActionItem queryset scoped per role.
 
@@ -55,7 +59,9 @@ def list_action_items(
     # from the count of duplicates pointing at each canonical row.
     if not include_duplicates:
         qs = qs.filter(canonical__isnull=True)
-    qs = qs.annotate(duplicate_count=Count("duplicates"))
+    # Count-only callers (nav badge) pass with_duplicate_count=False to skip the JOIN + GROUP BY.
+    if with_duplicate_count:
+        qs = qs.annotate(duplicate_count=Count("duplicates"))
     return qs.order_by("-created_at")
 
 

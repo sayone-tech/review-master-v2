@@ -10,11 +10,14 @@ from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 
 from apps.accounts.exceptions import LastManagerError
 from apps.accounts.forms import (
@@ -25,8 +28,10 @@ from apps.accounts.forms import (
 )
 from apps.accounts.models import InvitationToken, User
 from apps.accounts.permissions import IsOrgAdmin, org_member_required
+from apps.accounts.selectors.nav_summary import get_nav_summary
 from apps.accounts.selectors.team import get_team_stats, list_team_members
 from apps.accounts.serializers import (
+    NavSummarySerializer,
     TeamMemberCreateSerializer,
     TeamMemberReadSerializer,
     TeamMemberUpdateSerializer,
@@ -50,6 +55,31 @@ from apps.common.viewsets import TenantScopedViewSet
 SESSION_AGE_24H = 60 * 60 * 24
 SESSION_AGE_30D = 60 * 60 * 24 * 30
 RATE_LIMIT_MESSAGE = "Too many sign-in attempts. Please try again in 15 minutes."
+
+
+# ---------------------------------------------------------------------------
+# DRF: NavSummaryView
+# ---------------------------------------------------------------------------
+
+
+class NavSummaryView(APIView):
+    """GET /api/v1/me/nav-summary/ - sidebar badge counts + AI-credits meter."""
+
+    permission_classes = [IsOrgScoped]  # noqa: RUF012
+    throttle_classes = [ScopedRateThrottle]  # noqa: RUF012
+    throttle_scope = "nav_summary"
+
+    @extend_schema(
+        responses={
+            200: NavSummarySerializer,
+            403: OpenApiResponse(description="Organisation membership required"),
+            429: OpenApiResponse(description="Throttled"),
+        },
+        tags=["accounts"],
+    )
+    def get(self, request: Request) -> Response:
+        summary = get_nav_summary(user=cast(User, request.user))
+        return Response(NavSummarySerializer(summary).data)
 
 
 # ---------------------------------------------------------------------------
