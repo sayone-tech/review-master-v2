@@ -78,6 +78,39 @@ def test_list_reviews_accessible_to_org_admin(org_admin_client) -> None:
     assert resp.data["total_count"] == 3
 
 
+def test_list_and_stats_exclude_reviews_when_shop_inactive(org_admin_client) -> None:
+    client, _, org = org_admin_client
+    active = ShopFactory(organisation=org)
+    inactive = ShopFactory(organisation=org, is_active=False)
+    ReviewFactory.create_batch(2, organisation=org, shop=active)
+    ReviewFactory.create_batch(3, organisation=org, shop=inactive)
+
+    resp = client.get(LIST_URL)
+    assert resp.status_code == 200
+    assert resp.data["total_count"] == 2
+    assert {row["shop_id"] for row in resp.data["results"]} == {active.pk}
+
+    stats = client.get(STATS_URL)
+    assert stats.status_code == 200
+    assert stats.data["total_count"] == 2
+
+
+def test_staff_does_not_see_reviews_when_scoped_shop_inactive() -> None:
+    org = OrganisationFactory()
+    inactive = ShopFactory(organisation=org, is_active=False)
+    ReviewFactory(organisation=org, shop=inactive)
+    user = StaffAdminFactory(organisation=org)
+    StaffAccessScope.objects.create(
+        user=user, scope_type=StaffAccessScope.ScopeType.SHOP, shop=inactive
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    resp = client.get(LIST_URL)
+    assert resp.status_code == 200
+    assert resp.data["total_count"] == 0
+
+
 def test_list_reviews_filters_by_rating(org_admin_client) -> None:
     client, _, org = org_admin_client
     ReviewFactory.create_batch(2, organisation=org, star_rating=5)
@@ -702,7 +735,9 @@ class TestGenerateReplyEndpoint:
 
     @pytest.mark.parametrize("role", ["org_admin", "staff"])
     @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
-    def test_inactive_shop_returns_409_and_writes_nothing(self, mock_generate, role) -> None:
+    def test_inactive_shop_returns_404_and_writes_nothing(self, mock_generate, role) -> None:
+        # Reviews of inactive shops are hidden from the reviews API, so generation 404s;
+        # the service-level ShopInactiveError guard is covered in test_reply_generation_credits.
         org = OrganisationFactory(monthly_credit_allocation=10)
         shop = ShopFactory(organisation=org, is_active=False)
         review = ReviewFactory(organisation=org, shop=shop, comment="x" * 150)
@@ -716,11 +751,7 @@ class TestGenerateReplyEndpoint:
 
         resp = self._post(self._client(user), review)
 
-        assert resp.status_code == 409
-        assert resp.json() == {
-            "code": "shop_inactive",
-            "detail": "AI replies are unavailable because this shop is inactive.",
-        }
+        assert resp.status_code == 404
         mock_generate.assert_not_called()
         assert self._nothing_written()
 
