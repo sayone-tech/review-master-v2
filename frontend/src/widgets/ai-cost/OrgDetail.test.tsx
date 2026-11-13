@@ -81,7 +81,7 @@ describe("OrgDetail loaded states", () => {
     mockApi(1);
     render(<OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} />);
     expect(await screen.findByText("Acme")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Acme" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Acme" })).toBeInTheDocument();
     expect(screen.getByText("Retail")).toBeInTheDocument();
     expect(screen.getByText("1 shop, 1 active in this period")).toBeInTheDocument();
     for (const l of ["Total cost", "API calls", "Input tokens", "Output tokens"])
@@ -138,7 +138,7 @@ describe("OrgDetail loaded states", () => {
     render(
       <OrgDetail orgId={7} filters={filters} onFilters={vi.fn()} onBack={vi.fn()} initialName="Acme" />,
     );
-    expect(screen.getByRole("heading", { level: 1, name: "Acme" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Acme" })).toBeInTheDocument();
   });
 
   it("reports the organisation name, or null on 404, for the breadcrumb", async () => {

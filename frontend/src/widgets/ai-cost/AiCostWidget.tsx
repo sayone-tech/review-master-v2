@@ -86,7 +86,7 @@ function PlatformView({
 
   return (
     <>
-      <PageHeader title="AI Cost Explorer" sub="OpenAI spend across all organisations">
+      <PageHeader sub="OpenAI spend across all organisations">
         <CostFilterCard filters={filters} onApply={changeFilters} serverError={rangeError} />
       </PageHeader>
 

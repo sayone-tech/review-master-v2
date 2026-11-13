@@ -84,7 +84,9 @@ describe("AiCostWidget breadcrumb", () => {
     expect(window.location.pathname).toBe("/admin/ai-cost/");
     expect(crumb.textContent).toBe("AI Cost");
     expect(crumb.querySelector("a")).toBeNull();
-    expect(screen.getByRole("heading", { level: 1, name: "AI Cost Explorer" })).toBeInTheDocument();
+    // The page title lives in the header, so the widget renders no page-level heading.
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    expect(screen.getByText("OpenAI spend across all organisations")).toBeInTheDocument();
   });
 
   it("is just AI Cost when the organisation is unknown", () => {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { setHeaderCount } from "../../shell/header";
 import { ReviewEmptyStates } from "./ReviewEmptyStates";
 import { ReviewFilters } from "./ReviewFilters";
 import { ReviewStatsCards } from "./ReviewStatsCards";
@@ -64,6 +65,12 @@ export const ReviewManagementWidget = ({
     goPrev,
     replaceRow,
   } = useReviews();
+
+  // Total shown next to the page title in the header.
+  useEffect(() => {
+    setHeaderCount(loading && count === 0 ? null : count);
+    return () => setHeaderCount(null);
+  }, [count, loading]);
 
   const [openComposerId, setOpenComposerId] = useState<number | null>(null);
   const [showFullComment, setShowFullComment] = useState<Map<number, boolean>>(() => new Map());
@@ -153,13 +160,6 @@ export const ReviewManagementWidget = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-semibold text-ink">
-          Reviews{" "}
-          <span className="text-[14px] text-muted font-normal">({count})</span>
-        </h1>
-      </div>
-
       {/* Filter bar */}
       <ReviewFilters
         shops={shops}

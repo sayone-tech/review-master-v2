@@ -86,6 +86,7 @@ def organisation_list(request: HttpRequest) -> HttpResponse:
     ]
 
     context: dict[str, Any] = {
+        "page_title": "Organisations",
         "page_obj": page_obj,
         "orgs_json": orgs_json,
         "per_page": per_page,
@@ -164,6 +165,7 @@ def org_stub_view(request: HttpRequest, section: str) -> HttpResponse:
         request,
         "organisations/org_stub.html",
         {
+            "page_title": title,
             "section": title,
             "section_slug": section,
             "section_icon": icon,
@@ -230,6 +232,7 @@ def team_list(request: HttpRequest) -> HttpResponse:
             "per_page_options": list(per_page_options),
             "page_url_params": page_url_params,
             "page_title": "Team",
+            "page_count": stats["total_members"],
         },
     )
 

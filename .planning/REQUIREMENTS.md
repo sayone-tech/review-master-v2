@@ -62,6 +62,7 @@ complete, pending merge of `feat/v0.10-ai-cost-pricing`. Specs moved to `docs/co
 | UI-NAV-02 | Reviews / Action items badges scoped per spec §2.6, §4 | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
 | UI-NAV-03 | AI-credits meter: sum over the person's active shops (spec §2.7, §4) | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
 | UI-NAV-04 | Profile menu in the header (dark panel, option B); Profile and Log out removed from the sidebar | spec docs/superpowers/specs/2026-11-13-sidebar-header-redesign-design.md | ✅ Delivered |
+| UI-NAV-05 | Pages inside the black frame no longer repeat their title as a page heading; the header title is the page title, with the list count shown next to it | owner decision 2026-11-13 | ✅ Delivered |
 
 ## Out of scope (deferred)
 

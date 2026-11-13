@@ -755,7 +755,9 @@ def test_org_profile_get_returns_200_with_two_cards() -> None:
     client, user, _ = _org_admin_login()
     response = client.get("/admin/org/profile/")
     assert response.status_code == 200
-    assert b"Your profile" in response.content
+    # The page title lives in the header; the card no longer repeats it as a heading.
+    assert b"Your profile" not in response.content
+    assert b"Manage your account details" in response.content
     assert b"Change password" in response.content
     assert user.email.encode() in response.content
 

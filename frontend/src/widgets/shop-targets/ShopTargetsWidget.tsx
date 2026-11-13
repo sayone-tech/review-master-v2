@@ -429,10 +429,7 @@ export function ShopTargetsWidget({ shopId, shopName, isOrgAdmin }: Props) {
         <span className="text-ink font-medium">Review Targets</span>
       </nav>
 
-      <h1 className="text-[22px] font-semibold text-ink tracking-[-0.02em] mb-1">
-        Review Targets
-      </h1>
-      <p className="text-[14px] text-muted mb-6">
+      <p className="text-[13px] text-muted mb-6">
         Track how many reviews this shop receives each week and month.
       </p>
 

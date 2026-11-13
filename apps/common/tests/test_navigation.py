@@ -218,3 +218,52 @@ def test_header_menu_shows_organisation_strip_for_tenant_roles(role: str) -> Non
 def test_header_menu_omits_organisation_strip_for_superadmin() -> None:
     _, menu = _sidebar_and_menu("SUPERADMIN")
     assert 'data-testid="profile-menu-org"' not in menu
+
+
+_ORG_PAGES = [
+    ("/admin/org/regions/", "Regions"),
+    ("/admin/org/shops/", "Shops"),
+    ("/admin/org/team/", "Team"),
+    ("/admin/org/reply-templates/", "Reply Templates"),
+    ("/admin/org/reviews/", "Reviews"),
+    ("/admin/org/tags/", "Tags"),
+    ("/admin/org/reports/", "Reports"),
+    ("/admin/org/profile/", "Profile"),
+]
+
+
+@pytest.mark.parametrize(("url", "title"), _ORG_PAGES)
+def test_org_pages_have_exactly_one_h1_which_is_the_header_title(url: str, title: str) -> None:
+    html = _client_for("ORG_ADMIN").get(url).content.decode()
+    assert len(re.findall(r"<h1[\s>]", html)) == 1
+    assert re.search(rf'<h1 id="topbar-breadcrumb"[^>]*>{title}</h1>', html)
+    assert f'data-page-title="{title}"' in html
+
+
+@pytest.mark.parametrize(
+    ("url", "title"), [("/admin/organisations/", "Organisations"), ("/admin/profile/", "Profile")]
+)
+def test_superadmin_pages_have_exactly_one_h1_which_is_the_header_title(
+    url: str, title: str
+) -> None:
+    html = _client_for("SUPERADMIN").get(url).content.decode()
+    assert len(re.findall(r"<h1[\s>]", html)) == 1
+    assert re.search(rf'<h1 id="topbar-breadcrumb"[^>]*>{title}</h1>', html)
+
+
+def test_topbar_has_hidden_count_pill_after_the_title() -> None:
+    html = _client_for("ORG_ADMIN").get("/admin/org/reviews/").content.decode()
+    assert re.search(r'</h1>\s*<span id="topbar-count" hidden class="ml-2 ', html)
+
+
+def test_team_and_shops_pages_expose_their_total_as_data_page_count() -> None:
+    client = _client_for("ORG_ADMIN")
+    team = client.get("/admin/org/team/").content.decode()
+    assert re.search(r'<main id="main-content"[^>]* data-page-count="\d+"', team)
+    shops = client.get("/admin/org/shops/").content.decode()
+    assert re.search(r'<main id="main-content"[^>]* data-page-count="0"', shops)
+
+
+def test_pages_without_a_server_count_omit_data_page_count() -> None:
+    html = _client_for("ORG_ADMIN").get("/admin/org/regions/").content.decode()
+    assert "data-page-count" not in html

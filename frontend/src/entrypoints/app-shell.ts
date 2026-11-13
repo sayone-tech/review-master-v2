@@ -1,6 +1,7 @@
 import "@hotwired/turbo";
 import Alpine from "alpinejs";
 import { createIcons, icons } from "lucide";
+import { registerHeaderNavigation } from "../shell/header";
 import { refreshSummary, restoreFolds, syncActiveItem, toggleGroup } from "../shell/nav";
 
 declare global {
@@ -10,6 +11,8 @@ declare global {
 }
 
 window.Alpine = Alpine;
+
+registerHeaderNavigation(document);
 
 Alpine.store("nav", {
   mobileOpen: false,

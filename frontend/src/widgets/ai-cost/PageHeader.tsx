@@ -1,13 +1,16 @@
 import type { ReactNode } from "react";
 
-/** Page title row: title (+ optional badge) and subtitle on the left, controls on the right. */
+/**
+ * Page intro row: subtitle on the left, controls on the right. The page title lives in the
+ * header, so `title` is only for headings naming a specific thing (e.g. an organisation).
+ */
 export function PageHeader({
   title,
   badge,
   sub,
   children,
 }: {
-  title: ReactNode;
+  title?: ReactNode;
   badge?: ReactNode;
   sub?: ReactNode;
   children?: ReactNode;
@@ -15,13 +18,15 @@ export function PageHeader({
   return (
     <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em] text-ink">
-            {title}
-          </h1>
-          {badge}
-        </div>
-        {sub && <p className="mt-1 text-[14px] text-muted">{sub}</p>}
+        {title && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="text-[26px] font-semibold leading-tight tracking-[-0.02em] text-ink">
+              {title}
+            </h2>
+            {badge}
+          </div>
+        )}
+        {sub && <p className={`${title ? "mt-1 " : ""}text-[13px] text-muted`}>{sub}</p>}
       </div>
       {children}
     </header>

@@ -51,8 +51,6 @@ export function AuditLogWidget({ userRole, actors }: Props) {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-[20px] font-semibold text-ink">Activity Log</h1>
-
       <AuditLogFilters
         filters={filters}
         actors={actors}

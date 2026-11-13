@@ -265,7 +265,7 @@ class TeamViewSet(
 
 @login_required
 def profile(request: HttpRequest) -> HttpResponse:
-    return render(request, "accounts/profile.html")
+    return render(request, "accounts/profile.html", {"page_title": "Profile"})
 
 
 class CustomLoginView(LoginView):

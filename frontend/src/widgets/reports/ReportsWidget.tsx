@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { setHeaderCount } from "../../shell/header";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FilterBar } from "./FilterBar";
 import { ReportsTable } from "./ReportsTable";
@@ -19,17 +20,15 @@ function Inner() {
   const [filters, setFilters] = useState<ReportFilters>(DEFAULT_FILTERS);
   const { data, isLoading, error } = useReportData(filters);
 
+  // Store count shown next to the page title in the header.
+  const storeCount = data && !isLoading ? data.length : null;
+  useEffect(() => {
+    setHeaderCount(storeCount);
+    return () => setHeaderCount(null);
+  }, [storeCount]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-semibold text-ink">
-          Reports{" "}
-          {data && !isLoading && (
-            <span className="text-[14px] text-muted font-normal">({data.length} stores)</span>
-          )}
-        </h1>
-      </div>
-
       <FilterBar filters={filters} onApply={setFilters} />
 
       {error && (
