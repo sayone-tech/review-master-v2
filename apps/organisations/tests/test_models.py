@@ -12,7 +12,29 @@ def test_status_enum_values() -> None:
 
 
 def test_org_type_enum_values() -> None:
-    assert set(Organisation.OrgType.values) == {"RETAIL", "RESTAURANT", "PHARMACY", "SUPERMARKET"}
+    assert list(Organisation.OrgType.values) == [
+        "RETAIL",
+        "RESTAURANT",
+        "PHARMACY",
+        "SUPERMARKET",
+        "CLINIC",
+        "HOSPITAL",
+        "SALON",
+        "SPA",
+        "HOTEL_RESORT",
+        "GYM_FITNESS",
+    ]
+
+
+def test_org_type_labels() -> None:
+    assert Organisation.OrgType.RESTAURANT.label == "Restaurant & Cafe"
+    assert Organisation.OrgType.HOTEL_RESORT.label == "Hotel & Resort"
+    assert Organisation.OrgType.GYM_FITNESS.label == "Gym & Fitness"
+
+
+def test_org_type_values_fit_max_length() -> None:
+    max_len = Organisation._meta.get_field("org_type").max_length
+    assert all(len(v) <= max_len for v in Organisation.OrgType.values)
 
 
 def test_default_status_is_active() -> None:

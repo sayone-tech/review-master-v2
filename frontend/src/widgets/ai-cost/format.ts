@@ -1,3 +1,4 @@
+import { ORG_TYPE_LABELS } from "../org-management/types";
 const countFmt = new Intl.NumberFormat("en-US");
 
 export function formatCost(v: string): string {
@@ -46,4 +47,8 @@ const REQUEST_TYPE_LABELS: Record<string, string> = {
 
 export function requestTypeLabel(key: string): string {
   return REQUEST_TYPE_LABELS[key] ?? titleCase(key);
+}
+
+export function orgTypeLabel(type: string): string {
+  return (ORG_TYPE_LABELS as Record<string, string>)[type] ?? titleCase(type);
 }

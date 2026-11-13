@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, fetchOrgModels, fetchOrgShops, fetchOrgSummary } from "./api";
 import { SyncCaveat } from "./SyncCaveat";
-import { formatUpdatedAgo, titleCase } from "./format";
+import { formatUpdatedAgo, orgTypeLabel } from "./format";
 import { SummaryStrip } from "./SummaryStrip";
 import { ModelTable } from "./ModelTable";
 import { CostFilterCard } from "./CostFilterCard";
@@ -129,7 +129,7 @@ export function OrgDetail({ orgId, filters, onFilters, onBack, initialName = nul
     <div className="space-y-4">
       <PageHeader
         title={org?.name ?? initialName ?? " "}
-        badge={org && <NeutralBadge>{titleCase(org.org_type)}</NeutralBadge>}
+        badge={org && <NeutralBadge>{orgTypeLabel(org.org_type)}</NeutralBadge>}
         sub={
           org && summary
             ? `${shopCount(org.shop_count)}, ${summary.totals.active_shops} active in this period`

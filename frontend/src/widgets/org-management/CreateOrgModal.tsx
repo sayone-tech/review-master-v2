@@ -2,17 +2,11 @@ import { useState } from "react";
 import { Modal } from "../modal";
 import { createOrg, ApiError } from "./api";
 import { emitToast } from "../../lib/toast";
+import { ORG_TYPE_OPTIONS } from "./types";
 import type { CreateOrgPayload, OrgType } from "./types";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { computeCreditHint, parseCreditInput } from "./creditHint";
 
-const ORG_TYPE_OPTIONS: { value: OrgType | ""; label: string }[] = [
-  { value: "", label: "Select a type" },
-  { value: "RETAIL", label: "Retail" },
-  { value: "RESTAURANT", label: "Restaurant" },
-  { value: "PHARMACY", label: "Pharmacy" },
-  { value: "SUPERMARKET", label: "Supermarket" },
-];
 
 interface Props {
   open: boolean;
@@ -178,6 +172,7 @@ export function CreateOrgModal({ open, onClose, onCreated }: Props) {
             className={inputCls(!!errors.org_type)}
             data-testid="field-org_type"
           >
+            <option value="">Select a type</option>
             {ORG_TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

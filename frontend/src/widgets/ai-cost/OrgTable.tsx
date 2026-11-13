@@ -1,4 +1,4 @@
-import { formatCost, formatCount, formatTokens, titleCase } from "./format";
+import { formatCost, formatCount, formatTokens, orgTypeLabel } from "./format";
 import { Money, ShareBar } from "./Money";
 import { NeutralBadge } from "./PageHeader";
 import { RequestTypeBadges } from "./RequestTypeBadges";
@@ -62,7 +62,7 @@ export function OrgTable({ rows, sort, onSort, onOpen, query = "", totalCost = 0
                   >
                     {r.name}
                   </a>
-                  <NeutralBadge>{titleCase(r.org_type)}</NeutralBadge>
+                  <NeutralBadge>{orgTypeLabel(r.org_type)}</NeutralBadge>
                 </div>
               </td>
               <td className={TD_NUM}>{formatCount(r.active_shops)}</td>
