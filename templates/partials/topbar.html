@@ -4,8 +4,9 @@
   data-turbo-permanent
   class="
          sticky top-0 z-20
-         bg-white border-b border-line
-         px-4 md:px-8 py-[14px]
+         bg-black text-white
+         h-[60px] shrink-0
+         px-4 md:pl-[18px] md:pr-3
          flex items-center justify-between gap-4
         "
   data-testid="topbar"
@@ -16,16 +17,18 @@
       type="button"
       x-data
       @click="$store.nav.mobileOpen = true"
-      class="md:hidden w-[34px] h-[34px] rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
+      class="md:hidden w-[34px] h-[34px] rounded-md text-[#D4D4D8] hover:bg-white/10 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow"
       aria-label="Open navigation"
       data-testid="mobile-menu-toggle"
     >
       <span class="w-[18px] h-[18px]" aria-hidden="true" data-lucide="menu"></span>
     </button>
 
-    <div class="text-[15px] font-medium text-muted truncate" data-testid="topbar-title">
+    <div class="text-[14px] text-[#A1A1AA] truncate" data-testid="topbar-title">
+      {% if user.role == 'SUPERADMIN' %}Platform{% else %}{{ user.organisation.name|default:"Review Bear" }}{% endif %}
+      <span aria-hidden="true" class="mx-1 text-[#52525B]">/</span>
       {% block breadcrumb %}
-        <strong id="topbar-breadcrumb" class="text-ink font-semibold">{{ page_title|default:"Dashboard" }}</strong>
+        <strong id="topbar-breadcrumb" class="text-white font-semibold">{{ page_title|default:"Dashboard" }}</strong>
       {% endblock %}
     </div>
   </div>
@@ -46,7 +49,7 @@
         <button
           type="button"
           @click="open = !open"
-          class="w-8 h-8 rounded-full bg-black text-yellow flex items-center justify-center text-[12px] font-semibold"
+          class="w-8 h-8 rounded-full bg-yellow text-black flex items-center justify-center text-[12px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           :aria-expanded="open.toString()"
           aria-haspopup="menu"
           aria-label="Open user menu"
