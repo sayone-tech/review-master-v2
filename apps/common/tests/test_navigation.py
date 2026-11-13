@@ -38,8 +38,9 @@ def test_org_admin_groups_and_items_in_order() -> None:
     ]
 
 
-def test_staff_sees_only_reviews_action_items_activity_log() -> None:
+def test_staff_sees_dashboard_reviews_action_items_activity_log() -> None:
     assert _labels("STAFF_ADMIN") == [
+        (None, ["Dashboard"]),
         ("Customer feedback", ["Reviews", "Action items", "Activity log"]),
     ]
 
@@ -91,6 +92,12 @@ def test_rendered_org_admin_sidebar_has_badge_slots_meter_and_summary_url() -> N
     assert "data-nav-group-toggle" in html
 
 
+def test_group_chevron_rotates_when_folded() -> None:
+    html = _client_for("ORG_ADMIN").get("/admin/org/reviews/").content.decode()
+    assert "group-aria-[expanded=false]:-rotate-90" in html
+    assert "motion-reduce:transition-none" in html
+
+
 def test_rendered_superadmin_sidebar_has_no_badges_meter_or_summary_url() -> None:
     html = _client_for("SUPERADMIN").get("/", follow=True).content.decode()
     assert 'data-testid="sidebar"' in html
@@ -109,10 +116,10 @@ def test_staff_page_never_renders_org_admin_only_links() -> None:
         "/admin/org/regions/",
         "/admin/org/reports/",
         "/admin/org/reply-templates/",
-        "/admin/org/dashboard/",
     ):
         assert f'href="{href}"' not in html
     assert 'href="/admin/org/reviews/"' in html
+    assert 'href="/admin/org/dashboard/"' in html
     assert "data-nav-summary-url" in html
 
 

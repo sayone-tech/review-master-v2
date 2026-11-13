@@ -25,8 +25,9 @@ person can see.
    - **Organisation Admin:** Dashboard (ungrouped, top) · *Customer feedback*: Reviews, Action
      items, Reports · *Locations*: Shops, Regions · *Workspace*: Tags, Reply templates, Team,
      Activity log.
-   - **Staff:** *Customer feedback*: Reviews, Action items, Activity log. (Staff cannot see
-     Dashboard, Reports, Shops, Regions, Tags, Reply templates or Team today; that does not change.)
+   - **Staff:** Dashboard (ungrouped) · *Customer feedback*: Reviews, Action items, Activity log.
+     (Staff cannot see Reports, Shops, Regions, Tags, Reply templates or Team today; that does not
+     change.)
    - **Superadmin:** *Platform*: Dashboard, Organisations · *AI spend*: AI cost, AI pricing ·
      *Developer*: Django admin, API docs (links kept, unchanged destinations).
    - Same URLs and the same role gating as today (`templates/partials/sidebar.html`,

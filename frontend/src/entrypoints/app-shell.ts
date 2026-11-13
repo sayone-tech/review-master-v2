@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateBreadcrumb();
   const sidebar = document.getElementById("main-sidebar");
   if (sidebar) restoreFolds(sidebar, safeStorage());
-  syncSidebar();
+  // Active pill + summary are handled by turbo:load, which also fires on first load.
 });
 
 // Re-run after Alpine finishes rendering (handles x-if / x-show content)

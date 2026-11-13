@@ -64,6 +64,9 @@ _ORG_ADMIN = (
 
 _STAFF = (
     NavGroup(
+        "overview", None, (NavItem("Dashboard", "/admin/org/dashboard/", "layout-dashboard"),)
+    ),
+    NavGroup(
         "feedback",
         "Customer feedback",
         (

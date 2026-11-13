@@ -38,6 +38,10 @@ def list_action_items(
     - STAFF_ADMIN: only SHOP-scope items in accessible shops (Layer 1)
     - SUPERADMIN: empty (action items are org-scoped; superadmin uses other routes)
 
+    ``accessible_shop_ids`` is an optional precomputed value; it MUST come from
+    ``get_accessible_shop_ids(user_id=user.pk)`` for this same ``user`` (passing another
+    user's ids would widen Staff scope).
+
     Phase 18 (WR-01 fix): by default the list view hides merged duplicates
     (canonical__isnull=True). Detail / mutator endpoints pass
     include_duplicates=True so the D-17 "cannot modify a merged duplicate"
