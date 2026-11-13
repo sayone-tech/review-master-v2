@@ -141,3 +141,27 @@ def test_shell_keeps_main_content_contract_and_black_frame() -> None:
     assert 'id="main-topbar"' in html
     assert "data-turbo-permanent" in html
     assert "rounded-[14px]" in html
+
+
+def _classes(tag: str) -> list[str]:
+    match = re.search(r'class="([^"]*)"', tag)
+    assert match
+    return match.group(1).split()
+
+
+def test_group_toggle_and_badge_have_base_classes_for_mobile_drawer() -> None:
+    html = _client_for("ORG_ADMIN").get("/admin/org/reviews/").content.decode()
+    toggle = re.search(r"<button[^>]*data-nav-group-toggle[^>]*>", html)
+    assert toggle
+    assert "flex" in _classes(toggle.group(0))
+    badge = re.search(r'<span\s[^>]*data-nav-badge="reviews"[^>]*>', html)
+    assert badge
+    classes = _classes(badge.group(0))
+    for base in ("rounded-full", "px-1.5", "text-[11px]", "min-w-[20px]", "text-center"):
+        assert base in classes
+    # Active item (Reviews) uses the black pill with yellow text below md.
+    assert "bg-black" in classes
+    assert "text-yellow" in classes
+    inactive = re.search(r'<span\s[^>]*data-nav-badge="action_items"[^>]*>', html)
+    assert inactive
+    assert "bg-[#27272A]" in _classes(inactive.group(0))

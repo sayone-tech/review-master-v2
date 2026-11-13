@@ -26,8 +26,10 @@
         hidden
         class="
                ml-auto rounded-full text-center font-semibold
-               md:absolute md:right-1.5 md:top-1 md:h-2 md:w-2 md:p-0 md:text-[0] md:bg-yellow
-               lg:static lg:h-auto lg:w-auto lg:min-w-[20px] lg:px-1.5 lg:text-[11px] lg:leading-[18px]
+               min-w-[20px] px-1.5 text-[11px] leading-[18px]
+               {% if active %}bg-black text-yellow{% else %}bg-[#27272A] text-[#E4E4E7]{% endif %}
+               md:absolute md:right-1.5 md:top-1 md:h-2 md:w-2 md:min-w-0 md:p-0 md:text-[0] md:bg-yellow
+               lg:static lg:h-auto lg:w-auto lg:min-w-[20px] lg:px-1.5 lg:text-[11px]
                {% if active %}lg:bg-black lg:text-yellow{% else %}lg:bg-[#27272A] lg:text-[#E4E4E7]{% endif %}
               "
       ></span>

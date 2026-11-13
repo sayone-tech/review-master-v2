@@ -765,7 +765,7 @@ def test_org_profile_renders_inside_base_org_shell() -> None:
     client, _, _ = _org_admin_login()
     response = client.get("/admin/org/profile/")
     assert response.status_code == 200
-    # base_org.html includes shell_org_open which includes sidebar_org with data-testid="sidebar"
+    # base_org.html includes shell_org_open which includes the shared sidebar.html with data-testid="sidebar"
     assert b'data-testid="sidebar"' in response.content
 
 
