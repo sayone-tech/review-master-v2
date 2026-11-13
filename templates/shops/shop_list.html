@@ -2,21 +2,6 @@
 {% load static django_vite %}
 
 {% block content %}
-  <div class="flex items-center justify-between mb-6">
-    <p class="text-[13px] text-muted" data-testid="shop-allocation">
-      Shop limit: {{ allocation.max }}
-    </p>
-    <button
-      id="open-create-shop"
-      type="button"
-      data-at-limit="{% if allocation.at_limit %}true{% else %}false{% endif %}"
-      class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover{% if allocation.at_limit %} opacity-50 cursor-not-allowed{% endif %}"
-      {% if allocation.at_limit %}title="Shop limit reached." aria-disabled="true"{% endif %}
-    >
-      + Add Shop
-    </button>
-  </div>
-
   <div id="shop-modals-root" data-is-org-admin="{{ is_org_admin|yesno:'true,false' }}"></div>
 
   {% if shops_count > 0 %}

@@ -3,6 +3,7 @@ import { act, render, screen, fireEvent, waitFor } from "@testing-library/react"
 import { ShopTableWidget } from "./ShopTable";
 import type { ShopRow } from "./types";
 import * as api from "./api";
+import { ShopModals } from "./ShopModals";
 import { getShopCredits, resetCreditsStoreForTests } from "../credits/creditsStore";
 
 function fakeRow(over: Partial<ShopRow> = {}): ShopRow {
@@ -224,4 +225,53 @@ describe("ShopTableWidget", () => {
     expect(screen.getByTestId("shops-page-size")).toBeInTheDocument();
     expect(screen.getByText(/Showing/)).toBeInTheDocument();
   });
+});
+
+describe("ShopTableWidget add button in the filter row", () => {
+  const mk = (atLimit: boolean) => ({
+    rows: [fakeRow()],
+    allocation: { current: atLimit ? 5 : 1, max: 5, at_limit: atLimit },
+    hasRegions: true,
+  });
+
+  it("renders Shop limit and the Add Shop button in the search row", () => {
+    render(<ShopTableWidget initial={mk(false)} />);
+    const search = screen.getByTestId("shops-search");
+    const btn = document.getElementById("open-create-shop") as HTMLElement;
+    expect(btn).toHaveTextContent("+ Add Shop");
+    expect(search.parentElement).toContainElement(btn);
+    expect(search.parentElement).toHaveTextContent("Shop limit: 5");
+    expect(btn).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("is aria-disabled with the limit tooltip when at limit", () => {
+    render(<ShopTableWidget initial={mk(true)} />);
+    const btn = document.getElementById("open-create-shop") as HTMLElement;
+    expect(btn).toHaveAttribute("aria-disabled", "true");
+    expect(btn).toHaveAttribute("title", "Shop limit reached.");
+    expect(btn.className).toContain("opacity-50");
+    expect(btn.className).toContain("cursor-not-allowed");
+  });
+
+  it.each(["modals-first", "table-first"])(
+    "clicking the table's Add Shop opens the create modal (%s)",
+    (order) => {
+      const modals = (
+        <ShopModals allocation={{ current: 1, max: 5, at_limit: false }} regions={[]} />
+      );
+      const table = <ShopTableWidget initial={mk(false)} />;
+      const a = document.createElement("div");
+      const b = document.createElement("div");
+      document.body.append(a, b);
+      if (order === "modals-first") {
+        render(modals, { container: a });
+        render(table, { container: b });
+      } else {
+        render(table, { container: a });
+        render(modals, { container: b });
+      }
+      fireEvent.click(document.getElementById("open-create-shop") as HTMLElement);
+      expect(screen.getAllByText("Add Shop").length).toBeGreaterThan(0);
+    },
+  );
 });

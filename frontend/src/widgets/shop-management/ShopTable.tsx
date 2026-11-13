@@ -287,6 +287,20 @@ export function ShopTableWidget({
             </option>
           ))}
         </select>
+        <span className="text-[13px] text-muted whitespace-nowrap" data-testid="shop-allocation">
+          Shop limit: {allocation.max}
+        </span>
+        <button
+          id="open-create-shop"
+          type="button"
+          data-at-limit={allocation.at_limit ? "true" : "false"}
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover whitespace-nowrap${allocation.at_limit ? " opacity-50 cursor-not-allowed" : ""}`}
+          {...(allocation.at_limit
+            ? { title: "Shop limit reached.", "aria-disabled": true }
+            : {})}
+        >
+          + Add Shop
+        </button>
       </div>
 
       <div className="border border-line rounded-card overflow-hidden">
