@@ -137,6 +137,24 @@
 
 ---
 
+### Task 6: Add button in the filter row on Shops and Team
+
+**Files:**
+- Modify: `templates/shops/shop_list.html`, `templates/team/team_list.html` (remove the separate button row), `frontend/src/widgets/shop-management/ShopTable.tsx`, `frontend/src/widgets/team-management/TeamTable.tsx` (render the button at the end of their existing search/filter row), `frontend/src/widgets/shop-management/ShopModals.tsx`, `frontend/src/widgets/team-management/TeamModals.tsx` (open on a delegated document click on `#open-create-shop` / `#open-add-team-member` instead of binding `getElementById` once, so the button can be rendered by another React root in any order)
+- Test: existing tests in `frontend/src/widgets/shop-management/` and `team-management/` (update/extend); `apps/shops/tests/`, `apps/team*/tests` template tests that asserted the old row
+
+**Interfaces:**
+- Consumes: nothing from Tasks 1–4 (independent).
+- Produces: buttons keep ids `open-create-shop` and `open-add-team-member`, labels "+ Add Shop" / "+ Add Team Member" (match current copy), yellow button classes as today; Shops passes the allocation (already in `shop-allocation` json_script) so the table row can show "Shop limit: N" and the at-limit state (`aria-disabled="true"`, `title="Shop limit reached."`, `opacity-50 cursor-not-allowed`).
+
+- [ ] **Step 1: Write failing tests:** `ShopTable renders "Shop limit: N" and the Add Shop button in the search row`; `Add Shop is aria-disabled with the limit tooltip when at limit`; `clicking the Add Shop button rendered by the table opens the create modal` (render ShopModals + ShopTable separately, modals first and table second, and the reverse); same two for Team (`Add Team Member` in the row; opens the modal regardless of mount order); template tests: the separate button row is gone and each id appears exactly once.
+- [ ] **Step 2: Run** `cd frontend && npx vitest run src/widgets/shop-management src/widgets/team-management` and `uv run pytest apps/shops apps/accounts -q -p no:cacheprovider --no-cov` — Expected: new tests FAIL.
+- [ ] **Step 3: Implement** per Interfaces; Shops row order: search, existing filters, muted "Shop limit: N", "+ Add Shop".
+- [ ] **Step 4: Run** the same commands — Expected: PASS.
+- [ ] **Step 5: Commit** `feat(ui): add button in the filter row on shops and team`.
+
+---
+
 ### Task 5: Verification and close-out
 
 **Files:**

@@ -62,6 +62,11 @@ filter and every number available today is still reachable; the three pages look
    filters if a page has it today, pagination reset to page 1 when a filter changes, the Reviews tags multi-select
    with its search, Staff scoping, and every existing sort.
 
+8. **Shops and Team (owner request 2026-11-13):** the add button moves out of its own row above the list and into
+   the end of that page's existing search/filter row, like Regions and Reply templates. Shops: "Shop limit: N" sits
+   as a small muted note just before "+ Add Shop" in the same row; the at-limit disabled state and its "Shop limit
+   reached." tooltip stay. Team: "+ Add Team Member" at the end of the row. The modals still open exactly as today.
+
 ## 3. Non-goals
 
 - New filters, saved filter sets, new stats or charts.
