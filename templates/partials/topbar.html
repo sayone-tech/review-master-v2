@@ -79,7 +79,7 @@
           {% if user.role != 'SUPERADMIN' and user.organisation %}
             <div class="flex items-center justify-between gap-3 bg-black rounded-lg px-3 py-2 mb-1.5 text-[12px]" data-testid="profile-menu-org" role="none">
               <span class="text-[#A1A1AA]">Organisation</span>
-              <span class="text-white truncate">{{ user.organisation.name }}</span>
+              <span class="text-white truncate" title="{{ user.organisation.name }}">{{ user.organisation.name }}</span>
             </div>
           {% endif %}
           <a
