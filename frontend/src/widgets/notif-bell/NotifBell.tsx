@@ -67,7 +67,7 @@ export function NotifBell() {
         aria-haspopup="menu"
         aria-label={ariaLabel}
         data-testid="notif-bell"
-        className="relative w-9 h-9 rounded-md text-muted hover:bg-line-soft flex items-center justify-center"
+        className="relative w-9 h-9 rounded-md text-[#D4D4D8] hover:text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow flex items-center justify-center"
       >
         <Bell size={18} aria-hidden="true" />
         {count >= 1 && (

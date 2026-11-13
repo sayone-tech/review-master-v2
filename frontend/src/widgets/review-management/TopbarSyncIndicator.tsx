@@ -154,14 +154,14 @@ export function TopbarBell() {
   if (active.length === 0 && hasFailures) {
     badge = (
       <span
-        className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red border-2 border-white"
+        className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red border-2 border-black"
         aria-hidden="true"
       />
     );
   } else if (active.length === 0 && completed.length > 0) {
     badge = (
       <span
-        className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-white"
+        className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-black"
         aria-hidden="true"
       />
     );
@@ -178,10 +178,10 @@ export function TopbarBell() {
         aria-haspopup="menu"
         aria-label={`${totalCount} sync notification${totalCount !== 1 ? "s" : ""}`}
         data-testid="topbar-bell"
-        className={`relative w-[34px] h-[34px] rounded-md flex items-center justify-center transition-colors ${
+        className={`relative w-[34px] h-[34px] rounded-md flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow ${
           isSyncing
             ? "bg-yellow text-black hover:bg-yellow/90"
-            : "text-muted hover:bg-line-soft"
+            : "text-[#D4D4D8] hover:text-white hover:bg-white/10"
         }`}
       >
         {isSyncing ? (
