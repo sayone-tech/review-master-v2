@@ -1179,3 +1179,18 @@ class TestShopListCreditContactBootstrap:
         org = OrganisationFactory(number_of_stores=10)
         resp = self._get(org, role="STAFF_ADMIN")
         assert resp.status_code == 302
+
+
+@pytest.mark.django_db
+class TestShopListNoSeparateButtonRow:
+    def test_add_button_and_limit_text_not_server_rendered(self, db):
+        """The Add Shop button and limit text are rendered in the React filter row."""
+        org = OrganisationFactory(number_of_stores=10)
+        admin = UserFactory(role="ORG_ADMIN", organisation=org)
+        dj_client = Client()
+        dj_client.force_login(admin)
+        resp = dj_client.get("/admin/org/shops/")
+        assert resp.status_code == 200
+        assert resp.content.count(b"open-create-shop") == 0
+        assert b'data-testid="shop-allocation"' not in resp.content
+        assert b"shop-allocation" in resp.content  # json_script still present

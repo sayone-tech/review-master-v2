@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TeamTableWidget } from "./TeamTable";
 import type { TeamMemberRow, TeamStats } from "./types";
+import { TeamModals } from "./TeamModals";
 import * as api from "./api";
 
 function makeRow(over: Partial<TeamMemberRow> = {}): TeamMemberRow {
@@ -208,4 +209,36 @@ describe("TeamTableWidget", () => {
     );
     expect(screen.getByText(/only member/)).toBeInTheDocument();
   });
+});
+
+describe("TeamTableWidget add button in the filter row", () => {
+  it("renders Add Team Member in the search row", () => {
+    render(<TeamTableWidget {...defaultProps} />);
+    const search = screen.getByTestId("team-search");
+    const btn = document.getElementById("open-add-team-member") as HTMLElement;
+    expect(btn).toHaveTextContent("+ Add Team Member");
+    expect(search.parentElement).toContainElement(btn);
+  });
+
+  it.each(["modals-first", "table-first"])(
+    "clicking it opens the add modal (%s)",
+    (order) => {
+      const modals = (
+        <TeamModals regions={[]} activeShops={[]} currentUserId={99} managerCount={1} />
+      );
+      const table = <TeamTableWidget {...defaultProps} />;
+      const a = document.createElement("div");
+      const b = document.createElement("div");
+      document.body.append(a, b);
+      if (order === "modals-first") {
+        render(modals, { container: a });
+        render(table, { container: b });
+      } else {
+        render(table, { container: a });
+        render(modals, { container: b });
+      }
+      fireEvent.click(document.getElementById("open-add-team-member") as HTMLElement);
+      expect(screen.getAllByText(/Add Team Member/).length).toBeGreaterThan(1);
+    },
+  );
 });

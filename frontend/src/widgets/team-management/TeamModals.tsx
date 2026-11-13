@@ -76,13 +76,16 @@ export function TeamModals({
     };
   }, []);
 
-  // Wire the page-header "+ Add Team Member" button (id="open-add-team-member" from template)
+  // Delegated click for the "+ Add Team Member" button, which the table (a separate
+  // React root) renders in its filter row, so mount order never matters.
   useEffect(() => {
-    const btn = document.getElementById("open-add-team-member");
-    if (!btn) return;
-    const handler = () => setOpen({ kind: "add" });
-    btn.addEventListener("click", handler);
-    return () => btn.removeEventListener("click", handler);
+    const handler = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest?.("#open-add-team-member")) {
+        setOpen({ kind: "add" });
+      }
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
   }, []);
 
   const close = () => setOpen({ kind: "none" });
