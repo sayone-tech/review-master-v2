@@ -3,7 +3,7 @@
 Cost and token totals sum ``SUCCESS`` rows only; call counts include every status.
 Windows are start-inclusive / end-exclusive (``CostWindow``).
 
-Cost sums are quantized to six decimal places in Python (SQLite, used in tests,
+Cost sums are quantized to eight decimal places in Python (SQLite, used in tests,
 stores decimals as REAL). ``get_cost_summary`` and ``get_request_type_costs``
 quantize before returning; ``list_org_costs`` / ``list_shop_costs`` return a
 sorted ``values()`` QuerySet whose ``cost`` is the raw database Decimal --

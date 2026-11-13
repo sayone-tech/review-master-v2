@@ -136,6 +136,14 @@ fetched until **Apply** (custom ranges validated client-side), and **Clear** (sh
 when the applied range is not "This month") resets and applies immediately. Tables use
 the app's standard pagination footer (Showing X–Y of N, rows per page, numbered pages).
 
+**Owner-approved deviations (override the source specs):**
+- Costs show 8 dp with the trailing padding zeros faded; cost column headers read "Cost" (USD is implied by "$").
+- The date filter is inline in the page header with Apply/Clear, not a filter card.
+- The top-bar breadcrumb "AI Cost / {org}" replaces the "Back to AI Cost" link.
+- The model table shows Input/Output tokens as a visible secondary line under the calls value (no hover tooltip).
+- One summary strip replaces the four KPI cards.
+- AI Pricing: compact sync status row (copy tightened, all states preserved); hand-set differences sit behind "Review"; history is a timeline with Delete only on scheduled prices; "Active since" removed.
+
 ---
 
 ## 5. Pricing Management — corrections to the spec (v1.1)

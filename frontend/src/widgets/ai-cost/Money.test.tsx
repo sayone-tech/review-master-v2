@@ -17,7 +17,7 @@ describe("Money", () => {
   it("keeps the full value as text with the padding zeros faint", () => {
     const { container } = render(<Money value="$0.00044200" />);
     expect(container).toHaveTextContent("$0.00044200");
-    expect(screen.getByText("00")).toHaveClass("text-faint");
+    expect(screen.getByText("00")).toHaveClass("text-subtle");
   });
 });
 

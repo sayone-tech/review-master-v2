@@ -13,7 +13,7 @@ export function Money({ value, className = "" }: { value: string; className?: st
   return (
     <span className={`whitespace-nowrap tabular-nums ${className}`}>
       {sig}
-      {zeros && <span className="text-faint">{zeros}</span>}
+      {zeros && <span className="text-subtle">{zeros}</span>}
     </span>
   );
 }

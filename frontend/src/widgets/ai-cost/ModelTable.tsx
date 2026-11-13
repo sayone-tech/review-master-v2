@@ -3,7 +3,7 @@ import { Money } from "./Money";
 import { TD, TD_NUM, TH } from "./SortHeader";
 import type { ModelCostRow } from "./types";
 
-/** Narrow side table: tokens live in each row's tooltip to keep it to three columns. */
+/** Narrow side table: tokens shown as a visible secondary line under the calls value. */
 export function ModelTable({ rows }: { rows: ModelCostRow[] }) {
   return (
     <div className="overflow-x-auto">
@@ -17,13 +17,14 @@ export function ModelTable({ rows }: { rows: ModelCostRow[] }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr
-              key={r.model}
-              className="border-b border-line-soft last:border-0"
-              title={`${formatTokens(r.input_tokens)} input, ${formatTokens(r.output_tokens)} output tokens`}
-            >
+            <tr key={r.model} className="border-b border-line-soft last:border-0">
               <td className={`${TD} break-all font-medium text-ink`}>{r.model}</td>
-              <td className={TD_NUM}>{formatCount(r.calls)}</td>
+              <td className={TD_NUM}>
+                {formatCount(r.calls)}
+                <span className="block whitespace-nowrap text-[12px] font-normal text-muted">
+                  {formatTokens(r.input_tokens)} in · {formatTokens(r.output_tokens)} out
+                </span>
+              </td>
               <td className={TD_NUM}>
                 <Money value={formatCost(r.cost)} className="font-medium text-ink" />
               </td>
