@@ -12,6 +12,7 @@ function fakeRow(over: Partial<ReviewRow> = {}): ReviewRow {
     shop_id: 7,
     shop_name: "Downtown",
     shop_region_name: "North",
+    shop_is_active: true,
     region_id: 1,
     google_review_id: "g1",
     star_rating: 5,
@@ -395,5 +396,22 @@ describe("ReplyComposer generate outcomes (CVIS-03, D-08)", () => {
     await act(async () => {});
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByText("This shop has 35 credits remaining this month.")).toBeInTheDocument();
+  });
+});
+
+describe("ReplyComposer inactive shop (CRED-INACTIVE-01)", () => {
+  it("disables Generate with AI with a reason and keeps manual reply available", async () => {
+    renderComposer(fakeRow({ shop_is_active: false }));
+
+    const button = screen.getByRole("button", { name: "Generate with AI" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-describedby", "credit-status-1");
+    expect(screen.getByText("AI replies are unavailable for inactive shops.")).toBeInTheDocument();
+    expect(costSpy).not.toHaveBeenCalled();
+
+    const box = screen.getByRole("textbox", { name: "Write your reply" });
+    expect(box).toBeEnabled();
+    fireEvent.change(box, { target: { value: "Thanks" } });
+    expect(screen.getByRole("button", { name: "Submit Reply" })).toBeEnabled();
   });
 });

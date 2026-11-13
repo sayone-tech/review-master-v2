@@ -60,7 +60,7 @@ export function ReplyComposer({
   // Fetch the credit cost on mount. AbortController keeps this StrictMode-safe
   // (effects mount twice in dev) and cancels on unmount.
   useEffect(() => {
-    if (!hasReviewText || row.is_replied) return;
+    if (!hasReviewText || row.is_replied || row.shop_is_active === false) return;
     const controller = new AbortController();
     setCostStatus("loading");
     getCreditCost(row.id, controller.signal)
@@ -80,7 +80,7 @@ export function ReplyComposer({
         setCostStatus("error");
       });
     return () => controller.abort();
-  }, [row.id, row.shop_id, row.is_replied, hasReviewText, costAttempt]);
+  }, [row.id, row.shop_id, row.is_replied, row.shop_is_active, hasReviewText, costAttempt]);
 
   useEffect(() => {
     listTemplates().then(setTemplates).catch(() => {});
@@ -107,9 +107,10 @@ export function ReplyComposer({
 
   // UI-SPEC Interaction C: one credit state at a time. The store entry wins for
   // `remaining` / `isEnabled`; the cost only ever comes from the server.
-  type CreditUiState = "none" | "loading" | "ready" | "not_enabled" | "insufficient" | "load_error";
+  type CreditUiState = "none" | "shop_inactive" | "loading" | "ready" | "not_enabled" | "insufficient" | "load_error";
   let creditState: CreditUiState;
   if (!hasReviewText) creditState = "none";
+  else if (row.shop_is_active === false) creditState = "shop_inactive";
   else if (costStatus === "error") creditState = "load_error";
   else if (costStatus !== "ready" || !credits) creditState = "loading";
   else if (!credits.isEnabled) creditState = "not_enabled";
@@ -121,10 +122,14 @@ export function ReplyComposer({
     ? `Generate with AI (requires ${creditsLabel(cost as number)})`
     : "Generate with AI";
   const aiButtonDisabled =
-    creditState === "loading" || creditState === "not_enabled" || creditState === "insufficient";
+    creditState === "loading" ||
+    creditState === "not_enabled" ||
+    creditState === "insufficient" ||
+    creditState === "shop_inactive";
 
   let creditStatusText = "";
-  if (creditState === "loading") creditStatusText = "Checking credits…";
+  if (creditState === "shop_inactive") creditStatusText = "AI replies are unavailable for inactive shops.";
+  else if (creditState === "loading") creditStatusText = "Checking credits…";
   else if (creditState === "ready" && credits)
     // SHOP-23: show remaining of total so users see the monthly budget; fall back if total is unknown.
     creditStatusText =

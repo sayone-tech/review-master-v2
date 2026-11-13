@@ -21,6 +21,7 @@ export interface ReviewRow {
   shop_id: number;
   shop_name: string;
   shop_region_name: string;
+  shop_is_active: boolean;
   region_id: number | null;
   google_review_id: string;
   star_rating: 1 | 2 | 3 | 4 | 5;

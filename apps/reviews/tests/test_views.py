@@ -700,6 +700,30 @@ class TestGenerateReplyEndpoint:
         assert resp.json().get("code") != "empty_comment"
         mock_generate.assert_not_called()
 
+    @pytest.mark.parametrize("role", ["org_admin", "staff"])
+    @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
+    def test_inactive_shop_returns_409_and_writes_nothing(self, mock_generate, role) -> None:
+        org = OrganisationFactory(monthly_credit_allocation=10)
+        shop = ShopFactory(organisation=org, is_active=False)
+        review = ReviewFactory(organisation=org, shop=shop, comment="x" * 150)
+        if role == "org_admin":
+            user = OrgAdminFactory(organisation=org)
+        else:
+            user = StaffAdminFactory(organisation=org)
+            StaffAccessScope.objects.create(
+                user=user, scope_type=StaffAccessScope.ScopeType.SHOP, shop=shop
+            )
+
+        resp = self._post(self._client(user), review)
+
+        assert resp.status_code == 409
+        assert resp.json() == {
+            "code": "shop_inactive",
+            "detail": "AI replies are unavailable because this shop is inactive.",
+        }
+        mock_generate.assert_not_called()
+        assert self._nothing_written()
+
     @patch("apps.reviews.services.reply_generation._generate_reply_draft_with_log")
     def test_not_enabled_returns_402_and_writes_nothing(self, mock_generate) -> None:
         org = OrganisationFactory()  # factory default allocation 0
