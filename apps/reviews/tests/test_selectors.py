@@ -5,6 +5,8 @@ Phase 26 (TMGT-07/D-01): also covers list_canonical_tags_for_org search filter.
 
 from __future__ import annotations
 
+import datetime as dt
+
 import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
@@ -14,6 +16,7 @@ from apps.accounts.models import StaffAccessScope
 from apps.accounts.tests.factories import StaffAdminFactory
 from apps.organisations.tests.factories import OrganisationFactory
 from apps.regions.tests.factories import RegionFactory
+from apps.reviews.filters import ReviewFilterSet
 from apps.reviews.selectors.canonical_tags import list_canonical_tags_for_org
 from apps.reviews.selectors.reviews import (
     get_accessible_shop_ids,
@@ -148,3 +151,21 @@ def test_list_canonical_tags_query_count_with_search() -> None:
         list(qs)
     assert len(ctx.captured_queries) <= 2, f"Expected ≤2 queries, got {len(ctx.captured_queries)}"
     assert count == 1
+
+
+def test_date_range_filter_includes_whole_boundary_days() -> None:
+    org = OrganisationFactory()
+    utc = dt.UTC
+
+    def make(*args: int) -> int:
+        return ReviewFactory(organisation=org, review_create_time=dt.datetime(*args, tzinfo=utc)).pk
+
+    make(2026, 11, 9, 23, 59)  # before from_date
+    first = make(2026, 11, 10, 0, 0)  # first instant of from_date
+    last = make(2026, 11, 13, 18, 0)  # late on to_date
+    make(2026, 11, 14, 0, 30)  # after to_date
+    fs = ReviewFilterSet(
+        {"from_date": "2026-11-10", "to_date": "2026-11-13"},
+        queryset=list_reviews(organisation_id=org.pk),
+    )
+    assert set(fs.qs.values_list("pk", flat=True)) == {first, last}

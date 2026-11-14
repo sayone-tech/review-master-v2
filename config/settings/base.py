@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.integrations.openai",
     "apps.credits",
     "apps.reports",
+    "apps.insights",
 ]
 
 MIDDLEWARE = [
@@ -137,6 +138,8 @@ CELERY_TASK_ROUTES = {
     "apps.common.tasks.publish_celery_queue_depths_task": {"queue": "default"},
     # Phase 31 CREN-01 — daily idempotent lapse sweep (00:05 UTC).
     "apps.credits.tasks.lapse_expired_credit_balances_task": {"queue": "default"},
+    # Insights Book — daily per-organisation snapshot (02:00 UTC).
+    "apps.insights.tasks.compute_daily_insights_task": {"queue": "default"},
     # Phase 31 CREN-03 — reservation reaper (every 10 minutes).
     "apps.credits.tasks.reap_stale_reservations_task": {"queue": "default"},
     # Phase 36 — weekly LiteLLM AI pricing sync (Monday 09:00 UTC).
@@ -470,6 +473,7 @@ REST_FRAMEWORK = {
         "credit_cost": "120/minute",
         # Sidebar badges + credits meter poll (cheap aggregate read, every page load).
         "nav_summary": "240/minute",
+        "insights": "120/minute",
         # Phase 32: Superadmin credit endpoints (shop list read, bonus write).
         "superadmin_credits_read": "120/minute",
         "superadmin_ai_cost_read": "120/minute",

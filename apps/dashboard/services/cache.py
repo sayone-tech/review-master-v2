@@ -11,7 +11,7 @@ def dashboard_cache_key(
     *, endpoint: str, org_id: int, user_id: int, params: DashboardFilterParams
 ) -> str:
     # django-redis applies KEY_PREFIX="app" automatically.
-    return f"dashboard:{endpoint}:{org_id}:{user_id}:{params.filter_hash()}"
+    return f"dashboard:v2:{endpoint}:{org_id}:{user_id}:{params.filter_hash()}"
 
 
 def cache_get(key: str) -> dict | None:  # type: ignore[type-arg]

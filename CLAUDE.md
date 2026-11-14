@@ -122,6 +122,10 @@ repo-root/
 │   │   └── selectors/items.py
 │   ├── notifications/               # In-app bell counter + delivery model (Phase 3+)
 │   │   └── services/dispatch.py
+│   ├── insights/                    # Org Admin "Insights" book: daily rule-based insight snapshot (no AI), reader, API, page
+│   │   ├── services/{windows,rules,build}.py  # 30-day windows, 8 insight rules, ranking + snapshot + daily run
+│   │   ├── selectors.py             # get_latest_insights (org-scoped; names resolved, stale items dropped at read)
+│   │   └── tasks.py                 # compute_daily_insights_task — Beat 02:00 UTC, default queue
 │   ├── credits/                     # Per-shop monthly AI-reply credit balances + append-only ledger (v0.9)
 │   │   ├── services/
 │   │   │   ├── periods.py           # UTC period seam (current_period, next_period_start)
@@ -724,6 +728,7 @@ Beat tasks are stored in the database via `django-celery-beat`. Seed initial sch
 | `lapse_expired_credit_balances_task` | `default` | Daily 00:05 UTC — idempotent catch-up lapse of past-month credit balances (v0.9/Phase 31) |
 | `reap_stale_reservations_task` | `default` | Every 10 minutes — refunds RESERVED credit reservations older than the TTL (v0.9/Phase 31) |
 | `sync_ai_pricing_from_litellm_task` | `default` | Weekly, Monday 09:00 UTC — opt-in LiteLLM price sync; does nothing unless enabled (v0.10/Phase 36) |
+| `compute_daily_insights_task` | `default` | Daily 02:00 UTC — per-organisation Insights Book snapshot (ranked insights, 14-day retention) |
 
 ### 12.6 Deployment
 

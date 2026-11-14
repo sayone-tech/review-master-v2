@@ -1,0 +1,12 @@
+{% extends "base_org.html" %}
+{% load static django_vite %}
+
+{% block title %}Insights · Review Bear{% endblock %}
+
+{% block content %}
+  <div id="insights-root"></div>
+{% endblock %}
+
+{% block extra_js %}
+  {% vite_asset 'src/entrypoints/insights.tsx' %}
+{% endblock %}
