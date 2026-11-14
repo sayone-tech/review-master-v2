@@ -40,6 +40,7 @@ _ORG_ADMIN = (
                 badge_key="action_items",
             ),
             NavItem("Reports", "/admin/org/reports/", "bar-chart-2"),
+            NavItem("Insights", "/admin/org/insights/", "book-open"),
         ),
     ),
     NavGroup(

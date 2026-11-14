@@ -473,6 +473,7 @@ REST_FRAMEWORK = {
         "credit_cost": "120/minute",
         # Sidebar badges + credits meter poll (cheap aggregate read, every page load).
         "nav_summary": "240/minute",
+        "insights": "120/minute",
         # Phase 32: Superadmin credit endpoints (shop list read, bonus write).
         "superadmin_credits_read": "120/minute",
         "superadmin_ai_cost_read": "120/minute",

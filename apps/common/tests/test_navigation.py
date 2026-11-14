@@ -26,7 +26,7 @@ def _client_for(role: str) -> Client:
 def test_org_admin_groups_and_items_in_order() -> None:
     assert _labels("ORG_ADMIN") == [
         (None, ["Dashboard"]),
-        ("Customer feedback", ["Reviews", "Action items", "Reports"]),
+        ("Customer feedback", ["Reviews", "Action items", "Reports", "Insights"]),
         ("Locations", ["Shops", "Regions"]),
         ("Workspace", ["Tags", "Reply templates", "Team", "Activity log"]),
     ]
@@ -228,6 +228,7 @@ _ORG_PAGES = [
     ("/admin/org/reviews/", "Reviews"),
     ("/admin/org/tags/", "Tags"),
     ("/admin/org/reports/", "Reports"),
+    ("/admin/org/insights/", "Insights"),
     ("/admin/org/profile/", "Profile"),
 ]
 

@@ -8,6 +8,7 @@ from rest_framework.routers import SimpleRouter
 from apps.accounts.permissions import IsSuperadmin
 from apps.action_items.urls import api_urlpatterns as action_items_api_urls
 from apps.common.views import AuditLogViewSet, ScalarDocsView
+from apps.insights.urls import api_urlpatterns as insights_api_urls
 from apps.notifications.urls import api_urlpatterns as notifications_api_urls
 from apps.organisations.views import OrganisationViewSet
 from apps.regions.views import RegionViewSet
@@ -58,7 +59,9 @@ urlpatterns = [
     path("api/v1/", include("apps.integrations.openai.api_urls")),
     path("api/v1/dashboard/", include("apps.dashboard.urls")),
     path("api/v1/reports/", include(reports_api_urls)),
+    path("api/v1/insights/", include(insights_api_urls)),
     path("", include("apps.reports.urls")),
+    path("", include("apps.insights.urls")),
     # API documentation — Superadmin only, session auth only (no JWT access to docs)
     path(
         "api/v1/schema/",
