@@ -10,6 +10,7 @@ from django.utils import timezone
 from django_celery_beat.models import PeriodicTask
 
 from apps.insights.models import InsightSnapshot
+from apps.insights.services import build as build_module
 from apps.insights.services.build import build_snapshot, compute_all_insights, rank
 from apps.insights.services.rules import Candidate
 from apps.insights.tasks import compute_daily_insights_task
@@ -94,7 +95,7 @@ def test_build_snapshot_empty_org():
         "items": [],
     }
     assert (snap.window_from, snap.window_to) == (
-        TODAY - dt.timedelta(days=60),
+        TODAY - dt.timedelta(days=30),
         TODAY - dt.timedelta(days=1),
     )
     assert snap.computed_for == TODAY
@@ -163,3 +164,42 @@ def test_beat_row_seeded():
     assert pt.queue == "default"
     assert (pt.crontab.minute, pt.crontab.hour) == ("0", "2")
     assert pt.enabled
+
+
+def test_compute_all_insights_isolates_failing_org(monkeypatch):
+    first, second = OrganisationFactory(), OrganisationFactory()
+    ShopFactory(organisation=first)
+    ShopFactory(organisation=second)
+    real = build_module.collect_candidates
+
+    def flaky(*, organisation_id, window):
+        if organisation_id == first.pk:
+            raise ValueError("boom")
+        return real(organisation_id=organisation_id, window=window)
+
+    monkeypatch.setattr(build_module, "collect_candidates", flaky)
+    with pytest.raises(RuntimeError, match=str(first.pk)):
+        compute_all_insights()
+    assert InsightSnapshot.objects.filter(organisation=second).exists()
+    assert not InsightSnapshot.objects.filter(organisation=first).exists()
+
+
+def test_build_snapshot_end_to_end_round_trips_json():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    other = ShopFactory(organisation=org)
+    for d in (12, 8, 4):
+        when = timezone.make_aware(dt.datetime.combine(TODAY - dt.timedelta(days=d), dt.time(12)))
+        ReviewFactory(organisation=org, shop=shop, review_create_time=when, sentiment="negative")
+    when = timezone.make_aware(dt.datetime.combine(TODAY - dt.timedelta(days=3), dt.time(9)))
+    for _ in range(10):
+        ReviewFactory(organisation=org, shop=shop, review_create_time=when, rating=1)
+        ReviewFactory(organisation=org, shop=other, review_create_time=when, rating=5)
+    snap = build_snapshot(organisation_id=org.pk, today=TODAY)
+    snap = InsightSnapshot.objects.get(pk=snap.pk)
+    items = snap.payload["items"]
+    assert len(items) >= 2
+    fields = {f.name for f in dataclasses.fields(Candidate)}
+    assert all(set(i) == fields for i in items)
+    assert snap.payload["cover"]["attention"] + snap.payload["cover"]["good"] == len(items)
+    assert {i["type"] for i in items} >= {2, 3}

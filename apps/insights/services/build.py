@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as dt
+import logging
 from typing import Any
 
 from django.db import transaction
-from django.utils import timezone
 
 from apps.insights.models import InsightSnapshot
 from apps.insights.services import rules
@@ -15,6 +15,8 @@ from apps.insights.services.rules import Candidate
 from apps.insights.services.windows import Window, review_window_q, windows_for
 from apps.reviews.models import Review
 from apps.shops.models import Shop
+
+logger = logging.getLogger(__name__)
 
 MAX_INSIGHTS = 8
 MAX_PER_TYPE = 2
@@ -82,7 +84,7 @@ def build_snapshot(*, organisation_id: int, today: dt.date) -> InsightSnapshot:
         organisation_id=organisation_id,
         computed_for=today,
         defaults={
-            "window_from": window.before_from,
+            "window_from": window.now_from,
             "window_to": window.now_to,
             "payload": payload,
         },
@@ -95,16 +97,28 @@ def build_snapshot(*, organisation_id: int, today: dt.date) -> InsightSnapshot:
 
 
 def compute_all_insights() -> int:
-    """Build today's (UTC) snapshot for every organisation with an active shop; returns the count."""
-    today = timezone.now().date()
-    org_ids = (
+    """Build today's (UTC) snapshot for every organisation with an active shop; returns the count.
+
+    One organisation's failure never blocks the others; after the loop a single RuntimeError
+    names the failed organisations so Sentry/Celery see it (the retry re-runs idempotently).
+    """
+    today = dt.datetime.now(dt.UTC).date()
+    org_ids = list(
         Shop.objects.filter(is_active=True)
         .order_by("organisation_id")
         .values_list("organisation_id", flat=True)
         .distinct()
     )
     count = 0
+    failed: list[int] = []
     for org_id in org_ids:
-        build_snapshot(organisation_id=org_id, today=today)
-        count += 1
+        try:
+            build_snapshot(organisation_id=org_id, today=today)
+        except Exception:
+            logger.exception("insights.snapshot_failed", extra={"organisation_id": org_id})
+            failed.append(org_id)
+        else:
+            count += 1
+    if failed:
+        raise RuntimeError(f"Insight snapshot failed for organisations: {failed}")
     return count

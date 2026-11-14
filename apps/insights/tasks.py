@@ -9,6 +9,8 @@ from apps.insights.services.build import compute_all_insights
 
 @shared_task(  # type: ignore[misc]
     bind=True,
+    soft_time_limit=600,
+    time_limit=660,
     max_retries=3,
     autoretry_for=(Exception,),
     retry_backoff=30,
