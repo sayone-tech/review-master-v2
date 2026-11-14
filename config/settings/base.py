@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.integrations.openai",
     "apps.credits",
     "apps.reports",
+    "apps.insights",
 ]
 
 MIDDLEWARE = [
