@@ -1,180 +1,124 @@
-// Phase 25-04 — Dashboard tag polarity chart (TDASH-01).
-// always_positive/always_negative tags render a single colored bar;
-// mixed tags render a stacked positive/negative split (recharts stackId="a").
-import { Tag } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+// Phase 25-04 (TDASH-01), restyled as a tug-of-war: complaints pull left (red),
+// praise pulls right (yellow). Bars share one scale: the largest count on
+// either side of any row is 100% of a half-track.
 import { useQuery } from "@tanstack/react-query";
+import { Tag } from "lucide-react";
 
 import { fetchTagPolarity } from "./api";
+import { FOCUS, Panel, PanelError, PULSE, RED, TIP, YELLOW } from "./Panel";
 import type { TagPolarityBar } from "./types";
 
-// ---------------------------------------------------------------------------
-// Tooltip
-// ---------------------------------------------------------------------------
+const ROW = "grid grid-cols-[minmax(0,1fr)_minmax(76px,120px)_minmax(0,1fr)] items-center gap-2";
+const SUBTITLE = "All stores, all time";
 
-interface TagPolarityTooltipProps {
-  active?: boolean;
-  payload?: Array<{ payload: TagPolarityBar }>;
+function pct(count: number, max: number): string {
+  return max > 0 ? `${Math.round((count / max) * 1000) / 10}%` : "0%";
 }
 
-function TagPolarityTooltip({ active, payload }: TagPolarityTooltipProps) {
-  if (!active || !payload || payload.length === 0) return null;
-  const tag = payload[0].payload;
-  const polarityLabel =
-    tag.polarity_type === "always_positive"
-      ? "Always positive"
-      : tag.polarity_type === "always_negative"
-        ? "Always negative"
-        : "Mixed";
+function Side({
+  side,
+  count,
+  max,
+  label,
+}: {
+  side: "complaints" | "praise";
+  count: number;
+  max: number;
+  label: string;
+}) {
+  const left = side === "complaints";
+  const word = left ? (count === 1 ? "complaint" : "complaints") : "praise";
   return (
-    <div className="bg-white rounded-lg shadow border border-line p-2 text-[14px]">
-      <div className="font-semibold text-ink mb-1">{tag.label}</div>
-      <div className="text-[12px] text-subtle capitalize mb-1">{polarityLabel}</div>
-      {tag.polarity_type === "mixed" ? (
-        <>
-          <div className="text-[12px]">
-            <span
-              className="inline-block w-2 h-2 rounded-full bg-green mr-2"
-              aria-hidden="true"
-            />
-            Positive: {tag.positive_count}
-          </div>
-          <div className="text-[12px]">
-            <span
-              className="inline-block w-2 h-2 rounded-full bg-red mr-2"
-              aria-hidden="true"
-            />
-            Negative: {tag.negative_count}
-          </div>
-        </>
-      ) : (
-        <div className="text-[12px] text-muted">{tag.total_count} reviews</div>
-      )}
+    <div className={`flex items-center gap-1.5 ${left ? "flex-row" : "flex-row-reverse"}`}>
+      <span
+        data-testid={`${side}-count`}
+        className={`w-7 shrink-0 text-[12px] tabular-nums text-[#A1A1AA] ${left ? "text-left" : "text-right"}`}
+      >
+        {count}
+      </span>
+      <div className={`group relative flex h-[18px] flex-1 items-center ${left ? "justify-end" : "justify-start"}`}>
+        <span
+          data-testid={`${side}-bar`}
+          aria-hidden="true"
+          className="block h-2.5 rounded-[5px]"
+          style={{ width: pct(count, max), background: left ? RED : YELLOW, minWidth: count > 0 ? 3 : 0 }}
+        />
+        <span className={`${TIP} bottom-full mb-1 ${left ? "right-0" : "left-0"}`}>
+          <strong className="text-[13px] font-semibold text-white tabular-nums">{count}</strong> {word} ·{" "}
+          {label}
+        </span>
+      </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main chart component
-// ---------------------------------------------------------------------------
+function TugRow({ tag, max }: { tag: TagPolarityBar; max: number }) {
+  return (
+    <div
+      role="group"
+      aria-label={`${tag.label}: ${tag.negative_count} complaints, ${tag.positive_count} praise`}
+      className={ROW}
+    >
+      <Side side="complaints" count={tag.negative_count} max={max} label={tag.label} />
+      <div className="text-center text-[12px] font-medium leading-tight text-white break-words">
+        {tag.label}
+      </div>
+      <Side side="praise" count={tag.positive_count} max={max} label={tag.label} />
+    </div>
+  );
+}
 
 export function TagPolarityChart() {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["dashboard", "tag-polarity"],
     queryFn: fetchTagPolarity,
   });
 
-  if (isLoading) {
-    return (
-      <section className="bg-white border border-line rounded-[14px] p-4">
-        <div className="bg-line-soft rounded-xl animate-[sk-pulse_1.6s_ease-in-out_infinite] h-[240px]" />
-      </section>
-    );
-  }
-
-  if (isError) {
-    return (
-      <section className="bg-white border border-line rounded-[14px] p-4">
-        <p className="text-[14px] text-muted text-center py-8">
-          Could not load tag distribution.
-        </p>
-      </section>
-    );
-  }
-
   const tags = data?.tags ?? [];
-  const hasMore = data?.has_more ?? false;
+  const max = Math.max(0, ...tags.flatMap((t) => [t.positive_count, t.negative_count]));
 
   return (
-    <section className="bg-white border border-line rounded-[14px] p-4 flex flex-col">
-      {/* Header */}
-      <div className="mb-3">
-        <h2 className="text-[18px] font-semibold text-ink tracking-[-0.01em] mb-1">
-          Tag Distribution
-        </h2>
-        <p className="text-[12px] text-subtle">
-          Top tags by review volume · canonical tags only
-        </p>
-      </div>
+    <Panel title="Top tags" subtitle={SUBTITLE} busy={isLoading} className="lg:flex-[1.25]">
+      {isLoading && (
+        <div aria-label="Loading top tags" className="flex flex-col gap-3">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className={`h-3 rounded ${PULSE}`} />
+          ))}
+        </div>
+      )}
 
-      {/* Empty state */}
-      {tags.length === 0 ? (
-        <p className="text-[14px] text-muted text-center py-8">
+      {isError && (
+        <PanelError
+          message="Could not load tag distribution."
+          onRetry={() => void refetch()}
+          retryLabel="Retry loading top tags"
+        />
+      )}
+
+      {!isLoading && !isError && tags.length === 0 && (
+        <p className="py-8 text-center text-[13px] text-[#A1A1AA]">
           No canonical tags yet. Tags will appear as reviews are enriched.
         </p>
-      ) : (
+      )}
+
+      {!isLoading && !isError && tags.length > 0 && (
         <>
-          {/* Bar chart */}
-          <div role="img" aria-label="Tag distribution by polarity bar chart">
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={tags} barCategoryGap="35%" margin={{ bottom: 48 }}>
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 12, fill: "#71717A" }}
-                  tickFormatter={(name: string) =>
-                    name.length > 14 ? name.slice(0, 13) + "…" : name
-                  }
-                  angle={-35}
-                  textAnchor="end"
-                  height={56}
-                  axisLine={{ stroke: "#E4E4E7" }}
-                  tickLine={false}
-                  interval={0}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: "#A1A1AA" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={28}
-                />
-                <Tooltip
-                  content={<TagPolarityTooltip />}
-                  cursor={{ fill: "rgba(0,0,0,0.03)" }}
-                />
-                <Legend
-                  verticalAlign="top"
-                  height={28}
-                  iconSize={8}
-                  iconType="circle"
-                  formatter={(value: string) => (
-                    <span style={{ fontSize: 12, color: "#71717A" }}>{value}</span>
-                  )}
-                />
-                {/* Positive on bottom (no radius), negative on top (rounded top corners).
-                    always_* tags render naturally as single-color bars since the opposite
-                    count is 0 — no Cell branching needed (TDASH-01). */}
-                <Bar
-                  dataKey="positive_count"
-                  name="Positive"
-                  stackId="a"
-                  fill="#16A34A"
-                  radius={[0, 0, 0, 0]}
-                />
-                <Bar
-                  dataKey="negative_count"
-                  name="Negative"
-                  stackId="a"
-                  fill="#DC2626"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className={`${ROW} mb-2 text-[11px] text-[#71717A]`} aria-hidden="true">
+            <span className="text-left">Complaints</span>
+            <span />
+            <span className="text-right">Praise</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {tags.map((t) => (
+              <TugRow key={t.label} tag={t} max={max} />
+            ))}
           </div>
 
-          {/* "See all tags" footer */}
-          {hasMore && (
-            <div className="mt-3 pt-3 border-t border-line-soft">
+          {data?.has_more && (
+            <div className="mt-auto pt-3.5">
               <a
                 href="/admin/org/tags/"
-                className="inline-flex items-center gap-1 text-[14px] text-ink hover:text-muted transition-colors"
+                className={`inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#FACC15] underline underline-offset-2 ${FOCUS}`}
               >
                 <Tag size={14} aria-hidden="true" />
                 See all tags
@@ -183,6 +127,6 @@ export function TagPolarityChart() {
           )}
         </>
       )}
-    </section>
+    </Panel>
   );
 }

@@ -64,8 +64,11 @@ export interface TopPerformingShop {
 }
 
 export interface TopPerformingResponse {
+  /** Top 5 + bottom 5 when split, else every qualifying store (avg desc). */
   shops: TopPerformingShop[];
   split: boolean;
+  /** Every qualifying (3+ reviews) store, avg desc, capped at 200 — the ladder's dots. */
+  all_stores: TopPerformingShop[];
 }
 
 export interface HighlightShop {

@@ -3,11 +3,13 @@ import { useMemo } from "react";
 
 import { FilterBar } from "./FilterBar";
 import { KpiCards } from "./KpiCards";
+import { PerformanceHighlights } from "./PerformanceHighlights";
 import { SentimentDonut } from "./SentimentDonut";
 import { TagPolarityChart } from "./TagPolarityChart";
 import { TopPerformingSection } from "./TopPerformingSection";
 import { YourStore } from "./YourStore";
 import { useFilterState } from "./useFilterState";
+import { useKpis } from "./useKpis";
 import type { DashboardBootstrap, Region, Shop } from "./types";
 
 const queryClient = new QueryClient({
@@ -224,6 +226,15 @@ function DashboardInner() {
     }),
     [fs.filters.range, fs.filters.date_from, fs.filters.date_to],
   );
+  // Brand average for the ladder notch: same date range, no region/store filter
+  // (the ladder ignores them too). Shares the KPI cache when no filter is set.
+  const brandFilters = useMemo(
+    () => ({ ...dateOnlyFilters, region_id: null, shop_id: null }),
+    [dateOnlyFilters],
+  );
+  const brandKpis = useKpis(brandFilters);
+  const brandAvg =
+    brandKpis.data && brandKpis.data.total_reviews > 0 ? brandKpis.data.avg_rating : null;
 
   if (bootstrap.shops.length === 0) {
     return <NoStoresEmptyState isOrgAdmin={bootstrap.isOrgAdmin} />;
@@ -247,27 +258,28 @@ function DashboardInner() {
       {/* KPI strip — 4 tiles across full width */}
       <KpiCards filters={fullFilters} shopNameIfSingle={shopNameIfSingle} />
 
-      {/* Main two-column grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
+      {/* Night panels: stacked under 1024px, side by side above. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+        <SentimentDonut filters={fullFilters} />
+        {/* Top tags — ORG_ADMIN-only (TDASH-01): the canonical vocabulary is
+            org-level and the endpoint is restricted to org admins. */}
+        {bootstrap.isOrgAdmin && <TagPolarityChart />}
+      </div>
+
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-stretch">
         {bootstrap.isSingleShop ? (
           <YourStore dateOnlyFilters={dateOnlyFilters} />
         ) : (
-          <TopPerformingSection
-            dateOnlyFilters={dateOnlyFilters}
-            onSelect90d={() => fs.setDateRange("90d")}
-          />
+          <>
+            <TopPerformingSection
+              dateOnlyFilters={dateOnlyFilters}
+              onSelect90d={() => fs.setDateRange("90d")}
+              brandAvg={brandAvg}
+            />
+            <PerformanceHighlights dateOnlyFilters={dateOnlyFilters} />
+          </>
         )}
-        <SentimentDonut filters={fullFilters} />
       </div>
-
-      {/* Tag distribution — full-width third row (TDASH-01, 25-04).
-          ORG_ADMIN-only: the canonical vocabulary is org-level and the endpoint
-          is restricted to org admins, so Staff never see this chart. */}
-      {bootstrap.isOrgAdmin && (
-        <div style={{ marginTop: 16 }}>
-          <TagPolarityChart />
-        </div>
-      )}
     </div>
   );
 }

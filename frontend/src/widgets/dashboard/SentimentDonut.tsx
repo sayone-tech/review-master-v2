@@ -1,211 +1,158 @@
 import { Loader2, MessageCircle } from "lucide-react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Fragment, useState } from "react";
 
-import type { DashboardFilters } from "./types";
+import { FOCUS, GREY, Panel, PanelError, PULSE, RED, YELLOW } from "./Panel";
+import { toHundred } from "./panelMath";
+import type { DashboardFilters, SentimentResponse } from "./types";
 import { useSentiment } from "./useSentiment";
 
-const COLORS = {
-  positive: "#16A34A",
-  neutral: "#D97706",
-  negative: "#DC2626",
-} as const;
+// Kept as `SentimentDonut` so imports stay stable; it now draws a 100-square grid.
 
-type SentimentKey = keyof typeof COLORS;
-
-const LABELS: Record<SentimentKey, string> = {
-  positive: "Positive",
-  neutral: "Neutral",
-  negative: "Negative",
-};
-
-function CustomDonutTooltip({
-  active,
-  payload,
-  total,
-}: {
-  active?: boolean;
-  payload?: { name: string; value: number }[];
-  total: number;
-}) {
-  if (!active || !payload?.length) return null;
-  const { name, value } = payload[0];
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  return (
-    <div className="bg-white rounded-lg shadow border border-line p-2.5 text-[13px]">
-      <div className="capitalize font-semibold text-ink">{name}</div>
-      <div className="text-muted">
-        {value} reviews ({pct}%)
-      </div>
-    </div>
-  );
-}
+type Key = "positive" | "neutral" | "negative";
+const KEYS: Key[] = ["positive", "neutral", "negative"];
+const COLOR: Record<Key, string> = { positive: YELLOW, neutral: GREY, negative: RED };
 
 interface Props {
   filters: DashboardFilters;
 }
 
-export function SentimentDonut({ filters }: Props) {
-  const { data, isLoading, isError, refetch } = useSentiment(filters);
+function negativeReviewsUrl(filters: DashboardFilters): string {
+  const p = new URLSearchParams();
+  p.set("sentiment", "negative");
+  if (filters.shop_id) p.set("store", String(filters.shop_id));
+  if (filters.date_from) p.set("from", filters.date_from);
+  if (filters.date_to) p.set("to", filters.date_to);
+  return `/admin/org/reviews/?${p.toString()}`;
+}
+
+function Grid({ data }: { data: SentimentResponse }) {
+  const [hover, setHover] = useState<Key | null>(null);
+  const pct = toHundred(KEYS.map((k) => data[k]));
+  const share: Record<Key, number> = { positive: pct[0], neutral: pct[1], negative: pct[2] };
+  const squares = KEYS.flatMap((k) => Array.from({ length: share[k] }, () => k));
+  const summary = `${share.positive} positive, ${share.neutral} neutral, ${share.negative} negative`;
 
   return (
-    <section className="bg-white border border-line rounded-[14px] p-5 flex flex-col">
-      {/* Header */}
-      <div className="mb-3.5">
-        <h2 className="text-[15px] font-semibold text-ink tracking-[-0.01em] mb-0.5">Sentiment</h2>
-        {!isLoading && !isError && data && data.enriched_count > 0 && (
-          <p className="text-[12.5px] text-subtle">
-            AI-derived from {data.enriched_count.toLocaleString()} reviews
-          </p>
+    <>
+      <div className="relative w-full max-w-[520px]">
+        <div
+          role="img"
+          aria-label={`Sentiment per 100 reviews: ${summary}`}
+          className="grid grid-cols-[repeat(20,minmax(0,1fr))] gap-[3px]"
+          onPointerLeave={() => setHover(null)}
+        >
+          {squares.map((k, i) => (
+            <span
+              key={i}
+              data-testid="sentiment-square"
+              data-sentiment={k}
+              aria-hidden="true"
+              onPointerEnter={() => setHover(k)}
+              className="aspect-square rounded-[2px] motion-safe:transition-opacity"
+              style={{ background: COLOR[k], opacity: hover && hover !== k ? 0.3 : 1 }}
+            />
+          ))}
+        </div>
+        {hover && (
+          <div
+            role="tooltip"
+            className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#333] bg-[#1C1C1C] px-2.5 py-1.5 text-[12px] text-[#A1A1AA] shadow-lg whitespace-nowrap"
+          >
+            <strong className="text-[14px] font-semibold text-white tabular-nums">
+              {data[hover].toLocaleString()}
+            </strong>{" "}
+            {hover} reviews ({share[hover]} in every 100)
+          </div>
         )}
       </div>
 
-      {/* Loading state */}
+      <p className="mt-3 text-[12px] leading-6 text-[#A1A1AA]">
+        {KEYS.map((k, i) => (
+          <Fragment key={k}>
+            <span className="whitespace-nowrap">
+              <span
+                aria-hidden="true"
+                className="mr-1.5 inline-block size-2.5 rounded-[2px] align-[-1px]"
+                style={{ background: COLOR[k] }}
+              />
+              <strong className="text-[16px] font-semibold text-white tabular-nums">{share[k]}</strong>{" "}
+              {k}
+            </span>
+            {i < KEYS.length - 1 && ", "}
+          </Fragment>
+        ))}
+      </p>
+    </>
+  );
+}
+
+export function SentimentDonut({ filters }: Props) {
+  const { data, isLoading, isError, refetch } = useSentiment(filters);
+  const ready = !isLoading && !isError && data;
+
+  const subtitle =
+    ready && data.enriched_count > 0
+      ? `Every 100 reviews, from ${data.enriched_count.toLocaleString()} analysed (${data.coverage_pct}%)`
+      : "AI-derived sentiment of reviews in this period";
+
+  return (
+    <Panel title="Sentiment" subtitle={subtitle} busy={isLoading} className="lg:flex-1">
       {isLoading && (
         <div
-          className="bg-line-soft rounded-full animate-[sk-pulse_1.6s_ease-in-out_infinite] mx-auto my-4"
-          style={{ width: 168, height: 168 }}
           aria-label="Loading sentiment data"
-        />
-      )}
-
-      {/* Error state */}
-      {isError && (
-        <div className="flex flex-col gap-2 py-4">
-          <p className="text-[13px] text-muted">Could not load.</p>
-          <button
-            onClick={() => void refetch()}
-            className="text-[13px] font-semibold text-ink underline text-left"
-            aria-label="Retry loading Sentiment Distribution"
-          >
-            Retry
-          </button>
+          className="grid w-full max-w-[520px] grid-cols-[repeat(20,minmax(0,1fr))] gap-[3px]"
+        >
+          {Array.from({ length: 100 }, (_, i) => (
+            <span key={i} className={`aspect-square rounded-[2px] ${PULSE}`} />
+          ))}
         </div>
       )}
 
-      {!isLoading && !isError && data && (
+      {isError && (
+        <PanelError
+          onRetry={() => void refetch()}
+          retryLabel="Retry loading Sentiment Distribution"
+        />
+      )}
+
+      {ready && data.total_count === 0 && (
+        <p className="py-10 text-center text-[13px] text-[#A1A1AA]">
+          No reviews to analyze in this period.
+        </p>
+      )}
+
+      {ready && data.total_count > 0 && data.enriched_count === 0 && (
+        <div className="py-10 text-center">
+          <Loader2
+            className="mx-auto mb-2 size-6 text-[#71717A] motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          <p className="text-[13px] text-[#A1A1AA]">Sentiment analysis in progress.</p>
+        </div>
+      )}
+
+      {ready && data.enriched_count > 0 && (
         <>
-          {/* Empty — no reviews */}
-          {data.total_count === 0 && (
-            <p className="text-[13.5px] text-muted text-center py-10">
-              No reviews to analyze in this period.
+          <Grid data={data} />
+
+          {data.coverage_pct < 50 && (
+            <p className="mt-2 inline-flex items-center gap-1 text-[11.5px] text-[#71717A]">
+              <Loader2 className="size-3 motion-safe:animate-spin" aria-hidden="true" />
+              Analysis in progress.
             </p>
           )}
 
-          {/* Reviews exist but none enriched */}
-          {data.total_count > 0 && data.enriched_count === 0 && (
-            <div className="text-center py-10">
-              <Loader2 className="size-6 animate-spin text-faint mx-auto mb-2" aria-hidden="true" />
-              <p className="text-[13.5px] text-muted">Sentiment analysis in progress.</p>
-            </div>
-          )}
-
-          {/* Populated */}
-          {data.enriched_count > 0 && (
-            <>
-              {/* Donut + center label */}
-              <div className="flex flex-col items-center gap-[18px] py-2">
-                <div className="relative flex items-center justify-center" style={{ width: 168, height: 168 }}>
-                  {/* Center text overlay — sits behind the chart SVG so tooltip isn't blocked */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ zIndex: 0 }}>
-                    <span className="text-[32px] font-semibold text-ink leading-none tabular-nums tracking-[-0.02em]">
-                      {Math.round((data.positive / data.enriched_count) * 100)}%
-                    </span>
-                    <span className="text-[11px] text-subtle uppercase tracking-[0.08em] mt-1">
-                      positive
-                    </span>
-                  </div>
-                  <div style={{ position: "relative", zIndex: 1 }}>
-                    <ResponsiveContainer width={168} height={168}>
-                      <PieChart role="img" aria-label="Sentiment distribution donut chart">
-                        <Pie
-                          data={[
-                            { name: "positive", value: data.positive },
-                            { name: "neutral", value: data.neutral },
-                            { name: "negative", value: data.negative },
-                          ]}
-                          dataKey="value"
-                          innerRadius="67%"
-                          outerRadius="84%"
-                          paddingAngle={0}
-                          startAngle={90}
-                          endAngle={-270}
-                          strokeWidth={0}
-                        >
-                          {(Object.keys(COLORS) as SentimentKey[]).map((k) => (
-                            <Cell key={k} fill={COLORS[k]} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomDonutTooltip total={data.enriched_count} />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Legend rows */}
-                <ul className="w-full space-y-2 list-none m-0 p-0">
-                  {(Object.keys(COLORS) as SentimentKey[]).map((k) => {
-                    const count = data[k];
-                    const pct = Math.round((count / data.enriched_count) * 100);
-                    return (
-                      <li
-                        key={k}
-                        className="grid items-center gap-2.5 text-[12.5px] tabular-nums"
-                        style={{ gridTemplateColumns: "8px 60px 1fr auto auto" }}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ background: COLORS[k] }}
-                          aria-hidden="true"
-                        />
-                        <span className="text-ink font-medium">{LABELS[k]}</span>
-                        <div className="h-1.5 bg-line-soft rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${pct}%`, background: COLORS[k] }}
-                          />
-                        </div>
-                        <span className="font-semibold text-ink">{count}</span>
-                        <span className="text-subtle w-8 text-right">{pct}%</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-
-              {/* Coverage note */}
-              {data.coverage_pct < 100 && (
-                <p className="text-[11px] text-subtle mt-2">
-                  Based on {data.enriched_count} enriched reviews ({data.coverage_pct}% of total)
-                  {data.coverage_pct < 50 && (
-                    <span className="inline-flex items-center gap-1 ml-1">
-                      <Loader2 className="size-3 animate-spin" aria-hidden="true" />
-                      Analysis in progress.
-                    </span>
-                  )}
-                </p>
-              )}
-
-              {/* Footer link */}
-              <div className="mt-3.5 pt-3.5 border-t border-line-soft">
-                <a
-                  href={(() => {
-                    const p = new URLSearchParams();
-                    p.set("sentiment", "negative");
-                    if (filters.shop_id) p.set("store", String(filters.shop_id));
-                    if (filters.date_from) p.set("from", filters.date_from);
-                    if (filters.date_to) p.set("to", filters.date_to);
-                    return `/admin/org/reviews/?${p.toString()}`;
-                  })()}
-                  className="inline-flex items-center gap-1.5 text-[13px] text-ink hover:text-muted transition-colors"
-                >
-                  <MessageCircle size={14} aria-hidden="true" />
-                  See negative reviews
-                </a>
-              </div>
-            </>
-          )}
+          <div className="mt-auto pt-3.5">
+            <a
+              href={negativeReviewsUrl(filters)}
+              className={`inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#FACC15] underline underline-offset-2 ${FOCUS}`}
+            >
+              <MessageCircle size={14} aria-hidden="true" />
+              See negative reviews
+            </a>
+          </div>
         </>
       )}
-    </section>
+    </Panel>
   );
 }

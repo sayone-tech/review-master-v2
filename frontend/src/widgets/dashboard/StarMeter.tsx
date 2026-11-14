@@ -12,7 +12,7 @@ function Stars({ size, color }: { size: number; color: string }) {
     // Equal cells, no gap: a clip at value/5 of the row is exact per star.
     <span className="flex shrink-0">
       {Array.from({ length: 5 }, (_, i) => (
-        <svg key={i} width={size * 1.2} height={size} viewBox="-2 0 28 24" aria-hidden="true">
+        <svg key={i} width={size * 1.2} height={size} viewBox="-2 0 28 24" aria-hidden="true" className="shrink-0">
           <path d={STAR_PATH} fill={color} />
         </svg>
       ))}
