@@ -18,6 +18,7 @@ from apps.reviews.models import Review, ReviewTag
 
 MIN_REVIEWS_FOR_RANKING = 3
 TREND_BUCKETS = 6
+ALL_STORES_CAP = 200
 
 SUCCESS = Review.EnrichmentStatus.SUCCESS
 
@@ -345,9 +346,18 @@ def dashboard_top_performing(*, org_id: int, params: DashboardFilterParams) -> d
         }
         for r in rows
     ]
+    all_stores = [
+        {
+            "shop_id": r["shop_id"],
+            "shop_name": r["shop_name"],
+            "avg_rating": r["avg_rating"],
+            "review_count": r["review_count"],
+        }
+        for r in shops[:ALL_STORES_CAP]
+    ]
     if len(shops) > 10:
-        return {"shops": shops[:5] + shops[-5:], "split": True}
-    return {"shops": shops, "split": False}
+        return {"shops": shops[:5] + shops[-5:], "split": True, "all_stores": all_stores}
+    return {"shops": shops, "split": False, "all_stores": all_stores}
 
 
 def dashboard_highlights(*, org_id: int, params: DashboardFilterParams) -> dict[str, Any]:

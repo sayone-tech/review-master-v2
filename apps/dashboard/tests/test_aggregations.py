@@ -365,6 +365,68 @@ def test_top_performing_query_count(accessible_shops, org):
 
 
 @pytest.mark.django_db
+def test_top_performing_all_stores_lists_every_qualifying_store(org, region):
+    shops = [ShopFactory(organisation=org, region=region) for _ in range(12)]
+    for i, shop in enumerate(shops):
+        for _ in range(3):
+            make_review(shop=shop, star_rating=(i % 5) + 1, enrichment_status=SUCCESS)
+    # a 12th+1 store below the 3-review threshold must not appear
+    thin = ShopFactory(organisation=org, region=region)
+    make_review(shop=thin, star_rating=5)
+
+    result = dashboard_top_performing(
+        org_id=org.id, params=_params(org, [s.id for s in shops] + [thin.id])
+    )
+    assert result["split"] is True
+    assert len(result["shops"]) == 10  # unchanged top 5 + bottom 5
+    assert len(result["all_stores"]) == 12
+    ratings = [s["avg_rating"] for s in result["all_stores"]]
+    assert ratings == sorted(ratings, reverse=True)
+    assert set(result["all_stores"][0]) == {"shop_id", "shop_name", "avg_rating", "review_count"}
+    assert thin.id not in {s["shop_id"] for s in result["all_stores"]}
+
+
+@pytest.mark.django_db
+def test_top_performing_all_stores_ignores_region_and_store_filters(org, region):
+    shops = [ShopFactory(organisation=org, region=region) for _ in range(2)]
+    for shop in shops:
+        for _ in range(3):
+            make_review(shop=shop)
+    params = _params(org, [s.id for s in shops], shop_id=shops[0].id, region_id=region.id)
+    assert len(dashboard_top_performing(org_id=org.id, params=params)["all_stores"]) == 2
+
+
+@pytest.mark.django_db
+def test_top_performing_all_stores_capped_at_200(org, region, monkeypatch):
+    import apps.dashboard.selectors.aggregations as agg
+
+    monkeypatch.setattr(agg, "ALL_STORES_CAP", 4)
+    shops = [ShopFactory(organisation=org, region=region) for _ in range(6)]
+    for shop in shops:
+        for _ in range(3):
+            make_review(shop=shop)
+    result = dashboard_top_performing(org_id=org.id, params=_params(org, [s.id for s in shops]))
+    assert len(result["all_stores"]) == 4
+
+
+def test_all_stores_cap_is_200():
+    from apps.dashboard.selectors.aggregations import ALL_STORES_CAP
+
+    assert ALL_STORES_CAP == 200
+
+
+@pytest.mark.django_db
+def test_top_performing_all_stores_query_count_fixed(org, region):
+    shops = [ShopFactory(organisation=org, region=region) for _ in range(12)]
+    for shop in shops:
+        for _ in range(3):
+            make_review(shop=shop)
+    with CaptureQueriesContext(connection) as ctx:
+        dashboard_top_performing(org_id=org.id, params=_params(org, [s.id for s in shops]))
+    assert len(ctx.captured_queries) == 1
+
+
+@pytest.mark.django_db
 def test_top_performing_empty(accessible_shops, org):
     """TOP-07: no shops with >= 3 reviews -> returns empty list with split=False."""
     shop = accessible_shops[0]
@@ -374,7 +436,7 @@ def test_top_performing_empty(accessible_shops, org):
 
     params = _params(org, [s.id for s in accessible_shops])
     result = dashboard_top_performing(org_id=org.id, params=params)
-    assert result == {"shops": [], "split": False}
+    assert result == {"shops": [], "split": False, "all_stores": []}
 
 
 # ===========================================================================
