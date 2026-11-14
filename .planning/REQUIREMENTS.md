@@ -73,6 +73,7 @@ complete, pending merge of `feat/v0.10-ai-cost-pricing`. Specs moved to `docs/co
 | DASH-RD-01 | Dashboard "night panels" redesign keeping every existing report: headline band with star meter and trends, sentiment grid, tag tug-of-war, store rating ladder, highlight cards, Your Store | spec docs/superpowers/specs/2026-11-14-dashboard-redesign-design.md | ✅ Delivered |
 | DASH-RD-02 | Dashboard Spotlight strip (Org Admin only) fed by the Insights snapshot | spec §2.1 | ✅ Delivered |
 | DASH-RD-03 | `/kpis/` previous-period, 6-point trend, oldest awaiting; `/top-performing/` all_stores | spec §2.10 | ✅ Delivered |
+| DASH-RD-04 | Dashboard filter bar as a sentence ("Showing all regions, all stores for the last 30 days"): each part a dropdown, changes apply instantly, Reset only when not default, custom range as inline dates; same filters and URL state as today | owner-approved sample B, 2026-11-14 | ✅ Delivered |
 
 ## Out of scope (deferred)
 

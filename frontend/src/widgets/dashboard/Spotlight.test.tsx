@@ -229,7 +229,7 @@ describe("DashboardWidget spotlight", () => {
     mocked().mockResolvedValue(book([ATTN_1, ATTN_2, GOOD_1]));
     render(<DashboardWidget />);
 
-    expect(await screen.findByLabelText("Filter by region")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Filter by store")).toBeInTheDocument();
     expect(mocked()).not.toHaveBeenCalled();
     expect(screen.queryByRole("region", { name: "Top insight" })).not.toBeInTheDocument();
   });
@@ -241,7 +241,7 @@ describe("DashboardWidget spotlight", () => {
 
     await waitFor(() => expect(mocked()).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 0)); // let the rejection settle
-    expect(screen.getByLabelText("Filter by region")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filter by store")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Top insight" })).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "More insights" })).not.toBeInTheDocument();
   });
