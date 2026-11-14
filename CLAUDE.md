@@ -122,6 +122,10 @@ repo-root/
 │   │   └── selectors/items.py
 │   ├── notifications/               # In-app bell counter + delivery model (Phase 3+)
 │   │   └── services/dispatch.py
+│   ├── insights/                    # Org Admin "Insights" book: daily rule-based insight snapshot (no AI), reader, API, page
+│   │   ├── services/{windows,rules,build}.py  # 30-day windows, 8 insight rules, ranking + snapshot + daily run
+│   │   ├── selectors.py             # get_latest_insights (org-scoped; names resolved, stale items dropped at read)
+│   │   └── tasks.py                 # compute_daily_insights_task — Beat 02:00 UTC, default queue
 │   ├── credits/                     # Per-shop monthly AI-reply credit balances + append-only ledger (v0.9)
 │   │   ├── services/
 │   │   │   ├── periods.py           # UTC period seam (current_period, next_period_start)
