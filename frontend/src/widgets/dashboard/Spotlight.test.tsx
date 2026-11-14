@@ -100,6 +100,7 @@ describe("Spotlight", () => {
 
     const block = await screen.findByRole("region", { name: "Top insight" });
     expect(within(block).getByText("Good news")).toBeInTheDocument();
+    expect(within(block).getByText("★")).toBeInTheDocument();
     expect(within(block).getByText("+10")).toBeInTheDocument();
     expect(within(block).getByText("Trivandrum 5-star share up 10 points")).toBeInTheDocument();
     // Empty cta falls back to "See reviews".
@@ -117,12 +118,17 @@ describe("Spotlight", () => {
     const rows = within(list).getAllByRole("listitem");
     expect(rows).toHaveLength(2);
 
+    // Chapter is visible by shape, not just colour (the label is sr-only).
+    expect(within(rows[0]).getByText("●")).toBeVisible();
+    expect(within(rows[0]).queryByText("★")).not.toBeInTheDocument();
     expect(rows[0]).toHaveTextContent("Needs attention");
     expect(rows[0]).toHaveTextContent("Wait time complaints doubled at Kochi");
     expect(within(rows[0]).getByRole("link")).toHaveAttribute(
       "href",
       "/admin/org/reviews/?tag=7&store=3",
     );
+    expect(within(rows[1]).getByText("★")).toBeVisible();
+    expect(within(rows[1]).queryByText("●")).not.toBeInTheDocument();
     expect(rows[1]).toHaveTextContent("Good news");
     expect(rows[1]).toHaveTextContent("Trivandrum 5-star share up 10 points");
     expect(within(rows[1]).getByRole("link")).toHaveAttribute(
@@ -179,7 +185,7 @@ describe("Spotlight", () => {
     const { container } = renderWithClient(<Spotlight enabled />);
 
     await waitFor(() => expect(mocked()).toHaveBeenCalledTimes(1));
-    await new Promise((r) => setTimeout(r, 0)); // let the rejection settle
+    await new Promise((r) => setTimeout(r, 0)); // let the empty response settle
     expect(container).toBeEmptyDOMElement();
   });
 

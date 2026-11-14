@@ -6,10 +6,15 @@ import { useSpotlight } from "./useSpotlight";
 const INSIGHTS_URL = "/admin/org/insights/";
 const ROWS = 2;
 
-const CHAPTER: Record<Chapter, { label: string; dot: string }> = {
-  attention: { label: "Needs attention", dot: "#F87171" },
-  good: { label: "Good news", dot: "#FACC15" },
+// Same glyphs as the Insights book's chapter labels, so the chapter reads by
+// shape as well as colour.
+const CHAPTER: Record<Chapter, { label: string; glyph: string; color: string }> = {
+  attention: { label: "Needs attention", glyph: "●", color: "#F87171" },
+  good: { label: "Good news", glyph: "★", color: "#FACC15" },
 };
+
+const chapterOf = (item: InsightItem) => CHAPTER[item.chapter] ?? CHAPTER.attention;
+const hrefOf = (item: InsightItem) => reviewsHref(item.link ?? {});
 
 const LINK =
   "underline underline-offset-2 decoration-1 font-semibold rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2";
@@ -67,7 +72,10 @@ function Lead({ item }: { item: InsightItem }) {
       aria-label="Top insight"
       className="bg-[#FACC15] text-[#0A0A0A] px-4 py-4 sm:px-[18px] flex flex-col gap-3 justify-between min-w-0"
     >
-      <span className="text-[12px] font-semibold">{CHAPTER[item.chapter].label}</span>
+      <span className="text-[12px] font-semibold inline-flex items-center gap-1.5">
+        <span aria-hidden="true">{chapterOf(item).glyph}</span>
+        {chapterOf(item).label}
+      </span>
       <div className="min-w-0">
         <div className="text-[34px] font-extrabold leading-none tracking-[-0.03em] tabular-nums break-words">
           {item.headline}
@@ -75,7 +83,7 @@ function Lead({ item }: { item: InsightItem }) {
         <p className="text-[13.5px] font-semibold leading-snug mt-1.5 break-words">{item.title}</p>
       </div>
       <a
-        href={reviewsHref(item.link)}
+        href={hrefOf(item)}
         className={`self-start text-[12.5px] focus-visible:outline-[#0A0A0A] ${LINK}`}
       >
         {item.cta || "See reviews"}
@@ -85,19 +93,21 @@ function Lead({ item }: { item: InsightItem }) {
 }
 
 function Row({ item }: { item: InsightItem }) {
-  const chapter = CHAPTER[item.chapter];
+  const chapter = chapterOf(item);
   return (
     <li className="flex items-baseline gap-2.5 text-[13px] leading-snug min-w-0">
       <span
         aria-hidden="true"
-        className="w-[7px] h-[7px] rounded-full shrink-0 translate-y-[-1px]"
-        style={{ background: chapter.dot }}
-      />
+        className="w-3 shrink-0 text-center text-[11px] leading-none"
+        style={{ color: chapter.color }}
+      >
+        {chapter.glyph}
+      </span>
       <span className="min-w-0 break-words">
         <span className="sr-only">{chapter.label}: </span>
         <span className="font-semibold">{item.title}</span>{" "}
         <a
-          href={reviewsHref(item.link)}
+          href={hrefOf(item)}
           className={`text-[#FACC15] whitespace-nowrap focus-visible:outline-[#FACC15] ${LINK}`}
         >
           {item.cta || "See reviews"}
