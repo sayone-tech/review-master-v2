@@ -27,6 +27,24 @@ export interface KpisResponse {
   enriched_count: number;
   store_count: number;
   awaiting_reply: number;
+  /** Same-length window before the selected range; null for "all time". */
+  previous: KpisPrevious | null;
+  /** Six equal buckets of the selected range (last 6 months for "all time"). */
+  trend: KpisTrend;
+  oldest_awaiting_days: number | null;
+}
+
+export interface KpisPrevious {
+  total_reviews: number;
+  avg_rating: number | null;
+  negative_pct: number | null;
+  awaiting_reply: number;
+}
+
+export interface KpisTrend {
+  total_reviews: number[];
+  avg_rating: (number | null)[];
+  negative_pct: (number | null)[];
 }
 
 export interface SentimentResponse {
