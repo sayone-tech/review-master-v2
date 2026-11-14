@@ -70,9 +70,9 @@ complete, pending merge of `feat/v0.10-ai-cost-pricing`. Specs moved to `docs/co
 | INSIGHT-02 | Insights page (Org Admin only, sidebar under Customer feedback): dark book with cover, one spread per insight, page turn, chapter tabs, page edges, empty state, phone single-page | spec §2.1–2.3 | ✅ Delivered |
 | INSIGHT-03 | Insight links pin the window and filters; Reviews page accepts `tags`, `rating`, `replied` URL params | spec §2.6–2.7 | ✅ Delivered |
 | INSIGHT-04 | `get_latest_insights` reader (org-scoped, names resolved at read, stale items dropped) shared with the Dashboard Spotlight | spec §2.8–2.9 | ✅ Delivered |
-| DASH-RD-01 | Dashboard "night panels" redesign keeping every existing report: headline band with star meter and trends, sentiment grid, tag tug-of-war, store rating ladder, highlight cards, Your Store | spec docs/superpowers/specs/2026-11-14-dashboard-redesign-design.md | 🚧 In progress |
-| DASH-RD-02 | Dashboard Spotlight strip (Org Admin only) fed by the Insights snapshot | spec §2.1 | 🚧 In progress |
-| DASH-RD-03 | `/kpis/` previous-period, 6-point trend, oldest awaiting; `/top-performing/` all_stores | spec §2.10 | 🚧 In progress |
+| DASH-RD-01 | Dashboard "night panels" redesign keeping every existing report: headline band with star meter and trends, sentiment grid, tag tug-of-war, store rating ladder, highlight cards, Your Store | spec docs/superpowers/specs/2026-11-14-dashboard-redesign-design.md | ✅ Delivered |
+| DASH-RD-02 | Dashboard Spotlight strip (Org Admin only) fed by the Insights snapshot | spec §2.1 | ✅ Delivered |
+| DASH-RD-03 | `/kpis/` previous-period, 6-point trend, oldest awaiting; `/top-performing/` all_stores | spec §2.10 | ✅ Delivered |
 
 ## Out of scope (deferred)
 
