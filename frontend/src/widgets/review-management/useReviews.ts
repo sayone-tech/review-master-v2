@@ -16,7 +16,7 @@ const DEFAULT_PARAMS: ReviewFilterParams = {
   page: 1,
 };
 
-function parseUrlParams(): Partial<ReviewFilterParams> {
+export function parseUrlParams(): Partial<ReviewFilterParams> {
   if (typeof window === "undefined") return {};
   const p = new URLSearchParams(window.location.search);
   const out: Partial<ReviewFilterParams> = {};
@@ -33,6 +33,18 @@ function parseUrlParams(): Partial<ReviewFilterParams> {
   if (from) out.from_date = from;
   const to = p.get("to");
   if (to) out.to_date = to;
+  const tags = (p.get("tags") ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (tags.length > 0) out.tags = tags;
+  const rating = Number(p.get("rating"));
+  if (Number.isInteger(rating) && rating >= 1 && rating <= 5) {
+    out.rating = rating as 1 | 2 | 3 | 4 | 5;
+  }
+  const replied = p.get("replied");
+  if (replied === "true") out.is_replied = true;
+  else if (replied === "false") out.is_replied = false;
   return out;
 }
 

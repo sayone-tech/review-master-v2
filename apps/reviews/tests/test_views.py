@@ -363,6 +363,44 @@ def test_review_filter_tags_and_semantics(org_admin_client) -> None:
     assert ids == [r1.pk]
 
 
+def test_review_filter_tags_matches_canonical_label_and_raw_label(org_admin_client) -> None:
+    """?tags= matches a review's canonical tag label as well as its raw label."""
+    client, _, org = org_admin_client
+    canon = OrgCanonicalTagFactory(organisation=org, label="Wait time")
+    r1 = ReviewFactory(organisation=org)
+    ReviewTagFactory(review=r1, label="long wait", polarity="negative", canonical_tag=canon)
+    r2 = ReviewFactory(organisation=org)
+    ReviewTagFactory(review=r2, label="wait time", polarity="negative")
+    r3 = ReviewFactory(organisation=org)
+    ReviewTagFactory(review=r3, label="friendly", polarity="positive")
+
+    resp = client.get(LIST_URL, {"tags": "Wait time"})
+    assert resp.status_code == 200
+    assert {row["id"] for row in resp.data["results"]} == {r1.pk, r2.pk}
+    assert resp.data["total_count"] == 2
+
+    resp = client.get(LIST_URL, {"tags": "long wait"})
+    assert [row["id"] for row in resp.data["results"]] == [r1.pk]
+
+
+def test_review_list_tag_filter_query_count_is_constant(org_admin_client) -> None:
+    client, _, org = org_admin_client
+    canon = OrgCanonicalTagFactory(organisation=org, label="Wait time")
+
+    def make(n: int) -> None:
+        for _ in range(n):
+            r = ReviewFactory(organisation=org)
+            ReviewTagFactory(review=r, polarity="negative", canonical_tag=canon)
+
+    make(2)
+    with CaptureQueriesContext(connection) as small:
+        assert client.get(LIST_URL, {"tags": "Wait time"}).status_code == 200
+    make(4)
+    with CaptureQueriesContext(connection) as large:
+        assert client.get(LIST_URL, {"tags": "Wait time"}).status_code == 200
+    assert len(large.captured_queries) == len(small.captured_queries)
+
+
 def test_review_filter_tags_single_label(org_admin_client) -> None:
     """?tags=Cleanliness returns only reviews with that tag (no duplicates)."""
     client, _, org = org_admin_client
