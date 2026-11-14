@@ -66,6 +66,13 @@ complete, pending merge of `feat/v0.10-ai-cost-pricing`. Specs moved to `docs/co
 | UI-FILTER-01 | Compact shared filter toolbar (search + 3 quick filters + "More filters" panel + removable chips) on Reviews, Action items and Reports (spec §2.1–2.4, 2.6–2.7) | spec docs/superpowers/specs/2026-11-13-compact-filter-toolbar-design.md | ✅ Delivered |
 | UI-FILTER-02 | Reviews slim number bar replacing the stat cards (spec §2.5) | spec docs/superpowers/specs/2026-11-13-compact-filter-toolbar-design.md | ✅ Delivered |
 | UI-FILTER-03 | Shops and Team: add button moved into the existing search/filter row (Shop limit note before Add Shop) (spec §2.8) | spec docs/superpowers/specs/2026-11-13-compact-filter-toolbar-design.md | ✅ Delivered |
+| INSIGHT-01 | Daily per-organisation insight snapshot: 8 rule-based insight types (spec §2.4, §2.7), thresholds/minimums, ranking, max 8, no AI | spec docs/superpowers/specs/2026-11-14-insights-book-design.md | 🚧 In progress |
+| INSIGHT-02 | Insights page (Org Admin only, sidebar under Customer feedback): dark book with cover, one spread per insight, page turn, chapter tabs, page edges, empty state, phone single-page | spec §2.1–2.3 | 🚧 In progress |
+| INSIGHT-03 | Insight links pin the window and filters; Reviews page accepts `tags`, `rating`, `replied` URL params | spec §2.6–2.7 | 🚧 In progress |
+| INSIGHT-04 | `get_latest_insights` reader (org-scoped, names resolved at read, stale items dropped) shared with the Dashboard Spotlight | spec §2.8–2.9 | 🚧 In progress |
+| DASH-RD-01 | Dashboard "night panels" redesign keeping every existing report: headline band with star meter and trends, sentiment grid, tag tug-of-war, store rating ladder, highlight cards, Your Store | spec docs/superpowers/specs/2026-11-14-dashboard-redesign-design.md | 🚧 In progress |
+| DASH-RD-02 | Dashboard Spotlight strip (Org Admin only) fed by the Insights snapshot | spec §2.1 | 🚧 In progress |
+| DASH-RD-03 | `/kpis/` previous-period, 6-point trend, oldest awaiting; `/top-performing/` all_stores | spec §2.10 | 🚧 In progress |
 
 ## Out of scope (deferred)
 
