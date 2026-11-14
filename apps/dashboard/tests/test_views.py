@@ -127,7 +127,7 @@ def test_kpis_view_query_count(db, api_client, org_with_user_and_shop):
     with CaptureQueriesContext(connection) as ctx:
         resp = api_client.get("/api/v1/dashboard/kpis/")
     assert resp.status_code == 200
-    assert len(ctx.captured_queries) <= 5
+    assert len(ctx.captured_queries) == 4
 
 
 # ---------------------------------------------------------------------------
@@ -192,3 +192,55 @@ def test_tag_polarity_view_403_for_staff(db, api_client, org_with_user_and_shop)
     api_client.force_authenticate(user=staff)
     resp = api_client.get("/api/v1/dashboard/tag-polarity/")
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Redesign fields: kpis previous/trend/oldest, top-performing all_stores
+# ---------------------------------------------------------------------------
+
+
+def test_kpis_view_returns_previous_trend_and_oldest(db, api_client):
+    from django.core.cache import cache
+
+    cache.clear()
+    org = OrganisationFactory()
+    user = OrgAdminFactory(organisation=org, role=User.Role.ORG_ADMIN)
+    shop = ShopFactory(organisation=org)
+    make_review(shop=shop, star_rating=5, days_ago=2)  # current window
+    make_review(shop=shop, star_rating=3, days_ago=45)  # previous window (30d => 31-day windows)
+    api_client.force_authenticate(user=user)
+
+    resp = api_client.get("/api/v1/dashboard/kpis/?range=30d")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total_reviews"] == 1
+    assert body["previous"]["total_reviews"] == 1
+    assert body["previous"]["avg_rating"] == 3.0
+    assert body["previous"]["negative_pct"] is None
+    assert body["previous"]["awaiting_reply"] == 1
+    for key in ("total_reviews", "avg_rating", "negative_pct"):
+        assert len(body["trend"][key]) == 6
+    assert sum(body["trend"]["total_reviews"]) == 1
+    assert body["oldest_awaiting_days"] == 2
+
+    resp_all = api_client.get("/api/v1/dashboard/kpis/?range=all")
+    assert resp_all.json()["previous"] is None
+    assert len(resp_all.json()["trend"]["total_reviews"]) == 6
+
+
+def test_top_performing_view_returns_all_stores(db, api_client):
+    from django.core.cache import cache
+
+    cache.clear()
+    org = OrganisationFactory()
+    user = OrgAdminFactory(organisation=org, role=User.Role.ORG_ADMIN)
+    shop = ShopFactory(organisation=org)
+    for _ in range(3):
+        make_review(shop=shop, star_rating=4, days_ago=1)
+    api_client.force_authenticate(user=user)
+
+    resp = api_client.get("/api/v1/dashboard/top-performing/")
+    assert resp.status_code == 200
+    assert resp.json()["all_stores"] == [
+        {"shop_id": shop.id, "shop_name": shop.name, "avg_rating": 4.0, "review_count": 3}
+    ]

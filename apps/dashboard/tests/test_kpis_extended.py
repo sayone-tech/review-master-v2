@@ -244,3 +244,55 @@ def test_kpis_query_count_is_fixed(org, accessible_shops, all_time):
         dashboard_kpis(org_id=org.id, params=params)
     # current+previous aggregate, 6-bucket trend, oldest awaiting
     assert len(ctx.captured_queries) == 3
+
+
+@pytest.mark.django_db
+def test_previous_avg_and_negative_pct_null_when_previous_window_empty(org, accessible_shops):
+    today = _today()
+    make_review(
+        shop=accessible_shops[0], days_ago=0, sentiment="negative", enrichment_status=SUCCESS
+    )
+    result = dashboard_kpis(
+        org_id=org.id,
+        params=_p([s.id for s in accessible_shops], today - timedelta(days=9), today),
+    )
+    assert result["previous"] == {
+        "total_reviews": 0,
+        "avg_rating": None,
+        "negative_pct": None,
+        "awaiting_reply": 0,
+    }
+
+
+@pytest.mark.django_db
+def test_previous_negative_pct_null_when_previous_has_no_enriched(org, accessible_shops):
+    today = _today()
+    make_review(shop=accessible_shops[0], star_rating=4, days_ago=15)  # pending
+    result = dashboard_kpis(
+        org_id=org.id,
+        params=_p([s.id for s in accessible_shops], today - timedelta(days=9), today),
+    )
+    assert result["previous"]["total_reviews"] == 1
+    assert result["previous"]["avg_rating"] == 4.0
+    assert result["previous"]["negative_pct"] is None
+
+
+def test_trend_windows_all_time_across_year_boundary(monkeypatch):
+    import datetime as dt
+
+    from apps.dashboard.selectors import aggregations as agg
+
+    monkeypatch.setattr(agg.timezone, "now", lambda: dt.datetime(2027, 2, 10, 12, 0, tzinfo=dt.UTC))
+    params = _p([1], None, None)
+    windows = agg._trend_windows(params)
+    assert [w[0] for w in windows] == [
+        date(2026, 9, 1),
+        date(2026, 10, 1),
+        date(2026, 11, 1),
+        date(2026, 12, 1),
+        date(2027, 1, 1),
+        date(2027, 2, 1),
+    ]
+    assert windows[3][1] == date(2026, 12, 31)
+    assert windows[4][1] == date(2027, 1, 31)
+    assert windows[5][1] == date(2027, 2, 28)

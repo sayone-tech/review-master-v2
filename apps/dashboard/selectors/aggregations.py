@@ -177,8 +177,8 @@ def dashboard_kpis(*, org_id: int, params: DashboardFilterParams) -> dict[str, A
         p_enriched = agg["p_enriched"] or 0
         previous = {
             "total_reviews": agg["p_total"] or 0,
-            "avg_rating": round(float(agg["p_avg"] or 0.0), 1),
-            "negative_pct": _pct(agg["p_negative"] or 0, p_enriched),
+            "avg_rating": round(float(agg["p_avg"]), 1) if agg["p_avg"] is not None else None,
+            "negative_pct": _pct(agg["p_negative"] or 0, p_enriched) if p_enriched else None,
             "awaiting_reply": agg["p_awaiting"] or 0,
         }
 
