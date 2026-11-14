@@ -193,8 +193,8 @@ def test_build_snapshot_end_to_end_round_trips_json():
         ReviewFactory(organisation=org, shop=shop, review_create_time=when, sentiment="negative")
     when = timezone.make_aware(dt.datetime.combine(TODAY - dt.timedelta(days=3), dt.time(9)))
     for _ in range(10):
-        ReviewFactory(organisation=org, shop=shop, review_create_time=when, rating=1)
-        ReviewFactory(organisation=org, shop=other, review_create_time=when, rating=5)
+        ReviewFactory(organisation=org, shop=shop, review_create_time=when, star_rating=1)
+        ReviewFactory(organisation=org, shop=other, review_create_time=when, star_rating=5)
     snap = build_snapshot(organisation_id=org.pk, today=TODAY)
     snap = InsightSnapshot.objects.get(pk=snap.pk)
     items = snap.payload["items"]
