@@ -50,6 +50,11 @@ class ReviewFilterSet(django_filters.FilterSet):  # type: ignore[misc]
             return queryset
         tag_labels = [t.strip() for t in value.split(",") if t.strip()]
         for label in tag_labels:
-            sub = ReviewTag.objects.filter(review=OuterRef("pk"), label__iexact=label)
+            # Match the raw label or the org canonical label (synonyms) — one definition
+            # shared with Insights links and counts.
+            sub = ReviewTag.objects.filter(
+                Q(label__iexact=label) | Q(canonical_tag__label__iexact=label),
+                review=OuterRef("pk"),
+            )
             queryset = queryset.filter(Exists(sub))
         return queryset
