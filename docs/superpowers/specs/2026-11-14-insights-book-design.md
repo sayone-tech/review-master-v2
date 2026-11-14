@@ -67,7 +67,8 @@ Success: an Org Admin opens Insights, reads the cover and a few spreads in under
      The snapshot runs daily at 02:00 UTC.
    - *Negative review* = `sentiment = "negative"` (rating is not used), matching the Reviews sentiment filter.
      Type 2 therefore counts negative-sentiment, unreplied reviews; its link is `sentiment=negative&replied=false`.
-   - *Mentions of a tag* = distinct reviews having at least one `ReviewTag` mapped to that canonical tag.
+   - *Mentions of a tag* = distinct reviews having a `ReviewTag` whose own label or whose canonical tag's label equals
+     the tag (case-insensitive). The Reviews tag filter is changed to match the same way, so links and numbers agree.
    - *Type 1 (complaint rising)* counts reviews at the store that mention the tag **and** have negative sentiment; its
      link is `store + tags + sentiment=negative + window`.
    - *Type 7 (new tag)* counts reviews mentioning the tag; it is "Needs attention" when most of those reviews are
