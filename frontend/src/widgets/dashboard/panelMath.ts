@@ -26,6 +26,7 @@ export const LADDER_MAX = 5;
 
 /** Position on the 3★–5★ ladder as a 0–100 percentage; below 3★ pins to 0. */
 export function ladderX(rating: number): number {
+  if (!Number.isFinite(rating)) return 0;
   const r = Math.min(LADDER_MAX, Math.max(LADDER_MIN, rating));
   return Math.round(((r - LADDER_MIN) / (LADDER_MAX - LADDER_MIN)) * 10000) / 100;
 }

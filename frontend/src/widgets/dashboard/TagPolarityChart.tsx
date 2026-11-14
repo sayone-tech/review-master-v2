@@ -15,16 +15,24 @@ function pct(count: number, max: number): string {
   return max > 0 ? `${Math.round((count / max) * 1000) / 10}%` : "0%";
 }
 
+const POLARITY: Record<TagPolarityBar["polarity_type"], string> = {
+  always_positive: "Always positive",
+  always_negative: "Always negative",
+  mixed: "Mixed",
+};
+
 function Side({
   side,
   count,
   max,
   label,
+  polarity,
 }: {
   side: "complaints" | "praise";
   count: number;
   max: number;
   label: string;
+  polarity: TagPolarityBar["polarity_type"];
 }) {
   const left = side === "complaints";
   const word = left ? (count === 1 ? "complaint" : "complaints") : "praise";
@@ -43,9 +51,10 @@ function Side({
           className="block h-2.5 rounded-[5px]"
           style={{ width: pct(count, max), background: left ? RED : YELLOW, minWidth: count > 0 ? 3 : 0 }}
         />
-        <span className={`${TIP} bottom-full mb-1 ${left ? "right-0" : "left-0"}`}>
+        <span className={`${TIP} bottom-full mb-1 ${left ? "left-0" : "right-0"}`}>
           <strong className="text-[13px] font-semibold text-white tabular-nums">{count}</strong> {word} ·{" "}
           {label}
+          <span className="block text-[11px] text-[#71717A]">{POLARITY[polarity]}</span>
         </span>
       </div>
     </div>
@@ -59,11 +68,11 @@ function TugRow({ tag, max }: { tag: TagPolarityBar; max: number }) {
       aria-label={`${tag.label}: ${tag.negative_count} complaints, ${tag.positive_count} praise`}
       className={ROW}
     >
-      <Side side="complaints" count={tag.negative_count} max={max} label={tag.label} />
+      <Side side="complaints" count={tag.negative_count} max={max} label={tag.label} polarity={tag.polarity_type} />
       <div className="text-center text-[12px] font-medium leading-tight text-white break-words">
         {tag.label}
       </div>
-      <Side side="praise" count={tag.positive_count} max={max} label={tag.label} />
+      <Side side="praise" count={tag.positive_count} max={max} label={tag.label} polarity={tag.polarity_type} />
     </div>
   );
 }

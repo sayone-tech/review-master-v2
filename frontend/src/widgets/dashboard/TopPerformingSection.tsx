@@ -67,10 +67,9 @@ function labelLeft(x: number, text: string, width: number): string {
   return `${(centre / width) * 100}%`;
 }
 
+/** Open towards the middle so the tooltip never runs past the panel edge. */
 function tipAnchor(x: number): string {
-  if (x < 20) return "left-0";
-  if (x > 80) return "right-0";
-  return "left-1/2 -translate-x-1/2";
+  return x < 50 ? "left-0" : "right-0";
 }
 
 function Ladder({

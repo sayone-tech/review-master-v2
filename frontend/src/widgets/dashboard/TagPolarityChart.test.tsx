@@ -69,3 +69,18 @@ describe("Top tags tug-of-war", () => {
     expect(await screen.findByText("Could not load tag distribution.")).toBeInTheDocument();
   });
 });
+
+describe("Tug-of-war tooltips", () => {
+  afterEach(() => vi.mocked(fetchTagPolarity).mockReset());
+
+  it("should open both bar tooltips towards the centre and stay out of layout until hovered", async () => {
+    vi.mocked(fetchTagPolarity).mockResolvedValue(DATA);
+    const { container } = renderWithClient(<TagPolarityChart />);
+    const row = await screen.findByRole("group", { name: /^Friendly staff/ });
+    const [complaintsTip, praiseTip] = Array.from(row.querySelectorAll("span.absolute"));
+    expect(complaintsTip).toHaveClass("hidden", "left-0");
+    expect(praiseTip).toHaveClass("hidden", "right-0");
+    expect(praiseTip).toHaveTextContent("Mixed");
+    expect(container.querySelector(".invisible")).toBeNull();
+  });
+});

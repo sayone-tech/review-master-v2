@@ -9,9 +9,13 @@ export const PULSE = "bg-[#1C1C1C] motion-safe:animate-[sk-pulse_1.6s_ease-in-ou
 export const YELLOW = "#FACC15";
 export const GREY = "#52525B";
 export const RED = "#F87171";
-/** Tooltip box; parent must be `group relative`. */
+/**
+ * Tooltip box; parent must be `group relative`. Hidden with display:none (not
+ * visibility) so an unshown tooltip takes no layout space and never widens the
+ * page on phones. Anchor it so it opens towards the panel's centre.
+ */
 export const TIP =
-  "pointer-events-none invisible absolute z-20 whitespace-nowrap rounded-lg border border-[#333] bg-[#1C1C1C] px-2.5 py-1.5 text-[12px] leading-snug text-[#A1A1AA] shadow-lg group-hover:visible group-focus-visible:visible";
+  "pointer-events-none hidden absolute z-20 w-max max-w-[220px] rounded-lg border border-[#333] bg-[#1C1C1C] px-2.5 py-1.5 text-[12px] leading-snug text-[#A1A1AA] shadow-lg group-hover:block group-focus-visible:block";
 
 interface PanelProps {
   title: string;

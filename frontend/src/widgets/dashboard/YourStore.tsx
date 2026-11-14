@@ -11,6 +11,8 @@ interface Props {
 type StarKey = 1 | 2 | 3 | 4 | 5;
 const STARS: StarKey[] = [5, 4, 3, 2, 1];
 const BAR_MAX = 96; // px
+// Edge bars open inward so the tooltip stays inside the panel.
+const BAR_TIP = ["left-0", "left-0", "left-1/2 -translate-x-1/2", "right-0", "right-0"];
 const STAR_COLOR: Record<StarKey, { bg: string; opacity: number }> = {
   5: { bg: YELLOW, opacity: 1 },
   4: { bg: YELLOW, opacity: 0.7 },
@@ -60,7 +62,7 @@ function StarBars({ distribution }: { distribution: YourStoreResponse["distribut
             aria-label={`${star} stars: ${count} reviews, ${pcts[i]}%`}
             role="img"
           >
-            <span className={`${TIP} bottom-full left-1/2 mb-1 -translate-x-1/2`} aria-hidden="true">
+            <span className={`${TIP} bottom-full mb-1 ${BAR_TIP[i]}`} aria-hidden="true">
               <strong className="text-[13px] text-white tabular-nums">{count}</strong> reviews at {star}★
             </span>
             <div data-testid="star-bar" data-star={star} className="flex flex-col items-stretch">

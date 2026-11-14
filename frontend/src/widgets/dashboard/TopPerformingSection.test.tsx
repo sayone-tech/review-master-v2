@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fetchTopPerforming } from "./api";
@@ -145,5 +145,25 @@ describe("Store rating ladder", () => {
     vi.mocked(fetchTopPerforming).mockRejectedValue(new Error("boom"));
     renderLadder();
     expect(await screen.findByRole("button", { name: "Retry loading store ladder" })).toBeInTheDocument();
+  });
+});
+
+describe("Ladder tooltips", () => {
+  afterEach(() => vi.mocked(fetchTopPerforming).mockReset());
+
+  it("should keep tooltips out of layout until hovered and open them inward", async () => {
+    vi.mocked(fetchTopPerforming).mockResolvedValue(SPLIT);
+    renderLadder();
+    await screen.findAllByTestId("ladder-dot");
+    const tips = screen.getAllByRole("tooltip", { hidden: true });
+    for (const t of tips) {
+      // display:none until hover/focus (visibility:hidden would still widen the page)
+      expect(t).toHaveClass("hidden", "group-hover:block", "group-focus-visible:block");
+      expect(t).not.toHaveClass("invisible");
+    }
+    const tipOf = (name: RegExp) =>
+      within(screen.getByRole("link", { name })).getByRole("tooltip", { hidden: true });
+    expect(tipOf(/^Trivandrum/)).toHaveClass("right-0");
+    expect(tipOf(/^Calicut/)).toHaveClass("left-0");
   });
 });
