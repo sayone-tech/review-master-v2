@@ -10,12 +10,14 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any, cast
 
-from django.db.models import Avg, Count, Q, QuerySet
+from django.db.models import Avg, Count, Min, Q, QuerySet
+from django.utils import timezone
 
 from apps.dashboard.filters import DashboardFilterParams
 from apps.reviews.models import Review, ReviewTag
 
 MIN_REVIEWS_FOR_RANKING = 3
+TREND_BUCKETS = 6
 
 SUCCESS = Review.EnrichmentStatus.SUCCESS
 
@@ -25,8 +27,8 @@ SUCCESS = Review.EnrichmentStatus.SUCCESS
 # ---------------------------------------------------------------------------
 
 
-def _base_qs(*, org_id: int, params: DashboardFilterParams) -> QuerySet[Review]:
-    """Applies org + shop scope + full filters (region + shop + date)."""
+def _scope_qs(*, org_id: int, params: DashboardFilterParams) -> QuerySet[Review]:
+    """Org + shop scope + region/store filters, with NO date restriction."""
     qs: QuerySet[Review] = (
         Review.objects.active()
         .filter(organisation_id=org_id)
@@ -36,6 +38,12 @@ def _base_qs(*, org_id: int, params: DashboardFilterParams) -> QuerySet[Review]:
         qs = qs.filter(shop__region_id=params.region_id)
     if params.shop_id is not None:
         qs = qs.filter(shop_id=params.shop_id)
+    return qs
+
+
+def _base_qs(*, org_id: int, params: DashboardFilterParams) -> QuerySet[Review]:
+    """Applies org + shop scope + full filters (region + shop + date)."""
+    qs = _scope_qs(org_id=org_id, params=params)
     if params.date_from is not None:
         qs = qs.filter(review_create_time__date__gte=params.date_from)
     if params.date_to is not None:
@@ -62,40 +70,137 @@ def _date_only_qs(*, org_id: int, params: DashboardFilterParams) -> QuerySet[Rev
 # ---------------------------------------------------------------------------
 
 
-def dashboard_kpis(*, org_id: int, params: DashboardFilterParams) -> dict[str, Any]:
-    """Return top-level KPI metrics in a single DB query.
+def _day_q(start: date, end: date) -> Q:
+    """Inclusive UTC-date window on review_create_time."""
+    return Q(review_create_time__date__gte=start, review_create_time__date__lte=end)
 
-    Keys: total_reviews, avg_rating, negative_reviews, negative_pct,
-    enriched_count, store_count, awaiting_reply.
+
+def _window_aggs(prefix: str, window: Q) -> dict[str, Any]:
+    """Conditional aggregates for one window (empty Q = unrestricted)."""
+    enriched = window & Q(enrichment_status=SUCCESS)
+    return {
+        f"{prefix}total": Count("pk", filter=window),
+        f"{prefix}avg": Avg("star_rating", filter=window),
+        f"{prefix}enriched": Count("pk", filter=enriched),
+        f"{prefix}negative": Count("pk", filter=enriched & Q(sentiment="negative")),
+        f"{prefix}awaiting": Count("pk", filter=window & Q(reply_comment="")),
+    }
+
+
+def _pct(negative: int, enriched: int) -> float:
+    return round(negative / enriched * 100, 1) if enriched > 0 else 0.0
+
+
+def _trend_windows(params: DashboardFilterParams) -> list[tuple[date, date]]:
+    """Six contiguous inclusive (start, end) windows, oldest first.
+
+    Date range: bucket i covers day offsets [floor(i*N/6), floor((i+1)*N/6)).
+    All time: the last six calendar months including the current one (UTC).
+    A window with start > end is empty (range shorter than six days).
+    """
+    if params.date_from is not None and params.date_to is not None:
+        n = (params.date_to - params.date_from).days + 1
+        return [
+            (
+                params.date_from + timedelta(days=i * n // TREND_BUCKETS),
+                params.date_from + timedelta(days=(i + 1) * n // TREND_BUCKETS - 1),
+            )
+            for i in range(TREND_BUCKETS)
+        ]
+    today = timezone.now().date()
+    months = [(today.year * 12 + today.month - 1) - k for k in range(TREND_BUCKETS - 1, -1, -1)]
+    out: list[tuple[date, date]] = []
+    for m in months:
+        first = date(m // 12, m % 12 + 1, 1)
+        nxt = date((m + 1) // 12, (m + 1) % 12 + 1, 1)
+        out.append((first, nxt - timedelta(days=1)))
+    return out
+
+
+def _kpi_trend(*, org_id: int, params: DashboardFilterParams) -> dict[str, list[Any]]:
+    windows = _trend_windows(params)
+    live = [(i, w) for i, w in enumerate(windows) if w[0] <= w[1]]
+    aggs: dict[str, Any] = {}
+    for i, (start, end) in live:
+        aggs.update(_window_aggs(f"b{i}_", _day_q(start, end)))
+    total = [0] * TREND_BUCKETS
+    avg: list[float | None] = [None] * TREND_BUCKETS
+    neg: list[float | None] = [None] * TREND_BUCKETS
+    if live:
+        qs = _scope_qs(org_id=org_id, params=params).filter(_day_q(live[0][1][0], live[-1][1][1]))
+        row = qs.aggregate(**aggs)
+        for i, _ in live:
+            total[i] = row[f"b{i}_total"] or 0
+            if row[f"b{i}_avg"] is not None:
+                avg[i] = round(float(row[f"b{i}_avg"]), 1)
+            enriched = row[f"b{i}_enriched"] or 0
+            if enriched > 0:
+                neg[i] = _pct(row[f"b{i}_negative"] or 0, enriched)
+    return {"total_reviews": total, "avg_rating": avg, "negative_pct": neg}
+
+
+def dashboard_kpis(*, org_id: int, params: DashboardFilterParams) -> dict[str, Any]:
+    """Return top-level KPI metrics, previous-period comparison, trend and oldest wait.
+
+    Queries (3 max): current+previous conditional aggregates, the six trend
+    buckets, and the oldest awaiting review.
 
     KPI-03: negative_reviews counts only AI-sentiment='negative' with
     enrichment_status=SUCCESS — NOT by star rating.
     KPI-04: negative_pct denominator is enriched_count.
     KPI-05: awaiting_reply counts reviews with no reply posted yet.
+    previous: same-length window immediately before date_from (None for all time).
     """
-    agg = _base_qs(org_id=org_id, params=params).aggregate(
-        total_reviews=Count("pk"),
-        avg_rating=Avg("star_rating"),
-        enriched_count=Count("pk", filter=Q(enrichment_status=SUCCESS)),
-        negative_count=Count(
-            "pk",
-            filter=Q(sentiment="negative", enrichment_status=SUCCESS),
-        ),
-        awaiting_reply=Count("pk", filter=Q(reply_comment="")),
+    scope = _scope_qs(org_id=org_id, params=params)
+    d_from, d_to = params.date_from, params.date_to
+    has_range = d_from is not None and d_to is not None
+    aggs: dict[str, Any] = {}
+    if d_from is not None and d_to is not None:
+        n = (d_to - d_from).days + 1
+        prev_from = d_from - timedelta(days=n)
+        prev_to = d_from - timedelta(days=1)
+        scope = scope.filter(_day_q(prev_from, d_to))
+        cur_q = _day_q(d_from, d_to)
+        aggs.update(_window_aggs("p_", _day_q(prev_from, prev_to)))
+    else:
+        cur_q = Q()
+    aggs.update(_window_aggs("c_", cur_q))
+    agg = scope.aggregate(**aggs)
+
+    total = agg["c_total"] or 0
+    enriched = agg["c_enriched"] or 0
+    negative = agg["c_negative"] or 0
+
+    previous: dict[str, Any] | None = None
+    if has_range:
+        p_enriched = agg["p_enriched"] or 0
+        previous = {
+            "total_reviews": agg["p_total"] or 0,
+            "avg_rating": round(float(agg["p_avg"] or 0.0), 1),
+            "negative_pct": _pct(agg["p_negative"] or 0, p_enriched),
+            "awaiting_reply": agg["p_awaiting"] or 0,
+        }
+
+    oldest = (
+        _base_qs(org_id=org_id, params=params)
+        .filter(reply_comment="")
+        .aggregate(oldest=Min("review_create_time"))["oldest"]
     )
-    total = agg["total_reviews"] or 0
-    enriched = agg["enriched_count"] or 0
-    negative = agg["negative_count"] or 0
-    avg_rating = round(float(agg["avg_rating"] or 0.0), 1)
-    neg_pct = round(negative / enriched * 100, 1) if enriched > 0 else 0.0
+    oldest_days: int | None = None
+    if oldest is not None:
+        oldest_days = max((timezone.now().date() - oldest.date()).days, 0)
+
     return {
         "total_reviews": total,
-        "avg_rating": avg_rating,
+        "avg_rating": round(float(agg["c_avg"] or 0.0), 1),
         "negative_reviews": negative,
-        "negative_pct": neg_pct,
+        "negative_pct": _pct(negative, enriched),
         "enriched_count": enriched,
         "store_count": len(params.accessible_shop_ids),
-        "awaiting_reply": agg["awaiting_reply"] or 0,
+        "awaiting_reply": agg["c_awaiting"] or 0,
+        "previous": previous,
+        "trend": _kpi_trend(org_id=org_id, params=params),
+        "oldest_awaiting_days": oldest_days,
     }
 
 

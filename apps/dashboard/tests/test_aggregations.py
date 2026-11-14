@@ -57,7 +57,8 @@ def test_dashboard_kpis_query_count(accessible_shops, org):
     with CaptureQueriesContext(connection) as ctx:
         result = dashboard_kpis(org_id=org.id, params=params)
 
-    assert len(ctx.captured_queries) == 1, f"Expected 1 query, got {len(ctx.captured_queries)}"
+    # current+previous aggregate, 6-bucket trend, oldest awaiting review
+    assert len(ctx.captured_queries) == 3, f"Expected 3 queries, got {len(ctx.captured_queries)}"
     assert result["total_reviews"] == 2
 
 
