@@ -110,6 +110,14 @@ describe("Store rating ladder", () => {
     expect(new Set(labels().map((l) => l.dataset.lane)).size).toBe(2);
   });
 
+  it("should still draw the shops when an old cached payload lacks all_stores", async () => {
+    const two = [store(1, "Review Focus A", 4.5), store(2, "Review Focus B", 4.52)];
+    vi.mocked(fetchTopPerforming).mockResolvedValue({ shops: two, split: false } as never);
+    renderLadder(4.51);
+    await screen.findAllByTestId("ladder-dot");
+    expect(dots().length).toBeGreaterThan(0);
+  });
+
   it("should work with a single store", async () => {
     const one = [store(1, "Only Store", 4.1)];
     vi.mocked(fetchTopPerforming).mockResolvedValue({ shops: one, split: false, all_stores: one });

@@ -84,6 +84,8 @@ function Band({ data, shopNameIfSingle }: { data: KpisResponse; shopNameIfSingle
   const isEmpty = data.total_reviews === 0;
   // No comparison for "all time", an empty previous window, or an empty current one.
   const prev = !isEmpty && data.previous && data.previous.total_reviews > 0 ? data.previous : null;
+  // Nothing analysed yet: negative_pct is 0 only because it is unknown, not because it is good.
+  const noAnalysis = !isEmpty && data.enriched_count === 0;
 
   return (
     <section aria-label="Headline numbers" className={BAND}>
@@ -92,7 +94,7 @@ function Band({ data, shopNameIfSingle }: { data: KpisResponse; shopNameIfSingle
         <p className={LABEL}>{isEmpty ? EMPTY : scopeLabel(data, shopNameIfSingle)}</p>
         {!isEmpty && (
           <div className="mt-2">
-            <Sparkline points={data.trend.total_reviews} label="Reviews per period" color={YELLOW} />
+            <Sparkline points={data.trend?.total_reviews ?? []} label="Reviews per period" color={YELLOW} />
           </div>
         )}
         <ChangeLine change={prev && percentChange(data.total_reviews, prev.total_reviews)} />
@@ -111,18 +113,18 @@ function Band({ data, shopNameIfSingle }: { data: KpisResponse; shopNameIfSingle
       </Part>
 
       <Part name="Negative reviews">
-        <div className={NUM} style={{ color: isEmpty ? undefined : RED }}>
-          {isEmpty ? "—" : `${data.negative_pct}%`}
+        <div className={NUM} style={{ color: isEmpty || noAnalysis ? undefined : RED }}>
+          {isEmpty || noAnalysis ? "—" : `${data.negative_pct}%`}
         </div>
         <p className={LABEL}>
           {isEmpty ? EMPTY : `negative reviews (${data.negative_reviews.toLocaleString()})`}
         </p>
         {!isEmpty && (
           <div className="mt-2">
-            <Sparkline points={data.trend.negative_pct} label="Negative share per period, percent" color={RED} />
+            <Sparkline points={data.trend?.negative_pct ?? []} label="Negative share per period, percent" color={RED} />
           </div>
         )}
-        <ChangeLine change={prev && pointChange(data.negative_pct, prev.negative_pct)} />
+        <ChangeLine change={noAnalysis || !prev ? null : pointChange(data.negative_pct, prev.negative_pct)} />
       </Part>
 
       <Part name="Awaiting reply">

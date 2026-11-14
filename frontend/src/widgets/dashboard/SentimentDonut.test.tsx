@@ -35,7 +35,7 @@ describe("Sentiment grid", () => {
     vi.mocked(fetchSentiment).mockResolvedValue(sentiment());
     renderWithClient(<SentimentDonut filters={FILTERS} />);
 
-    await screen.findByText(exactText("67 positive, 21 neutral, 12 negative"));
+    await screen.findByText(exactText("67 positive (260), 21 neutral (82), 12 negative (46)"));
     const squares = screen.getAllByTestId("sentiment-square");
     expect(squares).toHaveLength(100);
     const by = (k: string) => squares.filter((s) => s.dataset.sentiment === k).length;
@@ -44,6 +44,12 @@ describe("Sentiment grid", () => {
     expect(squares[0].dataset.sentiment).toBe("positive");
     expect(squares[67].dataset.sentiment).toBe("neutral");
     expect(squares[99].dataset.sentiment).toBe("negative");
+  });
+
+  it("should print counts with thousands separators in the legend", async () => {
+    vi.mocked(fetchSentiment).mockResolvedValue(sentiment({ positive: 1204, neutral: 300, negative: 96 }));
+    renderWithClient(<SentimentDonut filters={FILTERS} />);
+    expect(await screen.findByText(/positive \(1,204\)/)).toBeInTheDocument();
   });
 
   it("should print how many reviews the grid is drawn from", async () => {

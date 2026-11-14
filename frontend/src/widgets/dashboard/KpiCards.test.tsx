@@ -174,6 +174,30 @@ describe("KpiCards headline band", () => {
     expect(document.body.innerHTML).not.toMatch(/NaN|Infinity/);
   });
 
+  it("should not show 0% or a negative change line while nothing is analysed", async () => {
+    mockKpis(kpis({ enriched_count: 0, negative_pct: 0, negative_reviews: 0 }));
+    renderBand();
+    await loaded();
+    const neg = within(part("Negative reviews"));
+    expect(neg.getByText("—")).toBeInTheDocument();
+    expect(neg.queryByText("0%")).not.toBeInTheDocument();
+    expect(neg.queryByText(/vs previous period/)).not.toBeInTheDocument();
+    expect(neg.getByText("negative reviews (0)")).toBeInTheDocument();
+  });
+
+  it("should render when an old cached payload lacks trend, previous and oldest wait", async () => {
+    const old = kpis() as Partial<KpisResponse>;
+    delete old.trend;
+    delete old.previous;
+    delete old.oldest_awaiting_days;
+    mockKpis(old as KpisResponse);
+    renderBand();
+    await loaded();
+    expect(within(part("Total reviews")).getByText("412")).toBeInTheDocument();
+    expect(screen.queryByText(/vs previous period/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/oldest/)).not.toBeInTheDocument();
+  });
+
   it("should name the shop when there is one store", async () => {
     mockKpis(kpis({ store_count: 1 }));
     renderBand("Kochi");

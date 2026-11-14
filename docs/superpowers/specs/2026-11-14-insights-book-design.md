@@ -1,7 +1,7 @@
 # Insights ("the book") — design
 
 **Date:** 2026-11-14
-**Status:** draft for owner review
+**Status:** delivered
 **Approved look:** the book prototype, option A in `.superpowers/brainstorm/63266-1794631467/content/insights-book.html`
 (local, not committed): yellow cover, one spread per insight, real page turn, chapter tabs, page edges.
 

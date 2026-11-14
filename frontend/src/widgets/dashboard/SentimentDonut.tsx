@@ -76,7 +76,7 @@ function Grid({ data }: { data: SentimentResponse }) {
                 style={{ background: COLOR[k] }}
               />
               <strong className="text-[16px] font-semibold text-white tabular-nums">{share[k]}</strong>{" "}
-              {k}
+              {k} ({data[k].toLocaleString()})
             </span>
             {i < KEYS.length - 1 && ", "}
           </Fragment>

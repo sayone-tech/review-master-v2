@@ -1,7 +1,7 @@
 # Dashboard redesign ("night panels") — design
 
 **Date:** 2026-11-14
-**Status:** draft for owner review
+**Status:** delivered
 **Approved look:** Dashboard A ("night panels") with every existing report and the S3 "Spotlight" strip, from
 `.superpowers/brainstorm/63266-1794631467/content/dashboard-insights-v2.html` (local, not committed).
 **Depends on:** `2026-11-14-insights-book-design.md` (the Spotlight reads the Insights snapshot).
