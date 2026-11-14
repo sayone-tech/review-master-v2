@@ -5,6 +5,7 @@ import { FilterBar } from "./FilterBar";
 import { KpiCards } from "./KpiCards";
 import { PerformanceHighlights } from "./PerformanceHighlights";
 import { SentimentDonut } from "./SentimentDonut";
+import { Spotlight } from "./Spotlight";
 import { TagPolarityChart } from "./TagPolarityChart";
 import { TopPerformingSection } from "./TopPerformingSection";
 import { YourStore } from "./YourStore";
@@ -247,6 +248,9 @@ function DashboardInner() {
 
   return (
     <div>
+      {/* Brand-wide, last 30 days: sits above the filters it ignores. */}
+      <Spotlight enabled={bootstrap.isOrgAdmin} />
+
       <FilterBar
         filters={fs.filters}
         regions={bootstrap.regions}
