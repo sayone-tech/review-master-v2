@@ -724,6 +724,7 @@ Beat tasks are stored in the database via `django-celery-beat`. Seed initial sch
 | `lapse_expired_credit_balances_task` | `default` | Daily 00:05 UTC — idempotent catch-up lapse of past-month credit balances (v0.9/Phase 31) |
 | `reap_stale_reservations_task` | `default` | Every 10 minutes — refunds RESERVED credit reservations older than the TTL (v0.9/Phase 31) |
 | `sync_ai_pricing_from_litellm_task` | `default` | Weekly, Monday 09:00 UTC — opt-in LiteLLM price sync; does nothing unless enabled (v0.10/Phase 36) |
+| `compute_daily_insights_task` | `default` | Daily 02:00 UTC — per-organisation Insights Book snapshot (ranked insights, 14-day retention) |
 
 ### 12.6 Deployment
 
