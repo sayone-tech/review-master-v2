@@ -8,6 +8,7 @@ import { EnabledToggle } from "./EnabledToggle";
 import { TeamStatsCards } from "./TeamStatsCards";
 import { SoloMemberBanner } from "./SoloMemberBanner";
 import { TeamEmptyState } from "./TeamEmptyState";
+import { NightAddButton, NightFilterCard, NightSearch, NightSelect } from "../filters";
 import type { TeamMemberRow, RegionOption, ShopOption, TeamStats } from "./types";
 
 function dispatchTeamEvent(name: string, detail: TeamMemberRow) {
@@ -27,9 +28,6 @@ function buildPageRange(current: number, total: number): (number | "…")[] {
   if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
   return [1, "…", current - 1, current, current + 1, "…", total];
 }
-
-const inputCls =
-  "px-3 py-2 text-[14px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
 
 export function TeamTableWidget({
   initial,
@@ -216,55 +214,55 @@ export function TeamTableWidget({
     <div className="space-y-4">
       <TeamStatsCards stats={stats} />
       {isSoloAdmin && <SoloMemberBanner />}
-      <div className="flex items-center gap-2 flex-wrap">
-        <input
-          type="search"
+      <NightFilterCard
+        action={
+          <NightAddButton
+            id="open-add-team-member"
+            label="Add Team Member"
+            detail={`${stats.total_members} on the team`}
+          />
+        }
+      >
+        <NightSearch
           placeholder="Search name or email…"
+          aria-label="Search team members"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className={`${inputCls} flex-1 min-w-[200px]`}
           data-testid="team-search"
         />
-        <select
+        <NightSelect
+          label="Region"
           value={filters.region_id ?? ""}
           onChange={(e) =>
             setRegion(e.target.value ? Number(e.target.value) : undefined)
           }
-          className={inputCls}
           data-testid="team-region-filter"
         >
-          <option value="">All Regions</option>
+          <option value="">All regions</option>
           {regions.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}
             </option>
           ))}
-        </select>
-        <select
+        </NightSelect>
+        <NightSelect
+          label="Store"
           value={filters.shop_id ?? ""}
           onChange={(e) =>
             setShop(e.target.value ? Number(e.target.value) : undefined)
           }
-          className={inputCls}
           disabled={!filters.region_id}
           title={!filters.region_id ? "Select a region first" : undefined}
           data-testid="team-shop-filter"
         >
-          <option value="">All Stores</option>
+          <option value="">All stores</option>
           {filteredShops.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
-        </select>
-        <button
-          id="open-add-team-member"
-          type="button"
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover whitespace-nowrap"
-        >
-          + Add Team Member
-        </button>
-      </div>
+        </NightSelect>
+      </NightFilterCard>
       <div className="border border-line rounded-card overflow-hidden">
         <DataTable<TeamMemberRow>
           columns={columns}

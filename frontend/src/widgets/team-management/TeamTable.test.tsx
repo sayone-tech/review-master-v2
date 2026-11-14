@@ -212,12 +212,13 @@ describe("TeamTableWidget", () => {
 });
 
 describe("TeamTableWidget add button in the filter row", () => {
-  it("renders Add Team Member in the search row", () => {
+  it("renders the Add Team Member end-cap with the team size in the filter card", () => {
     render(<TeamTableWidget {...defaultProps} />);
     const search = screen.getByTestId("team-search");
     const btn = document.getElementById("open-add-team-member") as HTMLElement;
-    expect(btn).toHaveTextContent("+ Add Team Member");
-    expect(search.parentElement).toContainElement(btn);
+    expect(btn).toHaveTextContent("Add Team Member");
+    expect(btn).toHaveTextContent(`${defaultProps.initial.stats.total_members} on the team`);
+    expect(search.closest(".rounded-\\[16px\\]")).toContainElement(btn);
   });
 
   it.each(["modals-first", "table-first"])(

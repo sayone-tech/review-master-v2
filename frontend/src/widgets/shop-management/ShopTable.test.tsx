@@ -234,13 +234,13 @@ describe("ShopTableWidget add button in the filter row", () => {
     hasRegions: true,
   });
 
-  it("renders Shop limit and the Add Shop button in the search row", () => {
+  it("renders the Add Shop end-cap with shops used of the limit in the filter card", () => {
     render(<ShopTableWidget initial={mk(false)} />);
     const search = screen.getByTestId("shops-search");
     const btn = document.getElementById("open-create-shop") as HTMLElement;
-    expect(btn).toHaveTextContent("+ Add Shop");
-    expect(search.parentElement).toContainElement(btn);
-    expect(search.parentElement).toHaveTextContent("Shop limit: 5");
+    expect(btn).toHaveTextContent("Add Shop");
+    expect(btn).toHaveTextContent("1 of 5 used");
+    expect(search.closest(".rounded-\\[16px\\]")).toContainElement(btn);
     expect(btn).not.toHaveAttribute("aria-disabled");
   });
 
@@ -249,7 +249,8 @@ describe("ShopTableWidget add button in the filter row", () => {
     const btn = document.getElementById("open-create-shop") as HTMLElement;
     expect(btn).toHaveAttribute("aria-disabled", "true");
     expect(btn).toHaveAttribute("title", "Shop limit reached.");
-    expect(btn.className).toContain("opacity-50");
+    expect(btn).toHaveTextContent("Shop limit reached");
+    expect(btn).toHaveTextContent("5 of 5 used");
     expect(btn.className).toContain("cursor-not-allowed");
   });
 

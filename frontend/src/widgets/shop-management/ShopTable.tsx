@@ -8,6 +8,7 @@ import { useShops } from "./useShops";
 import type { AllocationStatus, ShopRow } from "./types";
 import { ProgressModal } from "../review-management/ProgressModal";
 import { CreditBadge } from "../credits/CreditBadge";
+import { NightAddButton, NightFilterCard, NightSearch, NightSelect } from "../filters";
 
 function dispatchShopEvent(name: string, row: ShopRow) {
   window.dispatchEvent(new CustomEvent(name, { detail: row }));
@@ -67,9 +68,6 @@ function buildPageRange(current: number, total: number): (number | "…")[] {
   if (current >= total - 3) return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
   return [1, "…", current - 1, current, current + 1, "…", total];
 }
-
-const inputCls =
-  "px-3 py-2 text-[13.5px] bg-white border border-line rounded-md focus:outline-none focus:ring focus:ring-black/[0.06] focus:border-ink";
 
 interface ShopTableWidgetProps {
   initial: { rows: ShopRow[]; allocation: AllocationStatus; hasRegions: boolean };
@@ -249,59 +247,56 @@ export function ShopTableWidget({
   return (
     <div className="space-y-3">
       {/* Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <input
-          type="search"
+      <NightFilterCard
+        action={
+          <NightAddButton
+            id="open-create-shop"
+            data-at-limit={allocation.at_limit ? "true" : "false"}
+            data-testid="shop-allocation"
+            label={allocation.at_limit ? "Shop limit reached" : "Add Shop"}
+            detail={`${allocation.current} of ${allocation.max} used`}
+            blocked={allocation.at_limit}
+            {...(allocation.at_limit ? { title: "Shop limit reached." } : {})}
+          />
+        }
+      >
+        <NightSearch
           placeholder="Search name, address…"
+          aria-label="Search shops"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className={`${inputCls} flex-1 min-w-[180px]`}
           data-testid="shops-search"
         />
-        <select
+        <NightSelect
+          label="Status"
           value={filters.status ?? ""}
           onChange={(e) =>
             setStatus((e.target.value as "active" | "inactive" | "") || "")
           }
-          className={inputCls}
           data-testid="shops-status-filter"
         >
-          <option value="">All Statuses</option>
+          <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
-        </select>
-        <select
+        </NightSelect>
+        <NightSelect
+          label="Region"
           value={
             filters.region === undefined || filters.region === ""
               ? ""
               : String(filters.region)
           }
           onChange={(e) => setRegion(e.target.value ? Number(e.target.value) : "")}
-          className={inputCls}
           data-testid="shops-region-filter"
         >
-          <option value="">All Regions</option>
+          <option value="">All regions</option>
           {regions.map(([id, name]) => (
             <option key={String(id)} value={String(id)}>
               {name}
             </option>
           ))}
-        </select>
-        <span className="text-[13px] text-muted whitespace-nowrap" data-testid="shop-allocation">
-          Shop limit: {allocation.max}
-        </span>
-        <button
-          id="open-create-shop"
-          type="button"
-          data-at-limit={allocation.at_limit ? "true" : "false"}
-          className={`inline-flex items-center gap-1.5 px-3.5 py-2 bg-yellow text-black border border-yellow-hover rounded-md text-[13.5px] font-semibold hover:bg-yellow-hover whitespace-nowrap${allocation.at_limit ? " opacity-50 cursor-not-allowed" : ""}`}
-          {...(allocation.at_limit
-            ? { title: "Shop limit reached.", "aria-disabled": true }
-            : {})}
-        >
-          + Add Shop
-        </button>
-      </div>
+        </NightSelect>
+      </NightFilterCard>
 
       <div className="border border-line rounded-card overflow-hidden">
         <DataTable<ShopRow>
