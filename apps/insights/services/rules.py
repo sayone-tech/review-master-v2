@@ -39,8 +39,8 @@ TIMES = "\u00d7"  # multiplication sign, for ratio headlines such as "2.5\u00d7"
 NEGATIVE = "negative"
 SEE_REVIEWS = "See reviews"
 
-# Type weights (spec §4): "waiting for a reply" (2) and "complaint rising" (1) lead.
-WEIGHTS = {1: 1.4, 2: 1.5, 3: 1.2, 4: 1.0, 5: 1.0, 6: 1.0, 7: 1.1, 8: 1.0}
+# The one weight table (spec section 4): waiting 1.3, complaint rising 1.2, store below brand 1.1.
+WEIGHTS = {1: 1.2, 2: 1.3, 3: 1.1, 4: 1.0, 5: 1.0, 6: 1.0, 7: 1.0, 8: 1.0}
 
 # Minimum samples and thresholds (spec §2.4).
 T1_MIN_NOW = 5
@@ -206,9 +206,13 @@ def complaint_rising(*, organisation_id: int, window: Window) -> list[Candidate]
                 continue
             if before:
                 ratio = Fraction(now, before)
-                headline = f"{_round(ratio, 1).normalize():f}{TIMES}"
-                verb = "tripled" if ratio >= 3 else "doubled"
-                title = f"{{tag}} complaints {verb} at {{store}}"
+                times = f"{_round(ratio, 1).normalize():f}"
+                headline = f"{times}{TIMES}"
+                if ratio >= 4:
+                    title = f"{{tag}} complaints rose {times}{TIMES} at {{store}}"
+                else:
+                    verb = "tripled" if ratio >= 3 else "doubled"
+                    title = f"{{tag}} complaints {verb} at {{store}}"
                 body = (
                     f"{now} reviews mentioned {{tag_lower}} in the last 30 days, up from {before}."
                 )
@@ -296,16 +300,17 @@ def store_below_brand(*, organisation_id: int, window: Window) -> list[Candidate
         gap = brand - avg
         if gap < T3_GAP:
             continue
+        avg_shown, brand_shown = _round(avg, 1), _round(brand, 1)
         out.append(
             Candidate(
                 type=3,
                 chapter="attention",
                 score=WEIGHTS[3] * float(gap / T3_GAP),
-                headline=f"{MINUS}{_round(gap, 1)}★",
+                headline=f"{MINUS}{brand_shown - avg_shown}★",
                 title="{store} is rated below your brand",
                 body=(
-                    f"{{store}} averaged {_round(avg, 1)}★ from {n} reviews in the last 30 days, "
-                    f"against {_round(brand, 1)}★ across all stores."
+                    f"{{store}} averaged {avg_shown}★ from {n} reviews in the last 30 days, "
+                    f"against {brand_shown}★ across all stores."
                 ),
                 visual={
                     "kind": "rating_line",

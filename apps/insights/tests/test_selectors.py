@@ -3,6 +3,7 @@ import pytest
 from apps.insights.selectors import get_latest_insights
 from apps.insights.tests.factories import InsightSnapshotFactory
 from apps.organisations.tests.factories import OrganisationFactory
+from apps.reviews.models import OrgCanonicalTag
 from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
@@ -27,6 +28,11 @@ def _item(chapter="attention", store_id=None, tag_text=None, **kw):
     return {**base, **kw}
 
 
+def _canon(org, *labels):
+    for label in labels:
+        OrgCanonicalTag.objects.create(organisation=org, label=label)
+
+
 def _snap(org, items):
     return InsightSnapshotFactory(
         organisation=org,
@@ -37,6 +43,7 @@ def _snap(org, items):
 def test_resolves_names_into_text():
     org = OrganisationFactory(name="Acme")
     shop = ShopFactory(organisation=org, name="Soho")
+    _canon(org, "Slow Service")
     _snap(org, [_item(store_id=shop.id, tag_text="Slow Service")])
     book = get_latest_insights(organisation_id=org.id)
     item = book.items[0]
@@ -66,6 +73,7 @@ def test_drops_deactivated_store_and_recomputes_cover():
     org = OrganisationFactory()
     keep = ShopFactory(organisation=org)
     gone = ShopFactory(organisation=org)
+    _canon(org, "x", "Y", "Z")
     _snap(
         org,
         [
@@ -94,3 +102,48 @@ def test_none_without_snapshot_and_other_org_never_returned():
     shop = ShopFactory(organisation=other)
     _snap(other, [_item(store_id=shop.id, tag_text="X")])
     assert get_latest_insights(organisation_id=org.id) is None
+
+
+def test_store_bars_maps_ids_to_names_and_drops_inactive():
+    # Contract with the book: frontend/src/widgets/insights/InsightsBook.test.tsx store_bars
+    # fixture uses exactly this output shape ({"store": <name>, "count"}).
+    org = OrganisationFactory()
+    a = ShopFactory(organisation=org, name="Kochi")
+    b = ShopFactory(organisation=org, name="Calicut")
+    gone = ShopFactory(organisation=org, name="Closed", is_active=False)
+    _canon(org, "New Menu")
+    visual = {
+        "kind": "store_bars",
+        "items": [
+            {"store_id": a.id, "count": 4},
+            {"store_id": gone.id, "count": 3},
+            {"store_id": b.id, "count": 2},
+        ],
+    }
+    _snap(org, [_item(chapter="good", tag_text="New Menu", visual=visual)])
+    item = get_latest_insights(organisation_id=org.id).items[0]
+    assert item["visual"] == {
+        "kind": "store_bars",
+        "items": [{"store": "Kochi", "count": 4}, {"store": "Calicut", "count": 2}],
+    }
+
+
+def test_drops_item_whose_tag_was_renamed():
+    org = OrganisationFactory()
+    shop = ShopFactory(organisation=org)
+    tag = OrgCanonicalTag.objects.create(organisation=org, label="Slow Service")
+    _canon(org, "Cold Food")
+    _snap(
+        org,
+        [
+            _item(store_id=shop.id, tag_text="Slow Service"),
+            _item(store_id=shop.id, tag_text="cold food"),  # case-insensitive match survives
+            _item(chapter="good", title="Hello", body="b", caption="c"),
+        ],
+    )
+    tag.label = "Waiting Time"
+    tag.save()
+    book = get_latest_insights(organisation_id=org.id)
+    assert [i["type"] for i in book.items] == [1, 1]
+    assert [i["chapter"] for i in book.items] == ["attention", "good"]
+    assert (book.cover["attention"], book.cover["good"]) == (1, 1)

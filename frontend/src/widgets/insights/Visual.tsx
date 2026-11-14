@@ -157,8 +157,8 @@ function RatingLine({
 }
 
 /** Six monthly points, oldest first. */
-function ShareLine({ points, accent }: { points: number[]; accent: string }) {
-  const pts = points.map((p, i) => ({ i, v: p })).filter((p) => finite(p.v));
+function ShareLine({ points, accent }: { points: (number | null)[]; accent: string }) {
+  const pts = points.flatMap((p, i) => (finite(p) ? [{ i, v: p }] : []));
   const W = 280;
   const H = 160;
   const top = 30;

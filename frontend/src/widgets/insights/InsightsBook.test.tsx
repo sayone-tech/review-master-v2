@@ -80,6 +80,8 @@ const ITEMS: InsightItem[] = [
     chapter: "good",
     headline: "7",
     title: "Customers started praising the new menu",
+    // Exactly the reader's output shape: apps/insights/tests/test_selectors.py
+    //::test_store_bars_maps_ids_to_names_and_drops_inactive is the contract.
     visual: {
       kind: "store_bars",
       items: [
@@ -355,6 +357,22 @@ describe("Visual", () => {
     );
     expect(screen.getByText("40%")).toBeInTheDocument();
     expect(screen.getByText("62%")).toBeInTheDocument();
+  });
+
+  it("share_line and monthly_bars tolerate null points without NaN", () => {
+    const { container, rerender } = render(
+      <Visual visual={{ kind: "share_line", points: [null, 40, null, 52, 58, 62] }} tone="good" />,
+    );
+    expect(container.innerHTML).not.toContain("NaN");
+    expect(screen.getByText("62%")).toBeInTheDocument();
+    rerender(<Visual visual={{ kind: "monthly_bars", points: [null, 4.0, null, 4.2, 4.3, 4.5] }} tone="good" />);
+    expect(container.innerHTML).not.toContain("NaN");
+    for (const kind of ["share_line", "monthly_bars"] as const) {
+      expect(() =>
+        rerender(<Visual visual={{ kind, points: [null, null, null, null, null, null] }} tone="good" />),
+      ).not.toThrow();
+      expect(container.innerHTML).not.toContain("NaN");
+    }
   });
 
   it("progress labels before and now", () => {

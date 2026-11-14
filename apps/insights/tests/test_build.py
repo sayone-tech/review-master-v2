@@ -61,8 +61,13 @@ def test_rank_attention_before_good_then_score_desc():
     ]
 
 
-def test_rank_type_weight_leads_waiting_and_complaint():
-    out = rank([cand(4, score=1.0), cand(2, score=1.0), cand(1, score=1.0), cand(3, score=1.0)])
+def test_type_weights_live_only_in_rules():
+    from apps.insights.services import build, rules
+
+    assert rules.WEIGHTS == {1: 1.2, 2: 1.3, 3: 1.1, 4: 1.0, 5: 1.0, 6: 1.0, 7: 1.0, 8: 1.0}
+    assert not hasattr(build, "TYPE_WEIGHTS")
+    # rank() sorts by the stored score as-is (weights are already folded in by the rules)
+    out = rank([cand(4, score=1.0), cand(2, score=1.3), cand(1, score=1.2), cand(3, score=1.1)])
     assert [c.type for c in out] == [2, 1, 3, 4]
 
 

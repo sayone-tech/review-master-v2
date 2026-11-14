@@ -165,6 +165,17 @@ def test_complaint_rising_tripled_and_from_zero_copy(wait_tag_shop):
     assert c.headline == "3\u00d7"
     assert c.title == "{tag} complaints tripled at {store}"
 
+    # ratio >= 4: not "tripled"; title repeats the headline's rounded ratio
+    quad = ShopFactory(organisation=shop.organisation, name="Quad")
+    tagged(quad, in_now(), "wait time", n=9, sentiment="negative")
+    tagged(quad, in_before(), "wait time", n=2, sentiment="negative")
+    by_store = {
+        x.store_id: x
+        for x in rules.complaint_rising(organisation_id=shop.organisation_id, window=W)
+    }
+    assert by_store[quad.id].headline == "4.5\u00d7"
+    assert by_store[quad.id].title == "{tag} complaints rose 4.5\u00d7 at {store}"
+
     other = ShopFactory(organisation=shop.organisation, name="Other")
     tagged(other, in_now(), "wait time", n=5, sentiment="negative")
     by_store = {
@@ -675,3 +686,16 @@ def test_each_rule_runs_in_fixed_queries(rule, build):
     assert found
     assert len(few.captured_queries) == len(many.captured_queries)
     assert len(many.captured_queries) <= 4
+
+
+def test_store_below_brand_headline_matches_rounded_body_values():
+    org = OrganisationFactory()
+    low = ShopFactory(organisation=org)
+    high = ShopFactory(organisation=org)
+    mk(low, in_now(), n=7, star_rating=4)
+    mk(low, in_now(), n=3, star_rating=3)  # 3.7
+    mk(high, in_now(), n=10, star_rating=5)  # brand 4.35 -> 4.4 (half up); true gap 0.65
+    [c] = rules.store_below_brand(organisation_id=org.id, window=W)
+    assert "averaged 3.7\u2605" in c.body
+    assert "against 4.4\u2605" in c.body
+    assert c.headline == "\u22120.7\u2605"  # 4.4 - 3.7, as the reader can verify from the body

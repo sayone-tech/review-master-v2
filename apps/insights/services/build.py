@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 MAX_INSIGHTS = 8
 MAX_PER_TYPE = 2
 RETENTION_DAYS = 14
-# "Waiting for a reply" (2) and "complaint rising" (1) lead; then "store below brand" (3).
-TYPE_WEIGHTS = {2: 1.3, 1: 1.2, 3: 1.1}
 
 RULE_FUNCTIONS = (
     rules.complaint_rising,
@@ -44,12 +42,11 @@ def collect_candidates(*, organisation_id: int, window: Window) -> list[Candidat
 
 
 def _sort_key(c: Candidate) -> tuple[int, float, int]:
-    weighted = c.score * TYPE_WEIGHTS.get(c.type, 1.0)
-    return (0 if c.chapter == "attention" else 1, -weighted, -c.review_count)
+    return (0 if c.chapter == "attention" else 1, -c.score, -c.review_count)
 
 
 def rank(candidates: list[Candidate]) -> list[Candidate]:
-    """Attention first, then weighted score desc, ties by more reviews; max 2 per type, 8 total."""
+    """Attention first, then score desc (type weights live in rules.WEIGHTS), ties by more reviews; max 2 per type, 8 total."""
     per_type: dict[int, int] = {}
     out: list[Candidate] = []
     for c in sorted(candidates, key=_sort_key):

@@ -9,6 +9,7 @@ from apps.accounts.tests.factories import OrgAdminFactory, StaffAdminFactory, Us
 from apps.insights.tests.factories import InsightSnapshotFactory
 from apps.insights.tests.test_selectors import _item
 from apps.organisations.tests.factories import OrganisationFactory
+from apps.reviews.models import OrgCanonicalTag
 from apps.shops.tests.factories import ShopFactory
 
 pytestmark = pytest.mark.django_db
@@ -28,6 +29,7 @@ def _login(user):
 
 def test_shape_for_org_admin(org):
     shop = ShopFactory(organisation=org, name="Soho")
+    OrgCanonicalTag.objects.create(organisation=org, label="Slow")
     InsightSnapshotFactory(
         organisation=org,
         payload={
@@ -51,6 +53,7 @@ def test_shape_for_org_admin(org):
 
 def test_query_count_fixed_regardless_of_items(org):
     shop = ShopFactory(organisation=org)
+    OrgCanonicalTag.objects.create(organisation=org, label="T")
     InsightSnapshotFactory(
         organisation=org,
         payload={"cover": {}, "items": [_item(store_id=shop.id, tag_text="T")] * 8},
@@ -60,7 +63,7 @@ def test_query_count_fixed_regardless_of_items(org):
     c.get(URL)
     with CaptureQueriesContext(connection) as ctx:
         c.get(URL)
-    assert len(ctx.captured_queries) <= 4
+    assert len(ctx.captured_queries) <= 5  # +1: org canonical-tag labels (spec 2.8)
 
 
 def test_empty_without_snapshot(org):

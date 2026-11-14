@@ -4,9 +4,9 @@ export type InsightVisual =
   | { kind: "before_now"; before: number; now: number }
   | { kind: "waiting_days"; days: number[] }
   | { kind: "rating_line"; store: number; brand: number }
-  | { kind: "share_line"; points: number[] }
+  | { kind: "share_line"; points: (number | null)[] }
   | { kind: "progress"; before: number; now: number }
-  | { kind: "monthly_bars"; points: number[] }
+  | { kind: "monthly_bars"; points: (number | null)[] }
   | { kind: "store_bars"; items: { store: string; count: number }[] };
 
 export interface InsightItem {
