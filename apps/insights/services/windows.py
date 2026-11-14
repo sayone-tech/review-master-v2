@@ -44,13 +44,6 @@ def six_windows(window: Window) -> list[tuple[dt.date, dt.date]]:
     return out
 
 
-def _midnight_utc(day: dt.date) -> dt.datetime:
-    # The same value Django derives from a date on a DateTimeField lookup under
-    # TIME_ZONE="UTC", made explicit so no naive-datetime warning is raised. A
-    # midnight datetime is also correct if the filter moves to a ``__date`` lookup.
-    return dt.datetime.combine(day, dt.time.min, tzinfo=dt.UTC)
-
-
 def review_window_q(date_from: dt.date, date_to: dt.date, *, prefix: str = "") -> Q:
     """Reviews created in [date_from, date_to], bounded exactly like the Reviews page filter.
 
@@ -60,7 +53,7 @@ def review_window_q(date_from: dt.date, date_to: dt.date, *, prefix: str = "") -
     hi = ReviewFilterSet.base_filters["to_date"]
     return Q(
         **{
-            f"{prefix}{lo.field_name}__{lo.lookup_expr}": _midnight_utc(date_from),
-            f"{prefix}{hi.field_name}__{hi.lookup_expr}": _midnight_utc(date_to),
+            f"{prefix}{lo.field_name}__{lo.lookup_expr}": date_from,
+            f"{prefix}{hi.field_name}__{hi.lookup_expr}": date_to,
         }
     )

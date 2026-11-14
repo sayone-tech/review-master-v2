@@ -17,8 +17,9 @@ class ReviewFilterSet(django_filters.FilterSet):  # type: ignore[misc]
     sentiment = django_filters.CharFilter(field_name="sentiment")
     is_replied = django_filters.BooleanFilter(field_name="is_replied")
     has_comment = django_filters.BooleanFilter(method="filter_has_comment")
-    from_date = django_filters.DateFilter(field_name="review_create_time", lookup_expr="gte")
-    to_date = django_filters.DateFilter(field_name="review_create_time", lookup_expr="lte")
+    # Compare on the date part (TIME_ZONE is UTC) so a range covers whole days.
+    from_date = django_filters.DateFilter(field_name="review_create_time", lookup_expr="date__gte")
+    to_date = django_filters.DateFilter(field_name="review_create_time", lookup_expr="date__lte")
     search = django_filters.CharFilter(method="filter_search")
     tags = django_filters.CharFilter(field_name="", method="filter_tags")
 
